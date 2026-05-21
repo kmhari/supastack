@@ -53,42 +53,42 @@ Monorepo (extended web app layout from `plan.md`):
 
 **Purpose**: Schema, crypto, Docker integration, API/worker scaffolds, Caddy reload, TLS-ask. **No user-story work can begin until this phase is complete.**
 
-- [ ] T012 [P] Create `packages/shared/` with `package.json`, exports for: zod schemas (REST request/response shapes from `contracts/rest-api.md`), error codes, the RBAC action set (`'instance.create'`, `'instance.delete'`, …), state-machine allowed-transitions table for `supabase_instances`
-- [ ] T013 [P] Create `packages/db/` with `package.json`, `drizzle.config.ts`, scripts (`db:generate`, `db:migrate`)
-- [ ] T014 [P] Implement `packages/crypto/src/aes-gcm.ts` (AES-256-GCM encrypt/decrypt against KEK from env, returns/accepts `iv || ct || tag` bytea)
-- [ ] T015 [P] Implement `packages/crypto/src/argon2.ts` (Argon2id with OWASP-recommended params: memoryCost=19456, timeCost=2, parallelism=1, hashLength=32, saltLength=16)
-- [ ] T016 [P] Implement `packages/crypto/src/jwt.ts` (HS256 signing with `jsonwebtoken`; helpers `signAnonKey(jwtSecret, expSec)` and `signServiceRoleKey(jwtSecret, expSec)`)
-- [ ] T017 [P] Implement `packages/crypto/src/passwords.ts` (`generatePassword(length)` from charset `[A-Za-z0-9]`; assertion helper `assertSafeForEnv(value)` rejecting `$`, `\``, `\\`, whitespace, quote)
-- [ ] T018 [P] Implement `packages/crypto/src/ref.ts` (`generateRef()` → 20 lowercase alphanumerics from CSPRNG)
-- [ ] T019 Vitest unit suite `packages/crypto/tests/*.test.ts` covering: AES round-trip with various plaintext sizes; Argon2 verify; JWT verify-against-secret (anti-SupaConsole regression); 1000 generated passwords contain no `$`; 1000 generated refs match `^[a-z0-9]{20}$`
-- [ ] T020 Write `packages/db/src/schema/identity.ts` (`org`, `users`, `org_members`, `invites`, `api_tokens`, `setup_state`) per `data-model.md`
-- [ ] T021 [P] Write `packages/db/src/schema/instances.ts` (`supabase_instances`, `port_allocations`) per `data-model.md`
-- [ ] T022 [P] Write `packages/db/src/schema/backups.ts` (`backups`) per `data-model.md`
-- [ ] T023 [P] Write `packages/db/src/schema/audit.ts` (`audit_log`) per `data-model.md`
-- [ ] T024 Generate Drizzle migrations 0000–0003 in `packages/db/migrations/`, each idempotent (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`)
-- [ ] T025 Implement `packages/db/src/migrate.ts` that calls Drizzle `migrate()` on API boot; idempotent
-- [ ] T026 Implement `packages/db/src/port-allocator.ts` exporting `allocatePorts(client, ref, ranges)` — transactional insert of 5 `port_allocations` rows with conflict retry up to N times
-- [ ] T027 [P] Vitest unit `packages/db/tests/port-allocator.test.ts` exercising concurrent allocation (no collisions) and exhaustion (error)
-- [ ] T028 Implement `packages/docker-control/src/compose-template.ts` — consumes `infra/supabase-template/` + typed input struct, parses `${VAR}` from compose/kong/vector/SQL, asserts completeness, emits `.env`, then shells out to `docker compose --env-file <env> config -q` for round-trip validation. Refuses on missing var, `$` in any value, or non-zero `compose config` exit.
-- [ ] T029 [P] Vitest unit `packages/docker-control/tests/compose-template.test.ts` covering: happy path; missing variable (e.g., simulate dropping `DOCKER_SOCKET_LOCATION` → reject); `$` in password (Multibase huntvox regression); empty-string opt-out for unused vars
-- [ ] T030 [P] Implement `packages/docker-control/src/dockerode.ts` (typed wrappers: `composeUp(projectName, dir)`, `composeDown(projectName, removeVolumes)`, `composePs(projectName)`, `composeExec(projectName, service, cmd)`, `containerHealth(name)`)
-- [ ] T031 Implement `packages/backup-store/src/index.ts` exporting `BackupStore` interface (put/get/list/delete) per `contracts/compose-env.md` shape (actually defined in `research.md` §7)
-- [ ] T032 [P] Implement `packages/backup-store/src/local-disk.ts` (`LocalDiskStore({ root })`) — writes/reads `<root>/<ref>/<timestamp>.dump`, supports streaming put/get
-- [ ] T033 [P] Implement `packages/backup-store/src/s3.ts` (`S3Store({ endpoint?, bucket, region, accessKeyId, secretAccessKey })`) using `@aws-sdk/client-s3` multipart upload + `getSignedUrl`
-- [ ] T034 [P] Vitest unit `packages/backup-store/tests/*.test.ts` covering both impls against a real local-disk dir and a `@aws-sdk/client-s3-mock` fake S3
-- [ ] T035 Scaffold `apps/api/src/server.ts` (Fastify 4, helmet, cors, pino, error-formatter); register `/api/v1` route prefix
-- [ ] T036 Implement `apps/api/src/plugins/auth.ts` — prehandler: bearer (SHA256 lookup in `api_tokens`, sets `req.user`) or session cookie (`@fastify/session` with Redis store); `requireAuth(req)` helper; 401 on miss
-- [ ] T037 Implement `apps/api/src/plugins/rbac.ts` — `app.authorize(req, action)` looks up `org_members.role` and checks against the shared RBAC action set; 403 on deny
-- [ ] T038 Implement `apps/api/src/services/caddy-config.ts` — builds the full Caddy JSON config from DB: apex server block + one server block per `supabase_instances` row in (`'running'`, `'paused'`)
-- [ ] T039 Implement `apps/api/src/services/caddy-reload.ts` — `POST http://caddy:2019/load` with the full config; surfaces non-2xx as a thrown error with status + body
-- [ ] T040 Implement `apps/api/src/routes/tls-ask.ts` — `GET /internal/tls/ask?domain=...` per `contracts/internal.md`; 200 for apex or admissible `<ref>.<apex>`, 404 otherwise; logs every deny at INFO; per-process LRU cache (60s TTL)
-- [ ] T041 [P] Contract test `apps/api/tests/contract/tls-ask.test.ts` (admissible / inadmissible / deleted-instance / non-matching apex)
-- [ ] T042 Scaffold `apps/worker/src/main.ts` (BullMQ Redis connection, queue registrations: `provision`, `lifecycle`, `backup`, `caddy-reload`, repeatable `backup-scheduler`)
-- [ ] T043 Implement `apps/worker/src/jobs/caddy-reload.ts` — debounced (200 ms) job: reads DB and triggers `caddy-reload.ts` service; coalesces churn
-- [ ] T044 Scaffold `apps/web/` (Vite 5, React 18, React Router 6, @tanstack/react-query 5, Tailwind with vendored theme tokens). `vite.config.ts` with `allowedHosts: true`, `host: '0.0.0.0'`, proxy `/api` + `/socket.io` to API in dev, **default `VITE_API_URL=''`** (relative paths in client bundle)
-- [ ] T045 Implement `apps/web/src/lib/api.ts` — axios client; `baseURL = (import.meta.env.VITE_API_URL || '') + '/api/v1'`; expose grouped APIs (`instancesApi`, `authApi`, `backupsApi`, `membersApi`, `orgApi`, `auditApi`)
-- [ ] T046 Pre-startup guard in `apps/api/src/server.ts`: if `MASTER_KEY` missing/invalid OR if encrypted_secrets round-trip against any existing instance fails → log clear named error and exit non-zero (SC-011)
-- [ ] T047 Contract test matrix `apps/api/tests/contract/rbac.test.ts` exercising every `(role × action)` cell from `packages/shared` against fixture rows
+- [x] T012 [P] Create `packages/shared/` with `package.json`, exports for: zod schemas (REST request/response shapes from `contracts/rest-api.md`), error codes, the RBAC action set (`'instance.create'`, `'instance.delete'`, …), state-machine allowed-transitions table for `supabase_instances`
+- [x] T013 [P] Create `packages/db/` with `package.json`, `drizzle.config.ts`, scripts (`db:generate`, `db:migrate`)
+- [x] T014 [P] Implement `packages/crypto/src/aes-gcm.ts` (AES-256-GCM encrypt/decrypt against KEK from env, returns/accepts `iv || ct || tag` bytea)
+- [x] T015 [P] Implement `packages/crypto/src/argon2.ts` (Argon2id with OWASP-recommended params: memoryCost=19456, timeCost=2, parallelism=1, hashLength=32, saltLength=16)
+- [x] T016 [P] Implement `packages/crypto/src/jwt.ts` (HS256 signing with `jsonwebtoken`; helpers `signAnonKey(jwtSecret, expSec)` and `signServiceRoleKey(jwtSecret, expSec)`)
+- [x] T017 [P] Implement `packages/crypto/src/passwords.ts` (`generatePassword(length)` from charset `[A-Za-z0-9]`; assertion helper `assertSafeForEnv(value)` rejecting `$`, `\``, `\\`, whitespace, quote)
+- [x] T018 [P] Implement `packages/crypto/src/ref.ts` (`generateRef()` → 20 lowercase alphanumerics from CSPRNG)
+- [x] T019 Vitest unit suite `packages/crypto/tests/*.test.ts` covering: AES round-trip with various plaintext sizes; Argon2 verify; JWT verify-against-secret (anti-SupaConsole regression); 1000 generated passwords contain no `$`; 1000 generated refs match `^[a-z0-9]{20}$`
+- [x] T020 Write `packages/db/src/schema/identity.ts` (`org`, `users`, `org_members`, `invites`, `api_tokens`, `setup_state`) per `data-model.md`
+- [x] T021 [P] Write `packages/db/src/schema/instances.ts` (`supabase_instances`, `port_allocations`) per `data-model.md`
+- [x] T022 [P] Write `packages/db/src/schema/backups.ts` (`backups`) per `data-model.md`
+- [x] T023 [P] Write `packages/db/src/schema/audit.ts` (`audit_log`) per `data-model.md`
+- [x] T024 Generate Drizzle migrations 0000–0003 in `packages/db/migrations/`, each idempotent (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`)
+- [x] T025 Implement `packages/db/src/migrate.ts` that calls Drizzle `migrate()` on API boot; idempotent
+- [x] T026 Implement `packages/db/src/port-allocator.ts` exporting `allocatePorts(client, ref, ranges)` — transactional insert of 5 `port_allocations` rows with conflict retry up to N times
+- [x] T027 [P] Vitest unit `packages/db/tests/port-allocator.test.ts` exercising concurrent allocation (no collisions) and exhaustion (error)
+- [x] T028 Implement `packages/docker-control/src/compose-template.ts` — consumes `infra/supabase-template/` + typed input struct, parses `${VAR}` from compose/kong/vector/SQL, asserts completeness, emits `.env`, then shells out to `docker compose --env-file <env> config -q` for round-trip validation. Refuses on missing var, `$` in any value, or non-zero `compose config` exit.
+- [x] T029 [P] Vitest unit `packages/docker-control/tests/compose-template.test.ts` covering: happy path; missing variable (e.g., simulate dropping `DOCKER_SOCKET_LOCATION` → reject); `$` in password (Multibase huntvox regression); empty-string opt-out for unused vars
+- [x] T030 [P] Implement `packages/docker-control/src/dockerode.ts` (typed wrappers: `composeUp(projectName, dir)`, `composeDown(projectName, removeVolumes)`, `composePs(projectName)`, `composeExec(projectName, service, cmd)`, `containerHealth(name)`)
+- [x] T031 Implement `packages/backup-store/src/index.ts` exporting `BackupStore` interface (put/get/list/delete) per `contracts/compose-env.md` shape (actually defined in `research.md` §7)
+- [x] T032 [P] Implement `packages/backup-store/src/local-disk.ts` (`LocalDiskStore({ root })`) — writes/reads `<root>/<ref>/<timestamp>.dump`, supports streaming put/get
+- [x] T033 [P] Implement `packages/backup-store/src/s3.ts` (`S3Store({ endpoint?, bucket, region, accessKeyId, secretAccessKey })`) using `@aws-sdk/client-s3` multipart upload + `getSignedUrl`
+- [x] T034 [P] Vitest unit `packages/backup-store/tests/*.test.ts` covering both impls against a real local-disk dir and a `@aws-sdk/client-s3-mock` fake S3
+- [x] T035 Scaffold `apps/api/src/server.ts` (Fastify 4, helmet, cors, pino, error-formatter); register `/api/v1` route prefix
+- [x] T036 Implement `apps/api/src/plugins/auth.ts` — prehandler: bearer (SHA256 lookup in `api_tokens`, sets `req.user`) or session cookie (`@fastify/session` with Redis store); `requireAuth(req)` helper; 401 on miss
+- [x] T037 Implement `apps/api/src/plugins/rbac.ts` — `app.authorize(req, action)` looks up `org_members.role` and checks against the shared RBAC action set; 403 on deny
+- [x] T038 Implement `apps/api/src/services/caddy-config.ts` — builds the full Caddy JSON config from DB: apex server block + one server block per `supabase_instances` row in (`'running'`, `'paused'`)
+- [x] T039 Implement `apps/api/src/services/caddy-reload.ts` — `POST http://caddy:2019/load` with the full config; surfaces non-2xx as a thrown error with status + body
+- [x] T040 Implement `apps/api/src/routes/tls-ask.ts` — `GET /internal/tls/ask?domain=...` per `contracts/internal.md`; 200 for apex or admissible `<ref>.<apex>`, 404 otherwise; logs every deny at INFO; per-process LRU cache (60s TTL)
+- [x] T041 [P] Contract test `apps/api/tests/contract/tls-ask.test.ts` (admissible / inadmissible / deleted-instance / non-matching apex)
+- [x] T042 Scaffold `apps/worker/src/main.ts` (BullMQ Redis connection, queue registrations: `provision`, `lifecycle`, `backup`, `caddy-reload`, repeatable `backup-scheduler`)
+- [x] T043 Implement `apps/worker/src/jobs/caddy-reload.ts` — debounced (200 ms) job: reads DB and triggers `caddy-reload.ts` service; coalesces churn
+- [x] T044 Scaffold `apps/web/` (Vite 5, React 18, React Router 6, @tanstack/react-query 5, Tailwind with vendored theme tokens). `vite.config.ts` with `allowedHosts: true`, `host: '0.0.0.0'`, proxy `/api` + `/socket.io` to API in dev, **default `VITE_API_URL=''`** (relative paths in client bundle)
+- [x] T045 Implement `apps/web/src/lib/api.ts` — axios client; `baseURL = (import.meta.env.VITE_API_URL || '') + '/api/v1'`; expose grouped APIs (`instancesApi`, `authApi`, `backupsApi`, `membersApi`, `orgApi`, `auditApi`)
+- [x] T046 Pre-startup guard in `apps/api/src/server.ts`: if `MASTER_KEY` missing/invalid OR if encrypted_secrets round-trip against any existing instance fails → log clear named error and exit non-zero (SC-011)
+- [x] T047 Contract test matrix `apps/api/tests/contract/rbac.test.ts` exercising every `(role × action)` cell from `packages/shared` against fixture rows
 
 **Checkpoint**: Foundation ready — Phase 3 (US1) and Phase 4–6 can proceed in parallel by different developers.
 

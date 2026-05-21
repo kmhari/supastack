@@ -1,8 +1,5 @@
 import { defineWorkspace } from 'vitest/config';
 
-export default defineWorkspace([
-  'packages/*',
-  'apps/api',
-  'apps/worker',
-  'apps/web',
-]);
+// Glob-based — picks up packages/* and apps/* as they land. Apps/packages
+// without a vitest config are skipped quietly by Vitest.
+export default defineWorkspace(['packages/*', 'apps/*']);
