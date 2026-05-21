@@ -1,4 +1,5 @@
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+Active feature plan: [specs/001-selfbase-supabase-platform/plan.md](specs/001-selfbase-supabase-platform/plan.md)
+Spec: [specs/001-selfbase-supabase-platform/spec.md](specs/001-selfbase-supabase-platform/spec.md)
+Project-root engineering blueprint: [plan.md](plan.md)
 <!-- SPECKIT END -->
