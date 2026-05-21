@@ -97,7 +97,11 @@ export function can(role: Role, action: Action): boolean {
 }
 
 /** Used by RBAC matrix contract test — every (role × action) cell is asserted. */
-export function permissionMatrix(): ReadonlyArray<{ role: Role; action: Action; allowed: boolean }> {
+export function permissionMatrix(): ReadonlyArray<{
+  role: Role;
+  action: Action;
+  allowed: boolean;
+}> {
   const out: { role: Role; action: Action; allowed: boolean }[] = [];
   for (const role of ROLES) {
     for (const action of ACTIONS) {

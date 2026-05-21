@@ -5,7 +5,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifySession from '@fastify/session';
 import { Redis } from 'ioredis';
-import { RedisStore } from 'connect-redis';
+import RedisStore from 'connect-redis';
 import { db, schema } from '@selfbase/db';
 import { errors, type Role } from '@selfbase/shared';
 
@@ -77,13 +77,12 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
     }
   });
 
-  app.decorate(
-    'requireAuth',
-    function requireAuth(req: FastifyRequest): NonNullable<FastifyRequest['user']> {
-      if (!req.user) throw errors.unauthenticated();
-      return req.user;
-    },
-  );
+  app.decorate('requireAuth', function requireAuth(req: FastifyRequest): NonNullable<
+    FastifyRequest['user']
+  > {
+    if (!req.user) throw errors.unauthenticated();
+    return req.user;
+  });
 });
 
 export function sha256(s: string): Buffer {

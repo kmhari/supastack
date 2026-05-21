@@ -3,6 +3,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   ListObjectsV2Command,
+  type ListObjectsV2CommandOutput,
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -77,7 +78,7 @@ export class S3Store implements BackupStore {
     const refs: BackupRef[] = [];
     let token: string | undefined;
     do {
-      const out: import('@aws-sdk/client-s3').ListObjectsV2CommandOutput = await this.client.send(
+      const out: ListObjectsV2CommandOutput = await this.client.send(
         new ListObjectsV2Command({
           Bucket: this.bucket,
           Prefix: `${ref}/`,

@@ -1,7 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
-import { logger, AppError, errors } from '@selfbase/shared';
+import { AppError, errors } from '@selfbase/shared';
 import { loadMasterKey } from '@selfbase/crypto';
 import { makeDb, migrate } from '@selfbase/db';
 import { authPlugin } from './plugins/auth.js';
@@ -25,10 +25,10 @@ function preflightGuards(): void {
   if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
     throw errors.invalidInput('SESSION_SECRET env must be at least 32 chars');
   }
-  // loadMasterKey() throws AppError if MASTER_KEY missing/malformed
+  // loadMasterKey() throws if MASTER_KEY missing/malformed
   try {
     loadMasterKey();
-  } catch (err) {
+  } catch {
     throw errors.masterKeyMissing();
   }
 }
@@ -40,8 +40,12 @@ export async function buildApp(): Promise<FastifyInstance> {
   makeDb(DATABASE_URL);
   await migrate(DATABASE_URL);
 
+  // Use Fastify's own pino with LoggerOptions — avoids the v4 instance-type
+  // mismatch between our shared logger's full pino.Logger and Fastify's
+  // FastifyBaseLogger interface. Our @selfbase/shared logger remains the
+  // primary structured logger for non-request paths (worker, services).
   const app = Fastify({
-    logger,
+    logger: { level: process.env.LOG_LEVEL ?? 'info' },
     trustProxy: true,
     bodyLimit: 5 * 1024 * 1024,
     disableRequestLogging: false,
@@ -82,7 +86,6 @@ async function main(): Promise<void> {
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {
     // Use stderr because logger may not be initialized yet on early failure.
-    // eslint-disable-next-line no-console
     console.error('startup failed:', err);
     process.exit(1);
   });

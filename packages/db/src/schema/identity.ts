@@ -33,7 +33,7 @@ export const org = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   // Singleton constraint via partial unique index over constant 1 (see data-model.md §I1 fix)
-  () => [],
+  () => ({}),
 );
 
 // ─── users ──────────────────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ export const orgMembers = pgTable(
     role: text('role', { enum: ['admin', 'member'] }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [primaryKey({ columns: [t.orgId, t.userId] })],
+  (t) => ({ pk: primaryKey({ columns: [t.orgId, t.userId] }) }),
 );
 
 // ─── invites ────────────────────────────────────────────────────────────────
@@ -79,7 +79,11 @@ export const invites = pgTable(
     consumedAt: timestamp('consumed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex('invites_email_open').on(t.email).where(sql`${t.consumedAt} IS NULL`)],
+  (t) => ({
+    emailOpen: uniqueIndex('invites_email_open')
+      .on(t.email)
+      .where(sql`${t.consumedAt} IS NULL`),
+  }),
 );
 
 // ─── api_tokens ─────────────────────────────────────────────────────────────
@@ -102,5 +106,5 @@ export const setupState = pgTable(
     id: integer('id').primaryKey().default(1),
     completedAt: timestamp('completed_at', { withTimezone: true }),
   },
-  (t) => [check('setup_state_singleton', sql`${t.id} = 1`)],
+  (t) => ({ singleton: check('setup_state_singleton', sql`${t.id} = 1`) }),
 );

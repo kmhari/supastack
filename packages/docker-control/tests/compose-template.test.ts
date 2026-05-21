@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeAll } from 'vitest';
-import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { renderInstanceEnv, type ComposeTemplateInputs } from '../src/compose-template.js';

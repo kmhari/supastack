@@ -39,7 +39,6 @@ async function main(): Promise<void> {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {
-    // eslint-disable-next-line no-console
     console.error('worker startup failed:', err);
     process.exit(1);
   });

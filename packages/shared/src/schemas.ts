@@ -7,7 +7,10 @@ export const Slug = z
   .string()
   .min(1)
   .max(63)
-  .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]?$/, 'lowercase alphanumeric, hyphens, must start with letter/digit');
+  .regex(
+    /^[a-z0-9][a-z0-9-]*[a-z0-9]?$/,
+    'lowercase alphanumeric, hyphens, must start with letter/digit',
+  );
 export const Ref = z.string().regex(/^[a-z0-9]{20}$/, '20 lowercase alphanumeric chars');
 export const ApexDomain = z
   .string()
@@ -60,7 +63,12 @@ export const InstanceCreateRequest = z.object({
     })
     .optional(),
   enableSignup: z.boolean().default(true),
-  jwtExpirySec: z.number().int().min(60).max(86400 * 30).default(3600),
+  jwtExpirySec: z
+    .number()
+    .int()
+    .min(60)
+    .max(86400 * 30)
+    .default(3600),
   backupAutoEnabled: z.boolean().default(true),
   backupRetain: z.number().int().min(1).max(365).default(7),
 });

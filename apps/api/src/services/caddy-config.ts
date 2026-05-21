@@ -1,4 +1,4 @@
-import { eq, not, inArray } from 'drizzle-orm';
+import { not, inArray } from 'drizzle-orm';
 import { db, schema } from '@selfbase/db';
 
 /**

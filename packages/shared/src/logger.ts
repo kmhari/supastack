@@ -1,6 +1,7 @@
 import pino, { type Logger, type LoggerOptions } from 'pino';
 
-const LOG_LEVEL = process.env.LOG_LEVEL ?? (process.env.NODE_ENV === 'production' ? 'info' : 'debug');
+const LOG_LEVEL =
+  process.env.LOG_LEVEL ?? (process.env.NODE_ENV === 'production' ? 'info' : 'debug');
 const IS_PROD = process.env.NODE_ENV === 'production';
 
 const baseOptions: LoggerOptions = {

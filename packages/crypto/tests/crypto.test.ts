@@ -39,7 +39,10 @@ describe('aes-gcm', () => {
   test('tampered ciphertext is rejected', () => {
     const key = key32();
     const blob = encrypt('hello', key);
-    blob[blob.length - 1] ^= 0xff; // flip a bit in the tag
+    // Flip a bit in the auth tag (last byte). Cast through to silence
+    // noUncheckedIndexedAccess for this deliberately-low-level mutation.
+    const lastIdx = blob.length - 1;
+    blob.writeUInt8(blob.readUInt8(lastIdx) ^ 0xff, lastIdx);
     expect(() => decrypt(blob, key)).toThrow();
   });
 
@@ -142,7 +145,9 @@ describe('passwords — anti-Multibase regression', () => {
   });
 
   test('assertSafeForEnv rejects $', () => {
-    expect(() => assertSafeForEnv('UcCy$GINIWZBA8', 'POSTGRES_PASSWORD')).toThrow(/POSTGRES_PASSWORD/);
+    expect(() => assertSafeForEnv('UcCy$GINIWZBA8', 'POSTGRES_PASSWORD')).toThrow(
+      /POSTGRES_PASSWORD/,
+    );
   });
 
   test('assertSafeForEnv rejects backtick, quote, backslash, whitespace', () => {
