@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth-context.js';
+import { s, theme } from '../lib/theme.js';
 
 export function LoginPage(): React.ReactElement {
   const { user, login } = useAuth();
@@ -28,60 +29,88 @@ export function LoginPage(): React.ReactElement {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#0a0a0a',
-        color: '#eee',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: 'system-ui, sans-serif',
-      }}
-    >
-      <form
-        onSubmit={(e) => void onSubmit(e)}
-        style={{ display: 'grid', gap: 12, width: 360, padding: 32 }}
-      >
-        <h1>Sign in to Selfbase</h1>
-        <input
-          type="email"
-          placeholder="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={inputStyle}
-        />
-        <input
-          type="password"
-          placeholder="password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={inputStyle}
-        />
-        {error && <div style={{ color: '#f99', fontSize: 14 }}>{error}</div>}
-        <button disabled={submitting} type="submit" style={primaryButtonStyle}>
+    <div style={s.centeredColumn}>
+      <form onSubmit={(e) => void onSubmit(e)} style={s.form}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            marginBottom: 8,
+            color: theme.color.text,
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              background: theme.color.success,
+              display: 'inline-block',
+            }}
+          />
+          <span style={{ fontSize: 16, fontWeight: theme.font.weightMedium }}>Selfbase</span>
+        </div>
+
+        <h1 style={s.formHeading}>Welcome back</h1>
+        <p style={s.formSub}>Sign in to your selfbase account.</p>
+
+        <div>
+          <label style={s.label} htmlFor="email">
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={s.input}
+            placeholder="you@example.com"
+          />
+        </div>
+
+        <div>
+          <label style={s.label} htmlFor="password">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={s.input}
+            placeholder="••••••••••••"
+          />
+        </div>
+
+        {error && <div style={s.errorBox}>{error}</div>}
+
+        <button type="submit" disabled={submitting} style={s.buttonPrimary}>
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
+
+        <div style={{ textAlign: 'center', marginTop: 4 }}>
+          <span style={{ color: theme.color.textMuted, fontSize: theme.font.sizeSm }}>
+            New here?{' '}
+          </span>
+          <a
+            href="/setup"
+            style={{
+              color: theme.color.text,
+              textDecoration: 'none',
+              fontSize: theme.font.sizeSm,
+              borderBottom: `1px solid ${theme.color.border}`,
+            }}
+          >
+            Complete first-time setup →
+          </a>
+        </div>
       </form>
     </div>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  padding: '10px 12px',
-  border: '1px solid #444',
-  background: '#222',
-  color: '#eee',
-  borderRadius: 4,
-};
-const primaryButtonStyle: React.CSSProperties = {
-  padding: '10px 16px',
-  background: '#3ECF8E',
-  color: '#000',
-  border: 'none',
-  borderRadius: 4,
-  fontWeight: 600,
-  cursor: 'pointer',
-};
