@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest 
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { and, desc, eq, inArray, not } from 'drizzle-orm';
-import { db, schema, allocatePorts } from '@selfbase/db';
+import { db, schema, allocatePorts, assignPortsToInstance } from '@selfbase/db';
 import { generateRef, decryptJson, loadMasterKey, verifyPassword } from '@selfbase/crypto';
 import { schemas, errors, canTransition, type InstanceState } from '@selfbase/shared';
 import {
@@ -122,9 +122,13 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
       smtpPassEncrypted = encryptJson({ password: body.smtp.password }, loadMasterKey());
     }
 
-    // Allocate ports + insert in one tx (per port_allocator design).
+    // Allocate ports + insert in one tx. FK ordering: port_allocations.instance_ref
+    // references supabase_instances.ref, so allocate ports with NULL instance_ref
+    // first, then insert the instance row, then backfill instance_ref on the
+    // port allocations — all within a single transaction so a rollback cleans
+    // both up.
     await db().transaction(async (tx) => {
-      const ports = await allocatePorts(tx as never, ref);
+      const ports = await allocatePorts(tx as never, null);
       await tx.insert(schema.supabaseInstances).values({
         ref,
         orgId: orgRow.id,
@@ -146,6 +150,8 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
         backupAutoEnabled: body.backupAutoEnabled,
         backupRetain: body.backupRetain,
       });
+      // Backfill the FK now that the supabase_instances row exists.
+      await assignPortsToInstance(tx as never, ref, ports);
       await tx.insert(schema.auditLog).values({
         actorUserId: user.id,
         action: 'instance.create',

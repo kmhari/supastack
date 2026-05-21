@@ -30,9 +30,16 @@ export interface PortAllocatorOptions {
  *
  * Returns the allocated PortAllocation. Throws if the range is exhausted.
  */
+/**
+ * `instanceRef` is OPTIONAL because the supabase_instances row may not exist
+ * yet at allocation time (FK ordering). Callers that already have the row
+ * can pass it for immediate linkage; callers in a "create-new-instance"
+ * flow should pass null and then call `assignPortsToInstance` once they've
+ * inserted the supabase_instances row.
+ */
 export async function allocatePorts(
   db: SelfbaseDb,
-  instanceRef: string,
+  instanceRef: string | null,
   opts: PortAllocatorOptions = {},
 ): Promise<PortAllocation> {
   const start = opts.rangeStart ?? 30000;
@@ -52,7 +59,7 @@ export async function allocatePorts(
         // 4) ORDER BY port ASC LIMIT 5
         const rows = await tx.execute<{ port: number }>(sql`
           SELECT p AS port
-          FROM generate_series(${start}, ${end}) p
+          FROM generate_series(${start}::int, ${end}::int) p
           LEFT JOIN port_allocations a ON a.port = p
           WHERE a.port IS NULL
           ORDER BY p ASC
@@ -66,11 +73,11 @@ export async function allocatePorts(
         const [kong, studio, postgres, pooler, analytics] = rows.rows.map((r) => Number(r.port));
 
         await tx.insert(portAllocations).values([
-          { port: kong!, kind: 'kong', instanceRef },
-          { port: studio!, kind: 'studio', instanceRef },
-          { port: postgres!, kind: 'postgres', instanceRef },
-          { port: pooler!, kind: 'pooler', instanceRef },
-          { port: analytics!, kind: 'analytics', instanceRef },
+          { port: kong!, kind: 'kong', instanceRef: instanceRef ?? null },
+          { port: studio!, kind: 'studio', instanceRef: instanceRef ?? null },
+          { port: postgres!, kind: 'postgres', instanceRef: instanceRef ?? null },
+          { port: pooler!, kind: 'pooler', instanceRef: instanceRef ?? null },
+          { port: analytics!, kind: 'analytics', instanceRef: instanceRef ?? null },
         ]);
 
         return {
@@ -93,6 +100,25 @@ export async function allocatePorts(
 
 export async function releasePortsForInstance(db: SelfbaseDb, instanceRef: string): Promise<void> {
   await db.execute(sql`DELETE FROM port_allocations WHERE instance_ref = ${instanceRef}`);
+}
+
+/**
+ * Backfill `instance_ref` on the 5 port_allocations rows after the
+ * supabase_instances row has been inserted. Called by the create-instance
+ * flow inside the same transaction.
+ */
+export async function assignPortsToInstance(
+  db: SelfbaseDb,
+  instanceRef: string,
+  ports: PortAllocation,
+): Promise<void> {
+  // Set instance_ref on each of the 5 allocated rows individually. Avoids
+  // array-cast headaches with pg's parameter binding.
+  for (const port of [ports.kong, ports.studio, ports.postgres, ports.pooler, ports.analytics]) {
+    await db.execute(
+      sql`UPDATE port_allocations SET instance_ref = ${instanceRef} WHERE port = ${port}`,
+    );
+  }
 }
 
 export class PortPoolExhaustedError extends Error {

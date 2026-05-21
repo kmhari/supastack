@@ -60,9 +60,6 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     networks: [internal]
-    depends_on:
-      api:
-        condition: service_healthy
     # admin :2019 is intentionally NOT published; only reachable from `internal` network
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:2019/config/']
@@ -87,6 +84,8 @@ services:
       CADDY_ADMIN_URL: http://caddy:2019
       INSTANCES_DIR: /var/selfbase/instances
       BACKUPS_DIR: /var/selfbase/backups
+    ports:
+      - 3001:3001
     volumes:
       - /var/selfbase/instances:/var/selfbase/instances
       - /var/selfbase/backups:/var/selfbase/backups
@@ -98,7 +97,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3001/api/v1/health']
+      test: ['CMD', 'node', '-e', 'fetch("http://localhost:3001/api/v1/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
       interval: 10s
       timeout: 5s
       retries: 12
@@ -124,6 +123,7 @@ services:
       - /var/selfbase/instances:/var/selfbase/instances
       - /var/selfbase/backups:/var/selfbase/backups
       - /var/run/docker.sock:/var/run/docker.sock
+      - ../infra/supabase-template:/app/infra/supabase-template:ro
     networks: [internal]
     depends_on:
       db:
