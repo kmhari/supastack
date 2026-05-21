@@ -6,6 +6,7 @@ import { handleProvision } from './jobs/provision.js';
 import { handleLifecycle } from './jobs/lifecycle.js';
 import { handleBackup } from './jobs/backup.js';
 import { handleBackupSchedulerTick } from './jobs/backup-scheduler.js';
+import { handleHealthReconciler } from './jobs/health-reconciler.js';
 
 const REDIS_URL = process.env.REDIS_URL!;
 
@@ -83,6 +84,7 @@ export function startWorkers(): WorkersHandle {
       workerOpts(),
     ),
     new Worker(QUEUES.backupScheduler, async () => handleBackupSchedulerTick(), workerOpts()),
+    new Worker(QUEUES.healthReconciler, async () => handleHealthReconciler(), workerOpts()),
   ];
   for (const w of workers) {
     w.on('failed', (job, err) => {

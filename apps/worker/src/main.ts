@@ -36,6 +36,9 @@ async function main(): Promise<void> {
     {},
     { repeat: { every: 60 * 60 * 1000 } /* 1 hour */, removeOnComplete: 1 },
   );
+  // 30-second health reconciler (T110). Polls actual container state for
+  // every non-deleted instance and updates the DB if it diverged.
+  await queues.healthReconciler.add('tick', {}, { repeat: { every: 30_000 }, removeOnComplete: 1 });
 
   logger.info({ queues: Object.keys(queues) }, 'worker started');
 

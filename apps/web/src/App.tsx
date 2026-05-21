@@ -9,6 +9,10 @@ import { InstancesNewPage } from './pages/InstancesNew.js';
 import { InstanceDetailPage } from './pages/InstanceDetail.js';
 import { InstanceBackupsPage } from './pages/InstanceBackups.js';
 import { SettingsOrgPage } from './pages/SettingsOrg.js';
+import { SettingsMembersPage } from './pages/SettingsMembers.js';
+import { SettingsAuditPage } from './pages/SettingsAudit.js';
+import { SettingsTokensPage } from './pages/SettingsTokens.js';
+import { AcceptInvitePage } from './pages/AcceptInvite.js';
 
 export function App(): React.ReactElement {
   return (
@@ -16,6 +20,7 @@ export function App(): React.ReactElement {
       <Routes>
         <Route path="/setup" element={<SetupPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/accept-invite" element={<AcceptInvitePage />} />
         <Route
           path="/"
           element={
@@ -53,6 +58,30 @@ export function App(): React.ReactElement {
           element={
             <RequireAuth>
               <SettingsOrgPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/members"
+          element={
+            <RequireAuth>
+              <SettingsMembersPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/tokens"
+          element={
+            <RequireAuth>
+              <SettingsTokensPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/audit"
+          element={
+            <RequireAuth>
+              <SettingsAuditPage />
             </RequireAuth>
           }
         />

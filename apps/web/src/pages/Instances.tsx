@@ -150,8 +150,17 @@ function Shell({
       >
         <strong>Selfbase</strong>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: 14 }}>
-          <Link to="/settings/org" style={{ color: '#7ab8f5', textDecoration: 'none' }}>
-            Settings
+          <Link to="/settings/org" style={navLink}>
+            Org
+          </Link>
+          <Link to="/settings/members" style={navLink}>
+            Members
+          </Link>
+          <Link to="/settings/tokens" style={navLink}>
+            Tokens
+          </Link>
+          <Link to="/settings/audit" style={navLink}>
+            Audit
           </Link>
           <span style={{ color: '#888' }}>{email}</span>
           <button
@@ -183,3 +192,4 @@ const primaryButton: React.CSSProperties = {
   fontWeight: 600,
   cursor: 'pointer',
 };
+const navLink: React.CSSProperties = { color: '#7ab8f5', textDecoration: 'none' };

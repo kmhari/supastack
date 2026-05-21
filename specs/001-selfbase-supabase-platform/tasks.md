@@ -189,20 +189,20 @@ Monorepo (extended web app layout from `plan.md`):
 
 ### Tests for User Story 4
 
-- [ ] T087 [P] [US4] Contract test `apps/api/tests/contract/invites.test.ts` — create/list/revoke admin-only; accept open (validates token, single-use, expiry); 410 on consumed or expired token
-- [ ] T088 [P] [US4] Contract test `apps/api/tests/contract/members.test.ts` — list any; delete admin-only; member self-delete forbidden in v1
-- [ ] T089 [P] [US4] Contract test `apps/api/tests/contract/member-removal-cascade.test.ts` — deleting a member with active tokens + sessions invalidates both atomically
-- [ ] T090 [P] [US4] E2E Playwright `apps/web/tests/e2e/invite-flow.spec.ts` — admin invites → record `t0 = Date.now()` at the moment the invitee clicks the link in a second browser context → on dashboard render, assert `Date.now() - t0 < 60_000` (SC-012) → member sees list but Delete button hidden; API call as member to DELETE → 403
+- [x] T087 [P] [US4] Contract test `apps/api/tests/contract/invites.test.ts` — create/list/revoke admin-only; accept open (validates token, single-use, expiry); 410 on consumed or expired token
+- [x] T088 [P] [US4] Contract test `apps/api/tests/contract/members.test.ts` — list any; delete admin-only; member self-delete forbidden in v1
+- [x] T089 [P] [US4] Contract test `apps/api/tests/contract/member-removal-cascade.test.ts` — deleting a member with active tokens + sessions invalidates both atomically
+- [x] T090 [P] [US4] E2E Playwright `apps/web/tests/e2e/invite-flow.spec.ts` — admin invites → record `t0 = Date.now()` at the moment the invitee clicks the link in a second browser context → on dashboard render, assert `Date.now() - t0 < 60_000` (SC-012) → member sees list but Delete button hidden; API call as member to DELETE → 403
 
 ### Implementation for User Story 4
 
-- [ ] T091 [P] [US4] Implement `apps/api/src/routes/members.ts` — `GET /members`, `POST /members/invites`, `GET /members/invites`, `DELETE /members/invites/:id`, `POST /members/invites/accept`, `DELETE /members/:userId`
-- [ ] T092 [US4] Implement invite token mechanics — generate raw token (32 bytes hex), store SHA-256 in `invites.token_sha256`, return raw once in API response (`link` field); accept handler reverses the hash lookup
-- [ ] T093 [US4] Implement member-removal cascade in `apps/api/src/routes/members.ts` DELETE handler — delete `api_tokens` rows for user, destroy sessions in Redis store, delete `org_members` row (CASCADE removes the user row), write `audit_log` entry
-- [ ] T094 [US4] Implement invite email delivery — `apps/api/src/services/invite-mail.ts`: if `org.smtp_*` configured (future field, optional in v1) send via nodemailer; otherwise log link to pino at INFO and surface in API response (acceptable in v1 per Assumptions)
-- [ ] T095 [US4] Implement `apps/web/src/pages/SettingsMembers.tsx` — list members + roles + remove buttons (admin only); "Invite Member" modal with email + role picker; lists open invites with revoke button; copy-link for non-SMTP setups
-- [ ] T096 [US4] Implement `apps/web/src/pages/AcceptInvite.tsx` — route `/accept-invite?token=...`; renders password form; on submit calls `POST /members/invites/accept`; success → log in + redirect to `/`
-- [ ] T097 [US4] Hide admin-only buttons in `apps/web` for member role — `useAuth()` exposes role; reuse in `InstanceActions`, `Instances` page (no New Instance), `InstanceDetail` (no Pause/Delete/etc.)
+- [x] T091 [P] [US4] Implement `apps/api/src/routes/members.ts` — `GET /members`, `POST /members/invites`, `GET /members/invites`, `DELETE /members/invites/:id`, `POST /members/invites/accept`, `DELETE /members/:userId`
+- [x] T092 [US4] Implement invite token mechanics — generate raw token (32 bytes hex), store SHA-256 in `invites.token_sha256`, return raw once in API response (`link` field); accept handler reverses the hash lookup
+- [x] T093 [US4] Implement member-removal cascade in `apps/api/src/routes/members.ts` DELETE handler — delete `api_tokens` rows for user, destroy sessions in Redis store, delete `org_members` row (CASCADE removes the user row), write `audit_log` entry
+- [x] T094 [US4] Implement invite email delivery — `apps/api/src/services/invite-mail.ts`: if `org.smtp_*` configured (future field, optional in v1) send via nodemailer; otherwise log link to pino at INFO and surface in API response (acceptable in v1 per Assumptions)
+- [x] T095 [US4] Implement `apps/web/src/pages/SettingsMembers.tsx` — list members + roles + remove buttons (admin only); "Invite Member" modal with email + role picker; lists open invites with revoke button; copy-link for non-SMTP setups
+- [x] T096 [US4] Implement `apps/web/src/pages/AcceptInvite.tsx` — route `/accept-invite?token=...`; renders password form; on submit calls `POST /members/invites/accept`; success → log in + redirect to `/`
+- [x] T097 [US4] Hide admin-only buttons in `apps/web` for member role — `useAuth()` exposes role; reuse in `InstanceActions`, `Instances` page (no New Instance), `InstanceDetail` (no Pause/Delete/etc.)
 
 **Checkpoint**: All four user stories functional.
 
@@ -210,19 +210,19 @@ Monorepo (extended web app layout from `plan.md`):
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T098 [P] Implement `apps/api/src/routes/audit.ts` — `GET /api/v1/audit` (admin) with `action`, `actor`, `since`, `until`, `limit`, `cursor` filters; returns paginated entries with actor email joined
-- [ ] T099 [P] Implement `apps/web/src/pages/SettingsAudit.tsx` — paginated audit log table; copy-to-clipboard for payload
-- [ ] T100 [P] Implement `apps/web/src/pages/SettingsTokens.tsx` — list/create/revoke personal API tokens; new-token modal shows raw value once with copy
-- [ ] T101 [P] Implement `apps/api/src/routes/health.ts` — `GET /api/v1/health`: probes DB (`SELECT 1`), Redis (`PING`), Caddy admin (`GET /config/`); 200 if all OK else 503
-- [ ] T102 [P] Write `UPGRADING.md` at repo root — documents how to bump `infra/supabase-template/COMMIT` and what to validate
-- [ ] T103 [P] Write top-of-file contract comments in `install.sh` — what it does, what env vars it accepts (`INSTALL_DIR`, `STUDIO_PORT`, `PUBLIC_URL`), what it produces
-- [ ] T104 [P] E2E Playwright golden path `apps/web/tests/e2e/golden-path.spec.ts` — setup → create instance → poll for running → open studio → reveal credentials → create backup → pause → resume → delete (SC-005, SC-006, SC-009 coverage)
-- [ ] T105 [P] Add JSDoc/README to each `packages/*/README.md` describing the package's surface and how it's tested
-- [ ] T106 Write project root `README.md` — what selfbase is, quickstart link, capability list, license (MIT or whichever the operator picks)
-- [ ] T107 Verify `specs/001-selfbase-supabase-platform/quickstart.md` end-to-end on the existing VM `148.113.1.164` after Multibase wipe (SC-001 demonstration); update quickstart if any step diverges from reality
-- [ ] T108 [P] Tighten Caddy reload — debounce window already 200 ms; add a metric counter for reload-rate to surface churn (`apps/worker/src/jobs/caddy-reload.ts`)
-- [ ] T109 [P] Confirm SC-010 — load 15 dummy instance rows (status=`paused`, no containers) and verify dashboard navigation < 1 s perceived
-- [ ] T110 Implement instance health reconciler in `apps/worker/src/jobs/health-reconciler.ts` — BullMQ repeatable job (30 s tick) that calls `composePs(selfbase-<ref>)` for every non-deleted instance and updates `supabase_instances.status` if the observed container set diverges (e.g., running → stopped on OOM-kill). Honors FR-033 ("based on the actual state of its underlying processes, not just on the last requested action"). RECOMMENDED to land in Phase 2 before US1 ships, even though listed in Polish for diff hygiene.
+- [x] T098 [P] Implement `apps/api/src/routes/audit.ts` — `GET /api/v1/audit` (admin) with `action`, `actor`, `since`, `until`, `limit`, `cursor` filters; returns paginated entries with actor email joined
+- [x] T099 [P] Implement `apps/web/src/pages/SettingsAudit.tsx` — paginated audit log table; copy-to-clipboard for payload
+- [x] T100 [P] Implement `apps/web/src/pages/SettingsTokens.tsx` — list/create/revoke personal API tokens; new-token modal shows raw value once with copy
+- [x] T101 [P] Implement `apps/api/src/routes/health.ts` — `GET /api/v1/health`: probes DB (`SELECT 1`), Redis (`PING`), Caddy admin (`GET /config/`); 200 if all OK else 503
+- [x] T102 [P] Write `UPGRADING.md` at repo root — documents how to bump `infra/supabase-template/COMMIT` and what to validate
+- [x] T103 [P] Write top-of-file contract comments in `install.sh` — what it does, what env vars it accepts (`INSTALL_DIR`, `STUDIO_PORT`, `PUBLIC_URL`), what it produces
+- [x] T104 [P] E2E Playwright golden path `apps/web/tests/e2e/golden-path.spec.ts` — setup → create instance → poll for running → open studio → reveal credentials → create backup → pause → resume → delete (SC-005, SC-006, SC-009 coverage)
+- [x] T105 [P] Add JSDoc/README to each `packages/*/README.md` describing the package's surface and how it's tested
+- [x] T106 Write project root `README.md` — what selfbase is, quickstart link, capability list, license (MIT or whichever the operator picks)
+- [x] T107 Verify `specs/001-selfbase-supabase-platform/quickstart.md` end-to-end on the existing VM `148.113.1.164` after Multibase wipe (SC-001 demonstration); update quickstart if any step diverges from reality
+- [x] T108 [P] Tighten Caddy reload — debounce window already 200 ms; add a metric counter for reload-rate to surface churn (`apps/worker/src/jobs/caddy-reload.ts`)
+- [x] T109 [P] Confirm SC-010 — load 15 dummy instance rows (status=`paused`, no containers) and verify dashboard navigation < 1 s perceived
+- [x] T110 Implement instance health reconciler in `apps/worker/src/jobs/health-reconciler.ts` — BullMQ repeatable job (30 s tick) that calls `composePs(selfbase-<ref>)` for every non-deleted instance and updates `supabase_instances.status` if the observed container set diverges (e.g., running → stopped on OOM-kill). Honors FR-033 ("based on the actual state of its underlying processes, not just on the last requested action"). RECOMMENDED to land in Phase 2 before US1 ships, even though listed in Polish for diff hygiene.
 
 ---
 
