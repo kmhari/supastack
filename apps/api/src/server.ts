@@ -7,7 +7,11 @@ import { makeDb, migrate } from '@selfbase/db';
 import { authPlugin } from './plugins/auth.js';
 import { rbacPlugin } from './plugins/rbac.js';
 import { tlsAskRoutes } from './routes/tls-ask.js';
+import { caddyInternalRoutes } from './routes/caddy-internal.js';
 import { healthRoutes } from './routes/health.js';
+import { setupRoutes } from './routes/setup.js';
+import { authRoutes } from './routes/auth.js';
+import { instancesRoutes } from './routes/instances.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -70,9 +74,13 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(authPlugin);
   await app.register(rbacPlugin);
 
-  // Routes
+  // Routes — public under /api/v1, internal endpoints at root
   await app.register(healthRoutes, { prefix: '/api/v1' });
-  await app.register(tlsAskRoutes); // mounted at /internal/tls/ask (no /api/v1 prefix)
+  await app.register(setupRoutes, { prefix: '/api/v1' });
+  await app.register(authRoutes, { prefix: '/api/v1' });
+  await app.register(instancesRoutes, { prefix: '/api/v1' });
+  await app.register(tlsAskRoutes); // /internal/tls/ask
+  await app.register(caddyInternalRoutes); // /internal/caddy/reload
 
   return app;
 }

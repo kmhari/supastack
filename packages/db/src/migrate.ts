@@ -1,7 +1,5 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { migrate as drizzleMigrate } from 'drizzle-orm/node-postgres/migrator';
-import { sql } from 'drizzle-orm';
 import pg from 'pg';
+import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -9,28 +7,49 @@ import path from 'node:path';
  * Idempotent migrations runner. Called at API/worker startup and from
  * `pnpm db:migrate`. Safe to invoke any number of times.
  *
- * Drizzle migrations are CREATE TABLE IF NOT EXISTS / CREATE INDEX IF NOT
- * EXISTS by convention in this repo. Plus we install the citext extension
- * and the org singleton index here (not auto-generatable by drizzle-kit).
+ * All migration SQL is hand-written with `CREATE TABLE IF NOT EXISTS` /
+ * `CREATE INDEX IF NOT EXISTS` / `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`,
+ * so re-running is a no-op. We do NOT use drizzle-kit's migration runner at
+ * runtime — that requires a journal/snapshot pair and is overkill for our
+ * "single forward-only schema" v1.
+ *
+ * Order:
+ *   1. Install required extensions (citext, pgcrypto)
+ *   2. Apply migrations/*.sql in lexicographic order
+ *   3. Add the org singleton partial unique index (constant-expression
+ *      indexes are not auto-generatable by drizzle-kit)
  */
 export async function migrate(connectionString: string): Promise<void> {
   const pool = new pg.Pool({ connectionString, max: 1 });
-  const db = drizzle(pool);
+  const client = await pool.connect();
+  try {
+    // Extensions (idempotent)
+    await client.query('CREATE EXTENSION IF NOT EXISTS citext');
+    await client.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
 
-  // Extensions (idempotent)
-  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS citext`);
-  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`); // for gen_random_uuid
+    // Migration files
+    const migrationsFolder =
+      process.env.SELFBASE_MIGRATIONS_DIR ??
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
-  // Drizzle schema migrations
-  const migrationsFolder =
-    process.env.SELFBASE_MIGRATIONS_DIR ??
-    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
-  await drizzleMigrate(db, { migrationsFolder });
+    let files: string[] = [];
+    try {
+      files = (await readdir(migrationsFolder)).filter((f) => f.endsWith('.sql')).sort();
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    }
 
-  // Singleton constraint on org — see data-model.md §I1 fix.
-  await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS org_singleton ON org ((1::int))`);
+    for (const file of files) {
+      const sql = await readFile(path.join(migrationsFolder, file), 'utf8');
+      await client.query(sql);
+    }
 
-  await pool.end();
+    // Singleton constraint on org — see data-model.md §I1 fix.
+    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS org_singleton ON org ((1::int))');
+  } finally {
+    client.release();
+    await pool.end();
+  }
 }
 
 // CLI entrypoint

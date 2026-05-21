@@ -2,6 +2,8 @@ import { Queue, Worker, type QueueOptions, type WorkerOptions } from 'bullmq';
 import { Redis } from 'ioredis';
 import { logger } from '@selfbase/shared';
 import { handleCaddyReload } from './jobs/caddy-reload.js';
+import { handleProvision } from './jobs/provision.js';
+import { handleLifecycle } from './jobs/lifecycle.js';
 
 const REDIS_URL = process.env.REDIS_URL!;
 
@@ -57,6 +59,20 @@ export interface WorkersHandle {
 export function startWorkers(): WorkersHandle {
   const workers: Worker[] = [
     new Worker(QUEUES.caddyReload, async () => handleCaddyReload(), workerOpts()),
+    new Worker(
+      QUEUES.provision,
+      async (job) => handleProvision(job.data as { ref: string }),
+      workerOpts(),
+    ),
+    new Worker(
+      QUEUES.lifecycle,
+      async (job) => {
+        const { ref } = job.data as { ref: string };
+        const action = job.name as 'pause' | 'resume' | 'restart' | 'delete';
+        await handleLifecycle(action, ref);
+      },
+      workerOpts(),
+    ),
   ];
   for (const w of workers) {
     w.on('failed', (job, err) => {
