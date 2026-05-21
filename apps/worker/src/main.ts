@@ -15,6 +15,10 @@ function preflight(): void {
 async function main(): Promise<void> {
   preflight();
   makeDb(DATABASE_URL);
+  // Worker also needs schema migrated — but the API does this on its boot.
+  // If the worker starts first, that's fine: migrate() is idempotent.
+  const { migrate } = await import('@selfbase/db');
+  await migrate(DATABASE_URL);
 
   const queues = connectQueues();
   const workers = startWorkers();

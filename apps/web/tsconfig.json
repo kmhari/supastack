@@ -9,9 +9,5 @@
     "types": ["vite/client"]
   },
   "include": ["src/**/*", "tests/**/*"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/theme/**"
-  ]
+  "exclude": ["node_modules", "dist", "src/theme/**"]
 }

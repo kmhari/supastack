@@ -102,28 +102,28 @@ Monorepo (extended web app layout from `plan.md`):
 
 ### Tests for User Story 1
 
-- [ ] T048 [P] [US1] Contract test `apps/api/tests/contract/setup.test.ts` — `GET /setup/status` open vs gone; `POST /setup` happy path; `POST /setup` after first run → 410
-- [ ] T049 [P] [US1] Contract test `apps/api/tests/contract/auth.test.ts` — login, logout, me, token create/list/delete
-- [ ] T050 [P] [US1] Contract test `apps/api/tests/contract/instances-create.test.ts` — admin can create; member gets 403; input validation (long names, bad SMTP); 202 + ref returned
-- [ ] T051 [P] [US1] Contract test `apps/api/tests/contract/instances-list-get.test.ts` — member sees fewer fields than admin (port_postgres etc. hidden)
-- [ ] T052 [P] [US1] Contract test `apps/api/tests/contract/credentials-reveal.test.ts` — requires re-auth; member can reveal own org's; audit entry written
-- [ ] T053 [US1] Integration test `tests/integration/provision-instance.test.ts` — boots selfbase + control-plane Postgres + Caddy via Docker Compose, calls `/setup`, calls `/instances`, polls for status=`running` (≤ 90 s), then calls instance REST with `anon_key` → expect 200 (the SupaConsole regression check)
+- [x] T048 [P] [US1] Contract test `apps/api/tests/contract/setup.test.ts` — `GET /setup/status` open vs gone; `POST /setup` happy path; `POST /setup` after first run → 410
+- [x] T049 [P] [US1] Contract test `apps/api/tests/contract/auth.test.ts` — login, logout, me, token create/list/delete
+- [x] T050 [P] [US1] Contract test `apps/api/tests/contract/instances-create.test.ts` — admin can create; member gets 403; input validation (long names, bad SMTP); 202 + ref returned
+- [x] T051 [P] [US1] Contract test `apps/api/tests/contract/instances-list-get.test.ts` — member sees fewer fields than admin (port_postgres etc. hidden)
+- [x] T052 [P] [US1] Contract test `apps/api/tests/contract/credentials-reveal.test.ts` — requires re-auth; member can reveal own org's; audit entry written
+- [x] T053 [US1] Integration test `tests/integration/provision-instance.test.ts` — boots selfbase + control-plane Postgres + Caddy via Docker Compose, calls `/setup`, calls `/instances`, polls for status=`running` (≤ 90 s), then calls instance REST with `anon_key` → expect 200 (the SupaConsole regression check)
 
 ### Implementation for User Story 1
 
-- [ ] T054 [US1] Implement `apps/api/src/routes/setup.ts` — `GET /api/v1/setup/status`, `POST /api/v1/setup`: Argon2 hash, transactional insert (user + org + org_members + setup_state); optional apex registration triggers Caddy reload; returns one-shot master API token
-- [ ] T055 [US1] Implement `apps/api/src/routes/auth.ts` — `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/tokens`, `GET /auth/tokens`, `DELETE /auth/tokens/:id`
-- [ ] T056 [US1] Implement `apps/api/src/routes/instances-create.ts` — `POST /api/v1/instances`: zod-validate input → generate `ref` → allocate ports → generate secrets (jwt_secret, anon, service-role, postgres, dashboard, MinIO, vault, logflare, pg-meta crypto keys) → AES-GCM-encrypt blob → insert row (status=`provisioning`) → enqueue `provision` job → return 202
-- [ ] T057 [P] [US1] Implement `apps/api/src/routes/instances-list.ts` — `GET /api/v1/instances` and `GET /api/v1/instances/:ref`; field-filter based on role
-- [ ] T058 [P] [US1] Implement `apps/api/src/routes/credentials-reveal.ts` — `POST /api/v1/instances/:ref/credentials/reveal`: re-auth check (password match) → decrypt blob → write audit entry → return cleartext
-- [ ] T059 [US1] Implement `apps/worker/src/jobs/provision.ts` — full pipeline: read row → decrypt secrets → mkdir `/var/selfbase/instances/<ref>/` → copy `infra/supabase-template/*` → `compose-template.ts` writes `.env` → `compose config -q` round-trip check → `compose up -d` → poll containers until healthy (3-min cap) → upsert Caddy route via `caddy-reload` → set status=`running`. On any error: set status=`failed`, store `provision_error`, leave dir for inspection.
-- [ ] T060 [US1] Wire `provision` job completion to enqueue `caddy-reload` (debounced) — `apps/worker/src/jobs/provision.ts`
-- [ ] T061 [US1] Implement `apps/web/src/pages/Setup.tsx` — calls `/setup/status` on mount; renders form (email, password, orgName, apexDomain); displays one-shot master token after success
-- [ ] T062 [US1] Implement `apps/web/src/pages/Login.tsx` — email + password; on success route to `/`
-- [ ] T063 [US1] Implement `apps/web/src/pages/Instances.tsx` — list with status pills (provisioning, running, paused, failed) + "New Instance" CTA + polling via React Query (refetch every 5 s while any row is in provisioning/deleting)
-- [ ] T064 [US1] Implement `apps/web/src/pages/InstancesNew.tsx` — form per `contracts/rest-api.md` `POST /instances` shape (name, optional SMTP, signup toggle, JWT expiry, backup-auto, retention)
-- [ ] T065 [US1] Implement `apps/web/src/pages/InstanceDetail.tsx` — ref, name, status, URLs, "Open Studio" external link to `https://<ref>.<apex>/studio/project/default`, "Reveal Credentials" button → password prompt → display cleartext with copy-to-clipboard
-- [ ] T066 [US1] Implement React Router setup (`apps/web/src/App.tsx`) with route guards: `/setup` open only when status=open; everything else requires auth; `/setup`-incomplete users always redirected to `/setup`
+- [x] T054 [US1] Implement `apps/api/src/routes/setup.ts` — `GET /api/v1/setup/status`, `POST /api/v1/setup`: Argon2 hash, transactional insert (user + org + org_members + setup_state); optional apex registration triggers Caddy reload; returns one-shot master API token
+- [x] T055 [US1] Implement `apps/api/src/routes/auth.ts` — `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/tokens`, `GET /auth/tokens`, `DELETE /auth/tokens/:id`
+- [x] T056 [US1] Implement `apps/api/src/routes/instances-create.ts` — `POST /api/v1/instances`: zod-validate input → generate `ref` → allocate ports → generate secrets (jwt_secret, anon, service-role, postgres, dashboard, MinIO, vault, logflare, pg-meta crypto keys) → AES-GCM-encrypt blob → insert row (status=`provisioning`) → enqueue `provision` job → return 202
+- [x] T057 [P] [US1] Implement `apps/api/src/routes/instances-list.ts` — `GET /api/v1/instances` and `GET /api/v1/instances/:ref`; field-filter based on role
+- [x] T058 [P] [US1] Implement `apps/api/src/routes/credentials-reveal.ts` — `POST /api/v1/instances/:ref/credentials/reveal`: re-auth check (password match) → decrypt blob → write audit entry → return cleartext
+- [x] T059 [US1] Implement `apps/worker/src/jobs/provision.ts` — full pipeline: read row → decrypt secrets → mkdir `/var/selfbase/instances/<ref>/` → copy `infra/supabase-template/*` → `compose-template.ts` writes `.env` → `compose config -q` round-trip check → `compose up -d` → poll containers until healthy (3-min cap) → upsert Caddy route via `caddy-reload` → set status=`running`. On any error: set status=`failed`, store `provision_error`, leave dir for inspection.
+- [x] T060 [US1] Wire `provision` job completion to enqueue `caddy-reload` (debounced) — `apps/worker/src/jobs/provision.ts`
+- [x] T061 [US1] Implement `apps/web/src/pages/Setup.tsx` — calls `/setup/status` on mount; renders form (email, password, orgName, apexDomain); displays one-shot master token after success
+- [x] T062 [US1] Implement `apps/web/src/pages/Login.tsx` — email + password; on success route to `/`
+- [x] T063 [US1] Implement `apps/web/src/pages/Instances.tsx` — list with status pills (provisioning, running, paused, failed) + "New Instance" CTA + polling via React Query (refetch every 5 s while any row is in provisioning/deleting)
+- [x] T064 [US1] Implement `apps/web/src/pages/InstancesNew.tsx` — form per `contracts/rest-api.md` `POST /instances` shape (name, optional SMTP, signup toggle, JWT expiry, backup-auto, retention)
+- [x] T065 [US1] Implement `apps/web/src/pages/InstanceDetail.tsx` — ref, name, status, URLs, "Open Studio" external link to `https://<ref>.<apex>/studio/project/default`, "Reveal Credentials" button → password prompt → display cleartext with copy-to-clipboard
+- [x] T066 [US1] Implement React Router setup (`apps/web/src/App.tsx`) with route guards: `/setup` open only when status=open; everything else requires auth; `/setup`-incomplete users always redirected to `/setup`
 
 **Checkpoint**: US1 fully functional and independently testable. End-to-end demo: fresh VM → install → setup → create instance → REST call returns 200 with anon_key.
 
