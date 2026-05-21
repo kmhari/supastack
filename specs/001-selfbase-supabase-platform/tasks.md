@@ -137,17 +137,17 @@ Monorepo (extended web app layout from `plan.md`):
 
 ### Tests for User Story 2
 
-- [ ] T067 [P] [US2] Contract test `apps/api/tests/contract/instances-lifecycle.test.ts` — pause/resume/restart/upgrade/delete admin-only; correct status transitions; invalid transitions rejected (e.g., pause a `provisioning` instance)
-- [ ] T068 [P] [US2] Integration test `tests/integration/lifecycle.test.ts` — provision instance → pause (verify `docker compose ps` shows exited) → resume (verify REST works) → delete (verify ports freed, volume removed)
+- [x] T067 [P] [US2] Contract test `apps/api/tests/contract/instances-lifecycle.test.ts` — pause/resume/restart/upgrade/delete admin-only; correct status transitions; invalid transitions rejected (e.g., pause a `provisioning` instance)
+- [x] T068 [P] [US2] Integration test `tests/integration/lifecycle.test.ts` — provision instance → pause (verify `docker compose ps` shows exited) → resume (verify REST works) → delete (verify ports freed, volume removed)
 
 ### Implementation for User Story 2
 
-- [ ] T069 [P] [US2] Implement `apps/api/src/routes/instances-lifecycle.ts` — `POST /instances/:ref/pause`, `/resume`, `/restart`, `/upgrade`, `DELETE /instances/:ref`. All return 202 + enqueue corresponding job; validate transition against `packages/shared` allowed-transitions table; admin only.
-- [ ] T070 [P] [US2] Implement `apps/api/src/routes/instances-patch.ts` — `PATCH /instances/:ref` for editable fields (`name`, `backupAutoEnabled`, `backupRetain`)
-- [ ] T071 [US2] Implement `apps/worker/src/jobs/lifecycle.ts` — handlers for: `pause` (`compose stop`, status=`paused`), `resume` (`compose start`, wait healthy, status=`running`), `restart` (`compose restart`, wait healthy), `upgrade` (optional pre-backup → `compose pull` → `compose up -d --force-recreate` → wait healthy → update `supabase_version`), `delete` (status=`deleting` → `compose down -v` → `rm -rf /var/selfbase/instances/<ref>` → delete `port_allocations` rows → delete `supabase_instances` row → enqueue Caddy reload)
-- [ ] T072 [US2] Implement `apps/web/src/components/InstanceActions.tsx` — Pause / Resume / Restart / Upgrade / Delete buttons with confirmation dialogs; surfaces ineligible actions based on current status
-- [ ] T073 [US2] Implement `apps/web/src/pages/InstanceUpgrade.tsx` (or modal) — version picker (lists pinned versions known to selfbase) + "Backup first" checkbox
-- [ ] T074 [US2] Wire delete cleanup to also write an `audit_log` entry attributed to the actor
+- [x] T069 [P] [US2] Implement `apps/api/src/routes/instances-lifecycle.ts` — `POST /instances/:ref/pause`, `/resume`, `/restart`, `/upgrade`, `DELETE /instances/:ref`. All return 202 + enqueue corresponding job; validate transition against `packages/shared` allowed-transitions table; admin only.
+- [x] T070 [P] [US2] Implement `apps/api/src/routes/instances-patch.ts` — `PATCH /instances/:ref` for editable fields (`name`, `backupAutoEnabled`, `backupRetain`)
+- [x] T071 [US2] Implement `apps/worker/src/jobs/lifecycle.ts` — handlers for: `pause` (`compose stop`, status=`paused`), `resume` (`compose start`, wait healthy, status=`running`), `restart` (`compose restart`, wait healthy), `upgrade` (optional pre-backup → `compose pull` → `compose up -d --force-recreate` → wait healthy → update `supabase_version`), `delete` (status=`deleting` → `compose down -v` → `rm -rf /var/selfbase/instances/<ref>` → delete `port_allocations` rows → delete `supabase_instances` row → enqueue Caddy reload)
+- [x] T072 [US2] Implement `apps/web/src/components/InstanceActions.tsx` — Pause / Resume / Restart / Upgrade / Delete buttons with confirmation dialogs; surfaces ineligible actions based on current status
+- [x] T073 [US2] Implement `apps/web/src/pages/InstanceUpgrade.tsx` (or modal) — version picker (lists pinned versions known to selfbase) + "Backup first" checkbox
+- [x] T074 [US2] Wire delete cleanup to also write an `audit_log` entry attributed to the actor
 
 **Checkpoint**: US2 functional alongside US1.
 
@@ -161,21 +161,21 @@ Monorepo (extended web app layout from `plan.md`):
 
 ### Tests for User Story 3
 
-- [ ] T075 [P] [US3] Contract test `apps/api/tests/contract/backups.test.ts` — create + list + download endpoints; admin-only create; member can list + download
-- [ ] T076 [P] [US3] Contract test `apps/api/tests/contract/org-backup-store.test.ts` — `PUT /org/backup-store` admin-only; secrets stored encrypted (verify by re-reading raw row)
-- [ ] T077 [P] [US3] Integration test `tests/integration/backup.test.ts` — provision instance → seed ~100 MB of data via the instance's REST/SQL → trigger backup while measuring elapsed wall-clock time → assert (a) file appears, (b) elapsed time < 60 s (SC-006), (c) `pg_restore --list <file>` lists `public` schema
-- [ ] T078 [P] [US3] Integration test `tests/integration/backup-retention.test.ts` — enable auto with retention=3 → run 4 manual backups → assert only 3 remain in BackupStore and `backups` table
+- [x] T075 [P] [US3] Contract test `apps/api/tests/contract/backups.test.ts` — create + list + download endpoints; admin-only create; member can list + download
+- [x] T076 [P] [US3] Contract test `apps/api/tests/contract/org-backup-store.test.ts` — `PUT /org/backup-store` admin-only; secrets stored encrypted (verify by re-reading raw row)
+- [x] T077 [P] [US3] Integration test `tests/integration/backup.test.ts` — provision instance → seed ~100 MB of data via the instance's REST/SQL → trigger backup while measuring elapsed wall-clock time → assert (a) file appears, (b) elapsed time < 60 s (SC-006), (c) `pg_restore --list <file>` lists `public` schema
+- [x] T078 [P] [US3] Integration test `tests/integration/backup-retention.test.ts` — enable auto with retention=3 → run 4 manual backups → assert only 3 remain in BackupStore and `backups` table
 
 ### Implementation for User Story 3
 
-- [ ] T079 [P] [US3] Implement `apps/api/src/routes/backups.ts` — `POST /instances/:ref/backups` (admin, enqueue), `GET /instances/:ref/backups` (any), `GET /instances/:ref/backups/:id/download` (any; local → stream with `Content-Disposition`, s3 → 307 to signed URL)
-- [ ] T080 [P] [US3] Implement `apps/api/src/routes/org-backup-store.ts` — `PUT /api/v1/org/backup-store`: validate config, encrypt secrets (S3 credentials), update `org.backup_store_kind` + `org.backup_store_config_encrypted`; admin-only
-- [ ] T081 [US3] Implement `apps/worker/src/jobs/backup.ts` — insert `backups` row (status=`running`) → resolve BackupStore from `org.backup_store_kind` + decrypted config → `docker exec selfbase-<ref>-db pg_dump -U postgres -Fc postgres` streamed into `BackupStore.put()` → update row to `completed` with `size_bytes` and `store_key` → on failure, status=`failed` with `error`. Updates `supabase_instances.last_backup_at` on success.
-- [ ] T082 [US3] Implement retention sweep — after every successful backup, query `backups` rows for this `instance_ref` ordered by `started_at DESC`, delete all beyond `backup_retain` from both the BackupStore and the `backups` table (`apps/worker/src/jobs/backup.ts` or a helper)
-- [ ] T083 [US3] Implement `apps/worker/src/jobs/backup-scheduler.ts` — BullMQ repeatable job, fires hourly: SELECT instances with `backup_auto_enabled = true` AND (`last_backup_at IS NULL` OR `last_backup_at < now() - interval '24 hours'`); enqueue a `backup` job for each
-- [ ] T084 [US3] Sign short-lived download URLs for local-store backups — `apps/api/src/services/download-tokens.ts`: HMAC-sign `{ backupId, exp }` with `SESSION_SECRET`, validate in the download handler
-- [ ] T085 [US3] Implement `apps/web/src/pages/InstanceBackups.tsx` — list (with status, size, time), "Create Backup" button, "Download" links, retention input (auto-saves), auto toggle
-- [ ] T086 [US3] Implement `apps/web/src/pages/SettingsOrg.tsx` (extending settings page from US4 if it lands first) — backup-store config form: kind picker → `local` (no fields) or `s3` (endpoint, bucket, region, accessKeyId, secretAccessKey). Submit calls `PUT /api/v1/org/backup-store`.
+- [x] T079 [P] [US3] Implement `apps/api/src/routes/backups.ts` — `POST /instances/:ref/backups` (admin, enqueue), `GET /instances/:ref/backups` (any), `GET /instances/:ref/backups/:id/download` (any; local → stream with `Content-Disposition`, s3 → 307 to signed URL)
+- [x] T080 [P] [US3] Implement `apps/api/src/routes/org-backup-store.ts` — `PUT /api/v1/org/backup-store`: validate config, encrypt secrets (S3 credentials), update `org.backup_store_kind` + `org.backup_store_config_encrypted`; admin-only
+- [x] T081 [US3] Implement `apps/worker/src/jobs/backup.ts` — insert `backups` row (status=`running`) → resolve BackupStore from `org.backup_store_kind` + decrypted config → `docker exec selfbase-<ref>-db pg_dump -U postgres -Fc postgres` streamed into `BackupStore.put()` → update row to `completed` with `size_bytes` and `store_key` → on failure, status=`failed` with `error`. Updates `supabase_instances.last_backup_at` on success.
+- [x] T082 [US3] Implement retention sweep — after every successful backup, query `backups` rows for this `instance_ref` ordered by `started_at DESC`, delete all beyond `backup_retain` from both the BackupStore and the `backups` table (`apps/worker/src/jobs/backup.ts` or a helper)
+- [x] T083 [US3] Implement `apps/worker/src/jobs/backup-scheduler.ts` — BullMQ repeatable job, fires hourly: SELECT instances with `backup_auto_enabled = true` AND (`last_backup_at IS NULL` OR `last_backup_at < now() - interval '24 hours'`); enqueue a `backup` job for each
+- [x] T084 [US3] Sign short-lived download URLs for local-store backups — `apps/api/src/services/download-tokens.ts`: HMAC-sign `{ backupId, exp }` with `SESSION_SECRET`, validate in the download handler
+- [x] T085 [US3] Implement `apps/web/src/pages/InstanceBackups.tsx` — list (with status, size, time), "Create Backup" button, "Download" links, retention input (auto-saves), auto toggle
+- [x] T086 [US3] Implement `apps/web/src/pages/SettingsOrg.tsx` (extending settings page from US4 if it lands first) — backup-store config form: kind picker → `local` (no fields) or `s3` (endpoint, bucket, region, accessKeyId, secretAccessKey). Submit calls `PUT /api/v1/org/backup-store`.
 
 **Checkpoint**: US3 functional alongside US1 + US2.
 

@@ -7,6 +7,8 @@ import { LoginPage } from './pages/Login.js';
 import { InstancesPage } from './pages/Instances.js';
 import { InstancesNewPage } from './pages/InstancesNew.js';
 import { InstanceDetailPage } from './pages/InstanceDetail.js';
+import { InstanceBackupsPage } from './pages/InstanceBackups.js';
+import { SettingsOrgPage } from './pages/SettingsOrg.js';
 
 export function App(): React.ReactElement {
   return (
@@ -35,6 +37,22 @@ export function App(): React.ReactElement {
           element={
             <RequireAuth>
               <InstanceDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/p/:ref/backups"
+          element={
+            <RequireAuth>
+              <InstanceBackupsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/org"
+          element={
+            <RequireAuth>
+              <SettingsOrgPage />
             </RequireAuth>
           }
         />

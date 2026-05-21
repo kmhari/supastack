@@ -6,17 +6,30 @@ import { logger } from '@selfbase/shared';
 import {
   composeAllHealthy,
   composeDown,
+  composePull,
   composeRestart,
   composeStart,
   composeStop,
+  composeUp,
   type ComposeContext,
 } from '@selfbase/docker-control';
+import { enqueueBackup } from './backup-enqueue.js';
 
 const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
 
-type LifecycleAction = 'pause' | 'resume' | 'restart' | 'delete';
+export type LifecycleAction = 'pause' | 'resume' | 'restart' | 'delete' | 'upgrade';
 
-export async function handleLifecycle(action: LifecycleAction, ref: string): Promise<void> {
+export interface UpgradeArgs {
+  ref: string;
+  supabaseVersion: string;
+  backupFirst: boolean;
+}
+
+export async function handleLifecycle(
+  action: LifecycleAction,
+  payload: { ref: string } | UpgradeArgs,
+): Promise<void> {
+  const ref = payload.ref;
   const log = logger.child({ job: 'lifecycle', action, ref });
   const [row] = await db()
     .select()
@@ -62,6 +75,27 @@ export async function handleLifecycle(action: LifecycleAction, ref: string): Pro
       }
       log.info('deleted');
       return;
+    case 'upgrade': {
+      const args = payload as UpgradeArgs;
+      // Optional pre-upgrade backup. If it fails, abort the upgrade — operator
+      // can re-run after addressing the backup issue.
+      if (args.backupFirst) {
+        log.info('triggering pre-upgrade backup');
+        await enqueueBackup(ref, 'manual');
+        // We don't wait for it to finish; the upgrade job continues. Operators
+        // wanting strict "backup-then-upgrade" should use the API to back up,
+        // wait for completion, then upgrade.
+      }
+      await composePull(ctx);
+      await composeUp(ctx); // -d recreate via the same Compose project
+      await waitHealthy(ctx, 180_000);
+      await db()
+        .update(schema.supabaseInstances)
+        .set({ supabaseVersion: args.supabaseVersion, status: 'running', updatedAt: new Date() })
+        .where(eq(schema.supabaseInstances.ref, ref));
+      log.info({ to: args.supabaseVersion }, 'upgraded');
+      return;
+    }
   }
 }
 

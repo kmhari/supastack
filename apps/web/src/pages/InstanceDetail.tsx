@@ -81,9 +81,14 @@ export function InstanceDetailPage(): React.ReactElement {
       }}
     >
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
-        <button onClick={() => navigate('/')} style={linkButton}>
-          ← All instances
-        </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button onClick={() => navigate('/')} style={linkButton}>
+            ← All instances
+          </button>
+          <button onClick={() => navigate(`/p/${ref}/backups`)} style={linkButton}>
+            Backups →
+          </button>
+        </div>
         <header
           style={{
             display: 'flex',

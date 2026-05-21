@@ -150,6 +150,9 @@ function Shell({
       >
         <strong>Selfbase</strong>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: 14 }}>
+          <Link to="/settings/org" style={{ color: '#7ab8f5', textDecoration: 'none' }}>
+            Settings
+          </Link>
           <span style={{ color: '#888' }}>{email}</span>
           <button
             onClick={onLogout}

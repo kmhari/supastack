@@ -29,6 +29,13 @@ async function main(): Promise<void> {
     {},
     { repeat: { every: 60_000 } /* 60 s safety reconcile */, removeOnComplete: 1 },
   );
+  // Hourly backup-scheduler tick — checks each instance's last successful
+  // backup and enqueues a new one when overdue (>24h).
+  await queues.backupScheduler.add(
+    'tick',
+    {},
+    { repeat: { every: 60 * 60 * 1000 } /* 1 hour */, removeOnComplete: 1 },
+  );
 
   logger.info({ queues: Object.keys(queues) }, 'worker started');
 
