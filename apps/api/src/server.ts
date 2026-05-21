@@ -14,6 +14,8 @@ import { authRoutes } from './routes/auth.js';
 import { instancesRoutes } from './routes/instances.js';
 import { backupsRoutes } from './routes/backups.js';
 import { orgRoutes } from './routes/org.js';
+import { membersRoutes } from './routes/members.js';
+import { auditRoutes } from './routes/audit.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -83,6 +85,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(orgRoutes, { prefix: '/api/v1' });
   await app.register(instancesRoutes, { prefix: '/api/v1' });
   await app.register(backupsRoutes, { prefix: '/api/v1' });
+  await app.register(membersRoutes, { prefix: '/api/v1' });
+  await app.register(auditRoutes, { prefix: '/api/v1' });
   await app.register(tlsAskRoutes); // /internal/tls/ask
   await app.register(caddyInternalRoutes); // /internal/caddy/reload
 

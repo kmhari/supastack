@@ -84,5 +84,6 @@ export const auditApi = {
     since?: string;
     until?: string;
     cursor?: string;
+    limit?: string;
   }) => unwrap(client.get('/audit', { params })),
 };
