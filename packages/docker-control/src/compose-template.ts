@@ -131,12 +131,15 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     ENABLE_PHONE_SIGNUP: 'false',
     ENABLE_PHONE_AUTOCONFIRM: 'false',
 
-    // SMTP
-    SMTP_ADMIN_EMAIL: smtp?.user ?? '',
-    SMTP_HOST: smtp?.host ?? '',
-    SMTP_PORT: smtp?.port ?? '',
-    SMTP_USER: smtp?.user ?? '',
-    SMTP_PASS: smtp?.password ?? '',
+    // SMTP — use upstream stub values when not configured so gotrue's
+    // envconfig (which int-parses SMTP_PORT) doesn't refuse to boot. SMTP
+    // send attempts will fail gracefully when the user triggers auth flows,
+    // but the rest of the instance (REST/Realtime/Studio) runs fine.
+    SMTP_ADMIN_EMAIL: smtp?.user ?? 'admin@example.com',
+    SMTP_HOST: smtp?.host ?? 'supabase-mail',
+    SMTP_PORT: smtp?.port ?? 2500,
+    SMTP_USER: smtp?.user ?? 'fake_mail_user',
+    SMTP_PASS: smtp?.password ?? 'fake_mail_password',
     SMTP_SENDER_NAME: name,
     MAILER_URLPATHS_INVITE: '/auth/v1/verify',
     MAILER_URLPATHS_CONFIRMATION: '/auth/v1/verify',
@@ -157,6 +160,29 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     FUNCTIONS_VERIFY_JWT: 'false',
     IMGPROXY_ENABLE_WEBP_DETECTION: 'true',
     STUDIO_IMAGE: studioImage,
+
+    // Optional integrations — present but empty by default (operators configure later).
+    GOOGLE_PROJECT_ID: '',
+    GOOGLE_PROJECT_NUMBER: '',
+
+    // Newer upstream additions (post-vendor refresh) — empty/sane defaults.
+    ANON_KEY_ASYMMETRIC: '',
+    SERVICE_ROLE_KEY_ASYMMETRIC: '',
+    SUPABASE_PUBLISHABLE_KEY: '',
+    SUPABASE_SECRET_KEY: '',
+    JWT_JWKS: '',
+    JWT_KEYS: '',
+    CERTBOT_EMAIL: '',
+    GLOBAL_S3_BUCKET: '',
+    MINIO_ROOT_USER: 'supabase',
+    STORAGE_TENANT_ID: ref,
+    IMGPROXY_AUTO_WEBP: 'true',
+    OPENAI_API_KEY: '',
+    PGRST_DB_EXTRA_SEARCH_PATH: 'public',
+    PGRST_DB_MAX_ROWS: '1000',
+    POOLER_DB_POOL_SIZE: '5',
+    PROXY_DOMAIN: '',
+    REGION: 'local',
 
     // Optional integrations — present but empty by default (operators configure later).
     GOOGLE_PROJECT_ID: '',
