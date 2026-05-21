@@ -172,10 +172,7 @@ async function triggerCaddyReload(): Promise<void> {
   try {
     const res = await fetch(`${API_URL}/internal/caddy/reload`, { method: 'POST' });
     if (!res.ok) {
-      logger.warn(
-        { status: res.status },
-        'caddy reload returned non-2xx (instance still running)',
-      );
+      logger.warn({ status: res.status }, 'caddy reload returned non-2xx (instance still running)');
     }
   } catch (err) {
     logger.warn(

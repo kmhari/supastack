@@ -4,6 +4,8 @@ import { logger } from '@selfbase/shared';
 import { handleCaddyReload } from './jobs/caddy-reload.js';
 import { handleProvision } from './jobs/provision.js';
 import { handleLifecycle } from './jobs/lifecycle.js';
+import { handleBackup } from './jobs/backup.js';
+import { handleBackupSchedulerTick } from './jobs/backup-scheduler.js';
 
 const REDIS_URL = process.env.REDIS_URL!;
 
@@ -67,12 +69,20 @@ export function startWorkers(): WorkersHandle {
     new Worker(
       QUEUES.lifecycle,
       async (job) => {
-        const { ref } = job.data as { ref: string };
-        const action = job.name as 'pause' | 'resume' | 'restart' | 'delete';
-        await handleLifecycle(action, ref);
+        const action = job.name as 'pause' | 'resume' | 'restart' | 'delete' | 'upgrade';
+        await handleLifecycle(
+          action,
+          job.data as { ref: string; supabaseVersion?: string; backupFirst?: boolean },
+        );
       },
       workerOpts(),
     ),
+    new Worker(
+      QUEUES.backup,
+      async (job) => handleBackup(job.data as { ref: string; kind: 'manual' | 'auto' }),
+      workerOpts(),
+    ),
+    new Worker(QUEUES.backupScheduler, async () => handleBackupSchedulerTick(), workerOpts()),
   ];
   for (const w of workers) {
     w.on('failed', (job, err) => {

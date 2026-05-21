@@ -1,9 +1,4 @@
-import type {
-  FastifyInstance,
-  FastifyPluginAsync,
-  FastifyReply,
-  FastifyRequest,
-} from 'fastify';
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { and, desc, eq, inArray, not } from 'drizzle-orm';
@@ -196,6 +191,35 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
   });
   app.post<{ Params: { ref: string } }>('/instances/:ref/restart', async (req, reply) => {
     return enqueueLifecycle(req, reply, app, 'restart', null);
+  });
+  app.post<{ Params: { ref: string } }>('/instances/:ref/upgrade', async (req, reply) => {
+    app.authorize(req, 'instance.upgrade');
+    const user = app.requireAuth(req);
+    const body = schemas.InstanceUpgradeRequest.parse(req.body);
+    const row = await fetchInstance(req.params.ref);
+    // Must be in a stable state to upgrade
+    if (!['running', 'paused', 'stopped'].includes(row.status)) {
+      throw errors.invalidStateTransition(row.status, 'upgrading');
+    }
+    await db()
+      .insert(schema.auditLog)
+      .values({
+        actorUserId: user.id,
+        action: 'instance.upgrade',
+        targetKind: 'instance',
+        targetId: row.ref,
+        payload: {
+          from: row.supabaseVersion,
+          to: body.supabaseVersion,
+          backupFirst: body.backupFirst,
+        },
+      });
+    await lifecycleQueue().add(
+      'upgrade',
+      { ref: row.ref, supabaseVersion: body.supabaseVersion, backupFirst: body.backupFirst },
+      { removeOnComplete: 100 },
+    );
+    return reply.status(202).send({ ref: row.ref, status: 'upgrading' });
   });
   app.delete<{ Params: { ref: string } }>('/instances/:ref', async (req, reply) => {
     app.authorize(req, 'instance.delete');
