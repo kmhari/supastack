@@ -20,15 +20,18 @@ describe.skipIf(!TEST_DB)('port-allocator (integration)', () => {
     const { drizzle } = await import('drizzle-orm/node-postgres');
     const { allocatePorts } = await import('../src/port-allocator.js');
     const { migrate } = await import('../src/migrate.js');
+    const schema = await import('../src/schema/index.js');
 
     await migrate(TEST_DB!);
     const pool = new Pool({ connectionString: TEST_DB });
-    const db = drizzle(pool);
+    const db = drizzle(pool, { schema });
 
     // Need an instance row first (FK). Insert a stub.
-    await db.execute(/* sql */ `
+    await db.execute(
+      /* sql */ `
       INSERT INTO org (name) VALUES ('test') ON CONFLICT DO NOTHING;
-    ` as never);
+    ` as never,
+    );
     // Skipping the full instance insert — port_allocations.instance_ref has
     // an ON DELETE SET NULL FK, but the column is also nullable, so we can
     // pass a non-existent ref temporarily for the allocation test as long as
@@ -44,7 +47,9 @@ describe.skipIf(!TEST_DB)('port-allocator (integration)', () => {
     }
 
     // Cleanup
-    await db.execute(/* sql */ `DELETE FROM port_allocations WHERE instance_ref = '${ref1}';` as never);
+    await db.execute(
+      /* sql */ `DELETE FROM port_allocations WHERE instance_ref = '${ref1}';` as never,
+    );
     await pool.end();
   });
 
@@ -53,11 +58,14 @@ describe.skipIf(!TEST_DB)('port-allocator (integration)', () => {
     const { Pool } = await import('pg');
     const { drizzle } = await import('drizzle-orm/node-postgres');
     const { allocatePorts } = await import('../src/port-allocator.js');
+    const schema = await import('../src/schema/index.js');
 
     const pool = new Pool({ connectionString: TEST_DB });
-    const db = drizzle(pool);
+    const db = drizzle(pool, { schema });
 
-    const refs = Array.from({ length: 5 }, (_, i) => `concref0000concref${i}`.padEnd(20, '0').slice(0, 20));
+    const refs = Array.from({ length: 5 }, (_, i) =>
+      `concref0000concref${i}`.padEnd(20, '0').slice(0, 20),
+    );
     const results = await Promise.all(
       refs.map((ref) => allocatePorts(db, ref, { rangeStart: 41000, rangeEnd: 41040 })),
     );
@@ -67,7 +75,9 @@ describe.skipIf(!TEST_DB)('port-allocator (integration)', () => {
 
     // Cleanup
     for (const ref of refs) {
-      await db.execute(/* sql */ `DELETE FROM port_allocations WHERE instance_ref = '${ref}';` as never);
+      await db.execute(
+        /* sql */ `DELETE FROM port_allocations WHERE instance_ref = '${ref}';` as never,
+      );
     }
     await pool.end();
   });

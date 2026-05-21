@@ -20,26 +20,23 @@ const TTL_MS = 60_000;
  * it publicly, you've misconfigured the stack.
  */
 export const tlsAskRoutes: FastifyPluginAsync = async (app) => {
-  app.get<{ Querystring: { domain?: string } }>(
-    '/internal/tls/ask',
-    async (req, reply) => {
-      const domain = req.query.domain?.toLowerCase()?.trim();
-      if (!domain) return reply.status(404).send();
+  app.get<{ Querystring: { domain?: string } }>('/internal/tls/ask', async (req, reply) => {
+    const domain = req.query.domain?.toLowerCase()?.trim();
+    if (!domain) return reply.status(404).send();
 
-      const cached = cache.get(domain);
-      if (cached && cached.expires > Date.now()) {
-        return reply.status(cached.allowed ? 200 : 404).send();
-      }
+    const cached = cache.get(domain);
+    if (cached && cached.expires > Date.now()) {
+      return reply.status(cached.allowed ? 200 : 404).send();
+    }
 
-      const allowed = await isAdmissible(domain);
-      cache.set(domain, { allowed, expires: Date.now() + TTL_MS });
+    const allowed = await isAdmissible(domain);
+    cache.set(domain, { allowed, expires: Date.now() + TTL_MS });
 
-      if (!allowed) {
-        logger.info({ domain }, 'tls-ask deny');
-      }
-      return reply.status(allowed ? 200 : 404).send();
-    },
-  );
+    if (!allowed) {
+      logger.info({ domain }, 'tls-ask deny');
+    }
+    return reply.status(allowed ? 200 : 404).send();
+  });
 };
 
 async function isAdmissible(domain: string): Promise<boolean> {

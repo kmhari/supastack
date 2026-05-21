@@ -17,8 +17,8 @@ export function App(): React.ReactElement {
             <p>
               API:&nbsp;
               <code>
-                {(import.meta as ImportMeta & { env: { VITE_API_URL?: string } }).env.VITE_API_URL ||
-                  '(relative /api)'}
+                {(import.meta as ImportMeta & { env: { VITE_API_URL?: string } }).env
+                  .VITE_API_URL || '(relative /api)'}
               </code>
             </p>
           </div>

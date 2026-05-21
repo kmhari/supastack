@@ -17,5 +17,7 @@ export const backups = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
     completedAt: timestamp('completed_at', { withTimezone: true }),
   },
-  (t) => [index('backups_instance_started').on(t.instanceRef, t.startedAt)],
+  (t) => ({
+    instanceStartedIdx: index('backups_instance_started').on(t.instanceRef, t.startedAt),
+  }),
 );

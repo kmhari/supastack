@@ -157,6 +157,10 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     FUNCTIONS_VERIFY_JWT: 'false',
     IMGPROXY_ENABLE_WEBP_DETECTION: 'true',
     STUDIO_IMAGE: studioImage,
+
+    // Optional integrations — present but empty by default (operators configure later).
+    GOOGLE_PROJECT_ID: '',
+    GOOGLE_PROJECT_NUMBER: '',
   };
 
   // 4. Completeness assertion (anti-Multibase missing-vars regression).

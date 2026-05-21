@@ -45,7 +45,7 @@ export const supabaseInstances = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [check('backup_retain_positive', sql`${t.backupRetain} >= 1`)],
+  (t) => ({ retainPositive: check('backup_retain_positive', sql`${t.backupRetain} >= 1`) }),
 );
 
 // ─── port_allocations ───────────────────────────────────────────────────────

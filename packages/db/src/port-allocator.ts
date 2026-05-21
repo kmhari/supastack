@@ -73,7 +73,13 @@ export async function allocatePorts(
           { port: analytics!, kind: 'analytics', instanceRef },
         ]);
 
-        return { kong: kong!, studio: studio!, postgres: postgres!, pooler: pooler!, analytics: analytics! };
+        return {
+          kong: kong!,
+          studio: studio!,
+          postgres: postgres!,
+          pooler: pooler!,
+          analytics: analytics!,
+        };
       });
     } catch (err) {
       if (err instanceof PortPoolExhaustedError) throw err;

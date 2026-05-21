@@ -85,7 +85,17 @@ export async function composeExec(
   cmd: string[],
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
-    const args = ['compose', '-p', ctx.projectName, '--project-directory', ctx.dir, 'exec', '-T', service, ...cmd];
+    const args = [
+      'compose',
+      '-p',
+      ctx.projectName,
+      '--project-directory',
+      ctx.dir,
+      'exec',
+      '-T',
+      service,
+      ...cmd,
+    ];
     const child = spawn('docker', args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
@@ -125,10 +135,15 @@ async function runDockerCompose(ctx: ComposeContext, args: string[]): Promise<vo
     });
     let stderr = '';
     child.stderr.on('data', (b: Buffer) => (stderr += b.toString()));
-    child.on('error', (err) => reject(new Error(`docker compose ${args.join(' ')}: ${err.message}`)));
+    child.on('error', (err) =>
+      reject(new Error(`docker compose ${args.join(' ')}: ${err.message}`)),
+    );
     child.on('close', (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`docker compose ${args.join(' ')} failed (exit ${code}): ${stderr.trim()}`));
+      else
+        reject(
+          new Error(`docker compose ${args.join(' ')} failed (exit ${code}): ${stderr.trim()}`),
+        );
     });
   });
 }

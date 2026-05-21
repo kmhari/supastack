@@ -49,8 +49,7 @@ export const errors = {
   forbidden: (message = 'forbidden') => new AppError(403, 'forbidden', message),
   notFound: (message = 'not found') => new AppError(404, 'not_found', message),
   conflict: (message: string) => new AppError(409, 'conflict', message),
-  setupComplete: () =>
-    new AppError(410, 'setup_complete', 'first-time setup is already complete'),
+  setupComplete: () => new AppError(410, 'setup_complete', 'first-time setup is already complete'),
   gone: (message: string) => new AppError(410, 'gone', message),
   rateLimited: (message = 'too many requests') => new AppError(429, 'rate_limited', message),
   internal: (message = 'internal error') => new AppError(500, 'internal', message),

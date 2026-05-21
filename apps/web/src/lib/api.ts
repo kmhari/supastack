@@ -5,8 +5,8 @@ import axios, { type AxiosInstance } from 'axios';
 //
 // In dev: Vite proxies /api to the backend.
 // In prod: Caddy proxies /api/* to the api container.
-const BASE: string = ((import.meta as ImportMeta & { env: { VITE_API_URL?: string } }).env
-  .VITE_API_URL ?? '');
+const BASE: string =
+  (import.meta as ImportMeta & { env: { VITE_API_URL?: string } }).env.VITE_API_URL ?? '';
 
 const client: AxiosInstance = axios.create({
   baseURL: `${BASE}/api/v1`,
@@ -14,23 +14,20 @@ const client: AxiosInstance = axios.create({
   withCredentials: true, // session cookies
 });
 
-const unwrap = <T,>(p: Promise<{ data: T }>): Promise<T> => p.then((r) => r.data);
+const unwrap = <T>(p: Promise<{ data: T }>): Promise<T> => p.then((r) => r.data);
 
 // ─── auth + setup ───────────────────────────────────────────────────────────
 export const setupApi = {
   status: () => unwrap<{ open: boolean }>(client.get('/setup/status')),
-  run: (body: {
-    email: string;
-    password: string;
-    orgName: string;
-    apexDomain?: string;
-  }) => unwrap<{ userId: string; orgId: string; apiToken: string }>(client.post('/setup', body)),
+  run: (body: { email: string; password: string; orgName: string; apexDomain?: string }) =>
+    unwrap<{ userId: string; orgId: string; apiToken: string }>(client.post('/setup', body)),
 };
 
 export const authApi = {
   login: (body: { email: string; password: string }) => unwrap(client.post('/auth/login', body)),
   logout: () => unwrap(client.post('/auth/logout')),
-  me: () => unwrap<{ userId: string; email: string; role: 'admin' | 'member' }>(client.get('/auth/me')),
+  me: () =>
+    unwrap<{ userId: string; email: string; role: 'admin' | 'member' }>(client.get('/auth/me')),
   createToken: (body: { label: string }) =>
     unwrap<{ id: string; token: string; label: string }>(client.post('/auth/tokens', body)),
   listTokens: () => unwrap(client.get('/auth/tokens')),
@@ -75,11 +72,17 @@ export const instancesApi = {
 export const backupsApi = {
   list: (ref: string) => unwrap(client.get(`/instances/${ref}/backups`)),
   create: (ref: string) => unwrap(client.post(`/instances/${ref}/backups`)),
-  downloadUrl: (ref: string, id: string) => `${BASE}/api/v1/instances/${ref}/backups/${id}/download`,
+  downloadUrl: (ref: string, id: string) =>
+    `${BASE}/api/v1/instances/${ref}/backups/${id}/download`,
 };
 
 // ─── audit ──────────────────────────────────────────────────────────────────
 export const auditApi = {
-  list: (params?: { action?: string; actor?: string; since?: string; until?: string; cursor?: string }) =>
-    unwrap(client.get('/audit', { params })),
+  list: (params?: {
+    action?: string;
+    actor?: string;
+    since?: string;
+    until?: string;
+    cursor?: string;
+  }) => unwrap(client.get('/audit', { params })),
 };
