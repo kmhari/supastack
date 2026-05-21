@@ -1,21 +1,20 @@
 {
-  "name": "@selfbase/shared",
+  "name": "@selfbase/backup-store",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./logger": "./src/logger.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "pino": "^9.4.0",
-    "pino-pretty": "^11.2.2",
-    "zod": "^3.23.8"
+    "@aws-sdk/client-s3": "^3.658.0",
+    "@aws-sdk/lib-storage": "^3.658.0",
+    "@aws-sdk/s3-request-presigner": "^3.658.0"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
