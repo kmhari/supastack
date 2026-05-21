@@ -1,0 +1,30 @@
+# Selfbase Caddy skeleton
+#
+# This file defines the bare minimum that must exist at container start:
+#   - the admin API on :2019 (internal-network-only)
+#   - the on-demand TLS gate that asks the selfbase API whether a hostname is admissible
+#   - the global :80 → :443 redirect
+#
+# Per-instance server blocks (one for each <ref>.<apex>) are NOT defined here.
+# They are pushed at runtime by `apps/api/src/services/caddy-reload.ts` via the
+# admin API (POST :2019/load), which atomically replaces the entire config.
+# This keeps "what's reachable" in the DB, not in a checked-in file.
+
+{
+	admin :2019
+
+	on_demand_tls {
+		# Caddy calls this before issuing a cert for any unfamiliar hostname.
+		# 2xx = allow issuance, anything else = deny. The API checks the
+		# supabase_instances table and the configured apex_domain.
+		ask http://api:3001/internal/tls/ask
+	}
+
+	# Default issuer is Let's Encrypt; override for staging during development
+	# by setting CADDY_ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# Global HTTP → HTTPS redirect. Per-host overrides come via /load.
+:80 {
+	redir https://{host}{uri}
+}
