@@ -1,7 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { setupApi } from '../lib/api.js';
 import { useAuth } from '../lib/auth-context.js';
+import { s, theme } from '../lib/theme.js';
 
 export function SetupPage(): React.ReactElement {
   const navigate = useNavigate();
@@ -22,31 +23,58 @@ export function SetupPage(): React.ReactElement {
       .catch(() => setOpen(false));
   }, []);
 
-  if (open === null) return <Centered>Loading…</Centered>;
+  if (open === null) {
+    return (
+      <div style={s.centeredColumn}>
+        <span style={{ color: theme.color.textMuted }}>Loading…</span>
+      </div>
+    );
+  }
   if (open === false && !masterToken) return <Navigate to="/login" replace />;
 
   if (masterToken) {
     return (
-      <Centered>
-        <h1>Welcome to Selfbase</h1>
-        <p>
-          Your super-admin account is created. Save this master API token — it&apos;s shown once:
-        </p>
-        <pre
-          style={{
-            background: '#111',
-            color: '#eee',
-            padding: 16,
-            borderRadius: 6,
-            overflowX: 'auto',
-          }}
-        >
-          {masterToken}
-        </pre>
-        <button onClick={() => void refresh().then(() => navigate('/'))}>
-          Continue to dashboard
-        </button>
-      </Centered>
+      <div style={s.centeredColumn}>
+        <div style={{ ...s.form, gap: 20 }}>
+          <Wordmark />
+          <h1 style={s.formHeading}>Welcome to Selfbase</h1>
+          <p style={s.formSub}>
+            Your super-admin account is created. Save this master API token — it&apos;s shown once
+            and cannot be recovered:
+          </p>
+          <pre
+            style={{
+              background: theme.color.cardBg,
+              color: theme.color.success,
+              padding: 14,
+              borderRadius: theme.radius.md,
+              border: `1px solid ${theme.color.border}`,
+              overflowX: 'auto',
+              fontSize: theme.font.sizeSm,
+              fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+              margin: 0,
+              wordBreak: 'break-all',
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {masterToken}
+          </pre>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => void navigator.clipboard.writeText(masterToken)}
+              style={s.buttonSecondary}
+            >
+              Copy token
+            </button>
+            <button
+              onClick={() => void refresh().then(() => navigate('/'))}
+              style={s.buttonPrimary}
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -71,30 +99,36 @@ export function SetupPage(): React.ReactElement {
   };
 
   return (
-    <Centered>
-      <h1>First-time setup</h1>
-      <p>
-        Create the super-admin account for this Selfbase install. This page disappears after the
-        first run.
-      </p>
-      <form onSubmit={(e) => void onSubmit(e)} style={{ display: 'grid', gap: 12, maxWidth: 480 }}>
+    <div style={s.centeredColumn}>
+      <form onSubmit={(e) => void onSubmit(e)} style={s.form}>
+        <Wordmark />
+        <h1 style={s.formHeading}>First-time setup</h1>
+        <p style={s.formSub}>
+          Create the super-admin account for this Selfbase install. This page disappears after the
+          first run.
+        </p>
+
         <Field label="Email">
           <input
             type="email"
+            autoComplete="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
+            style={s.input}
+            placeholder="you@example.com"
           />
         </Field>
-        <Field label="Password (min 12 chars)">
+        <Field label="Password" hint="minimum 12 characters">
           <input
             type="password"
+            autoComplete="new-password"
             required
             minLength={12}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
+            style={s.input}
+            placeholder="••••••••••••"
           />
         </Field>
         <Field label="Organization name">
@@ -102,77 +136,70 @@ export function SetupPage(): React.ReactElement {
             required
             value={orgName}
             onChange={(e) => setOrgName(e.target.value)}
-            style={inputStyle}
+            style={s.input}
           />
         </Field>
-        <Field label="Apex domain (optional, e.g. selfbase.example.com)">
+        <Field label="Apex domain" hint="optional — you can add this later from Settings">
           <input
             value={apexDomain}
             onChange={(e) => setApexDomain(e.target.value)}
-            style={inputStyle}
-            placeholder="leave blank to set later"
+            style={s.input}
+            placeholder="selfbase.example.com"
           />
         </Field>
-        {error && <div style={errorStyle}>{error}</div>}
-        <button disabled={submitting} type="submit" style={primaryButtonStyle}>
+
+        {error && <div style={s.errorBox}>{error}</div>}
+
+        <button disabled={submitting} type="submit" style={s.buttonPrimary}>
           {submitting ? 'Creating…' : 'Create super-admin'}
         </button>
       </form>
-    </Centered>
-  );
-}
-
-// Tiny inline styles to ship without committing to the theme until Phase 3.5.
-const inputStyle: React.CSSProperties = {
-  padding: '8px 10px',
-  border: '1px solid #444',
-  background: '#222',
-  color: '#eee',
-  borderRadius: 4,
-  font: 'inherit',
-};
-const primaryButtonStyle: React.CSSProperties = {
-  padding: '10px 16px',
-  background: '#3ECF8E',
-  color: '#000',
-  border: 'none',
-  borderRadius: 4,
-  fontWeight: 600,
-  cursor: 'pointer',
-};
-const errorStyle: React.CSSProperties = {
-  background: '#5a1a1a',
-  color: '#f9d',
-  padding: 8,
-  borderRadius: 4,
-  fontSize: 14,
-};
-
-function Field({ label, children }: { label: string; children: ReactNode }): React.ReactElement {
-  return (
-    <label style={{ display: 'grid', gap: 4, fontSize: 14 }}>
-      <span style={{ color: '#aaa' }}>{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function Centered({ children }: { children: ReactNode }): React.ReactElement {
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#0a0a0a',
-        color: '#eee',
-        fontFamily: 'system-ui, sans-serif',
-        display: 'flex',
-        justifyContent: 'center',
-        padding: 48,
-      }}
-    >
-      <div style={{ maxWidth: 640, width: '100%' }}>{children}</div>
     </div>
   );
 }
 
-import type { ReactNode } from 'react';
+function Wordmark(): React.ReactElement {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+      <span
+        aria-hidden
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 6,
+          background: theme.color.success,
+          display: 'inline-block',
+        }}
+      />
+      <span style={{ fontSize: 16, fontWeight: theme.font.weightMedium }}>Selfbase</span>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: ReactNode;
+}): React.ReactElement {
+  return (
+    <div>
+      <label style={s.label}>{label}</label>
+      {children}
+      {hint && (
+        <div
+          style={{
+            color: theme.color.textMuted,
+            fontSize: theme.font.sizeXs,
+            marginTop: 4,
+          }}
+        >
+          {hint}
+        </div>
+      )}
+    </div>
+  );
+}
