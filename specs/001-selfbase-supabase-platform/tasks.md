@@ -35,17 +35,17 @@ Monorepo (extended web app layout from `plan.md`):
 
 **Purpose**: Repo scaffolding, vendored dependencies, control-plane Docker stack skeleton. Everything that has to exist before any feature code is meaningful.
 
-- [ ] T001 Initialize pnpm monorepo at repo root with `package.json`, `pnpm-workspace.yaml` (workspaces: `apps/*`, `packages/*`), root `tsconfig.base.json` (strict), `.editorconfig`, `.gitignore` (node_modules, dist, .env, .venv — NOT `lib/`)
-- [ ] T002 [P] Add root ESLint + Prettier config (`.eslintrc.cjs`, `.prettierrc`) sharable across packages
-- [ ] T003 [P] Add Vitest workspace config (`vitest.workspace.ts`) and a root `pnpm test` script that runs all package suites
-- [ ] T004 [P] Add a `git check-ignore -v src/lib/api.ts` smoke assertion to CI to prevent the Multibase `lib/`-gitignored failure (`.github/workflows/ci.yml` or equivalent)
-- [ ] T005 [P] Vendor upstream `supabase/supabase` `docker/*` at a pinned commit into `infra/supabase-template/` (Compose, `.env.example`, `kong.yml`, `vector.yml`, `volumes/db/*.sql`). Record the pinned commit in `infra/supabase-template/COMMIT`.
-- [ ] T006 [P] Vendor theme assets (Tailwind config, design tokens, base components) from `supabase/supabase` `apps/studio/` at the same pinned commit into `apps/web/src/theme/`. Document the lift list in `apps/web/src/theme/README.md`.
-- [ ] T007 Write `infra/studio/Dockerfile` that builds Studio from the vendored source with `NEXT_PUBLIC_BASE_PATH=/studio` baked in. Image tag: `selfbase/studio:<pinned-commit>`.
-- [ ] T008 Write `apps/caddy/Caddyfile` containing only the admin `:2019` block + `on_demand_tls { ask http://api:3001/internal/tls/ask }` skeleton; instance routes are added at runtime via admin API.
-- [ ] T009 Write `infra/docker-compose.yml` for the control plane: postgres:16, redis:7-alpine, caddy:2 (mounts `apps/caddy/Caddyfile` and `/var/selfbase/caddy-data`), api, worker, web. Bind ports 80 + 443 (Caddy) and admin 2019 only inside the network.
-- [ ] T010 Write `install.sh` at repo root: detects/installs Docker, clones repo to `/opt/selfbase`, `openssl rand`-generates `MASTER_KEY` + `SESSION_SECRET` + control-DB password, writes `.env`, builds `selfbase/studio:<commit>` (one-time), runs `docker compose up -d`, waits for health, prints setup URL. Pattern off `/Users/lord/Code/superbase/install.sh`.
-- [ ] T011 [P] Add shared pino logger config (`packages/shared/src/logger.ts`) with level from `LOG_LEVEL` env; JSON output in production, pretty in dev.
+- [x] T001 Initialize pnpm monorepo at repo root with `package.json`, `pnpm-workspace.yaml` (workspaces: `apps/*`, `packages/*`), root `tsconfig.base.json` (strict), `.editorconfig`, `.gitignore` (node_modules, dist, .env, .venv — NOT `lib/`)
+- [x] T002 [P] Add root ESLint + Prettier config (`.eslintrc.cjs`, `.prettierrc`) sharable across packages
+- [x] T003 [P] Add Vitest workspace config (`vitest.workspace.ts`) and a root `pnpm test` script that runs all package suites
+- [x] T004 [P] Add a `git check-ignore -v src/lib/api.ts` smoke assertion to CI to prevent the Multibase `lib/`-gitignored failure (`.github/workflows/ci.yml` or equivalent)
+- [x] T005 [P] Vendor upstream `supabase/supabase` `docker/*` at a pinned commit into `infra/supabase-template/` (Compose, `.env.example`, `kong.yml`, `vector.yml`, `volumes/db/*.sql`). Record the pinned commit in `infra/supabase-template/COMMIT`.
+- [x] T006 [P] Vendor theme assets (Tailwind config, design tokens, base components) from `supabase/supabase` `apps/studio/` at the same pinned commit into `apps/web/src/theme/`. Document the lift list in `apps/web/src/theme/README.md`.
+- [x] T007 Write `infra/studio/Dockerfile` that builds Studio from the vendored source with `NEXT_PUBLIC_BASE_PATH=/studio` baked in. Image tag: `selfbase/studio:<pinned-commit>`.
+- [x] T008 Write `apps/caddy/Caddyfile` containing only the admin `:2019` block + `on_demand_tls { ask http://api:3001/internal/tls/ask }` skeleton; instance routes are added at runtime via admin API.
+- [x] T009 Write `infra/docker-compose.yml` for the control plane: postgres:16, redis:7-alpine, caddy:2 (mounts `apps/caddy/Caddyfile` and `/var/selfbase/caddy-data`), api, worker, web. Bind ports 80 + 443 (Caddy) and admin 2019 only inside the network.
+- [x] T010 Write `install.sh` at repo root: detects/installs Docker, clones repo to `/opt/selfbase`, `openssl rand`-generates `MASTER_KEY` + `SESSION_SECRET` + control-DB password, writes `.env`, builds `selfbase/studio:<commit>` (one-time), runs `docker compose up -d`, waits for health, prints setup URL. Pattern off `/Users/lord/Code/superbase/install.sh`.
+- [x] T011 [P] Add shared pino logger config (`packages/shared/src/logger.ts`) with level from `LOG_LEVEL` env; JSON output in production, pretty in dev.
 
 ---
 
