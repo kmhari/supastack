@@ -35,7 +35,13 @@ Single Postgres database backing the selfbase control plane. All migrations are 
 | `created_at` | timestamptz NOT NULL DEFAULT `now()` |
 | `updated_at` | timestamptz NOT NULL DEFAULT `now()` |
 
-Constraint: at most one row enforced via `CHECK ((SELECT count(*) FROM org) <= 1)` *plus* application-level "create once" guard (the singleton is created during `/setup`).
+Singleton constraint: a partial unique index over the constant expression `1` allows at most one row to exist:
+
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS org_singleton ON org ((1::int));
+```
+
+The row is created during `/setup`; subsequent inserts fail with a unique-constraint violation. This is intentionally enforced at the DB layer in addition to the app-level "create once" guard so that no code path (worker, future CLI/MCP, manual psql) can produce a second org.
 
 ### `users`
 

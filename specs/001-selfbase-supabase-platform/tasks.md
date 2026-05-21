@@ -163,7 +163,7 @@ Monorepo (extended web app layout from `plan.md`):
 
 - [ ] T075 [P] [US3] Contract test `apps/api/tests/contract/backups.test.ts` — create + list + download endpoints; admin-only create; member can list + download
 - [ ] T076 [P] [US3] Contract test `apps/api/tests/contract/org-backup-store.test.ts` — `PUT /org/backup-store` admin-only; secrets stored encrypted (verify by re-reading raw row)
-- [ ] T077 [P] [US3] Integration test `tests/integration/backup.test.ts` — provision instance → write some test data via the instance's own REST API → trigger backup → assert file appears → `pg_restore --list <file>` lists `public` schema
+- [ ] T077 [P] [US3] Integration test `tests/integration/backup.test.ts` — provision instance → seed ~100 MB of data via the instance's REST/SQL → trigger backup while measuring elapsed wall-clock time → assert (a) file appears, (b) elapsed time < 60 s (SC-006), (c) `pg_restore --list <file>` lists `public` schema
 - [ ] T078 [P] [US3] Integration test `tests/integration/backup-retention.test.ts` — enable auto with retention=3 → run 4 manual backups → assert only 3 remain in BackupStore and `backups` table
 
 ### Implementation for User Story 3
@@ -192,7 +192,7 @@ Monorepo (extended web app layout from `plan.md`):
 - [ ] T087 [P] [US4] Contract test `apps/api/tests/contract/invites.test.ts` — create/list/revoke admin-only; accept open (validates token, single-use, expiry); 410 on consumed or expired token
 - [ ] T088 [P] [US4] Contract test `apps/api/tests/contract/members.test.ts` — list any; delete admin-only; member self-delete forbidden in v1
 - [ ] T089 [P] [US4] Contract test `apps/api/tests/contract/member-removal-cascade.test.ts` — deleting a member with active tokens + sessions invalidates both atomically
-- [ ] T090 [P] [US4] E2E Playwright `apps/web/tests/e2e/invite-flow.spec.ts` — admin invites → second browser context accepts via link → member sees list but Delete button hidden; API call as member to DELETE → 403
+- [ ] T090 [P] [US4] E2E Playwright `apps/web/tests/e2e/invite-flow.spec.ts` — admin invites → record `t0 = Date.now()` at the moment the invitee clicks the link in a second browser context → on dashboard render, assert `Date.now() - t0 < 60_000` (SC-012) → member sees list but Delete button hidden; API call as member to DELETE → 403
 
 ### Implementation for User Story 4
 
@@ -222,6 +222,7 @@ Monorepo (extended web app layout from `plan.md`):
 - [ ] T107 Verify `specs/001-selfbase-supabase-platform/quickstart.md` end-to-end on the existing VM `148.113.1.164` after Multibase wipe (SC-001 demonstration); update quickstart if any step diverges from reality
 - [ ] T108 [P] Tighten Caddy reload — debounce window already 200 ms; add a metric counter for reload-rate to surface churn (`apps/worker/src/jobs/caddy-reload.ts`)
 - [ ] T109 [P] Confirm SC-010 — load 15 dummy instance rows (status=`paused`, no containers) and verify dashboard navigation < 1 s perceived
+- [ ] T110 Implement instance health reconciler in `apps/worker/src/jobs/health-reconciler.ts` — BullMQ repeatable job (30 s tick) that calls `composePs(selfbase-<ref>)` for every non-deleted instance and updates `supabase_instances.status` if the observed container set diverges (e.g., running → stopped on OOM-kill). Honors FR-033 ("based on the actual state of its underlying processes, not just on the last requested action"). RECOMMENDED to land in Phase 2 before US1 ships, even though listed in Polish for diff hygiene.
 
 ---
 
