@@ -1,4 +1,4 @@
-import { useState, forwardRef, type InputHTMLAttributes } from 'react';
+import { useState, forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -45,17 +45,47 @@ interface InputWithCopyProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
   /** Value to copy. Defaults to the input's `value` prop. */
   copyValue?: string;
-  /** Hide the Copy button (renders as a plain framed input). */
+  /** Hide the right-side button entirely (renders as a plain framed input). */
   noCopy?: boolean;
+  /** Additional content rendered BEFORE the default Copy button.
+   *  Use `<FrameButton>` for consistent styling. Combine with `noCopy`
+   *  to render ONLY this slot (e.g., a single Reveal button). */
+  rightSlot?: ReactNode;
   /** Apply monospace font (good for IDs, keys, URLs). */
   mono?: boolean;
   /** Wrapper className. */
   className?: string;
 }
 
+/**
+ * A button styled to sit inside the InputWithCopy frame. Use for
+ * "Reveal", "Hide", or any other action that should look like the
+ * default Copy button (left-bordered, bg-card, hover effect).
+ */
+export function FrameButton({
+  children,
+  onClick,
+  className,
+  ...rest
+}: React.ButtonHTMLAttributes<HTMLButtonElement>): React.ReactElement {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1.5 border-l border-border bg-card px-3 text-xs text-foreground-light transition-colors hover:bg-secondary hover:text-foreground',
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
 export const InputWithCopy = forwardRef<HTMLInputElement, InputWithCopyProps>(
   function InputWithCopy(
-    { copyValue, noCopy, mono, className, value, readOnly, ...rest },
+    { copyValue, noCopy, rightSlot, mono, className, value, readOnly, ...rest },
     ref,
   ) {
     const [state, setState] = useState<'idle' | 'ok' | 'fail'>('idle');
@@ -86,13 +116,9 @@ export const InputWithCopy = forwardRef<HTMLInputElement, InputWithCopyProps>(
           )}
           {...rest}
         />
+        {rightSlot}
         {!noCopy && (
-          <button
-            type="button"
-            onClick={() => void onCopy()}
-            aria-label="Copy value"
-            className="inline-flex items-center gap-1.5 border-l border-border bg-card px-3 text-xs text-foreground-light transition-colors hover:bg-secondary hover:text-foreground"
-          >
+          <FrameButton onClick={() => void onCopy()} aria-label="Copy value">
             {state === 'ok' ? (
               <>
                 <Check className="size-3" />
@@ -104,7 +130,7 @@ export const InputWithCopy = forwardRef<HTMLInputElement, InputWithCopyProps>(
                 {state === 'fail' ? 'Failed' : 'Copy'}
               </>
             )}
-          </button>
+          </FrameButton>
         )}
       </div>
     );
