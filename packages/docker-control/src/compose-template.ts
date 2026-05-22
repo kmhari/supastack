@@ -47,7 +47,7 @@ export interface ComposeTemplateInputs {
     user: string;
     password: string;
   };
-  /** Studio image to use (already built with NEXT_PUBLIC_BASE_PATH=/studio) */
+  /** Studio image to use */
   studioImage: string;
   /** Path to the vendored supabase template directory */
   templateDir: string;
@@ -108,8 +108,12 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     MINIO_ROOT_PASSWORD: secrets.minioRootPassword,
 
     // Ports
+    // Caddy terminates TLS for every per-instance subdomain, so Kong only
+    // needs its HTTP port published. The HTTPS port (8443) used to be
+    // mapped to STUDIO_PORT's numeric slot, swallowing Studio's host
+    // binding and producing "400 Bad Request — plain HTTP sent to HTTPS
+    // port" when Caddy proxied /studio to it.
     KONG_HTTP_PORT: ports.kong,
-    KONG_HTTPS_PORT: ports.kong + 100_000 > 65535 ? ports.kong + 1 : ports.kong + 1,
     STUDIO_PORT: ports.studio,
     POSTGRES_PORT: ports.postgres,
     POOLER_PROXY_PORT_TRANSACTION: ports.pooler,
@@ -120,7 +124,6 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     API_EXTERNAL_URL: url,
     SITE_URL: url,
     ADDITIONAL_REDIRECT_URLS: '',
-    NEXT_PUBLIC_BASE_PATH: '/studio',
 
     // Auth / feature flags
     DISABLE_SIGNUP: config.enableSignup ? 'false' : 'true',
