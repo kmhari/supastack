@@ -21,6 +21,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
+import { promisify } from 'node:util';
+import zlib from 'node:zlib';
+
+const brotliDecompress = promisify(zlib.brotliDecompress);
 import type { MultipartFile, MultipartValue } from '@fastify/multipart';
 import { eq, and, sql } from 'drizzle-orm';
 import { db, schema } from '@selfbase/db';
@@ -38,6 +42,7 @@ import { instanceFunctionsDir, slugDir } from './function-store.js';
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const ESZIP_MAGIC = Buffer.from('ESZIP', 'utf8');
+const EZBR_MAGIC = Buffer.from('EZBR', 'utf8');
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{0,47}$/;
 
 /**
@@ -62,6 +67,34 @@ export function isEszipMagic(bytes: Uint8Array): boolean {
     if (bytes[i] !== ESZIP_MAGIC[i]) return false;
   }
   return true;
+}
+
+/**
+ * True iff `bytes` starts with the 4-byte ASCII magic `EZBR`. The CLI's
+ * default deploy path (`pkg/function/bundle.go:Compress`) wraps the eszip
+ * with this header + Brotli compression to shave upload size. Decompressing
+ * yields the runtime-loadable ESZIP2.x bytes.
+ */
+export function isEzbrMagic(bytes: Uint8Array): boolean {
+  if (bytes.byteLength < EZBR_MAGIC.byteLength) return false;
+  for (let i = 0; i < EZBR_MAGIC.byteLength; i++) {
+    if (bytes[i] !== EZBR_MAGIC[i]) return false;
+  }
+  return true;
+}
+
+/**
+ * Decompress an `EZBR`-prefixed body to the underlying eszip bytes. Strips
+ * the 4-byte magic + Brotli-decompresses the remainder. The result must
+ * start with `ESZIP` or we treat the upload as malformed.
+ */
+async function decompressEzbrToEszip(body: Buffer): Promise<Buffer> {
+  if (!isEzbrMagic(body)) {
+    throw new Error('decompressEzbrToEszip: body does not start with EZBR magic');
+  }
+  const brotliPayload = body.subarray(EZBR_MAGIC.byteLength);
+  const decompressed = await brotliDecompress(brotliPayload);
+  return Buffer.from(decompressed);
 }
 
 function assertSlug(slug: string): void {
@@ -217,15 +250,35 @@ async function stageEszip(
   query: Record<string, string | string[] | undefined>,
   mode: DeployMode,
 ): Promise<StagedDeploy> {
-  if (!isEszipMagic(body)) {
+  // ezbr_sha256 (from the CLI's query string) is hashed over the WIRE bytes
+  // — including the EZBR magic + Brotli payload — not the decompressed
+  // eszip. So compute the wire-hash before decompression.
+  const wireHash = createHash('sha256').update(body).digest('hex');
+
+  // The CLI's default path (pkg/function/bundle.go) wraps each eszip in
+  // EZBR + Brotli. The --use-api path on older CLIs sends raw ESZIP.
+  // Accept either; persist the decompressed ESZIP bytes so the runtime's
+  // EdgeRuntime.userWorkers.create({ maybeEszip }) can load them.
+  let eszipBytes: Buffer;
+  if (isEzbrMagic(body)) {
+    eszipBytes = await decompressEzbrToEszip(body);
+    if (!isEszipMagic(eszipBytes)) {
+      throw new ManagementApiError(
+        422,
+        'EZBR payload decompressed to bytes that do not start with the ESZIP magic',
+        'invalid_eszip',
+      );
+    }
+  } else if (isEszipMagic(body)) {
+    eszipBytes = body;
+  } else {
     throw new ManagementApiError(
       422,
-      'Request body does not start with the ESZIP magic header',
+      'Request body must start with ESZIP or EZBR magic',
       'invalid_eszip',
     );
   }
-
-  const sha = createHash('sha256').update(body).digest('hex');
+  const sha = wireHash;
 
   // Validate the query metadata. PATCH uses the narrower schema (no slug/name).
   const parsedQuery =
@@ -243,7 +296,9 @@ async function stageEszip(
 
   const stagingDir = path.join(stagingRootFor(ref), randomUUID());
   await mkdir(stagingDir, { recursive: true });
-  await writeFile(path.join(stagingDir, 'bundle.eszip'), body);
+  // Write the DECOMPRESSED ESZIP bytes — the runtime's eszip loader expects
+  // raw ESZIP2.x, not the EZBR-wrapped wire form.
+  await writeFile(path.join(stagingDir, 'bundle.eszip'), eszipBytes);
 
   const metaJson = {
     source_path: 'bundle.eszip',
@@ -261,7 +316,7 @@ async function stageEszip(
     entrypointPath: parsedQuery.entrypoint_path ?? null,
     importMapPath: parsedQuery.import_map_path ?? null,
     verifyJwt: parsedQuery.verify_jwt ?? true,
-    sizeBytes: body.byteLength,
+    sizeBytes: eszipBytes.byteLength,
     sha256: sha,
     meta: metaJson,
   };
