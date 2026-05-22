@@ -142,16 +142,16 @@ Monorepo: backend at `apps/api/`, frontend at `apps/web/`, shared schemas at `pa
 
 ### Tests for User Story 4
 
-- [ ] T045 [P] [US4] Integration test at `apps/api/tests/integration/management-api/secrets-list.test.ts` — `GET /v1/projects/:ref/secrets` returns `[{name, value: '<sha256>'}, ...]`. Plaintext values MUST NOT appear in the response anywhere.
-- [ ] T046 [P] [US4] Integration test at `apps/api/tests/integration/management-api/secrets-set.test.ts` — `POST .../secrets` with `[{name: 'FOO', value: 'bar'}]` returns 201, persists encrypted row, writes `FOO=bar` to the per-instance `.env`, calls `dockerControl.restart('...functions-1')` exactly once. A second POST with the same name replaces (not duplicates). Setting `JWT_SECRET` returns 409 with `code: reserved_name`. Setting `foo` (lowercase) returns 422.
-- [ ] T047 [P] [US4] Integration test at `apps/api/tests/integration/management-api/secrets-delete.test.ts` — `DELETE .../secrets` with `["FOO"]` removes the DB row and the `.env` line and restarts. Deleting a non-existent name returns success (idempotent), not 404.
+- [X] T045 [P] [US4] Integration test at `apps/api/tests/integration/management-api/secrets-list.test.ts` — `GET /v1/projects/:ref/secrets` returns `[{name, value: '<sha256>'}, ...]`. Plaintext values MUST NOT appear in the response anywhere.
+- [X] T046 [P] [US4] Integration test at `apps/api/tests/integration/management-api/secrets-set.test.ts` — `POST .../secrets` with `[{name: 'FOO', value: 'bar'}]` returns 201, persists encrypted row, writes `FOO=bar` to the per-instance `.env`, calls `dockerControl.restart('...functions-1')` exactly once. A second POST with the same name replaces (not duplicates). Setting `JWT_SECRET` returns 409 with `code: reserved_name`. Setting `foo` (lowercase) returns 422.
+- [X] T047 [P] [US4] Integration test at `apps/api/tests/integration/management-api/secrets-delete.test.ts` — `DELETE .../secrets` with `["FOO"]` removes the DB row and the `.env` line and restarts. Deleting a non-existent name returns success (idempotent), not 404.
 
 ### Implementation for User Story 4
 
-- [ ] T048 [P] [US4] Create `apps/api/src/services/secret-store.ts` — pure logic plus disk + DB. Exports: `RESERVED_SECRET_NAMES` (the 25-entry list from R-005), `validateSecretName(name)` (regex + reserved-check), `listSecrets(ref)` (DB rows + redaction), `setSecrets(ref, entries)` (per-instance Redis lock → backup `.env` → upsert DB rows (encrypted) → rewrite `.env` → restart container → release lock; rollback on any failure), `deleteSecrets(ref, names)` (same lock + restart cycle).
-- [ ] T049 [US4] Create `apps/api/src/routes/management/secrets.ts` — registers `GET /v1/projects/:ref/secrets`, `POST /v1/projects/:ref/secrets`, `DELETE /v1/projects/:ref/secrets`. Wire each to the corresponding T048 service function.
-- [ ] T050 [US4] Register T049 in `apps/api/src/server.ts` inside the `/v1` mgmt group.
-- [ ] T051 [US4] Manual E2E checkpoint: after T039 and T049 are live, run the Story 4 acceptance sequence from `quickstart.md` against a real instance: deploy `hello` that returns `Deno.env.get('EXAMPLE_KEY')`, set the secret, curl, observe propagation in <5s.
+- [X] T048 [P] [US4] Create `apps/api/src/services/secret-store.ts` — pure logic plus disk + DB. Exports: `RESERVED_SECRET_NAMES` (the 25-entry list from R-005), `validateSecretName(name)` (regex + reserved-check), `listSecrets(ref)` (DB rows + redaction), `setSecrets(ref, entries)` (per-instance Redis lock → backup `.env` → upsert DB rows (encrypted) → rewrite `.env` → restart container → release lock; rollback on any failure), `deleteSecrets(ref, names)` (same lock + restart cycle).
+- [X] T049 [US4] Create `apps/api/src/routes/management/secrets.ts` — registers `GET /v1/projects/:ref/secrets`, `POST /v1/projects/:ref/secrets`, `DELETE /v1/projects/:ref/secrets`. Wire each to the corresponding T048 service function.
+- [X] T050 [US4] Register T049 in `apps/api/src/server.ts` inside the `/v1` mgmt group.
+- [X] T051 [US4] Manual E2E checkpoint: after T039 and T049 are live, run the Story 4 acceptance sequence from `quickstart.md` against a real instance: deploy `hello` that returns `Deno.env.get('EXAMPLE_KEY')`, set the secret, curl, observe propagation in <5s.
 
 **Checkpoint**: All four P1 stories work end-to-end. The MVP is shippable.
 

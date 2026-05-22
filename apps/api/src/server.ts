@@ -25,6 +25,7 @@ import { organizationsRoutes } from './routes/management/organizations.js';
 import { projectsRoutes } from './routes/management/projects.js';
 import { apiKeysRoutes } from './routes/management/api-keys.js';
 import { functionsRoutes } from './routes/management/functions.js';
+import { secretsRoutes } from './routes/management/secrets.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -170,7 +171,8 @@ export async function buildApp(): Promise<FastifyInstance> {
       await mgmt.register(apiKeysRoutes);
       // US3 — functions (deploy/list/get/body/delete + bulk + eszip variants):
       await mgmt.register(functionsRoutes);
-      // US4 lands here (secrets).
+      // US4 — secrets (list/set/delete):
+      await mgmt.register(secretsRoutes);
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },

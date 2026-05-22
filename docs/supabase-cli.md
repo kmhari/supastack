@@ -173,10 +173,7 @@ selfbase implements a strict, drift-resistant subset of the Supabase Management 
 - `supabase functions list`
 - `supabase functions download <slug> [--use-api]`
 - `supabase functions delete <slug>`
-- `supabase secrets list` *(P0.6 — secrets endpoints; coming)*
-- `supabase secrets set <k>=<v>...` *(P0.6)*
-- `supabase secrets unset <k>` *(P0.6)*
-- DB-level commands that take `--db-url` explicitly: `db push`, `db pull`, `db diff`, `migration *`, `inspect *`. These don't hit selfbase's management API at all — they connect directly to Postgres.
+- `supabase secrets list`- `supabase secrets set <k>=<v>...`- `supabase secrets unset <k>`- DB-level commands that take `--db-url` explicitly: `db push`, `db pull`, `db diff`, `migration *`, `inspect *`. These don't hit selfbase's management API at all — they connect directly to Postgres.
 
 ### Not yet (P1+)
 
@@ -269,6 +266,9 @@ For the curious or for debugging, here's what the CLI is actually talking to:
 | `supabase functions list` | `GET /v1/projects/<r>/functions` | functions.ts |
 | `supabase functions download <s>` | `GET /v1/projects/<r>/functions/<s>/body` | functions.ts |
 | `supabase functions delete <s>` | `DELETE /v1/projects/<r>/functions/<s>` | functions.ts |
+| `supabase secrets list` | `GET /v1/projects/<r>/secrets` | `apps/api/src/routes/management/secrets.ts` |
+| `supabase secrets set K=V` | `POST /v1/projects/<r>/secrets` (JSON array) | secrets.ts → secret-store.ts (`setSecrets`) |
+| `supabase secrets unset K` | `DELETE /v1/projects/<r>/secrets` (JSON array of names) | secrets.ts → secret-store.ts (`deleteSecrets`) |
 
 All authenticated calls carry `Authorization: Bearer sbp_<40hex>` and `User-Agent: SupabaseCLI/<version>`.
 
