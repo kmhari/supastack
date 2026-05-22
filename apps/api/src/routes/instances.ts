@@ -11,6 +11,10 @@ import {
   type InstanceSecrets,
 } from '../services/instance-secrets.js';
 import { probeHttpsCert } from '../services/cert-probe.js';
+import { composePs } from '@selfbase/docker-control';
+import path from 'node:path';
+
+const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
 
 const SUPABASE_VERSION_DEFAULT = process.env.SUPABASE_VERSION ?? '2026.05.01';
 const REDIS_URL = process.env.REDIS_URL!;
@@ -240,6 +244,38 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
       { removeOnComplete: 100 },
     );
     return reply.status(202).send({ ref: row.ref, status: 'upgrading' });
+  });
+  app.get<{ Params: { ref: string } }>('/instances/:ref/health', async (req, reply) => {
+    app.requireAuth(req);
+    const row = await fetchInstance(req.params.ref);
+    let containers: Awaited<ReturnType<typeof composePs>> = [];
+    try {
+      containers = await composePs({
+        projectName: `selfbase-${row.ref}`,
+        dir: path.join(INSTANCES_DIR, row.ref),
+      });
+    } catch {
+      // Stack not yet up (provision in-flight) or socket unreachable — return
+      // an empty list rather than 500ing the UI poll.
+    }
+    const summary = containers.reduce(
+      (a, c) => {
+        if (c.health === 'healthy') a.healthy += 1;
+        else if (c.health === 'unhealthy') a.unhealthy += 1;
+        else if (c.health === 'starting') a.starting += 1;
+        else a.none += 1;
+        if (c.state === 'running') a.running += 1;
+        return a;
+      },
+      { healthy: 0, unhealthy: 0, starting: 0, none: 0, running: 0, total: containers.length },
+    );
+    return reply.send({
+      ref: row.ref,
+      status: row.status,
+      containers,
+      summary,
+      generatedAt: new Date().toISOString(),
+    });
   });
   app.delete<{ Params: { ref: string } }>('/instances/:ref', async (req, reply) => {
     app.authorize(req, 'instance.delete');
