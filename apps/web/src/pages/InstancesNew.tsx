@@ -41,7 +41,7 @@ export function InstancesNewPage(): React.ReactElement {
         name: name.trim(),
         dbPassword,
       })) as { ref: string };
-      navigate(`/dashboard/project/${out.ref}/admin`);
+      navigate(`/dashboard/project/${out.ref}`);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
       setError(e.response?.data?.error?.message ?? e.message ?? 'create failed');
