@@ -13,7 +13,8 @@ const TTL_MS = 60_000;
  *
  * Admissible:
  *  - host equals the configured apex domain
- *  - host equals `<ref>.<apex>` for any non-deleted instance
+ *  - host equals `<ref>.<apex>` (data plane) for any non-deleted instance
+ *  - host equals `studio-<ref>.<apex>` (Studio UI) for any non-deleted instance
  *
  * Authentication: none. This endpoint is only reachable from inside the
  * Docker network (Caddy admin :2019 is also internal-only). If you expose
@@ -46,11 +47,13 @@ async function isAdmissible(domain: string): Promise<boolean> {
 
   if (domain === apex) return true;
 
-  // <ref>.<apex>
+  // <ref>.<apex> (data plane) or studio-<ref>.<apex> (Studio UI)
   const suffix = `.${apex}`;
   if (!domain.endsWith(suffix)) return false;
-  const ref = domain.slice(0, -suffix.length);
-  if (!/^[a-z0-9]{20}$/.test(ref)) return false;
+  const left = domain.slice(0, -suffix.length);
+  const m = left.match(/^(?:studio-)?([a-z0-9]{20})$/);
+  if (!m || !m[1]) return false;
+  const ref = m[1];
 
   const inst = await db()
     .select({ status: schema.supabaseInstances.status })

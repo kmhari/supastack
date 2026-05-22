@@ -392,21 +392,9 @@ services:
       #      - ::1
       #    deny: []
 
-  ## Dashboard - catch all remaining routes
-  ##
-  ## Selfbase removes the upstream basic-auth plugin: org members are
-  ## already authenticated through the selfbase control plane before
-  ## they ever see the per-instance subdomain link, and the instance
-  ## ref is a 20-char unguessable secret. Adding a second auth prompt
-  ## was friction with no security gain (the dashboard creds are
-  ## shared across the org and live in plaintext on disk).
-  - name: dashboard
-    _comment: 'Studio: /* -> http://studio:3000/*'
-    url: http://studio:3000/
-    routes:
-      - name: dashboard-all
-        strip_path: true
-        paths:
-          - /
-    plugins:
-      - name: cors
+  ## Studio used to be served on this subdomain via a `/*` catch-all here.
+  ## Selfbase moved Studio to its own subdomain `studio-<ref>.<apex>` (served
+  ## directly by Caddy from the per-instance Studio container) so this
+  ## subdomain is reserved exclusively for the data plane (REST/Auth/Realtime/
+  ## Storage/Functions/pg-meta — what SDKs and the Supabase CLI hit). Any
+  ## non-API path here now returns Kong's default 404.

@@ -69,7 +69,10 @@ function instanceUrls(ref: string, apex: string | null) {
   if (!apex) return { kong: null, studio: null };
   return {
     kong: `https://${ref}.${apex}`,
-    studio: `https://${ref}.${apex}/studio`,
+    // Studio lives on its own subdomain — the data-plane subdomain above is
+    // reserved for SDK + CLI traffic (Kong's `dashboard` catch-all has been
+    // removed from kong.yml).
+    studio: `https://studio-${ref}.${apex}`,
   };
 }
 
