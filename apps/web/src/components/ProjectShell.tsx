@@ -21,19 +21,20 @@ export function ProjectShell({
   const { ref = '' } = useParams<{ ref: string }>();
   const { pathname } = useLocation();
 
+  const base = `/dashboard/project/${ref}`;
   const groups: { heading: string; items: { to: string; label: string }[] }[] = [
     {
       heading: 'Configuration',
       items: [
-        { to: `/p/${ref}`, label: 'General' },
-        { to: `/p/${ref}/api-keys`, label: 'API Keys' },
-        { to: `/p/${ref}/jwt-keys`, label: 'JWT Keys' },
-        { to: `/p/${ref}/backups`, label: 'Backups' },
+        { to: base, label: 'General' },
+        { to: `${base}/api-keys`, label: 'API Keys' },
+        { to: `${base}/jwt-keys`, label: 'JWT Keys' },
+        { to: `${base}/backups`, label: 'Backups' },
       ],
     },
     {
       heading: 'Diagnostics',
-      items: [{ to: `/p/${ref}/health`, label: 'Health' }],
+      items: [{ to: `${base}/health`, label: 'Health' }],
     },
   ];
 

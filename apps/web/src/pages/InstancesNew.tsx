@@ -20,7 +20,7 @@ export function InstancesNewPage(): React.ReactElement {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (user && user.role !== 'admin') return <Navigate to="/" replace />;
+  if (user && user.role !== 'admin') return <Navigate to="/dashboard" replace />;
 
   const generatePassword = (): void => {
     const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -41,7 +41,7 @@ export function InstancesNewPage(): React.ReactElement {
         name: name.trim(),
         dbPassword,
       })) as { ref: string };
-      navigate(`/p/${out.ref}`);
+      navigate(`/dashboard/project/${out.ref}`);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
       setError(e.response?.data?.error?.message ?? e.message ?? 'create failed');
@@ -132,7 +132,7 @@ export function InstancesNewPage(): React.ReactElement {
           <Separator className="bg-border-soft" />
 
           <div className="flex justify-end gap-2 bg-black/15 px-10 py-5">
-            <Button type="button" variant="outline" onClick={() => navigate('/')}>
+            <Button type="button" variant="outline" onClick={() => navigate('/dashboard')}>
               Cancel
             </Button>
             <Button type="submit" disabled={disabled}>

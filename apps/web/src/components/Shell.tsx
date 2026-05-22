@@ -19,19 +19,22 @@ export function Shell({
   const { pathname } = useLocation();
 
   const isProjectsActive =
-    pathname === '/' || (pathname.startsWith('/p/') && !pathname.startsWith('/settings/'));
+    pathname === '/' ||
+    pathname === '/dashboard' ||
+    pathname.startsWith('/dashboard/') ||
+    pathname.startsWith('/p/'); // legacy URLs before redirect kicks in
   const isSettingsActive = (prefix: string): boolean => pathname.startsWith(prefix);
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
       <nav className="flex h-12 items-center justify-between border-b border-border-soft px-8">
         <div className="flex items-center gap-7">
-          <Link to="/" className="flex items-center gap-2.5 text-foreground no-underline">
+          <Link to="/dashboard" className="flex items-center gap-2.5 text-foreground no-underline">
             <span aria-hidden className="inline-block size-[22px] rounded bg-success" />
             <strong className="text-sm font-medium">Selfbase</strong>
           </Link>
           <div className="flex items-center gap-1">
-            <NavTab to="/" label="Projects" active={isProjectsActive} />
+            <NavTab to="/dashboard" label="Projects" active={isProjectsActive} />
             <NavTab to="/settings/org" label="Settings" active={isSettingsActive('/settings/org')} />
             <NavTab
               to="/settings/members"
