@@ -186,10 +186,6 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     POOLER_DB_POOL_SIZE: '5',
     PROXY_DOMAIN: '',
     REGION: 'local',
-
-    // Optional integrations — present but empty by default (operators configure later).
-    GOOGLE_PROJECT_ID: '',
-    GOOGLE_PROJECT_NUMBER: '',
   };
 
   // 4. Completeness assertion (anti-Multibase missing-vars regression).
