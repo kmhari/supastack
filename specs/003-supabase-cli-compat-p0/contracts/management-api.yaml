@@ -1,0 +1,774 @@
+openapi: 3.1.0
+info:
+  title: Selfbase Management API (P0 subset)
+  version: 0.1.0
+  description: |
+    The subset of Supabase's Management API that selfbase implements for upstream
+    CLI compatibility (`supabase functions deploy/list/delete/download`, `supabase
+    secrets set/list/unset`, `supabase login`, `supabase link`).
+
+    Wire-format conformance with `api.supabase.com/api/v1-json` is a hard
+    requirement; response shapes are a strict subset of the upstream contract.
+    Request schemas use permissive parsing (extra fields ignored).
+
+    Authentication: every authenticated path requires `Authorization: Bearer
+    sbp_<40 hex>`. The CLI hard-validates the token format client-side; selfbase
+    issues tokens matching `^sbp_[a-f0-9]{40}$`.
+
+servers:
+  - url: https://api.{apex}
+    description: Per-deployment selfbase API surface
+    variables:
+      apex:
+        default: supaviser.dev
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  # ─── Auth/Profile ─────────────────────────────────────────────────────────
+  /v1/profile:
+    get:
+      operationId: getProfile
+      summary: Whoami for the authenticated PAT
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─── Organizations ────────────────────────────────────────────────────────
+  /v1/organizations:
+    get:
+      operationId: listOrganizations
+      summary: Organizations the PAT can access
+      responses:
+        '200':
+          description: Organization list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Organization'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─── Projects ─────────────────────────────────────────────────────────────
+  /v1/projects:
+    get:
+      operationId: listProjects
+      summary: Projects (per-instance Supabase deployments) the PAT can access
+      responses:
+        '200':
+          description: Project list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/projects/{ref}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectRef'
+    get:
+      operationId: getProject
+      summary: Project metadata by reference
+      responses:
+        '200':
+          description: Project metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─── Project API Keys ─────────────────────────────────────────────────────
+  /v1/projects/{ref}/api-keys:
+    parameters:
+      - $ref: '#/components/parameters/ProjectRef'
+    get:
+      operationId: listApiKeys
+      summary: Per-instance anon/service_role JWTs
+      description: |
+        Returns the legacy HS256-signed JWTs (anon, service_role) selfbase mints
+        when it provisions each instance. Matches the cloud's "legacy" API keys
+        shape. Newer publishable/secret keys are not yet supported.
+      responses:
+        '200':
+          description: API key list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─── Functions ────────────────────────────────────────────────────────────
+  /v1/projects/{ref}/functions:
+    parameters:
+      - $ref: '#/components/parameters/ProjectRef'
+    get:
+      operationId: listFunctions
+      summary: Edge functions deployed to the project
+      responses:
+        '200':
+          description: Function list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Function'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createFunctionFromEszip
+      summary: Create a function from a pre-built eszip (default CLI path)
+      description: |
+        The default `supabase functions deploy` path when Docker is available
+        on the developer's machine. The CLI bundles the function locally into
+        an eszip via its `supabase/edge-runtime` container, then PUTs the raw
+        bytes here. Selfbase writes the eszip to the per-instance volume; the
+        edge-runtime loads it via `EdgeRuntime.userWorkers.create({ maybeEszip })`.
+        See [contracts/functions-deploy.md](functions-deploy.md) §2 for the wire format.
+      parameters:
+        - name: slug
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/FunctionSlug'
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: verify_jwt
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+        - name: import_map_path
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: entrypoint_path
+          in: query
+          required: true
+          schema:
+            type: string
+            description: 'file:// URL of the entrypoint module inside the eszip'
+        - name: ezbr_sha256
+          in: query
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/vnd.denoland.eszip:
+            schema:
+              type: string
+              format: binary
+              description: Raw eszip bytes (chunked transfer; magic header `ESZIP2.X`)
+      responses:
+        '201':
+          description: Function created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployFunctionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    put:
+      operationId: bulkUpdateFunctions
+      summary: Bulk-update functions (multi-deploy finalize)
+      description: |
+        Called by the CLI as the last step of a multi-function deploy. Selfbase
+        accepts the array and returns it back unchanged; the per-function POSTs
+        have already persisted each function.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/BulkUpdateFunctionEntry'
+      responses:
+        '200':
+          description: Bulk update result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  functions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Function'
+                required: [functions]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/projects/{ref}/functions/deploy:
+    parameters:
+      - $ref: '#/components/parameters/ProjectRef'
+      - name: slug
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/FunctionSlug'
+      - name: bundleOnly
+        in: query
+        required: false
+        description: |
+          Set by the CLI to true during the per-function step of a multi-function
+          deploy. Selfbase treats it as advisory; behavior is identical.
+        schema:
+          type: boolean
+    post:
+      operationId: deployFunction
+      summary: Deploy a single edge function (raw source upload)
+      description: |
+        The `--use-api` CLI path. Uploads raw source files via chunked multipart;
+        selfbase writes them to the per-instance volume and restarts the
+        functions container. See [contracts/functions-deploy.md](functions-deploy.md)
+        for the wire format details.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FunctionDeployBody'
+      responses:
+        '201':
+          description: Function deployed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployFunctionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /v1/projects/{ref}/functions/{slug}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectRef'
+      - $ref: '#/components/parameters/FunctionSlugPath'
+    get:
+      operationId: getFunction
+      summary: Single function metadata
+      responses:
+        '200':
+          description: Function metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Function'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateFunctionFromEszip
+      summary: Update an existing function from a pre-built eszip
+      description: |
+        Called by the CLI on subsequent deploys when the function already
+        exists. Body shape and query params identical to the create variant
+        (`POST /v1/projects/{ref}/functions`). Selfbase atomically replaces
+        the prior `bundle.eszip`, snapshotting the old one for rollback.
+      parameters:
+        - name: verify_jwt
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: import_map_path
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: entrypoint_path
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: ezbr_sha256
+          in: query
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/vnd.denoland.eszip:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Function updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployFunctionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      operationId: deleteFunction
+      summary: Delete a deployed function
+      responses:
+        '200':
+          description: Function deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Function deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/projects/{ref}/functions/{slug}/body:
+    parameters:
+      - $ref: '#/components/parameters/ProjectRef'
+      - $ref: '#/components/parameters/FunctionSlugPath'
+    get:
+      operationId: getFunctionBody
+      summary: Download a deployed function's source bundle
+      description: |
+        Returns a multipart/form-data body whose parts mirror the original
+        upload — one `metadata` JSON part and N `file` parts. The CLI's
+        `functions download` reconstructs the local `supabase/functions/<slug>/`
+        directory from these parts.
+      responses:
+        '200':
+          description: Function source bundle
+          content:
+            multipart/form-data:
+              schema:
+                $ref: '#/components/schemas/FunctionDeployBody'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─── Secrets ──────────────────────────────────────────────────────────────
+  /v1/projects/{ref}/secrets:
+    parameters:
+      - $ref: '#/components/parameters/ProjectRef'
+    get:
+      operationId: listSecrets
+      summary: List per-project secrets
+      description: |
+        Returns name + a SHA-256 digest of the value (the cloud's redaction
+        scheme — the CLI doesn't display it, but the field must be present and
+        parseable).
+      responses:
+        '200':
+          description: Secret list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SecretListEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createSecrets
+      summary: Set one or more secrets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/SecretInput'
+      responses:
+        '201':
+          description: Secrets stored; runtime container restarted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: All secrets stored
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Reserved name conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              example:
+                message: 'Cannot set reserved secret: JWT_SECRET'
+                code: reserved_name
+    delete:
+      operationId: deleteSecrets
+      summary: Unset one or more secrets by name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+                example: STRIPE_KEY
+      responses:
+        '200':
+          description: Secrets removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─── Catch-all for unimplemented endpoints (FR-024) ───────────────────────
+  /v1/projects/{ref}/{unsupported}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectRef'
+      - name: unsupported
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: notImplementedGet
+      summary: Catch-all — returns 501 with the not-implemented envelope
+      responses:
+        '501':
+          $ref: '#/components/responses/NotImplemented'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: sbp_<40 hex>
+      description: Personal Access Token matching `^sbp_[a-f0-9]{40}$`
+
+  parameters:
+    ProjectRef:
+      name: ref
+      in: path
+      required: true
+      description: Per-instance project reference (selfbase short id)
+      schema:
+        type: string
+        pattern: '^[a-z0-9]{20,32}$'
+    FunctionSlugPath:
+      name: slug
+      in: path
+      required: true
+      description: Function identifier
+      schema:
+        $ref: '#/components/schemas/FunctionSlug'
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example: { message: Unauthorized, code: unauthorized }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example: { message: 'Project not found', code: not_found }
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    PayloadTooLarge:
+      description: Upload exceeded 50 MB
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example: { message: 'Bundle exceeds 50 MB limit', code: payload_too_large }
+    UnprocessableEntity:
+      description: Semantic validation (slug regex, reserved name, etc.)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotImplemented:
+      description: Endpoint exists upstream but not in selfbase P0
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            message: 'This management endpoint is not implemented in selfbase. See https://supaviser.dev/docs/cli-compat for the supported subset.'
+            code: not_implemented
+            details:
+              path: '/v1/projects/{ref}/branches'
+              upstream_only: true
+
+  schemas:
+
+    ErrorEnvelope:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    Profile:
+      type: object
+      required: [id, primary_email]
+      properties:
+        id:
+          type: string
+          format: uuid
+        primary_email:
+          type: string
+          format: email
+        username:
+          type: string
+
+    Organization:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    Project:
+      type: object
+      required: [id, ref, name, organization_id, region, created_at, status]
+      properties:
+        id:
+          type: string
+        ref:
+          type: string
+        name:
+          type: string
+        organization_id:
+          type: string
+        region:
+          type: string
+          description: Always returned; selfbase uses a synthetic value (e.g. "selfbase")
+          default: selfbase
+        created_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE_HEALTHY, COMING_UP, INACTIVE, RESTORING, REMOVED, UNKNOWN]
+
+    ApiKey:
+      type: object
+      required: [name, api_key]
+      properties:
+        name:
+          type: string
+          enum: [anon, service_role]
+        api_key:
+          type: string
+          description: JWT signed with the instance's HS256 secret
+
+    FunctionSlug:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9-]{0,47}$'
+      description: DNS-label-ish slug, ≤48 chars, lowercase
+
+    Function:
+      type: object
+      required: [id, slug, name, version, status]
+      properties:
+        id:
+          type: string
+        slug:
+          $ref: '#/components/schemas/FunctionSlug'
+        name:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [ACTIVE, REMOVED, THROTTLED]
+        verify_jwt:
+          type: boolean
+          default: true
+        import_map:
+          type: boolean
+          default: false
+        entrypoint_path:
+          type: string
+          nullable: true
+        import_map_path:
+          type: string
+          nullable: true
+        ezbr_sha256:
+          type: string
+          nullable: true
+        created_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds (cloud convention; not ISO 8601 on this field)
+        updated_at:
+          type: integer
+          format: int64
+
+    DeployFunctionResponse:
+      allOf:
+        - $ref: '#/components/schemas/Function'
+
+    FunctionDeployBody:
+      type: object
+      description: |
+        Multipart body. The CLI sends exactly one `metadata` part and one or
+        more `file` parts; selfbase emits the same shape on download.
+      required: [metadata, file]
+      properties:
+        metadata:
+          $ref: '#/components/schemas/FunctionDeployMetadata'
+        file:
+          oneOf:
+            - type: string
+              format: binary
+            - type: array
+              items:
+                type: string
+                format: binary
+          description: One or more files; multipart parts share the form name "file"
+
+    FunctionDeployMetadata:
+      type: object
+      required: [entrypoint_path, name]
+      properties:
+        entrypoint_path:
+          type: string
+          description: POSIX-style relative path to the function's entrypoint
+          example: supabase/functions/hello/index.ts
+        import_map_path:
+          type: string
+          description: 'Empty string when absent (sent as `""`, not omitted)'
+        name:
+          type: string
+          description: Function slug
+        static_patterns:
+          type: array
+          items:
+            type: string
+        verify_jwt:
+          type: boolean
+        sha256:
+          type: string
+          description: Set by the CLI only on the eszip path; ignored on the API path
+
+    BulkUpdateFunctionEntry:
+      allOf:
+        - $ref: '#/components/schemas/Function'
+
+    SecretInput:
+      type: object
+      required: [name, value]
+      properties:
+        name:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]{0,63}$'
+        value:
+          type: string
+
+    SecretListEntry:
+      type: object
+      required: [name, value]
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+          description: |
+            SHA-256 hex digest of the plain value (the cloud's redaction
+            convention). Never the plaintext.
+
+x-selfbase-compat-policy:
+  request_parsing: permissive
+  response_emission: conservative
+  description: |
+    Request schemas use Zod `.passthrough()` so the CLI can add new optional
+    fields without selfbase regressing. Response schemas omit unsupported
+    optional fields rather than emitting stub values.
