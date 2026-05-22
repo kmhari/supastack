@@ -24,6 +24,7 @@ import { profileRoutes } from './routes/management/profile.js';
 import { organizationsRoutes } from './routes/management/organizations.js';
 import { projectsRoutes } from './routes/management/projects.js';
 import { apiKeysRoutes } from './routes/management/api-keys.js';
+import { functionsRoutes } from './routes/management/functions.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -64,9 +65,27 @@ export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? 'info' },
     trustProxy: true,
-    bodyLimit: 5 * 1024 * 1024,
+    // 50 MB ceiling for the eszip + multipart deploy paths (raw eszip bodies
+    // and multipart uploads under /v1/projects/:ref/functions). Dashboard
+    // routes only deal in JSON payloads; the larger cap is harmless for them.
+    bodyLimit: 50 * 1024 * 1024,
     disableRequestLogging: false,
   });
+
+  // Raw-body parser for the CLI's eszip deploy path. The CLI sends
+  // `Content-Type: application/vnd.denoland.eszip`; without this Fastify
+  // would leave req.body as undefined. Also accept octet-stream as the
+  // belt-and-braces fallback (some CLI versions emit it).
+  app.addContentTypeParser(
+    'application/vnd.denoland.eszip',
+    { parseAs: 'buffer' },
+    (_req, body, done) => done(null, body),
+  );
+  app.addContentTypeParser(
+    'application/octet-stream',
+    { parseAs: 'buffer' },
+    (_req, body, done) => done(null, body),
+  );
 
   // Uniform error formatter.
   app.setErrorHandler((err, req, reply) => {
@@ -123,7 +142,9 @@ export async function buildApp(): Promise<FastifyInstance> {
       // US2 — projects + per-instance api-keys:
       await mgmt.register(projectsRoutes);
       await mgmt.register(apiKeysRoutes);
-      // US3/US4 land here (functions, secrets).
+      // US3 — functions (deploy/list/get/body/delete + bulk + eszip variants):
+      await mgmt.register(functionsRoutes);
+      // US4 lands here (secrets).
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },
