@@ -167,21 +167,14 @@ export function InstanceDetailPage(): React.ReactElement {
                 <code className="font-mono text-sm">{data.urls.kong}</code>
               </DetailRow>
               <DetailRow label="Studio">
-                <div className="flex flex-col gap-1">
-                  <a
-                    href={`${data.urls.kong}/project/default`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-success no-underline hover:underline"
-                  >
-                    Open Studio <ExternalLink className="inline size-3" />
-                  </a>
-                  <span className="text-xs text-muted-foreground">
-                    Studio is behind Kong basic-auth. Username:{' '}
-                    <code className="font-mono">supabase</code>. Reveal the dashboard password
-                    below.
-                  </span>
-                </div>
+                <a
+                  href={`${data.urls.kong}/project/default`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-success no-underline hover:underline"
+                >
+                  Open Studio <ExternalLink className="inline size-3" />
+                </a>
               </DetailRow>
               {data.cert.notAfter && (
                 <DetailRow label="Cert">
