@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth-context.js';
 import { apexApi, setupApi } from './lib/api.js';
 import { SetupPage } from './pages/Setup.js';
@@ -42,7 +42,7 @@ export function App(): React.ReactElement {
           }
         />
         <Route
-          path="/"
+          path="/dashboard"
           element={
             <RequireAuth>
               <InstancesPage />
@@ -50,7 +50,7 @@ export function App(): React.ReactElement {
           }
         />
         <Route
-          path="/instances/new"
+          path="/dashboard/new"
           element={
             <RequireAuth>
               <InstancesNewPage />
@@ -58,7 +58,7 @@ export function App(): React.ReactElement {
           }
         />
         <Route
-          path="/p/:ref"
+          path="/dashboard/project/:ref"
           element={
             <RequireAuth>
               <ProjectGeneralPage />
@@ -66,7 +66,7 @@ export function App(): React.ReactElement {
           }
         />
         <Route
-          path="/p/:ref/api-keys"
+          path="/dashboard/project/:ref/api-keys"
           element={
             <RequireAuth>
               <ProjectApiKeysPage />
@@ -74,7 +74,7 @@ export function App(): React.ReactElement {
           }
         />
         <Route
-          path="/p/:ref/jwt-keys"
+          path="/dashboard/project/:ref/jwt-keys"
           element={
             <RequireAuth>
               <ProjectJwtKeysPage />
@@ -82,7 +82,7 @@ export function App(): React.ReactElement {
           }
         />
         <Route
-          path="/p/:ref/backups"
+          path="/dashboard/project/:ref/backups"
           element={
             <RequireAuth>
               <InstanceBackupsPage />
@@ -90,13 +90,19 @@ export function App(): React.ReactElement {
           }
         />
         <Route
-          path="/p/:ref/health"
+          path="/dashboard/project/:ref/health"
           element={
             <RequireAuth>
               <ProjectHealthPage />
             </RequireAuth>
           }
         />
+
+        {/* Legacy path redirects — keep bookmarks/external links working. */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/instances/new" element={<Navigate to="/dashboard/new" replace />} />
+        <Route path="/p/:ref" element={<LegacyProjectRedirect />} />
+        <Route path="/p/:ref/:tab" element={<LegacyProjectRedirect />} />
         <Route
           path="/settings/org"
           element={
@@ -129,7 +135,7 @@ export function App(): React.ReactElement {
             </RequireAuth>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </AuthProvider>
   );
@@ -196,4 +202,11 @@ function RequireAuth({ children }: { children: React.ReactElement }): React.Reac
     return <></>;
   }
   return children;
+}
+
+/** Redirect old /p/:ref and /p/:ref/:tab URLs to /dashboard/project/:ref/... */
+function LegacyProjectRedirect(): React.ReactElement {
+  const { ref = '', tab } = useParams<{ ref: string; tab?: string }>();
+  const target = tab ? `/dashboard/project/${ref}/${tab}` : `/dashboard/project/${ref}`;
+  return <Navigate to={target} replace />;
 }

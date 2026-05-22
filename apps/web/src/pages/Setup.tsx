@@ -97,7 +97,7 @@ export function SetupPage(): React.ReactElement {
       {step === 'apex-enter' && <ApexEnterStep onSaved={() => setStep('apex-verify')} />}
       {step === 'apex-verify' && (
         <ApexVerifyStep
-          onIssued={() => navigate('/')}
+          onIssued={() => navigate('/dashboard')}
           onChangeDomain={() => setStep('apex-enter')}
         />
       )}

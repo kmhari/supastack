@@ -29,7 +29,7 @@ export function AcceptInvitePage(): React.ReactElement {
     try {
       await membersApi.acceptInvite({ token, password });
       await refresh();
-      navigate('/');
+      navigate('/dashboard');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
       setError(e.response?.data?.error?.message ?? e.message ?? 'accept failed');

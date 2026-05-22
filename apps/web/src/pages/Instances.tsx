@@ -120,7 +120,7 @@ export function InstancesPage(): React.ReactElement {
             </Button>
           </div>
           {showNew && (
-            <Button size="sm" onClick={() => navigate('/instances/new')}>
+            <Button size="sm" onClick={() => navigate('/dashboard/new')}>
               <Plus className="size-3" />
               New project
             </Button>
@@ -132,7 +132,7 @@ export function InstancesPage(): React.ReactElement {
       {error && <p className="text-destructive">Failed to load projects</p>}
 
       {data && rows.length === 0 && (
-        <EmptyState role={user?.role ?? 'member'} onNew={() => navigate('/instances/new')} />
+        <EmptyState role={user?.role ?? 'member'} onNew={() => navigate('/dashboard/new')} />
       )}
 
       {data && rows.length > 0 && view === 'grid' && (
@@ -190,7 +190,7 @@ function ProjectCard({ row }: { row: InstanceRow }): React.ReactElement {
         <StatusPill status={row.status} />
       </div>
       <Link
-        to={`/p/${row.ref}`}
+        to={`/dashboard/project/${row.ref}`}
         onClick={(e) => e.stopPropagation()}
         aria-label="Project settings"
         title="Project settings"
@@ -214,7 +214,7 @@ function ProjectCard({ row }: { row: InstanceRow }): React.ReactElement {
     );
   }
   return (
-    <Link to={`/p/${row.ref}`} className={cn(cardClasses, 'no-underline')}>
+    <Link to={`/dashboard/project/${row.ref}`} className={cn(cardClasses, 'no-underline')}>
       {body}
     </Link>
   );
@@ -239,7 +239,7 @@ function ProjectList({ rows }: { rows: InstanceRow[] }): React.ReactElement {
             </div>
             <StatusPill status={r.status} />
             <Link
-              to={`/p/${r.ref}`}
+              to={`/dashboard/project/${r.ref}`}
               onClick={(e) => e.stopPropagation()}
               aria-label="Project settings"
               title="Project settings"
@@ -254,7 +254,7 @@ function ProjectList({ rows }: { rows: InstanceRow[] }): React.ReactElement {
             {inner}
           </a>
         ) : (
-          <Link key={r.ref} to={`/p/${r.ref}`} className={rowClasses}>
+          <Link key={r.ref} to={`/dashboard/project/${r.ref}`} className={rowClasses}>
             {inner}
           </Link>
         );

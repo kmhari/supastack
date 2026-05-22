@@ -347,7 +347,7 @@ export function ProjectGeneralPage(): React.ReactElement {
               onClick={() => {
                 lifecycle.mutate('delete');
                 setDeleteOpen(false);
-                navigate('/');
+                navigate('/dashboard');
               }}
             >
               Delete forever

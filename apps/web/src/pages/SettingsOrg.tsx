@@ -76,7 +76,7 @@ export function SettingsOrgPage(): React.ReactElement {
     saveOrg.mutate({ name, apexDomain: apex.trim() || undefined });
   };
 
-  if (!isAdmin && user) return <Navigate to="/" replace />;
+  if (!isAdmin && user) return <Navigate to="/dashboard" replace />;
 
   return (
     <Shell>

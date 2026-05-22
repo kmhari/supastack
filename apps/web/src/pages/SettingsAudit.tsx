@@ -65,7 +65,7 @@ export function SettingsAuditPage(): React.ReactElement {
       });
   }, [entries, filter, targetFilter]);
 
-  if (user && user.role !== 'admin') return <Navigate to="/" replace />;
+  if (user && user.role !== 'admin') return <Navigate to="/dashboard" replace />;
 
   return (
     <Shell wide>

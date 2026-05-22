@@ -15,7 +15,7 @@ export function LoginPage(): React.ReactElement {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to="/dashboard" replace />;
 
   const onSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
@@ -23,7 +23,7 @@ export function LoginPage(): React.ReactElement {
     setError(null);
     try {
       await login(email, password);
-      navigate('/');
+      navigate('/dashboard');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
       setError(e.response?.data?.error?.message ?? 'invalid credentials');
