@@ -6,9 +6,14 @@ import { Button } from '@/components/ui/button';
 export function Shell({
   children,
   wide,
+  bare,
 }: {
   children: React.ReactNode;
+  /** Set to true on the Projects dashboard (max-width 1280); other pages use the narrower 960 column. */
   wide?: boolean;
+  /** Skip the centered max-width container — caller wants to own the layout
+   *  (e.g. ProjectShell renders a full-bleed sidebar + content split). */
+  bare?: boolean;
 }): React.ReactElement {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
@@ -52,9 +57,13 @@ export function Shell({
           </Button>
         </div>
       </nav>
-      <main className={cn('mx-auto px-8 pt-10 pb-20', wide ? 'max-w-[1280px]' : 'max-w-[960px]')}>
-        {children}
-      </main>
+      {bare ? (
+        <main>{children}</main>
+      ) : (
+        <main className={cn('mx-auto px-8 pt-10 pb-20', wide ? 'max-w-[1280px]' : 'max-w-[960px]')}>
+          {children}
+        </main>
+      )}
     </div>
   );
 }
