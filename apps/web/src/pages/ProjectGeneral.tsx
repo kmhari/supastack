@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   AlertCircle,
+  AlertTriangle,
   ChevronDown,
   ExternalLink,
   Loader2,
@@ -284,14 +285,31 @@ export function ProjectGeneralPage(): React.ReactElement {
       {isAdmin && (
         <Section
           title="Delete project"
-          titleClassName="text-destructive"
-          description="Permanently deletes the project, its database, backups, and audit history. This cannot be undone."
+          description="Permanently remove your project and its database"
         >
           <Card>
             <CardContent>
-              <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
-                Delete project
-              </Button>
+              <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive-bg/30 p-3">
+                <span className="flex size-7 flex-none items-center justify-center rounded-md bg-destructive/20 text-destructive">
+                  <AlertTriangle className="size-4" />
+                </span>
+                <div className="flex flex-col gap-1">
+                  <div className="text-sm font-medium text-foreground">
+                    Deleting this project will also remove your database.
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Make sure you have made a backup if you want to keep your data.
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="mt-2.5 self-start"
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    Delete project
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </Section>
@@ -405,7 +423,7 @@ function SplitButton({
             <ChevronDown className="size-3.5" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuContent align="end" className="w-80 p-1">
           {items.map((it) => (
             <DropdownMenuItem
               key={it.label}
@@ -413,11 +431,13 @@ function SplitButton({
                 e.preventDefault();
                 it.onSelect();
               }}
-              className="flex-col items-start gap-0.5"
+              className="flex-col items-start gap-1 px-3 py-2.5"
             >
               <span className="text-sm font-medium text-foreground">{it.label}</span>
               {it.description && (
-                <span className="text-xs text-muted-foreground">{it.description}</span>
+                <span className="text-xs leading-snug text-muted-foreground">
+                  {it.description}
+                </span>
               )}
             </DropdownMenuItem>
           ))}
