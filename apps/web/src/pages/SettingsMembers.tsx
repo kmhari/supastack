@@ -1,8 +1,38 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { membersApi } from '../lib/api.js';
-import { useAuth } from '../lib/auth-context.js';
+import { AlertCircle, Clock, MoreVertical, Search, UserPlus, UserRound } from 'lucide-react';
+import { toast } from 'sonner';
+import { membersApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
+import { Shell } from '@/components/Shell';
+import { PageHeader } from '@/components/PageHeader';
+import { CopyButton } from '@/components/CopyButton';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Member {
   userId: string;
@@ -10,14 +40,12 @@ interface Member {
   role: 'admin' | 'member';
   createdAt: string;
 }
-
 interface Invite {
   id: string;
   email: string;
   role: 'admin' | 'member';
   expiresAt: string;
 }
-
 interface InviteCreated {
   id: string;
   email: string;
@@ -41,251 +69,314 @@ export function SettingsMembersPage(): React.ReactElement {
     enabled: isAdmin,
   });
 
+  const [filter, setFilter] = useState('');
+  const filtered = useMemo(
+    () =>
+      members.filter((m) =>
+        filter ? m.email.toLowerCase().includes(filter.toLowerCase()) : true,
+      ),
+    [members, filter],
+  );
+
+  const [inviteOpen, setInviteOpen] = useState(false);
+
+  const removeMember = useMutation({
+    mutationFn: (userId: string) => membersApi.remove(userId),
+    onSuccess: () => {
+      toast.success('Member removed');
+      qc.invalidateQueries({ queryKey: ['members'] });
+    },
+  });
+
+  const revokeInvite = useMutation({
+    mutationFn: (id: string) => membersApi.revokeInvite(id),
+    onSuccess: () => {
+      toast.success('Invite revoked');
+      qc.invalidateQueries({ queryKey: ['invites'] });
+    },
+  });
+
+  return (
+    <Shell wide>
+      <PageHeader title="Members" />
+
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative w-72">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter members"
+            className="h-8 pl-8 text-sm"
+          />
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          {isAdmin && (
+            <Button size="sm" onClick={() => setInviteOpen(true)}>
+              <UserPlus className="size-3.5" />
+              Invite members
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-border-soft bg-card">
+        <div className="grid grid-cols-[1fr_180px_180px_120px] gap-4 border-b border-border-soft px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <div>Member</div>
+          <div>Role</div>
+          <div>Joined</div>
+          <div />
+        </div>
+
+        {isLoading ? (
+          <p className="px-6 py-5 text-muted-foreground">Loading…</p>
+        ) : filtered.length === 0 ? (
+          <p className="px-6 py-5 text-muted-foreground">
+            {filter ? 'No members match your filter.' : 'No members yet.'}
+          </p>
+        ) : (
+          filtered.map((m, i) => (
+            <MemberRow
+              key={m.userId}
+              member={m}
+              isYou={m.userId === user?.userId}
+              first={i === 0}
+              canRemove={isAdmin && m.userId !== user?.userId}
+              onRemove={() => {
+                if (confirm(`Remove ${m.email}? Tokens and sessions will be invalidated.`))
+                  removeMember.mutate(m.userId);
+              }}
+            />
+          ))
+        )}
+      </div>
+
+      {isAdmin && invites.length > 0 && (
+        <>
+          <h2 className="mt-10 mb-3 text-base font-medium text-foreground">
+            Pending invites ({invites.length})
+          </h2>
+          <div className="overflow-hidden rounded-lg border border-border-soft bg-card">
+            <div className="grid grid-cols-[1fr_180px_180px_120px] gap-4 border-b border-border-soft px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <div>Email</div>
+              <div>Role</div>
+              <div>Expires</div>
+              <div />
+            </div>
+            {invites.map((i, idx) => (
+              <div
+                key={i.id}
+                className={`grid grid-cols-[1fr_180px_180px_120px] items-center gap-4 px-6 py-4 ${idx > 0 ? 'border-t border-border-soft' : ''}`}
+              >
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="flex size-7 items-center justify-center rounded-full border border-border bg-secondary/60">
+                    <Clock className="size-3.5 text-muted-foreground" />
+                  </span>
+                  {i.email}
+                </div>
+                <div className="text-sm text-foreground">{i.role}</div>
+                <div className="text-sm text-muted-foreground">
+                  {new Date(i.expiresAt).toLocaleDateString()}
+                </div>
+                <div className="text-right">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => revokeInvite.mutate(i.id)}
+                  >
+                    Revoke
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <InviteDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ['invites'] })}
+      />
+    </Shell>
+  );
+}
+
+function MemberRow({
+  member,
+  isYou,
+  first,
+  canRemove,
+  onRemove,
+}: {
+  member: Member;
+  isYou: boolean;
+  first: boolean;
+  canRemove: boolean;
+  onRemove: () => void;
+}): React.ReactElement {
+  return (
+    <div
+      className={`grid grid-cols-[1fr_180px_180px_120px] items-center gap-4 px-6 py-4 ${first ? '' : 'border-t border-border-soft'}`}
+    >
+      <div className="flex items-center gap-3">
+        <span className="flex size-7 items-center justify-center rounded-full border border-border bg-secondary/60">
+          <UserRound className="size-3.5 text-muted-foreground" />
+        </span>
+        <span className="text-sm text-foreground">{member.email}</span>
+        {isYou && <Badge variant="outline">You</Badge>}
+      </div>
+      <div className="text-sm text-foreground">
+        {member.role === 'admin' ? 'Admin' : 'Member'}
+      </div>
+      <div className="text-sm text-muted-foreground">
+        {new Date(member.createdAt).toLocaleDateString()}
+      </div>
+      <div className="flex justify-end">
+        {canRemove && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label="member actions">
+                <MoreVertical className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  onRemove();
+                }}
+              >
+                Remove member
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InviteDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}): React.ReactElement {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'admin' | 'member'>('member');
   const [newLink, setNewLink] = useState<string | null>(null);
-  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const createInvite = useMutation({
     mutationFn: (body: { email: string; role: 'admin' | 'member' }) =>
       membersApi.invite(body) as Promise<InviteCreated>,
     onSuccess: (data) => {
       setNewLink(data.link);
-      setEmail('');
-      qc.invalidateQueries({ queryKey: ['invites'] });
+      onSuccess();
     },
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { error?: { message?: string } } } };
-      setInviteError(e.response?.data?.error?.message ?? 'invite failed');
+      setError(e.response?.data?.error?.message ?? 'invite failed');
     },
   });
 
-  const revokeInvite = useMutation({
-    mutationFn: (id: string) => membersApi.revokeInvite(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['invites'] }),
-  });
-
-  const removeMember = useMutation({
-    mutationFn: (userId: string) => membersApi.remove(userId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['members'] }),
-  });
-
-  const onInvite = (e: FormEvent): void => {
+  const onSubmit = (e: FormEvent): void => {
     e.preventDefault();
-    setInviteError(null);
+    setError(null);
     setNewLink(null);
     createInvite.mutate({ email, role });
   };
 
-  return (
-    <div style={shell}>
-      <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <Link to="/" style={linkButton}>
-          ← Instances
-        </Link>
-        <h1 style={{ marginTop: 12 }}>Members</h1>
+  const reset = (): void => {
+    setEmail('');
+    setRole('member');
+    setNewLink(null);
+    setError(null);
+  };
 
-        {isAdmin && (
-          <section style={card}>
-            <h2 style={h2}>Invite</h2>
-            <form
-              onSubmit={onInvite}
-              style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}
-            >
-              <Field label="Email">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{ ...inputStyle, minWidth: 240 }}
-                />
-              </Field>
-              <Field label="Role">
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as 'admin' | 'member')}
-                  style={inputStyle}
-                >
-                  <option value="member">member</option>
-                  <option value="admin">admin</option>
-                </select>
-              </Field>
-              <button type="submit" disabled={createInvite.isPending} style={primaryButton}>
-                {createInvite.isPending ? 'Inviting…' : 'Invite'}
-              </button>
-            </form>
-            {inviteError && <div style={{ color: '#f99', marginTop: 8 }}>{inviteError}</div>}
-            {newLink && (
-              <div style={{ marginTop: 12, padding: 12, background: '#0a0a0a', borderRadius: 4 }}>
-                <p style={{ margin: 0, fontSize: 13, color: '#aaa' }}>
-                  One-time invite link (valid 24h). Send this to the invitee:
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) reset();
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Invite a member</DialogTitle>
+          <DialogDescription>
+            Send a one-time invite link. Valid for 24 hours.
+          </DialogDescription>
+        </DialogHeader>
+
+        {!newLink ? (
+          <form onSubmit={onSubmit} className="grid gap-4">
+            <div>
+              <Label htmlFor="invite-email" className="mb-1.5 block text-sm text-foreground-light">
+                Email
+              </Label>
+              <Input
+                id="invite-email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="invitee@example.com"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="mb-1.5 block text-sm text-foreground-light">Role</Label>
+              <Select value={role} onValueChange={(v) => setRole(v as 'admin' | 'member')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Member — read access only</SelectItem>
+                  <SelectItem value="admin">Admin — full access</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createInvite.isPending}>
+                {createInvite.isPending ? 'Sending…' : 'Send invite'}
+              </Button>
+            </DialogFooter>
+          </form>
+        ) : (
+          <div className="grid gap-3">
+            <Alert>
+              <AlertDescription>
+                <p className="m-0 mb-2 text-foreground">
+                  Invite link for <strong>{email}</strong>:
                 </p>
-                <code
-                  style={{
-                    display: 'block',
-                    marginTop: 8,
-                    wordBreak: 'break-all',
-                    color: '#3ECF8E',
-                  }}
-                >
+                <code className="block break-all rounded border border-border-soft bg-background p-2 font-mono text-xs text-success">
                   {newLink}
                 </code>
-                <button
-                  onClick={() => void navigator.clipboard.writeText(newLink)}
-                  style={{ ...secondaryButton, marginTop: 8 }}
-                >
-                  Copy link
-                </button>
-              </div>
-            )}
-          </section>
+              </AlertDescription>
+            </Alert>
+            <div className="flex justify-end gap-2">
+              <CopyButton value={newLink} label="Copy link" variant="outline" />
+              <Button onClick={() => onOpenChange(false)}>Done</Button>
+            </div>
+          </div>
         )}
-
-        {isAdmin && invites.length > 0 && (
-          <section style={card}>
-            <h2 style={h2}>Open invites</h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ textAlign: 'left', color: '#888' }}>
-                  <th style={th}>Email</th>
-                  <th style={th}>Role</th>
-                  <th style={th}>Expires</th>
-                  <th style={th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {invites.map((i) => (
-                  <tr key={i.id} style={{ borderTop: '1px solid #2a2a2a' }}>
-                    <td style={td}>{i.email}</td>
-                    <td style={td}>{i.role}</td>
-                    <td style={td}>{new Date(i.expiresAt).toLocaleString()}</td>
-                    <td style={td}>
-                      <button onClick={() => revokeInvite.mutate(i.id)} style={linkButton}>
-                        Revoke
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        )}
-
-        <section style={card}>
-          <h2 style={h2}>Members ({members.length})</h2>
-          {isLoading ? (
-            <p>Loading…</p>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ textAlign: 'left', color: '#888' }}>
-                  <th style={th}>Email</th>
-                  <th style={th}>Role</th>
-                  <th style={th}>Joined</th>
-                  <th style={th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((m) => (
-                  <tr key={m.userId} style={{ borderTop: '1px solid #2a2a2a' }}>
-                    <td style={td}>
-                      {m.email}
-                      {m.userId === user?.userId && (
-                        <span style={{ color: '#888', fontSize: 12 }}> (you)</span>
-                      )}
-                    </td>
-                    <td style={td}>{m.role}</td>
-                    <td style={td}>{new Date(m.createdAt).toLocaleDateString()}</td>
-                    <td style={td}>
-                      {isAdmin && m.userId !== user?.userId && (
-                        <button
-                          onClick={() => {
-                            if (
-                              confirm(`Remove ${m.email}? Tokens and sessions will be invalidated.`)
-                            ) {
-                              removeMember.mutate(m.userId);
-                            }
-                          }}
-                          style={{ ...linkButton, color: '#f99' }}
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
-      </div>
-    </div>
-  );
-}
-
-const shell: React.CSSProperties = {
-  minHeight: '100vh',
-  background: '#0a0a0a',
-  color: '#eee',
-  fontFamily: 'system-ui, sans-serif',
-  padding: 32,
-};
-const card: React.CSSProperties = {
-  background: '#161616',
-  border: '1px solid #2a2a2a',
-  borderRadius: 6,
-  padding: 16,
-  marginTop: 24,
-};
-const h2: React.CSSProperties = { margin: '0 0 12px 0', fontSize: 16 };
-const th: React.CSSProperties = { padding: '8px 4px', fontWeight: 600, fontSize: 13 };
-const td: React.CSSProperties = { padding: '8px 4px', fontSize: 14 };
-const inputStyle: React.CSSProperties = {
-  padding: '8px 10px',
-  border: '1px solid #444',
-  background: '#222',
-  color: '#eee',
-  borderRadius: 4,
-};
-const primaryButton: React.CSSProperties = {
-  padding: '8px 14px',
-  background: '#3ECF8E',
-  color: '#000',
-  border: 'none',
-  borderRadius: 4,
-  fontWeight: 600,
-  cursor: 'pointer',
-};
-const secondaryButton: React.CSSProperties = {
-  padding: '6px 12px',
-  background: 'none',
-  color: '#eee',
-  border: '1px solid #444',
-  borderRadius: 4,
-  cursor: 'pointer',
-};
-const linkButton: React.CSSProperties = {
-  background: 'none',
-  border: 'none',
-  color: '#7ab8f5',
-  cursor: 'pointer',
-  padding: 0,
-  fontSize: 13,
-  textDecoration: 'none',
-};
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}): React.ReactElement {
-  return (
-    <label style={{ display: 'grid', gap: 4, fontSize: 14 }}>
-      <span style={{ color: '#aaa' }}>{label}</span>
-      {children}
-    </label>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,7 +1,29 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { authApi } from '../lib/api.js';
+import { AlertTriangle, KeyRound, MoreVertical, Plus, Search } from 'lucide-react';
+import { toast } from 'sonner';
+import { authApi } from '@/lib/api';
+import { Shell } from '@/components/Shell';
+import { PageHeader } from '@/components/PageHeader';
+import { CopyButton } from '@/components/CopyButton';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Token {
   id: string;
@@ -17,186 +39,217 @@ export function SettingsTokensPage(): React.ReactElement {
     queryFn: () => authApi.listTokens() as Promise<Token[]>,
   });
 
-  const [label, setLabel] = useState('');
-  const [newToken, setNewToken] = useState<{ id: string; token: string; label: string } | null>(
-    null,
+  const [filter, setFilter] = useState('');
+  const filtered = useMemo(
+    () =>
+      tokens.filter((t) =>
+        filter ? t.label.toLowerCase().includes(filter.toLowerCase()) : true,
+      ),
+    [tokens, filter],
   );
 
-  const create = useMutation({
-    mutationFn: (body: { label: string }) => authApi.createToken(body),
-    onSuccess: (data) => {
-      setNewToken(data as { id: string; token: string; label: string });
-      setLabel('');
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const revoke = useMutation({
+    mutationFn: (id: string) => authApi.revokeToken(id),
+    onSuccess: () => {
+      toast.success('Token revoked');
       qc.invalidateQueries({ queryKey: ['tokens'] });
     },
   });
 
-  const revoke = useMutation({
-    mutationFn: (id: string) => authApi.revokeToken(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tokens'] }),
-  });
-
-  const onCreate = (e: FormEvent): void => {
-    e.preventDefault();
-    if (!label.trim()) return;
-    setNewToken(null);
-    create.mutate({ label });
-  };
-
   return (
-    <div style={shell}>
-      <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <Link to="/" style={linkButton}>
-          ← Instances
-        </Link>
-        <h1 style={{ marginTop: 12 }}>API tokens</h1>
-        <p style={{ color: '#888' }}>
-          Personal bearer tokens for CLI / scripts. Treat like a password.
-        </p>
+    <Shell wide>
+      <PageHeader title="Tokens" />
 
-        <section style={card}>
-          <h2 style={h2}>Create token</h2>
-          <form onSubmit={onCreate} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-            <Field label="Label (e.g. 'ci-deploy')">
-              <input
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                style={{ ...inputStyle, minWidth: 240 }}
-                placeholder="ci-deploy"
-              />
-            </Field>
-            <button type="submit" disabled={create.isPending} style={primaryButton}>
-              {create.isPending ? 'Creating…' : 'Create'}
-            </button>
-          </form>
-          {newToken && (
-            <div style={{ marginTop: 12, padding: 12, background: '#0a0a0a', borderRadius: 4 }}>
-              <p style={{ margin: 0, fontSize: 13, color: '#fadc6b' }}>
-                Save this token — it&apos;s shown once and never again:
-              </p>
-              <code
-                style={{ display: 'block', marginTop: 8, wordBreak: 'break-all', color: '#3ECF8E' }}
-              >
-                {newToken.token}
-              </code>
-              <button
-                onClick={() => void navigator.clipboard.writeText(newToken.token)}
-                style={{ ...secondaryButton, marginTop: 8 }}
-              >
-                Copy token
-              </button>
-            </div>
-          )}
-        </section>
-
-        <section style={card}>
-          <h2 style={h2}>Your tokens ({tokens.length})</h2>
-          {isLoading ? (
-            <p>Loading…</p>
-          ) : tokens.length === 0 ? (
-            <p style={{ color: '#888' }}>No tokens yet.</p>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ textAlign: 'left', color: '#888' }}>
-                  <th style={th}>Label</th>
-                  <th style={th}>Created</th>
-                  <th style={th}>Last used</th>
-                  <th style={th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {tokens.map((t) => (
-                  <tr key={t.id} style={{ borderTop: '1px solid #2a2a2a' }}>
-                    <td style={td}>{t.label}</td>
-                    <td style={td}>{new Date(t.createdAt).toLocaleDateString()}</td>
-                    <td style={td}>
-                      {t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleString() : 'never'}
-                    </td>
-                    <td style={td}>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Revoke token "${t.label}"? Cannot be undone.`))
-                            revoke.mutate(t.id);
-                        }}
-                        style={{ ...linkButton, color: '#f99' }}
-                      >
-                        Revoke
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative w-72">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter tokens"
+            className="h-8 pl-8 text-sm"
+          />
+        </div>
+        <div className="ml-auto">
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="size-3.5" />
+            Create token
+          </Button>
+        </div>
       </div>
-    </div>
+
+      <div className="overflow-hidden rounded-lg border border-border-soft bg-card">
+        <div className="grid grid-cols-[1fr_180px_220px_60px] gap-4 border-b border-border-soft px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <div>Label</div>
+          <div>Created</div>
+          <div>Last used</div>
+          <div />
+        </div>
+        {isLoading ? (
+          <p className="px-6 py-5 text-muted-foreground">Loading…</p>
+        ) : filtered.length === 0 ? (
+          <p className="px-6 py-5 text-muted-foreground">
+            {filter ? 'No tokens match your filter.' : 'No tokens yet — create one to use the API.'}
+          </p>
+        ) : (
+          filtered.map((t, i) => (
+            <div
+              key={t.id}
+              className={`grid grid-cols-[1fr_180px_220px_60px] items-center gap-4 px-6 py-4 ${i > 0 ? 'border-t border-border-soft' : ''}`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex size-7 items-center justify-center rounded-full border border-border bg-secondary/60">
+                  <KeyRound className="size-3.5 text-muted-foreground" />
+                </span>
+                <span className="text-sm text-foreground">{t.label}</span>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {new Date(t.createdAt).toLocaleDateString()}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleString() : 'never'}
+              </div>
+              <div className="flex justify-end">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-sm" aria-label="token actions">
+                      <MoreVertical className="size-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        if (confirm(`Revoke "${t.label}"? Cannot be undone.`))
+                          revoke.mutate(t.id);
+                      }}
+                    >
+                      Revoke token
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <CreateTokenDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ['tokens'] })}
+      />
+    </Shell>
   );
 }
 
-const shell: React.CSSProperties = {
-  minHeight: '100vh',
-  background: '#0a0a0a',
-  color: '#eee',
-  fontFamily: 'system-ui, sans-serif',
-  padding: 32,
-};
-const card: React.CSSProperties = {
-  background: '#161616',
-  border: '1px solid #2a2a2a',
-  borderRadius: 6,
-  padding: 16,
-  marginTop: 24,
-};
-const h2: React.CSSProperties = { margin: '0 0 12px 0', fontSize: 16 };
-const th: React.CSSProperties = { padding: '8px 4px', fontWeight: 600, fontSize: 13 };
-const td: React.CSSProperties = { padding: '8px 4px', fontSize: 14 };
-const inputStyle: React.CSSProperties = {
-  padding: '8px 10px',
-  border: '1px solid #444',
-  background: '#222',
-  color: '#eee',
-  borderRadius: 4,
-};
-const primaryButton: React.CSSProperties = {
-  padding: '8px 14px',
-  background: '#3ECF8E',
-  color: '#000',
-  border: 'none',
-  borderRadius: 4,
-  fontWeight: 600,
-  cursor: 'pointer',
-};
-const secondaryButton: React.CSSProperties = {
-  padding: '6px 12px',
-  background: 'none',
-  color: '#eee',
-  border: '1px solid #444',
-  borderRadius: 4,
-  cursor: 'pointer',
-};
-const linkButton: React.CSSProperties = {
-  background: 'none',
-  border: 'none',
-  color: '#7ab8f5',
-  cursor: 'pointer',
-  padding: 0,
-  fontSize: 13,
-  textDecoration: 'none',
-};
-
-function Field({
-  label,
-  children,
+function CreateTokenDialog({
+  open,
+  onOpenChange,
+  onSuccess,
 }: {
-  label: string;
-  children: React.ReactNode;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
 }): React.ReactElement {
+  const [label, setLabel] = useState('');
+  const [token, setToken] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const create = useMutation({
+    mutationFn: (body: { label: string }) => authApi.createToken(body),
+    onSuccess: (data) => {
+      const d = data as { id: string; token: string; label: string };
+      setToken(d.token);
+      onSuccess();
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: { message?: string } } } };
+      setError(e.response?.data?.error?.message ?? 'failed to create token');
+    },
+  });
+
+  const onSubmit = (e: FormEvent): void => {
+    e.preventDefault();
+    if (!label.trim()) return;
+    setError(null);
+    create.mutate({ label: label.trim() });
+  };
+
+  const reset = (): void => {
+    setLabel('');
+    setToken(null);
+    setError(null);
+  };
+
   return (
-    <label style={{ display: 'grid', gap: 4, fontSize: 14 }}>
-      <span style={{ color: '#aaa' }}>{label}</span>
-      {children}
-    </label>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) reset();
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{token ? 'Save your token' : 'Create token'}</DialogTitle>
+          <DialogDescription>
+            {token
+              ? "Shown once and never again — save it now."
+              : 'Personal bearer token for CLI / scripts. Treat like a password.'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {!token ? (
+          <form onSubmit={onSubmit} className="grid gap-4">
+            <div>
+              <Label htmlFor="token-label" className="mb-1.5 block text-sm text-foreground-light">
+                Label
+              </Label>
+              <Input
+                id="token-label"
+                required
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="ci-deploy"
+                autoFocus
+              />
+            </div>
+            {error && (
+              <Alert variant="destructive">
+                <AlertTriangle />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={create.isPending}>
+                {create.isPending ? 'Creating…' : 'Create token'}
+              </Button>
+            </DialogFooter>
+          </form>
+        ) : (
+          <div className="grid gap-3">
+            <Alert variant="warn">
+              <AlertTriangle />
+              <AlertDescription>
+                <code className="mt-1 block break-all rounded border border-border-soft bg-background p-2 font-mono text-xs text-success">
+                  {token}
+                </code>
+              </AlertDescription>
+            </Alert>
+            <div className="flex justify-end gap-2">
+              <CopyButton value={token} label="Copy token" variant="outline" />
+              <Button onClick={() => onOpenChange(false)}>Done</Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
