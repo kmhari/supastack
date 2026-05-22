@@ -274,6 +274,63 @@ All authenticated calls carry `Authorization: Bearer sbp_<40hex>` and `User-Agen
 
 ---
 
+## Verifying a deployment
+
+For operators after a fresh deploy or upgrade, two runbook items confirm the CLI surface is working end-to-end. Both require a live selfbase deployment with at least one CLI-compatible (letters-only ref) project, a PAT minted from the dashboard, and the upstream `supabase` CLI on the runner. The second one additionally requires Docker on the runner.
+
+### 1. Performance sanity (SC-003/004/005/006)
+
+```bash
+# Drive the canonical quickstart sequence, tee CLI output so you can grep
+# for shape-mismatch errors (SC-006 expects zero of these against a healthy
+# deployment).
+export SELFBASE_APEX=<your-apex>
+export SUPABASE_ACCESS_TOKEN=<your-PAT>
+export SUPABASE_PROFILE=$HOME/.supabase/profiles/selfbase.toml
+export REF=<letters-only-project-ref>
+
+LOG=/tmp/selfbase-quickstart.log
+mkdir -p /tmp/perf-test && cd /tmp/perf-test
+mkdir -p supabase/functions/hello
+cat > supabase/functions/hello/index.ts <<'EOF'
+Deno.serve(() => new Response(Deno.env.get('PERF_KEY') ?? 'unset'));
+EOF
+echo 'project_id = "'"$REF"'"' > supabase/config.toml
+
+# First deploy — SC-003: ≤15s end-to-end
+{ time supabase link --project-ref "$REF" 2>&1; } 2>&1 | tee -a "$LOG"
+{ time supabase functions deploy hello 2>&1; } 2>&1 | tee -a "$LOG"
+
+# Repeat deploy — SC-004: ≤10s
+{ time supabase functions deploy hello 2>&1; } 2>&1 | tee -a "$LOG"
+
+# Secret propagation — SC-005: ≤5s for the new value to appear in the env
+ANON=$(curl -sS "https://api.${SELFBASE_APEX}/v1/projects/${REF}/api-keys" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  | python3 -c 'import sys,json;k=[x for x in json.load(sys.stdin) if x["name"]=="anon"][0]["api_key"];print(k)')
+supabase secrets set PERF_KEY=value-A 2>&1 | tee -a "$LOG"
+sleep 5
+curl -sS "https://${REF}.${SELFBASE_APEX}/functions/v1/hello" -H "Authorization: Bearer $ANON"  # expect value-A
+supabase secrets unset PERF_KEY 2>&1 | tee -a "$LOG"
+
+# SC-006: 95% no shape-mismatch errors. Zero hits is the pass condition.
+grep -cE 'Try rerunning the command with --debug|json: cannot unmarshal|Unexpected error' "$LOG"
+```
+
+Pass condition: every `time` line ≤ its budget; final `grep -c` returns `0`.
+
+### 2. End-to-end CLI suite
+
+```bash
+SELFBASE_APEX=<apex> \
+SELFBASE_PAT=<sbp_...> \
+SELFBASE_PROJECT_REF=<letters-only-ref> \
+SELFBASE_ANON_KEY=<anon-key-for-that-project> \
+pnpm test:cli
+```
+
+The script (`tests/cli-e2e/deploy-hello.sh`) runs the full `login → link → deploy → curl → cleanup` flow in **both** the default (eszip + Docker) and `--use-api` (multipart) variants. Exits `0` on success. The eszip variant auto-skips when Docker isn't available on the runner.
+
 ## See also
 
 - Spec: [`/specs/003-supabase-cli-compat-p0/spec.md`](../specs/003-supabase-cli-compat-p0/spec.md)

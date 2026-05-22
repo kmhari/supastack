@@ -30,6 +30,12 @@ Compose silently mangles. Selfbase ships the regression tests for both.
   to tokens + sessions.
 - **Audit log** of destructive actions (delete, member-remove, secret
   reveal).
+- **Supabase CLI compatibility** — the unmodified upstream `supabase` CLI
+  (≥ 2.72.7) drives selfbase end-to-end: login with a personal access
+  token, link a local project, `supabase functions deploy`, `supabase
+  secrets set`, etc. No fork, no patch, no shim. See
+  [`docs/supabase-cli.md`](docs/supabase-cli.md) for the connect-and-go
+  guide.
 
 See [`specs/001-selfbase-supabase-platform/spec.md`](specs/001-selfbase-supabase-platform/spec.md)
 for the full functional requirements and success criteria.
