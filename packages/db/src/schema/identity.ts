@@ -87,6 +87,12 @@ export const invites = pgTable(
 );
 
 // ─── api_tokens ─────────────────────────────────────────────────────────────
+//
+// `prefix` (added in migration 0002_cli_compat.sql) stores the first 12
+// characters of the plaintext token (`sbp_<8-hex>` for new sbp_-format
+// tokens). Used by the dashboard to display a stable, non-reversible
+// label per token in the list view. Nullable for legacy tokens minted
+// before the prefix column existed.
 export const apiTokens = pgTable('api_tokens', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id')
@@ -94,6 +100,7 @@ export const apiTokens = pgTable('api_tokens', {
     .references(() => users.id, { onDelete: 'cascade' }),
   tokenSha256: bytea('token_sha256').notNull().unique(),
   label: text('label').notNull(),
+  prefix: text('prefix'),
   lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
