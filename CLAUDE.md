@@ -1,4 +1,5 @@
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+Active feature plan: [specs/003-supabase-cli-compat-p0/plan.md](specs/003-supabase-cli-compat-p0/plan.md)
+Spec: [specs/003-supabase-cli-compat-p0/spec.md](specs/003-supabase-cli-compat-p0/spec.md)
+Project-root engineering blueprint: [plan.md](plan.md)
 <!-- SPECKIT END -->

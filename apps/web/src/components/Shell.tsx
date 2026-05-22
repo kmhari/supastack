@@ -1,0 +1,96 @@
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@/lib/auth-context';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+
+export function Shell({
+  children,
+  wide,
+  bare,
+}: {
+  children: React.ReactNode;
+  /** Set to true on the Projects dashboard (max-width 1280); other pages use the narrower 960 column. */
+  wide?: boolean;
+  /** Skip the centered max-width container — caller wants to own the layout
+   *  (e.g. ProjectShell renders a full-bleed sidebar + content split). */
+  bare?: boolean;
+}): React.ReactElement {
+  const { user, logout } = useAuth();
+  const { pathname } = useLocation();
+
+  const isProjectsActive =
+    pathname === '/' ||
+    pathname === '/dashboard' ||
+    pathname.startsWith('/dashboard/') ||
+    pathname.startsWith('/p/'); // legacy URLs before redirect kicks in
+  const isSettingsActive = (prefix: string): boolean => pathname.startsWith(prefix);
+
+  return (
+    <div className="min-h-screen bg-background text-foreground font-sans">
+      <nav className="flex h-12 items-center justify-between border-b border-border-soft px-8">
+        <div className="flex items-center gap-7">
+          <Link to="/dashboard" className="flex items-center gap-2.5 text-foreground no-underline">
+            <span aria-hidden className="inline-block size-[22px] rounded bg-success" />
+            <strong className="text-sm font-medium">Selfbase</strong>
+          </Link>
+          <div className="flex items-center gap-1">
+            <NavTab to="/dashboard" label="Projects" active={isProjectsActive} />
+            <NavTab to="/settings/org" label="Settings" active={isSettingsActive('/settings/org')} />
+            <NavTab
+              to="/settings/members"
+              label="Members"
+              active={isSettingsActive('/settings/members')}
+            />
+            <NavTab
+              to="/settings/tokens"
+              label="Tokens"
+              active={isSettingsActive('/settings/tokens')}
+            />
+            <NavTab
+              to="/settings/audit"
+              label="Audit"
+              active={isSettingsActive('/settings/audit')}
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3.5 text-sm">
+          <span className="text-muted-foreground">{user?.email ?? ''}</span>
+          <Button variant="outline" size="sm" onClick={() => void logout()}>
+            Sign out
+          </Button>
+        </div>
+      </nav>
+      {bare ? (
+        <main>{children}</main>
+      ) : (
+        <main className={cn('mx-auto px-8 pt-10 pb-20', wide ? 'max-w-[1280px]' : 'max-w-[960px]')}>
+          {children}
+        </main>
+      )}
+    </div>
+  );
+}
+
+function NavTab({
+  to,
+  label,
+  active,
+}: {
+  to: string;
+  label: string;
+  active: boolean;
+}): React.ReactElement {
+  return (
+    <Link
+      to={to}
+      className={cn(
+        'rounded px-2.5 py-1.5 text-sm no-underline transition-colors',
+        active
+          ? 'bg-secondary text-foreground font-medium'
+          : 'text-foreground-light hover:text-foreground hover:bg-secondary/50',
+      )}
+    >
+      {label}
+    </Link>
+  );
+}

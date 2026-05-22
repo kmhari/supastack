@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Test + coverage
+coverage/
+.nyc_output/
+*.log
+logs/
+
+# Env + secrets — NEVER COMMIT
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+!packages/db/migrations/*.sql
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# Caches
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# Python (Drizzle migrations might generate Python helpers; harmless guard)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Runtime per-instance data (host bind mounts)
+/var/selfbase/
+volumes/
+
+# Vendored upstream — clone is fine to track; the dynamic Studio build output is not
+infra/studio/dist/
+infra/supabase-template/.local/
+
+# NOTE: do NOT add `lib/` here — this aggressive pattern broke Multibase's
+# dashboard build because it gitignored apps/web/src/lib/api.ts. CI asserts
+# `git check-ignore -v` on src/lib/api.ts to keep this guarantee.
+
+# Stray supabase CLI working dir (e.g. /supabase/.temp/) when commands are run
+# from the repo root by accident
+/supabase/

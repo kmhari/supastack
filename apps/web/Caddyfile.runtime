@@ -1,0 +1,8 @@
+# Tiny static file server for the built dashboard, fronted by the platform
+# Caddy in infra/docker-compose.yml. SPA fallback to /index.html.
+:80 {
+	root * /srv
+	try_files {path} /index.html
+	file_server
+	encode zstd gzip
+}

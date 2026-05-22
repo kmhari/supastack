@@ -1,0 +1,196 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * customFont — same display family Supabase uses on dashboard.supabase.com.
+ * Self-hosted from /public/fonts so the bundle isn't tied to Supabase's
+ * CDN at runtime. Weights 400 / 500 / 700 / 800 + italics. The Fallback
+ * `local(Arial)` variant matches Supabase's ascent/descent overrides so
+ * unstyled content renders close to the loaded face.
+ */
+@font-face {
+  font-family: customFont;
+  src: url("/fonts/CustomFont_Book-s.p.0azi~02f25gue.woff2") format("woff2");
+  font-display: swap;
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: customFont;
+  src: url("/fonts/CustomFont_BookItalic-s.p.0b9190yyl_rs8.woff2") format("woff2");
+  font-display: swap;
+  font-weight: 400;
+  font-style: italic;
+}
+@font-face {
+  font-family: customFont;
+  src: url("/fonts/CustomFont_Medium-s.p.0tv5-ancskxds.woff2") format("woff2");
+  font-display: swap;
+  font-weight: 500;
+  font-style: normal;
+}
+@font-face {
+  font-family: customFont;
+  src: url("/fonts/CustomFont_Bold-s.p.12-2o.k_jyjob.woff2") format("woff2");
+  font-display: swap;
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: customFont;
+  src: url("/fonts/CustomFont_BoldItalic-s.p.0tf-gxytl2b-7.woff2") format("woff2");
+  font-display: swap;
+  font-weight: 700;
+  font-style: italic;
+}
+@font-face {
+  font-family: customFont;
+  src: url("/fonts/CustomFont_Black-s.p.0noshj6-6fcqy.woff2") format("woff2");
+  font-display: swap;
+  font-weight: 800;
+  font-style: normal;
+}
+@font-face {
+  font-family: customFont;
+  src: url("/fonts/CustomFont_BlackItalic-s.p.11zbk9vv9c20b.woff2") format("woff2");
+  font-display: swap;
+  font-weight: 800;
+  font-style: italic;
+}
+@font-face {
+  font-family: "customFont Fallback";
+  src: local(Arial);
+  ascent-override: 98.02%;
+  descent-override: 26.35%;
+  line-gap-override: 0%;
+  size-adjust: 101.72%;
+}
+
+@theme {
+  --color-background: #171717;
+  --color-foreground: #fafafa;
+  --color-card: #1f1f1f;
+  --color-card-foreground: #fafafa;
+  --color-popover: #1f1f1f;
+  --color-popover-foreground: #fafafa;
+
+  --color-border: #393939;
+  /* Softer border tuned to match supabase.com — used as the outer edge
+     of every <Card> and the divider between card sections. Slightly
+     warmer than the input/button border (#393939) so the card frame
+     reads as quieter than the controls inside it. */
+  --color-border-soft: #2e2e2e;
+  --color-input: rgba(255, 255, 255, 0.026);
+  --color-ring: #3ecf8e;
+
+  --color-muted: #242424;
+  --color-muted-foreground: #898989;
+  --color-foreground-light: #b4b4b4;
+
+  --color-primary: #006239;
+  --color-primary-foreground: #fafafa;
+
+  --color-secondary: #242424;
+  --color-secondary-foreground: #fafafa;
+
+  --color-accent: #242424;
+  --color-accent-foreground: #fafafa;
+
+  --color-success: #3ecf8e;
+  --color-success-foreground: #0a0a0a;
+  --color-warn: #fadc6b;
+  --color-warn-foreground: #0a0a0a;
+  --color-info: #7ab8f5;
+  --color-info-foreground: #0a0a0a;
+  --color-destructive: #f87171;
+  --color-destructive-foreground: #fafafa;
+  --color-destructive-bg: #3a1717;
+
+  --font-sans: customFont, "customFont Fallback", Circular, "Circular Std",
+    "TT Commons Pro", Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+}
+
+/* Health page — soft pulse used on live status dots. */
+@keyframes selfbase-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(1.55);
+  }
+}
+@keyframes selfbase-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes selfbase-shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  /*
+   * Tailwind v4 changed the default border color from gray-200 to
+   * `currentColor`, which makes bare `border` utility classes inherit
+   * the parent text color — bright white in our dark theme. Restore the
+   * v3 behavior by defaulting border-color globally to --color-border.
+   * Without this every shadcn primitive (Card, Dialog, Input, Select…)
+   * renders with stark white outlines.
+   */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border);
+  }
+  html,
+  body,
+  #root {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    font-size: 14px;
+  }
+  *:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 1px;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
