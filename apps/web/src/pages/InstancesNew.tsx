@@ -54,9 +54,9 @@ export function InstancesNewPage(): React.ReactElement {
 
   return (
     <Shell>
-      <form onSubmit={(e) => void onSubmit(e)} className="mx-auto max-w-[900px]">
-        <Card className="overflow-hidden rounded-lg border border-border-soft bg-card p-0">
-          <div className="px-8 pt-7 pb-7">
+      <form onSubmit={(e) => void onSubmit(e)} className="mx-auto max-w-[960px]">
+        <Card className="overflow-hidden rounded-lg border border-border-soft bg-card p-0 gap-0">
+          <div className="px-10 py-8">
             <h1 className="m-0 text-[22px] font-medium text-foreground">Create a new project</h1>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Your project will have its own dedicated instance and full Postgres database.
@@ -67,46 +67,22 @@ export function InstancesNewPage(): React.ReactElement {
 
           <Separator className="bg-border-soft" />
 
-          <div className="grid grid-cols-[280px_1fr] gap-8 px-8 py-6">
-            <Label className="pt-2 text-sm text-foreground">Project name</Label>
-            <div>
-              <Input
-                required
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Project name"
-              />
-            </div>
-          </div>
+          <FormRow label="Project name">
+            <Input
+              required
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Project name"
+            />
+          </FormRow>
 
           <Separator className="bg-border-soft" />
 
-          <div className="grid grid-cols-[280px_1fr] gap-8 px-8 py-6">
-            <Label className="pt-2 text-sm text-foreground">Database password</Label>
-            <div className="flex flex-col gap-2.5 min-w-0">
-              <div className="relative">
-                <Input
-                  required
-                  type={showPassword ? 'text' : 'password'}
-                  minLength={8}
-                  value={dbPassword}
-                  onChange={(e) => setDbPassword(e.target.value)}
-                  placeholder="Type in a strong password"
-                  className={
-                    showPassword ? 'pr-16 font-mono' : 'pr-16'
-                  }
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1.5 text-xs text-muted-foreground hover:text-foreground"
-                  aria-label={showPassword ? 'Hide' : 'Show'}
-                >
-                  {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                </button>
-              </div>
-              <div className="text-sm leading-snug text-muted-foreground">
+          <FormRow
+            label="Database password"
+            hint={
+              <>
                 This is the password to your Postgres database, so it must be strong and hard to
                 guess.{' '}
                 <button
@@ -117,20 +93,45 @@ export function InstancesNewPage(): React.ReactElement {
                   Generate a password
                 </button>
                 .
-              </div>
+              </>
+            }
+          >
+            <div className="relative">
+              <Input
+                required
+                type={showPassword ? 'text' : 'password'}
+                minLength={8}
+                value={dbPassword}
+                onChange={(e) => setDbPassword(e.target.value)}
+                placeholder="Type in a strong password"
+                className={showPassword ? 'pr-12 font-mono' : 'pr-12'}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1.5 text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? 'Hide' : 'Show'}
+              >
+                {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+              </button>
             </div>
-          </div>
+          </FormRow>
 
           {error && (
-            <div className="mx-8 mb-4">
-              <Alert variant="destructive">
-                <AlertCircle />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            </div>
+            <>
+              <Separator className="bg-border-soft" />
+              <div className="px-10 py-5">
+                <Alert variant="destructive">
+                  <AlertCircle />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              </div>
+            </>
           )}
 
-          <div className="flex justify-end gap-2 border-t border-border-soft bg-black/15 px-8 py-5">
+          <Separator className="bg-border-soft" />
+
+          <div className="flex justify-end gap-2 bg-black/15 px-10 py-5">
             <Button type="button" variant="outline" onClick={() => navigate('/')}>
               Cancel
             </Button>
@@ -141,5 +142,27 @@ export function InstancesNewPage(): React.ReactElement {
         </Card>
       </form>
     </Shell>
+  );
+}
+
+function FormRow({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: React.ReactNode;
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <div className="grid grid-cols-[320px_1fr] items-start gap-10 px-10 py-8">
+      <Label className="pt-2 text-sm font-normal text-foreground">{label}</Label>
+      <div className="flex min-w-0 flex-col gap-3">
+        {children}
+        {hint && (
+          <div className="text-sm leading-relaxed text-muted-foreground">{hint}</div>
+        )}
+      </div>
+    </div>
   );
 }
