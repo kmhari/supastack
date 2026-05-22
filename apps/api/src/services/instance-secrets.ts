@@ -36,7 +36,16 @@ export interface InstanceSecrets {
  * password from the create-project form. The override is hard-validated
  * with `assertSafeForEnv` before use so a typo'd `$` or quote can't slip
  * past the Docker Compose substitution layer.
+ *
+ * `jwtExpirySec` is the per-session JWT expiry (passed to GoTrue's
+ * GOTRUE_JWT_EXP). It is NOT used as the expiry for the anon and
+ * service_role API keys: those are long-lived bearer credentials (5
+ * years) that the realtime container's own healthcheck calls hourly
+ * with apikey=anon. If we expired them in 1h the healthcheck started
+ * 401'ing and Docker marked realtime unhealthy after ~1h.
  */
+const API_KEY_EXPIRY_SEC = 5 * 365 * 24 * 60 * 60; // 5 years
+
 export function generateInstanceSecrets(opts: {
   jwtExpirySec: number;
   postgresPasswordOverride?: string;
@@ -51,10 +60,10 @@ export function generateInstanceSecrets(opts: {
   }
   return {
     jwtSecret,
-    anonKey: signSupabaseJwt(jwtSecret, { role: 'anon', expSec: opts.jwtExpirySec }),
+    anonKey: signSupabaseJwt(jwtSecret, { role: 'anon', expSec: API_KEY_EXPIRY_SEC }),
     serviceRoleKey: signSupabaseJwt(jwtSecret, {
       role: 'service_role',
-      expSec: opts.jwtExpirySec,
+      expSec: API_KEY_EXPIRY_SEC,
     }),
     postgresPassword,
     dashboardPassword: generatePassword(16),
