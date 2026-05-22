@@ -24,10 +24,17 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
 
   await app.register(fastifyCookie);
   const redis = new Redis(redisUrl);
+  // COOKIE_SECURE controls the `Secure` attribute on the session cookie.
+  // It MUST be false while the dashboard is being driven over plain HTTP
+  // (fresh install, bare-IP access before DNS/cert are set up) — otherwise
+  // the browser stores the cookie but never sends it back and every
+  // authenticated request 401s. Once an apex + HTTPS cert are in place,
+  // the operator flips this to 1 and restarts the api.
+  const cookieSecure = process.env.COOKIE_SECURE === '1' || process.env.COOKIE_SECURE === 'true';
   await app.register(fastifySession, {
     secret: sessionSecret,
     cookieName: 'sb_sid',
-    cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' },
+    cookie: { httpOnly: true, sameSite: 'lax', secure: cookieSecure },
     saveUninitialized: false,
     store: new RedisStore({ client: redis, prefix: 'selfbase:sess:' }),
   });

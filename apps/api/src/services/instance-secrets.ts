@@ -1,5 +1,11 @@
 import { randomBytes } from 'node:crypto';
-import { encryptJson, generatePassword, loadMasterKey, signSupabaseJwt } from '@selfbase/crypto';
+import {
+  assertSafeForEnv,
+  encryptJson,
+  generatePassword,
+  loadMasterKey,
+  signSupabaseJwt,
+} from '@selfbase/crypto';
 
 /**
  * The decrypted secret blob shape, mirroring contracts/compose-env.md.
@@ -25,9 +31,24 @@ export interface InstanceSecrets {
  * Generate a fresh set of per-instance secrets. Every password field uses
  * `generatePassword` (alphanumeric only — anti-Multibase). JWT keys are real
  * HS256 tokens signed with the jwtSecret (anti-SupaConsole).
+ *
+ * `postgresPasswordOverride` lets the operator supply their own Postgres
+ * password from the create-project form. The override is hard-validated
+ * with `assertSafeForEnv` before use so a typo'd `$` or quote can't slip
+ * past the Docker Compose substitution layer.
  */
-export function generateInstanceSecrets(opts: { jwtExpirySec: number }): InstanceSecrets {
+export function generateInstanceSecrets(opts: {
+  jwtExpirySec: number;
+  postgresPasswordOverride?: string;
+}): InstanceSecrets {
   const jwtSecret = randomBytes(40).toString('base64');
+  let postgresPassword: string;
+  if (opts.postgresPasswordOverride) {
+    assertSafeForEnv(opts.postgresPasswordOverride, 'postgresPassword');
+    postgresPassword = opts.postgresPasswordOverride;
+  } else {
+    postgresPassword = generatePassword(32);
+  }
   return {
     jwtSecret,
     anonKey: signSupabaseJwt(jwtSecret, { role: 'anon', expSec: opts.jwtExpirySec }),
@@ -35,7 +56,7 @@ export function generateInstanceSecrets(opts: { jwtExpirySec: number }): Instanc
       role: 'service_role',
       expSec: opts.jwtExpirySec,
     }),
-    postgresPassword: generatePassword(32),
+    postgresPassword,
     dashboardPassword: generatePassword(16),
     secretKeyBase: randomBytes(48).toString('base64').replace(/[/+=]/g, 'A').slice(0, 64),
     vaultEncKey: randomBytes(16).toString('hex'),

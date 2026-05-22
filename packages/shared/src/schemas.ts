@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // ─── primitives ─────────────────────────────────────────────────────────────
 export const Email = z.string().email().toLowerCase();
-export const Password = z.string().min(12).max(256);
+export const Password = z.string().min(8).max(256);
 export const Slug = z
   .string()
   .min(1)
@@ -53,6 +53,17 @@ export type InviteAcceptRequest = z.infer<typeof InviteAcceptRequest>;
 // ─── instances ──────────────────────────────────────────────────────────────
 export const InstanceCreateRequest = z.object({
   name: z.string().min(1).max(100),
+  // Optional postgres password override. When omitted, the server generates
+  // a strong 32-char alphanumeric. When provided, it MUST pass the same
+  // env-safety check the server enforces on generated values (no `$`,
+  // backtick, quote, backslash, or whitespace — Docker Compose would
+  // otherwise reinterpret the value).
+  dbPassword: z
+    .string()
+    .min(8)
+    .max(128)
+    .regex(/^[^\s$`\\"']+$/, 'must not contain spaces, $, `, \\, single, or double quotes')
+    .optional(),
   supabaseVersion: z.string().optional(),
   smtp: z
     .object({

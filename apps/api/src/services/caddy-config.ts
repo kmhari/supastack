@@ -116,6 +116,13 @@ export async function buildCaddyConfig(): Promise<unknown> {
     apps: {
       tls: {
         automation: {
+          // An explicit catch-all automation policy with on_demand:true is
+          // REQUIRED for Caddy to actually trigger ACME on unknown SNIs.
+          // Without this Caddy answers handshakes with TLS alert 80
+          // (internal_error) and never calls /internal/tls/ask. The global
+          // `automation.on_demand` block below is only the GATE URL —
+          // the policy is what enables on-demand at all.
+          policies: [{ on_demand: true }],
           on_demand: {
             ask: 'http://api:3001/internal/tls/ask',
           },
@@ -129,13 +136,15 @@ export async function buildCaddyConfig(): Promise<unknown> {
             listen: [':80'],
             routes: httpRoutes,
           },
-          // HTTPS listener. On-demand TLS is configured globally at
-          // `apps.tls.automation.on_demand.ask` above; the per-policy
-          // `on_demand` flag isn't accepted by Caddy 2.8. Caddy uses the
-          // global automation policy + the tls-ask gate for any SNI it
-          // doesn't already have a cert for.
+          // HTTPS listener. `automatic_https.disable_redirects` keeps
+          // Caddy's cert-provisioning machinery engaged while preventing
+          // the default :80 → :443 redirect that would otherwise break
+          // plain-HTTP /setup access. Combined with the automation policy
+          // above, Caddy will start ACME for any unknown SNI that the
+          // tls-ask gate approves.
           openfront_https: {
             listen: [':443'],
+            automatic_https: { disable_redirects: true },
             routes: httpsRoutes,
           },
         },
