@@ -1,13 +1,27 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { AlertCircle, ExternalLink, Loader2 } from 'lucide-react';
+import {
+  AlertCircle,
+  ChevronDown,
+  ExternalLink,
+  Loader2,
+  Pause,
+  Play,
+  RefreshCw,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { instancesApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
 import { ProjectShell } from '@/components/ProjectShell';
-import { CopyButton } from '@/components/CopyButton';
+import { InputWithCopy } from '@/components/InputWithCopy';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -123,16 +137,18 @@ export function ProjectGeneralPage(): React.ReactElement {
         <form onSubmit={onSubmitName}>
           <Card>
             <CardRow label="Project name" hint="Displayed throughout the dashboard.">
-              <Input value={name} onChange={(e) => setName(e.target.value)} required />
+              <InputWithCopy
+                noCopy
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
             </CardRow>
             <CardRow label="Project ID" hint="Reference used in APIs and URLs.">
-              <div className="flex gap-2">
-                <Input value={data.ref} readOnly className="flex-1 font-mono text-sm" />
-                <CopyButton value={data.ref} variant="outline" />
-              </div>
+              <InputWithCopy mono readOnly value={data.ref} />
             </CardRow>
             <CardRow label="Project region" hint="Where this project's database lives.">
-              <Input value="Self-hosted" readOnly />
+              <InputWithCopy noCopy readOnly value="Self-hosted" />
             </CardRow>
             <CardFooter>
               <Button
@@ -173,16 +189,12 @@ export function ProjectGeneralPage(): React.ReactElement {
           {data.urls.kong && data.status === 'running' && data.cert?.issued && (
             <>
               <CardRow label="API" hint="Public URL for /rest/v1, /auth/v1, /realtime/v1, …">
-                <div className="flex gap-2">
-                  <Input
-                    value={data.urls.kong}
-                    readOnly
-                    className="flex-1 font-mono text-sm"
-                  />
-                  <CopyButton value={data.urls.kong} variant="outline" />
-                </div>
+                <InputWithCopy mono readOnly value={data.urls.kong} />
               </CardRow>
-              <CardRow label="Studio" hint={`Cert issued by ${data.cert.issuer ?? 'a CA'} · valid until ${data.cert.notAfter ?? '—'}`}>
+              <CardRow
+                label="Studio"
+                hint={`Cert issued by ${data.cert.issuer ?? 'a CA'} · valid until ${data.cert.notAfter ?? '—'}`}
+              >
                 <a
                   href={`${data.urls.kong}/project/default`}
                   target="_blank"
@@ -213,34 +225,58 @@ export function ProjectGeneralPage(): React.ReactElement {
       {isAdmin && (
         <Section
           title="Project availability"
-          description="Pause, resume, or restart the project containers."
+          description="Restart or pause your project when performing maintenance"
         >
           <Card>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
+            <AvailabilityRow
+              title="Restart project"
+              hint="Your project will not be available for a few minutes."
+            >
+              <SplitButton
+                disabled={!['running', 'stopped'].includes(data.status)}
+                primaryLabel="Restart project"
+                primaryIcon={<RefreshCw className="size-3.5" />}
+                onPrimary={() => lifecycle.mutate('restart')}
+                items={[
+                  {
+                    label: 'Full restart',
+                    description:
+                      'Restarts every container in the project. Slower but recovers from any state.',
+                    onSelect: () => lifecycle.mutate('restart'),
+                  },
+                ]}
+              />
+            </AvailabilityRow>
+            {data.status === 'paused' ? (
+              <AvailabilityRow
+                title="Resume project"
+                hint="Bring the project back up. Containers will start in a few seconds."
+              >
                 <Button
                   variant="outline"
-                  onClick={() => lifecycle.mutate('pause')}
-                  disabled={data.status !== 'running'}
-                >
-                  Pause
-                </Button>
-                <Button
-                  variant="outline"
+                  className="w-full"
                   onClick={() => lifecycle.mutate('resume')}
-                  disabled={data.status !== 'paused'}
                 >
-                  Resume
+                  <Play className="size-3.5" />
+                  Resume project
                 </Button>
+              </AvailabilityRow>
+            ) : (
+              <AvailabilityRow
+                title="Pause project"
+                hint="Your project will not be accessible while it is paused."
+              >
                 <Button
                   variant="outline"
-                  onClick={() => lifecycle.mutate('restart')}
-                  disabled={!['running', 'stopped'].includes(data.status)}
+                  className="w-full"
+                  disabled={data.status !== 'running'}
+                  onClick={() => lifecycle.mutate('pause')}
                 >
-                  Restart
+                  <Pause className="size-3.5" />
+                  Pause project
                 </Button>
-              </div>
-            </CardContent>
+              </AvailabilityRow>
+            )}
           </Card>
         </Section>
       )}
@@ -301,6 +337,93 @@ export function ProjectGeneralPage(): React.ReactElement {
         </DialogContent>
       </Dialog>
     </ProjectShell>
+  );
+}
+
+/**
+ * Sub-section inside the Project availability card. Each one has a
+ * bold title, a hint underneath, and a full-width action button row.
+ * The Card's divide-y draws a hairline between siblings.
+ */
+function AvailabilityRow({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint: string;
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <div className="px-6 py-5">
+      <div className="text-sm font-medium text-foreground">{title}</div>
+      <div className="mb-3 mt-0.5 text-sm text-muted-foreground">{hint}</div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Split button — primary action on the left fills the available width,
+ * chevron-down on the right opens a DropdownMenu with alternative
+ * actions. Matches Supabase's "Restart project" control.
+ */
+function SplitButton({
+  disabled,
+  primaryLabel,
+  primaryIcon,
+  onPrimary,
+  items,
+}: {
+  disabled?: boolean;
+  primaryLabel: string;
+  primaryIcon?: React.ReactNode;
+  onPrimary: () => void;
+  items: { label: string; description?: string; onSelect: () => void }[];
+}): React.ReactElement {
+  return (
+    <div className="flex w-full">
+      <Button
+        type="button"
+        variant="outline"
+        disabled={disabled}
+        onClick={onPrimary}
+        className="flex-1 rounded-r-none border-r-0"
+      >
+        {primaryIcon}
+        {primaryLabel}
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled}
+            aria-label="More restart options"
+            className="rounded-l-none border-l border-border-soft px-2"
+          >
+            <ChevronDown className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-72">
+          {items.map((it) => (
+            <DropdownMenuItem
+              key={it.label}
+              onSelect={(e) => {
+                e.preventDefault();
+                it.onSelect();
+              }}
+              className="flex-col items-start gap-0.5"
+            >
+              <span className="text-sm font-medium text-foreground">{it.label}</span>
+              {it.description && (
+                <span className="text-xs text-muted-foreground">{it.description}</span>
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 
