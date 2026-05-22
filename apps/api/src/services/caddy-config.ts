@@ -106,15 +106,36 @@ export async function buildCaddyConfig(): Promise<unknown> {
   // Routes match top-down:
   //   1. <ref>.<apex>         → Kong (data plane)
   //   2. studio-<ref>.<apex>  → Studio (UI)
-  //   3. <apex>/* + everything else → selfbase web (dashboard catch-all)
+  //   3. api.<apex>           → api:3001 (Supabase CLI-compat management surface)
+  //   4. <apex>/* + everything else → selfbase web (dashboard catch-all)
   const dataHost = (ref: string): string =>
     apex ? `${ref}.${apex}` : `${ref}.localhost`;
   const studioHost = (ref: string): string =>
     apex ? `studio-${ref}.${apex}` : `studio-${ref}.localhost`;
 
+  /**
+   * Management-API host (`api.<apex>`) — receives traffic from the upstream
+   * `supabase` CLI configured with our profile.toml. Proxies the WHOLE host
+   * to api:3001; the api Fastify instance demuxes by path (`/v1/*` for the
+   * cloud-compatible management surface, anything else 404s here).
+   *
+   * No new env, no new container — same api container that serves the
+   * dashboard's `/api/*` calls from the apex host.
+   */
+  const apiHostRoute = apex
+    ? [
+        {
+          match: [{ host: [`api.${apex}`] }],
+          handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
+          terminal: true,
+        },
+      ]
+    : [];
+
   const httpsRoutes = [
     ...instances.map((i) => instanceRoute(i.ref, i.portKong, dataHost(i.ref))),
     ...instances.map((i) => instanceStudioRoute(i.ref, i.portStudio, studioHost(i.ref))),
+    ...apiHostRoute,
     dashboardFallback,
   ];
 
@@ -122,6 +143,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
     // Plain HTTP carries the same per-instance routes (for dev/testing without DNS).
     ...instances.map((i) => instanceRoute(i.ref, i.portKong, dataHost(i.ref))),
     ...instances.map((i) => instanceStudioRoute(i.ref, i.portStudio, studioHost(i.ref))),
+    ...apiHostRoute,
     dashboardFallback,
   ];
 
