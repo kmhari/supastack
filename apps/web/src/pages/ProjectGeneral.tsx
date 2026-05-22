@@ -356,7 +356,8 @@ function Field({
 /**
  * Sectioned form row inside a Card. Renders as its own card section
  * so the parent `<Card>`'s `divide-y` draws a hairline between rows.
- * Matches Supabase's `py-4 px-6` rhythm per section.
+ * Matches Supabase's `py-4 px-6` rhythm per section, with label + hint
+ * stacked left and field right.
  */
 function CardRow({
   label,
@@ -368,10 +369,12 @@ function CardRow({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <div className="grid grid-cols-[280px_1fr] items-start gap-8 px-6 py-5">
-      <div className="pt-2">
+    <div className="grid grid-cols-[1fr_minmax(0,1fr)] items-start gap-6 px-6 py-4">
+      <div className="pt-1">
         <Label className="text-sm font-normal text-foreground">{label}</Label>
-        {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
+        {hint && (
+          <div className="mt-1 text-xs leading-snug text-muted-foreground">{hint}</div>
+        )}
       </div>
       <div className="min-w-0">{children}</div>
     </div>
