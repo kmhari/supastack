@@ -94,6 +94,7 @@ export const instancesApi = {
     unwrap(client.post(`/instances/${ref}/upgrade`, body)),
   reveal: (ref: string, body: { password: string }) =>
     unwrap(client.post(`/instances/${ref}/credentials/reveal`, body)),
+  health: (ref: string) => unwrap(client.get(`/instances/${ref}/health`)),
 };
 
 // ─── backups ────────────────────────────────────────────────────────────────

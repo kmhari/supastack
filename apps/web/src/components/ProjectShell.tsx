@@ -31,6 +31,10 @@ export function ProjectShell({
         { to: `/p/${ref}/backups`, label: 'Backups' },
       ],
     },
+    {
+      heading: 'Diagnostics',
+      items: [{ to: `/p/${ref}/health`, label: 'Health' }],
+    },
   ];
 
   return (
