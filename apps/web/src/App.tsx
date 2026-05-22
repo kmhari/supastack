@@ -16,6 +16,7 @@ import { SettingsOrgPage } from './pages/SettingsOrg.js';
 import { SettingsMembersPage } from './pages/SettingsMembers.js';
 import { SettingsAuditPage } from './pages/SettingsAudit.js';
 import { SettingsTokensPage } from './pages/SettingsTokens.js';
+import { ConnectCliPage } from './pages/ConnectCli.js';
 import { AcceptInvitePage } from './pages/AcceptInvite.js';
 import { SetupGate } from './components/SetupGate.js';
 import { Toaster } from './components/ui/sonner.js';
@@ -141,6 +142,14 @@ export function App(): React.ReactElement {
           element={
             <RequireAuth>
               <SettingsAuditPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/connect-cli"
+          element={
+            <RequireAuth>
+              <ConnectCliPage />
             </RequireAuth>
           }
         />

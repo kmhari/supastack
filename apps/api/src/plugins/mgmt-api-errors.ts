@@ -14,6 +14,7 @@
  */
 import type { FastifyError, FastifyPluginAsync } from 'fastify';
 import { ZodError } from 'zod';
+import { AppError } from '@selfbase/shared';
 
 /**
  * Domain error type. Routes throw `new ManagementApiError(...)` to emit a
@@ -61,6 +62,18 @@ export const mgmtApiErrorsPlugin: FastifyPluginAsync = async (app) => {
       const body: Envelope = { message: err.message, code: err.code };
       if (err.details) body.details = err.details;
       reply.status(err.statusCode).send(body);
+      return;
+    }
+
+    // Selfbase's existing AppError shape (used by requireAuth and most
+    // shared services). Translate the dashboard envelope into the cloud
+    // shape so CLI consumers see `{message, code}` instead of `{error: {...}}`.
+    if (err instanceof AppError) {
+      reply.status(err.statusCode).send({
+        message: err.message,
+        code: err.code,
+        ...(err.details ? { details: err.details as Record<string, unknown> } : {}),
+      });
       return;
     }
 

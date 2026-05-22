@@ -28,6 +28,7 @@ import {
 interface Token {
   id: string;
   label: string;
+  prefix: string | null;
   lastUsedAt: string | null;
   createdAt: string;
 }
@@ -61,6 +62,16 @@ export function SettingsTokensPage(): React.ReactElement {
   return (
     <Shell wide>
       <PageHeader title="Tokens" />
+
+      <Alert className="mb-4">
+        <KeyRound className="size-4" />
+        <AlertDescription>
+          Tokens use the <code className="font-mono">sbp_…</code> format and work
+          with the upstream Supabase CLI.
+          {' '}
+          <a href="/connect-cli" className="underline">Connect a CLI →</a>
+        </AlertDescription>
+      </Alert>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative w-72">
@@ -103,7 +114,12 @@ export function SettingsTokensPage(): React.ReactElement {
                 <span className="flex size-7 items-center justify-center rounded-full border border-border bg-secondary/60">
                   <KeyRound className="size-3.5 text-muted-foreground" />
                 </span>
-                <span className="text-sm text-foreground">{t.label}</span>
+                <div className="flex flex-col">
+                  <span className="text-sm text-foreground">{t.label}</span>
+                  <code className="font-mono text-xs text-muted-foreground">
+                    {t.prefix ? `${t.prefix}…` : '(legacy)'}
+                  </code>
+                </div>
               </div>
               <div className="text-sm text-muted-foreground">
                 {new Date(t.createdAt).toLocaleDateString()}
