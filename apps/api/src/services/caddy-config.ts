@@ -60,23 +60,17 @@ export async function buildCaddyConfig(): Promise<unknown> {
   ];
 
   /**
-   * Every request to a per-instance subdomain goes to Kong on the host's
-   * published Kong port. Kong's own routing handles the demux:
+   * Per-instance data-plane subdomain (`<ref>.<apex>`) → Kong. Kong demuxes:
    *   /rest/v1/*       → PostgREST
    *   /auth/v1/*       → GoTrue
    *   /realtime/v1/*   → Realtime
    *   /storage/v1/*    → Storage
    *   /functions/v1/*  → Edge Functions
    *   /pg/*            → pg-meta
-   *   /*               → Studio (the `dashboard` service in kong.yml)
-   *
-   * Earlier versions tried to short-circuit /studio* directly to the
-   * Studio container, but that bypassed Kong's basic-auth gate and
-   * required publishing Studio on the host AND a baked-in
-   * NEXT_PUBLIC_BASE_PATH. Kong-only is simpler and matches the
-   * upstream supabase/docker layout.
+   * Kong's `dashboard` catch-all was removed from kong.yml when Studio moved
+   * to its own subdomain (see below) — the data subdomain is API-only now.
    */
-  const instanceRoute = (ref: string, portKong: number, _portStudio: number, hostname: string) => ({
+  const instanceRoute = (ref: string, portKong: number, hostname: string) => ({
     match: [{ host: [hostname] }],
     handle: [
       {
@@ -87,26 +81,47 @@ export async function buildCaddyConfig(): Promise<unknown> {
     terminal: true,
   });
 
+  /**
+   * Per-instance Studio subdomain (`studio-<ref>.<apex>`) → that project's
+   * Studio container directly, bypassing Kong. Studio is the upstream
+   * `supabase/studio:<sha>` image (no basePath, served at root), so its
+   * same-origin /api/* fetches resolve to the same Studio container.
+   */
+  const instanceStudioRoute = (ref: string, portStudio: number, hostname: string) => ({
+    match: [{ host: [hostname] }],
+    handle: [
+      {
+        handler: 'reverse_proxy',
+        upstreams: [{ dial: `host.docker.internal:${portStudio}` }],
+      },
+    ],
+    terminal: true,
+  });
+
   const dashboardFallback = {
     handle: [{ handler: 'subroute', routes: dashboardSubroutes }],
     terminal: true,
   };
 
-  // Routes are matched top-down. Per-instance hostname matches first, then
-  // fall through to the dashboard catch-all.
+  // Routes match top-down:
+  //   1. <ref>.<apex>         → Kong (data plane)
+  //   2. studio-<ref>.<apex>  → Studio (UI)
+  //   3. <apex>/* + everything else → selfbase web (dashboard catch-all)
+  const dataHost = (ref: string): string =>
+    apex ? `${ref}.${apex}` : `${ref}.localhost`;
+  const studioHost = (ref: string): string =>
+    apex ? `studio-${ref}.${apex}` : `studio-${ref}.localhost`;
+
   const httpsRoutes = [
-    ...instances.map((i) =>
-      instanceRoute(i.ref, i.portKong, i.portStudio, apex ? `${i.ref}.${apex}` : `${i.ref}.localhost`),
-    ),
+    ...instances.map((i) => instanceRoute(i.ref, i.portKong, dataHost(i.ref))),
+    ...instances.map((i) => instanceStudioRoute(i.ref, i.portStudio, studioHost(i.ref))),
     dashboardFallback,
   ];
 
   const httpRoutes = [
-    // Plain HTTP can also serve instance APIs (for dev/testing without DNS).
-    // Same per-instance route table; same fallback.
-    ...instances.map((i) =>
-      instanceRoute(i.ref, i.portKong, i.portStudio, apex ? `${i.ref}.${apex}` : `${i.ref}.localhost`),
-    ),
+    // Plain HTTP carries the same per-instance routes (for dev/testing without DNS).
+    ...instances.map((i) => instanceRoute(i.ref, i.portKong, dataHost(i.ref))),
+    ...instances.map((i) => instanceStudioRoute(i.ref, i.portStudio, studioHost(i.ref))),
     dashboardFallback,
   ];
 

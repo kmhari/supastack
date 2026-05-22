@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowDownUp,
   LayoutGrid,
@@ -147,16 +147,18 @@ export function InstancesPage(): React.ReactElement {
 }
 
 /**
- * Card click goes to the project detail page on the platform domain.
- * Studio lives on the per-instance subdomain (Kong) and is reserved for
- * client-library API traffic — it isn't a UI entry point any more. Users
- * reach Studio explicitly from inside the project view if they want it.
+ * Card click opens Studio at the project's own subdomain
+ * (studio-<ref>.<apex>) via a same-tab full-page navigation. Studio is
+ * cross-origin from the apex selfbase shell, so we use a plain <a> rather
+ * than react-router's <Link>. Falls back to the selfbase admin page if the
+ * API hasn't returned a urls.studio yet (e.g. apex not configured).
  */
 function ProjectCard({ row }: { row: InstanceRow }): React.ReactElement {
+  const href = row.urls.studio ?? `/dashboard/project/${row.ref}`;
   const cardClasses =
     'group relative flex min-h-[200px] flex-col gap-1.5 rounded-lg border border-border-soft bg-card p-6 transition-colors hover:border-border';
   return (
-    <Link to={`/dashboard/project/${row.ref}`} className={cn(cardClasses, 'no-underline')}>
+    <a href={href} className={cn(cardClasses, 'no-underline')}>
       <div className="text-base font-medium text-foreground break-words">{row.name}</div>
       <div className="text-sm text-muted-foreground">
         Self-hosted {row.supabaseVersion ? `· ${row.supabaseVersion}` : ''}
@@ -164,31 +166,34 @@ function ProjectCard({ row }: { row: InstanceRow }): React.ReactElement {
       <div className="mt-3">
         <StatusPill status={row.status} />
       </div>
-    </Link>
+    </a>
   );
 }
 
 function ProjectList({ rows }: { rows: InstanceRow[] }): React.ReactElement {
   return (
     <div className="overflow-hidden rounded-lg border border-border-soft bg-card">
-      {rows.map((r, i) => (
-        <Link
-          key={r.ref}
-          to={`/dashboard/project/${r.ref}`}
-          className={cn(
-            'grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-3.5 text-foreground no-underline',
-            i > 0 && 'border-t border-border-soft',
-          )}
-        >
-          <div>
-            <div className="text-sm font-medium text-foreground">{r.name}</div>
-            <div className="text-xs text-muted-foreground">
-              Self-hosted {r.supabaseVersion ? `· ${r.supabaseVersion}` : ''}
+      {rows.map((r, i) => {
+        const href = r.urls.studio ?? `/dashboard/project/${r.ref}`;
+        return (
+          <a
+            key={r.ref}
+            href={href}
+            className={cn(
+              'grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-3.5 text-foreground no-underline',
+              i > 0 && 'border-t border-border-soft',
+            )}
+          >
+            <div>
+              <div className="text-sm font-medium text-foreground">{r.name}</div>
+              <div className="text-xs text-muted-foreground">
+                Self-hosted {r.supabaseVersion ? `· ${r.supabaseVersion}` : ''}
+              </div>
             </div>
-          </div>
-          <StatusPill status={r.status} />
-        </Link>
-      ))}
+            <StatusPill status={r.status} />
+          </a>
+        );
+      })}
     </div>
   );
 }
