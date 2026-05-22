@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Plus } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { Download, Plus } from 'lucide-react';
 import { backupsApi, instancesApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-import { Shell } from '@/components/Shell';
-import { PageHeader } from '@/components/PageHeader';
+import { ProjectShell } from '@/components/ProjectShell';
 import { StatusPill } from '@/components/StatusPill';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,27 +72,22 @@ export function InstanceBackupsPage(): React.ReactElement {
   });
 
   return (
-    <Shell>
-      <div className="mb-3">
-        <Link
-          to={`/p/${ref}`}
-          className="text-sm text-muted-foreground no-underline hover:text-foreground"
-        >
-          <ArrowLeft className="inline size-3.5" /> {instance?.name ?? ref}
-        </Link>
-      </div>
-
-      <PageHeader
-        title="Backups"
-        right={
-          isAdmin && (
-            <Button onClick={() => createBackup.mutate()} disabled={createBackup.isPending}>
-              <Plus className="size-3" />
-              {createBackup.isPending ? 'Creating…' : 'Create backup'}
-            </Button>
-          )
-        }
-      />
+    <ProjectShell
+      title="Backups"
+      subtitle={
+        isAdmin
+          ? 'Daily auto-backup with rolling retention. Manual snapshots on demand.'
+          : 'Backup history for this project.'
+      }
+    >
+      {isAdmin && (
+        <div className="flex justify-end">
+          <Button onClick={() => createBackup.mutate()} disabled={createBackup.isPending}>
+            <Plus className="size-3.5" />
+            {createBackup.isPending ? 'Creating…' : 'Create backup'}
+          </Button>
+        </div>
+      )}
 
       {isAdmin && (
         <Card className="mb-5">
@@ -185,7 +179,7 @@ export function InstanceBackupsPage(): React.ReactElement {
           </Table>
         )}
       </Card>
-    </Shell>
+    </ProjectShell>
   );
 }
 

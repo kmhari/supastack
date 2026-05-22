@@ -6,7 +6,9 @@ import { SetupPage } from './pages/Setup.js';
 import { LoginPage } from './pages/Login.js';
 import { InstancesPage } from './pages/Instances.js';
 import { InstancesNewPage } from './pages/InstancesNew.js';
-import { InstanceDetailPage } from './pages/InstanceDetail.js';
+import { ProjectGeneralPage } from './pages/ProjectGeneral.js';
+import { ProjectApiKeysPage } from './pages/ProjectApiKeys.js';
+import { ProjectJwtKeysPage } from './pages/ProjectJwtKeys.js';
 import { InstanceBackupsPage } from './pages/InstanceBackups.js';
 import { SettingsOrgPage } from './pages/SettingsOrg.js';
 import { SettingsMembersPage } from './pages/SettingsMembers.js';
@@ -58,7 +60,23 @@ export function App(): React.ReactElement {
           path="/p/:ref"
           element={
             <RequireAuth>
-              <InstanceDetailPage />
+              <ProjectGeneralPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/p/:ref/api-keys"
+          element={
+            <RequireAuth>
+              <ProjectApiKeysPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/p/:ref/jwt-keys"
+          element={
+            <RequireAuth>
+              <ProjectJwtKeysPage />
             </RequireAuth>
           }
         />
