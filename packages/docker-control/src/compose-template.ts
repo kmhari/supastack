@@ -114,6 +114,12 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     // binding and producing "400 Bad Request — plain HTTP sent to HTTPS
     // port" when Caddy proxied /studio to it.
     KONG_HTTP_PORT: ports.kong,
+    // We don't publish Kong's HTTPS port (Caddy fronts TLS for everyone),
+    // but the upstream .env.example declares the key and the completeness
+    // assertion below requires every declared key to have a value. Stick
+    // with the upstream default; nothing reaches the container on this
+    // port from outside.
+    KONG_HTTPS_PORT: 8443,
     STUDIO_PORT: ports.studio,
     POSTGRES_PORT: ports.postgres,
     POOLER_PROXY_PORT_TRANSACTION: ports.pooler,

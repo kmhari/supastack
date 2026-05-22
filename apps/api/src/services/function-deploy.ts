@@ -37,9 +37,20 @@ import { instanceFunctionsDir, slugDir } from './function-store.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const STAGING_ROOT = process.env.SELFBASE_STAGING_DIR ?? '/tmp/selfbase-uploads';
 const ESZIP_MAGIC = Buffer.from('ESZIP', 'utf8');
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{0,47}$/;
+
+/**
+ * Per-instance staging root. We deliberately do NOT use /tmp because /tmp
+ * lives on the api container's overlay filesystem while /var/selfbase/
+ * instances/<ref>/ is a bind-mount to the host — Linux's rename(2) returns
+ * EXDEV across filesystems and atomic move becomes impossible. Staging
+ * inside the per-instance volume guarantees same-FS rename and gives us
+ * free cleanup when the instance is deleted.
+ */
+function stagingRootFor(ref: string): string {
+  return path.join(instanceFunctionsDir(ref), '.staging');
+}
 
 export type DeployMode = 'create' | 'update';
 
@@ -108,10 +119,11 @@ interface StagedDeploy {
 }
 
 async function stageMultipart(
+  ref: string,
   slug: string,
   parts: AsyncIterableIterator<MultipartFile | MultipartValue>,
 ): Promise<StagedDeploy> {
-  const stagingDir = path.join(STAGING_ROOT, randomUUID());
+  const stagingDir = path.join(stagingRootFor(ref), randomUUID());
   await mkdir(stagingDir, { recursive: true });
 
   let metadataRaw: string | null = null;
@@ -199,6 +211,7 @@ async function stageMultipart(
 // ─── Eszip staging ──────────────────────────────────────────────────────────
 
 async function stageEszip(
+  ref: string,
   slug: string,
   body: Buffer,
   query: Record<string, string | string[] | undefined>,
@@ -228,7 +241,7 @@ async function stageEszip(
     );
   }
 
-  const stagingDir = path.join(STAGING_ROOT, randomUUID());
+  const stagingDir = path.join(stagingRootFor(ref), randomUUID());
   await mkdir(stagingDir, { recursive: true });
   await writeFile(path.join(stagingDir, 'bundle.eszip'), body);
 
@@ -438,7 +451,7 @@ export async function deployFromMultipart(opts: {
   parts: AsyncIterableIterator<MultipartFile | MultipartValue>;
 }): Promise<DeployFunctionResponse> {
   assertSlug(opts.slug);
-  const staged = await stageMultipart(opts.slug, opts.parts);
+  const staged = await stageMultipart(opts.ref, opts.slug, opts.parts);
   try {
     return await commitDeploy({
       ref: opts.ref,
@@ -462,7 +475,7 @@ export async function deployFromEszip(opts: {
 }): Promise<DeployFunctionResponse> {
   assertSlug(opts.slug);
   const body = await collectBody(opts.body);
-  const staged = await stageEszip(opts.slug, body, opts.query, opts.mode);
+  const staged = await stageEszip(opts.ref, opts.slug, body, opts.query, opts.mode);
   try {
     return await commitDeploy({
       ref: opts.ref,

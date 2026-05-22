@@ -13,6 +13,7 @@
  * this error handler).
  */
 import type { FastifyError, FastifyPluginAsync } from 'fastify';
+import fp from 'fastify-plugin';
 import { ZodError } from 'zod';
 import { AppError } from '@selfbase/shared';
 
@@ -55,7 +56,16 @@ function envelopeFromZod(err: ZodError): Envelope {
   };
 }
 
-export const mgmtApiErrorsPlugin: FastifyPluginAsync = async (app) => {
+/**
+ * Wrapped with fastify-plugin (fp) so the setErrorHandler call lands on the
+ * PARENT scope (the /v1 register block), not on this plugin's own inner
+ * encapsulation context. Without fp, sibling routes registered separately
+ * within /v1 would NOT see this handler — Fastify only propagates errors
+ * up the encapsulation tree, never sideways. Symptom was 500 internal-error
+ * envelopes for every catch-all/route-thrown error instead of the intended
+ * scoped envelope.
+ */
+const plugin: FastifyPluginAsync = async (app) => {
   app.setErrorHandler((err: Error & Partial<FastifyError>, req, reply) => {
     // Our domain error — pass through as-is.
     if (err instanceof ManagementApiError) {
@@ -107,3 +117,5 @@ export const mgmtApiErrorsPlugin: FastifyPluginAsync = async (app) => {
     });
   });
 };
+
+export const mgmtApiErrorsPlugin = fp(plugin);
