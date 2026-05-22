@@ -10,6 +10,7 @@ import {
   generateInstanceSecrets,
   type InstanceSecrets,
 } from '../services/instance-secrets.js';
+import { probeHttpsCert } from '../services/cert-probe.js';
 
 const SUPABASE_VERSION_DEFAULT = process.env.SUPABASE_VERSION ?? '2026.05.01';
 const REDIS_URL = process.env.REDIS_URL!;
@@ -98,7 +99,17 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
     const user = app.requireAuth(req);
     const row = await fetchInstance(req.params.ref);
     const apex = await getApex();
-    return reply.send(projectRow(row, apex, user.role));
+    const projected = projectRow(row, apex, user.role);
+    // Probe the per-instance HTTPS endpoint so the UI can hide the
+    // public URL/Studio link until Let's Encrypt has issued a real
+    // cert. Cheap: handshake against caddy:443 inside the docker
+    // network. Only meaningful when the instance is running AND apex
+    // is configured.
+    const cert =
+      apex && row.status === 'running'
+        ? await probeHttpsCert(`${row.ref}.${apex}`)
+        : null;
+    return reply.send({ ...projected, cert });
   });
 
   // ─── CREATE ──────────────────────────────────────────────────────────────

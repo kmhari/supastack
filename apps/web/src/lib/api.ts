@@ -49,6 +49,8 @@ export interface ApexStatus {
   expectedIp: string | null;
   observedIps: string[];
   dnsResolved: boolean;
+  wildcardObservedIps: string[];
+  wildcardResolved: boolean;
   cert: ApexCert | null;
 }
 export const apexApi = {

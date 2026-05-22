@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, ArrowRight, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { instancesApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Shell } from '@/components/Shell';
@@ -22,6 +22,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
+interface InstanceCert {
+  reachable: boolean;
+  issued: boolean;
+  issuer?: string;
+  subject?: string;
+  notAfter?: string;
+  selfSigned?: boolean;
+  error?: string;
+}
+
 interface InstanceDetail {
   ref: string;
   name: string;
@@ -31,6 +41,7 @@ interface InstanceDetail {
   ports?: Record<string, number>;
   provisionError?: string | null;
   createdAt: string;
+  cert: InstanceCert | null;
 }
 interface Credentials {
   ref: string;
@@ -128,7 +139,29 @@ export function InstanceDetailPage(): React.ReactElement {
           <CardTitle>URLs</CardTitle>
         </CardHeader>
         <CardContent>
-          {data.urls.kong ? (
+          {!data.urls.kong ? (
+            <p className="m-0 text-sm text-muted-foreground">
+              Set an apex domain on the org to expose URLs.
+            </p>
+          ) : data.status !== 'running' ? (
+            <p className="m-0 text-sm text-muted-foreground">
+              URLs become available once the instance is running.
+            </p>
+          ) : !data.cert?.issued ? (
+            <div className="flex items-start gap-3 text-sm">
+              <Loader2 className="mt-0.5 size-4 flex-none animate-spin text-warn" />
+              <div>
+                <div className="text-foreground">Waiting for HTTPS certificate…</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {data.cert?.selfSigned
+                    ? `Caddy served a self-signed fallback — check that *.${apexFromUrl(data.urls.kong)} resolves to this server's IP and isn't blocked by your DNS provider.`
+                    : data.cert?.error
+                      ? `Probe error: ${data.cert.error}`
+                      : `Caddy is requesting a Let's Encrypt cert via HTTP-01. Usually completes in 5–15s once DNS for ${apexFromUrl(data.urls.kong)} resolves.`}
+                </div>
+              </div>
+            </div>
+          ) : (
             <div className="grid gap-2 text-sm">
               <DetailRow label="API">
                 <code className="font-mono text-sm">{data.urls.kong}</code>
@@ -143,11 +176,14 @@ export function InstanceDetailPage(): React.ReactElement {
                   Open Studio <ExternalLink className="inline size-3" />
                 </a>
               </DetailRow>
+              {data.cert.notAfter && (
+                <DetailRow label="Cert">
+                  <span className="text-xs text-muted-foreground">
+                    {data.cert.issuer ?? 'CA'} · valid until {data.cert.notAfter}
+                  </span>
+                </DetailRow>
+              )}
             </div>
-          ) : (
-            <p className="m-0 text-sm text-muted-foreground">
-              Set an apex domain on the org to expose URLs.
-            </p>
           )}
         </CardContent>
       </Card>
@@ -277,6 +313,16 @@ export function InstanceDetailPage(): React.ReactElement {
       </Dialog>
     </Shell>
   );
+}
+
+function apexFromUrl(url: string): string {
+  try {
+    const host = new URL(url).hostname;
+    const dot = host.indexOf('.');
+    return dot >= 0 ? host.slice(dot + 1) : host;
+  } catch {
+    return 'your apex';
+  }
 }
 
 function DetailRow({
