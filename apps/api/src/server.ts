@@ -1,11 +1,13 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
 import { AppError, errors } from '@selfbase/shared';
 import { loadMasterKey } from '@selfbase/crypto';
 import { makeDb, migrate } from '@selfbase/db';
 import { authPlugin } from './plugins/auth.js';
 import { rbacPlugin } from './plugins/rbac.js';
+import { mgmtApiErrorsPlugin } from './plugins/mgmt-api-errors.js';
 import { tlsAskRoutes } from './routes/tls-ask.js';
 import { caddyInternalRoutes } from './routes/caddy-internal.js';
 import { healthRoutes } from './routes/health.js';
@@ -17,6 +19,7 @@ import { orgRoutes } from './routes/org.js';
 import { apexRoutes } from './routes/apex.js';
 import { membersRoutes } from './routes/members.js';
 import { auditRoutes } from './routes/audit.js';
+import { notImplementedRoutes } from './routes/management/not-implemented.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -91,6 +94,35 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(auditRoutes, { prefix: '/api/v1' });
   await app.register(tlsAskRoutes); // /internal/tls/ask
   await app.register(caddyInternalRoutes); // /internal/caddy/reload
+
+  // ─── /v1/* — Supabase Management API compatibility surface ─────────────
+  //
+  // Spec: specs/003-supabase-cli-compat-p0/plan.md
+  //
+  // The mgmtApiErrorsPlugin replaces the global error formatter inside this
+  // scope (Fastify encapsulation) so responses match the cloud's envelope
+  // `{ message, code?, details? }` instead of selfbase's dashboard shape.
+  // Multipart is scoped here too so the existing dashboard routes don't
+  // accidentally accept binary uploads. bodyLimit is bumped to 50 MB for
+  // the eszip + multipart deploy endpoints.
+  await app.register(
+    async (mgmt) => {
+      await mgmt.register(mgmtApiErrorsPlugin);
+      await mgmt.register(multipart, {
+        limits: { fileSize: 50 * 1024 * 1024, files: 100 },
+      });
+      // Real routes register here (Phase 3+):
+      //   await mgmt.register(profileRoutes);
+      //   await mgmt.register(organizationsRoutes);
+      //   await mgmt.register(projectsRoutes);
+      //   await mgmt.register(apiKeysRoutes);
+      //   await mgmt.register(functionsRoutes);
+      //   await mgmt.register(secretsRoutes);
+      // Catch-all MUST be last so real routes match first (FR-024).
+      await mgmt.register(notImplementedRoutes);
+    },
+    { prefix: '/v1' },
+  );
 
   return app;
 }

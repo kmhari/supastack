@@ -42,7 +42,7 @@ describe.skipIf(!API)('POST /api/v1/setup', () => {
     const body = (await res.json()) as { userId: string; orgId: string; apiToken: string };
     expect(body.userId).toBeTruthy();
     expect(body.orgId).toBeTruthy();
-    expect(body.apiToken).toMatch(/^sb_[0-9a-f]{64}$/);
+    expect(body.apiToken).toMatch(/^sbp_[0-9a-f]{40}$/);
     setupAlreadyComplete = true;
   });
 
