@@ -38,6 +38,42 @@ export async function composeStart(ctx: ComposeContext): Promise<void> {
 export async function composeRestart(ctx: ComposeContext): Promise<void> {
   await runDockerCompose(ctx, ['restart']);
 }
+
+/**
+ * Restart a single container by name. Used by the function-deploy and
+ * secret-set hot paths to bounce only the per-instance `functions` container
+ * — avoids pulling Postgres + Kong + Realtime down on every code change.
+ */
+export async function restartContainer(name: string, opts: { timeoutSec?: number } = {}): Promise<void> {
+  await docker.getContainer(name).restart({ t: opts.timeoutSec ?? 5 });
+}
+
+/**
+ * Block until the named container is `Running` AND (`Health=healthy` OR no
+ * healthcheck defined). Polls every 250ms; throws on `timeoutMs` (default 5s).
+ *
+ * The per-instance functions container's healthcheck (or lack thereof,
+ * depending on supabase-template version) determines which arm of the
+ * condition wins. Either is acceptable for "ready to accept requests".
+ */
+export async function waitContainerHealthy(
+  name: string,
+  timeoutMs: number = 5000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const info = await docker.getContainer(name).inspect();
+      const running = info.State?.Running === true;
+      const health = info.State?.Health?.Status;
+      if (running && (health === 'healthy' || health === undefined)) return;
+    } catch {
+      /* container may be briefly missing during restart — keep polling */
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error(`container ${name} did not become healthy within ${timeoutMs}ms`);
+}
 export async function composeDown(
   ctx: ComposeContext,
   opts: { removeVolumes?: boolean } = {},

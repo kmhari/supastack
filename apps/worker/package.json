@@ -9,7 +9,8 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "sync:functions-main": "tsx src/scripts/sync-functions-main.ts"
   },
   "dependencies": {
     "@selfbase/backup-store": "workspace:*",

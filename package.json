@@ -16,6 +16,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:cli": "tests/cli-e2e/deploy-hello.sh",
     "typecheck": "pnpm -r typecheck",
     "db:generate": "pnpm --filter @selfbase/db db:generate",
     "db:migrate": "pnpm --filter @selfbase/db db:migrate",
