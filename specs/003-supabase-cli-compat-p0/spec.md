@@ -90,7 +90,7 @@ A developer needs to give their deployed edge functions access to API keys, data
 - Concurrent deploys to the same function: the later deploy wins, the earlier one's result is invalidated, no half-deployed state is left behind, and no requests in flight to the old version are interrupted mid-response.
 - Setting a secret with a name that is already managed by the platform (for example, a database URL the runtime constructs automatically): the CLI refuses with a clear naming-conflict error.
 - An edge function that was deployed but whose project has been deleted or paused: list/deploy/secrets commands report the project state cleanly, not as a 404 of unknown origin.
-- A selfbase deployment that is briefly unreachable mid-command (TLS not yet provisioned, container restart, network blip): the CLI retries within a reasonable budget and only after that surfaces a network error with the actual underlying cause, not a generic timeout.
+- A selfbase deployment that is briefly unreachable mid-command (TLS not yet provisioned, container restart, network blip): *(CLI behavior — informational, not testable selfbase-side)* the CLI surfaces a network error with the underlying cause; selfbase's responsibility is limited to recovering its own services so the next request succeeds.
 - The user has both a Supabase Cloud session and a selfbase profile configured, and accidentally runs a selfbase-targeted command against their cloud token: the CLI uses the active profile's token, not a stale cloud one, and selfbase's API rejects any cloud token cleanly.
 
 ## Requirements *(mandatory)*
@@ -113,7 +113,7 @@ A developer needs to give their deployed edge functions access to API keys, data
 
 #### Edge Function Deployment
 
-- **FR-008**: Selfbase MUST expose the function-deploy operation the upstream CLI calls, accepting the same bundle format the cloud accepts (a multipart upload composed of a manifest plus the function source bundle), and applying that bundle to the project's edge runtime such that the function becomes reachable at its public URL.
+- **FR-008**: Selfbase MUST expose the function-deploy operation the upstream CLI calls, accepting the bundle format(s) the cloud accepts — either a pre-built bundle binary produced by the CLI's local bundler, or a multipart upload of raw source files when the CLI is invoked without a local bundler — and applying that bundle to the project's edge runtime such that the function becomes reachable at its public URL.
 - **FR-009**: Selfbase MUST expose the operation that lists every function deployed to a given project, returning each function's slug, status, version identifier, and timestamps, matching the shape the CLI's list/sync workflow consumes.
 - **FR-010**: Selfbase MUST expose the operation that retrieves a single deployed function's bundle/source by slug, sufficient for the CLI's download command to reconstruct the function's source layout on disk.
 - **FR-011**: Selfbase MUST expose the operation that deletes a deployed function by slug, taking it off the public URL and removing it from the list. Once deleted, an immediate list call MUST no longer return that function.
