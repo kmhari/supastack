@@ -76,12 +76,27 @@ export async function buildCaddyConfig(): Promise<unknown> {
    * NEXT_PUBLIC_BASE_PATH. Kong-only is simpler and matches the
    * upstream supabase/docker layout.
    */
+  // Studio (the upstream Supabase image) ships with X-Frame-Options: DENY
+  // and Content-Security-Policy: frame-ancestors 'none' — both block our
+  // platform UI from iframing Studio at /dashboard/project/:ref. Rewrite
+  // them via reverse_proxy.headers.response so the rewrites apply to the
+  // upstream response (a top-level 'headers' handler runs before the
+  // upstream writes back, so deletes there are a no-op).
+  const apexFrameSrc = apex ? `https://${apex}` : "'self'";
   const instanceRoute = (ref: string, portKong: number, _portStudio: number, hostname: string) => ({
     match: [{ host: [hostname] }],
     handle: [
       {
         handler: 'reverse_proxy',
         upstreams: [{ dial: `host.docker.internal:${portKong}` }],
+        headers: {
+          response: {
+            delete: ['X-Frame-Options', 'Content-Security-Policy'],
+            set: {
+              'Content-Security-Policy': [`frame-ancestors 'self' ${apexFrameSrc};`],
+            },
+          },
+        },
       },
     ],
     terminal: true,

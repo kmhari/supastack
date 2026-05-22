@@ -1,13 +1,13 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { Shell } from '@/components/Shell';
+import { ProjectSubNav } from '@/components/ProjectSubNav';
 import { cn } from '@/lib/utils';
 
 /**
- * Wrapper for every /p/:ref/* page. Mirrors supabase.com's project
- * Settings layout — left sidebar grouped under a "Settings" heading,
- * right column with the page title + content. The global top nav
- * (in <Shell>) already provides the back-to-Projects link, so this
- * shell doesn't repeat it.
+ * Wrapper for every /dashboard/project/:ref/admin/* page. Lays out:
+ *   <Shell bare> top nav (48px)
+ *   <ProjectSubNav active="admin"> project breadcrumb + Studio/Admin tabs (48px)
+ *   sticky left sidebar + right content column
  */
 export function ProjectShell({
   children,
@@ -21,7 +21,7 @@ export function ProjectShell({
   const { ref = '' } = useParams<{ ref: string }>();
   const { pathname } = useLocation();
 
-  const base = `/dashboard/project/${ref}`;
+  const base = `/dashboard/project/${ref}/admin`;
   const groups: { heading: string; items: { to: string; label: string }[] }[] = [
     {
       heading: 'Configuration',
@@ -40,8 +40,9 @@ export function ProjectShell({
 
   return (
     <Shell bare>
-      <div className="flex min-h-[calc(100vh-48px)] items-stretch">
-        <aside className="sticky top-12 h-[calc(100vh-48px)] w-60 shrink-0 overflow-y-auto border-r border-border-soft px-4 py-8">
+      <ProjectSubNav active="admin" />
+      <div className="flex min-h-[calc(100vh-96px)] items-stretch">
+        <aside className="sticky top-24 h-[calc(100vh-96px)] w-60 shrink-0 overflow-y-auto border-r border-border-soft px-4 py-8">
           <h2 className="m-0 mb-4 px-2 text-base font-medium text-foreground">Settings</h2>
           {groups.map((g) => (
             <div key={g.heading} className="mb-6">
