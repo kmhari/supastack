@@ -12,7 +12,11 @@
   --color-popover-foreground: #fafafa;
 
   --color-border: #393939;
-  --color-border-soft: #2a2a2a;
+  /* Softer border tuned to match supabase.com — used as the outer edge
+     of every <Card> and the divider between card sections. Slightly
+     warmer than the input/button border (#393939) so the card frame
+     reads as quieter than the controls inside it. */
+  --color-border-soft: #2e2e2e;
   --color-input: rgba(255, 255, 255, 0.026);
   --color-ring: #3ecf8e;
 

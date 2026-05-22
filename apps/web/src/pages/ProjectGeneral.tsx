@@ -11,7 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -118,36 +125,35 @@ export function ProjectGeneralPage(): React.ReactElement {
         </Alert>
       )}
 
-      {/* General settings — name, project ID, region */}
-      <Card>
-        <CardHeader>
-          <CardTitle>General settings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmitName} className="grid gap-5">
-            <Field label="Project name" hint="Displayed throughout the dashboard.">
-              <Input value={name} onChange={(e) => setName(e.target.value)} required />
-            </Field>
-            <Field label="Project ID" hint="Reference used in APIs and URLs.">
-              <div className="flex gap-2">
-                <Input value={data.ref} readOnly className="font-mono text-sm" />
-                <CopyButton value={data.ref} variant="outline" />
-              </div>
-            </Field>
-            <Field label="Project region" hint="Where this project's database lives.">
-              <Input value="Self-hosted" readOnly className="text-muted-foreground" />
-            </Field>
-            <div>
-              <Button
-                type="submit"
-                disabled={saveName.isPending || !name.trim() || name.trim() === data.name}
-              >
-                {saveName.isPending ? 'Saving…' : 'Save changes'}
-              </Button>
+      {/* General settings — name, project ID, region (each row = its own card section
+          per Supabase's pattern; divide-y on the Card primitive draws hairlines between) */}
+      <form onSubmit={onSubmitName}>
+        <Card>
+          <CardHeader>
+            <CardTitle>General settings</CardTitle>
+          </CardHeader>
+          <CardRow label="Project name" hint="Displayed throughout the dashboard.">
+            <Input value={name} onChange={(e) => setName(e.target.value)} required />
+          </CardRow>
+          <CardRow label="Project ID" hint="Reference used in APIs and URLs.">
+            <div className="flex gap-2">
+              <Input value={data.ref} readOnly className="font-mono text-sm" />
+              <CopyButton value={data.ref} variant="outline" />
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </CardRow>
+          <CardRow label="Project region" hint="Where this project's database lives.">
+            <Input value="Self-hosted" readOnly className="text-muted-foreground" />
+          </CardRow>
+          <CardFooter>
+            <Button
+              type="submit"
+              disabled={saveName.isPending || !name.trim() || name.trim() === data.name}
+            >
+              {saveName.isPending ? 'Saving…' : 'Save changes'}
+            </Button>
+          </CardFooter>
+        </Card>
+      </form>
 
       {/* URLs */}
       <Card>
@@ -332,6 +338,31 @@ function Field({
     <div className="grid grid-cols-[200px_1fr] items-start gap-6">
       <div className="pt-2">
         <Label className="text-sm text-foreground">{label}</Label>
+        {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
+      </div>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Sectioned form row inside a Card. Renders as its own card section
+ * so the parent `<Card>`'s `divide-y` draws a hairline between rows.
+ * Matches Supabase's `py-4 px-6` rhythm per section.
+ */
+function CardRow({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <div className="grid grid-cols-[280px_1fr] items-start gap-8 px-6 py-5">
+      <div className="pt-2">
+        <Label className="text-sm font-normal text-foreground">{label}</Label>
         {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
       </div>
       <div className="min-w-0">{children}</div>
