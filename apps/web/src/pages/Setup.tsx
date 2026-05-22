@@ -388,14 +388,30 @@ function ApexVerifyStep({
       <DnsRecordCard apex={apex} expectedIp={expectedIp} />
 
       <StatusRow
-        label="DNS"
-        state={status.dnsResolved ? 'ok' : 'pending'}
+        label="Apex DNS"
+        state={
+          status.expectedIp !== null && status.observedIps.includes(status.expectedIp)
+            ? 'ok'
+            : 'pending'
+        }
         detail={
-          status.dnsResolved
-            ? `Resolves to ${expectedIp}`
+          status.expectedIp !== null && status.observedIps.includes(status.expectedIp)
+            ? `${apex} resolves to ${expectedIp}`
             : status.observedIps.length === 0
-              ? `Waiting for propagation… expected ${expectedIp}`
-              : `Currently resolves to ${status.observedIps.join(', ')} — expected ${expectedIp}`
+              ? `Waiting for propagation of @ → ${expectedIp}`
+              : `${apex} resolves to ${status.observedIps.join(', ')} — expected ${expectedIp}`
+        }
+      />
+
+      <StatusRow
+        label="Wildcard DNS"
+        state={status.wildcardResolved ? 'ok' : 'pending'}
+        detail={
+          status.wildcardResolved
+            ? `*.${apex} resolves to ${expectedIp}`
+            : status.wildcardObservedIps.length === 0
+              ? `Waiting for propagation of * → ${expectedIp} (required so every instance subdomain is reachable)`
+              : `*.${apex} resolves to ${status.wildcardObservedIps.join(', ')} — expected ${expectedIp}`
         }
       />
 
@@ -461,17 +477,33 @@ function DnsRecordCard({
   apex: string;
   expectedIp: string;
 }): React.ReactElement {
-  const host = apex.split('.').length > 2 ? (apex.split('.')[0] ?? '@') : '@';
+  const apexHost = apex.split('.').length > 2 ? (apex.split('.')[0] ?? '@') : '@';
+  const wildcardHost = apex.split('.').length > 2 ? `*.${apex.split('.')[0]}` : '*';
   return (
     <div className="rounded-md border border-border bg-card p-3.5 text-sm text-foreground-light">
-      <div className="mb-2 text-foreground">Add this A record at your DNS registrar:</div>
+      <div className="mb-3 text-foreground">
+        Add <strong>both</strong> A records at your DNS registrar:
+      </div>
       <table className="w-full border-collapse font-mono text-sm">
         <tbody>
           <DnsRow label="Type" value="A" />
           <DnsRow
             label="Host"
-            value={host}
-            hint={host === '@' ? '(or the apex itself)' : undefined}
+            value={apexHost}
+            hint={apexHost === '@' ? '(or the apex itself — routes the dashboard)' : '(routes the dashboard)'}
+          />
+          <DnsRow label="Value" value={expectedIp} copyable />
+          <DnsRow label="TTL" value="60–300 seconds" />
+        </tbody>
+      </table>
+      <div className="my-3 border-t border-border-soft" />
+      <table className="w-full border-collapse font-mono text-sm">
+        <tbody>
+          <DnsRow label="Type" value="A" />
+          <DnsRow
+            label="Host"
+            value={wildcardHost}
+            hint={'(routes every per-instance subdomain)'}
           />
           <DnsRow label="Value" value={expectedIp} copyable />
           <DnsRow label="TTL" value="60–300 seconds" />

@@ -10,8 +10,25 @@ interface ApexStatus {
   expectedIp: string | null;
   observedIps: string[];
   dnsResolved: boolean;
+  /**
+   * Wildcard check: resolves a probe label `<random>.<apex>` and confirms
+   * it lands on the same IP. Without a wildcard A record (`*.<apex> → IP`),
+   * every per-instance subdomain we provision is unreachable.
+   */
+  wildcardObservedIps: string[];
+  wildcardResolved: boolean;
   cert: CertProbeResult | null;
 }
+
+/**
+ * Probe label used to verify a wildcard A record is in place.
+ *
+ * Uses an underscore-prefixed label (illegal in our instance refs, which
+ * are `[a-z0-9]{20}`) so it never collides with a real instance. The
+ * registrar's wildcard `*.<apex>` should match this and return the
+ * platform IP; a missing wildcard returns NXDOMAIN.
+ */
+const WILDCARD_PROBE_LABEL = '_selfbase-wildcard-probe';
 
 async function buildStatus(): Promise<ApexStatus> {
   const [orgRow] = await db()
@@ -23,17 +40,40 @@ async function buildStatus(): Promise<ApexStatus> {
   const expectedIp = await getPlatformIp();
 
   if (!apex) {
-    return { apex: null, expectedIp, observedIps: [], dnsResolved: false, cert: null };
+    return {
+      apex: null,
+      expectedIp,
+      observedIps: [],
+      dnsResolved: false,
+      wildcardObservedIps: [],
+      wildcardResolved: false,
+      cert: null,
+    };
   }
 
-  const observedIps = await resolveA(apex);
-  const dnsResolved = expectedIp !== null && observedIps.includes(expectedIp);
+  const [observedIps, wildcardObservedIps] = await Promise.all([
+    resolveA(apex),
+    resolveA(`${WILDCARD_PROBE_LABEL}.${apex}`),
+  ]);
+  const apexOk = expectedIp !== null && observedIps.includes(expectedIp);
+  const wildcardOk =
+    expectedIp !== null && wildcardObservedIps.includes(expectedIp);
+  const dnsResolved = apexOk && wildcardOk;
 
-  // Only probe TLS once DNS resolves to the right host — otherwise we just
-  // hit Caddy's fallback cert for an unrelated SNI and learn nothing useful.
+  // Only probe TLS once BOTH apex and wildcard DNS land on us — otherwise
+  // we just hit Caddy's fallback cert for an unrelated SNI and learn
+  // nothing useful.
   const cert = dnsResolved ? await probeHttpsCert(apex) : null;
 
-  return { apex, expectedIp, observedIps, dnsResolved, cert };
+  return {
+    apex,
+    expectedIp,
+    observedIps,
+    dnsResolved,
+    wildcardObservedIps,
+    wildcardResolved: wildcardOk,
+    cert,
+  };
 }
 
 export const apexRoutes: FastifyPluginAsync = async (app) => {
@@ -44,8 +84,6 @@ export const apexRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/apex/recheck', async (req, reply) => {
     app.authorize(req, 'org.update');
-    // Re-push Caddy config — covers the case where Caddy lost state on
-    // restart and is missing the apex route. Mirrors open-frontend.
     try {
       await reloadCaddy();
     } catch (err) {
@@ -54,22 +92,9 @@ export const apexRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(await buildStatus());
   });
 
-  /**
-   * POST /apex/issue — explicit "issue the HTTPS cert now" trigger.
-   *
-   * Does NOT rely on the user's browser visiting the apex. Instead it
-   * fires up to N probe handshakes from inside the docker network
-   * (api → caddy:443 with SNI=<apex>), which is what Caddy's on-demand
-   * TLS treats as the issuance signal. Once a real-CA cert appears or
-   * the budget runs out, returns the current status.
-   *
-   * Total wall time: up to ~45s. Caddy typically completes ACME HTTP-01
-   * in 5-10s when DNS is good; we give a generous budget for slow ACME.
-   */
   app.post('/apex/issue', async (req, reply) => {
     app.authorize(req, 'org.update');
 
-    // Always reload Caddy first so the apex is in the latest config.
     try {
       await reloadCaddy();
     } catch (err) {
@@ -80,6 +105,11 @@ export const apexRoutes: FastifyPluginAsync = async (app) => {
     if (!initial.apex) {
       throw errors.invalidInput('apex domain is not configured');
     }
+    if (!initial.wildcardResolved) {
+      throw errors.invalidInput(
+        `Wildcard A record for *.${initial.apex} does not resolve to ${initial.expectedIp ?? 'this server'} yet. Add it at your DNS registrar — every per-instance subdomain depends on it.`,
+      );
+    }
     if (!initial.dnsResolved) {
       throw errors.invalidInput(
         `DNS for ${initial.apex} does not resolve to ${initial.expectedIp ?? 'this server'} yet`,
@@ -87,9 +117,6 @@ export const apexRoutes: FastifyPluginAsync = async (app) => {
     }
     if (initial.cert?.issued) return reply.send(initial);
 
-    // Issue loop. Each probe attempts a TLS handshake which Caddy uses
-    // as the on-demand trigger. Caddy may stall the first few handshakes
-    // while ACME is in flight — that's fine, we retry.
     const deadline = Date.now() + 45_000;
     let last = initial;
     while (Date.now() < deadline) {
