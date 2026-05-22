@@ -56,3 +56,7 @@ infra/supabase-template/.local/
 # NOTE: do NOT add `lib/` here — this aggressive pattern broke Multibase's
 # dashboard build because it gitignored apps/web/src/lib/api.ts. CI asserts
 # `git check-ignore -v` on src/lib/api.ts to keep this guarantee.
+
+# Stray supabase CLI working dir (e.g. /supabase/.temp/) when commands are run
+# from the repo root by accident
+/supabase/
