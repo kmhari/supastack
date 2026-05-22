@@ -1,24 +1,53 @@
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { instancesApi } from '../lib/api.js';
-import { useAuth } from '../lib/auth-context.js';
+import {
+  ArrowDownUp,
+  LayoutGrid,
+  List,
+  MoreVertical,
+  Package,
+  Plus,
+  Search,
+} from 'lucide-react';
+import { instancesApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
+import { Shell } from '@/components/Shell';
+import { StatusPill } from '@/components/StatusPill';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 interface InstanceRow {
   ref: string;
   name: string;
   status: 'provisioning' | 'running' | 'paused' | 'stopped' | 'failed' | 'deleting';
+  supabaseVersion?: string;
   urls: { kong: string | null; studio: string | null };
   createdAt: string;
 }
 
+type StatusFilter = 'all' | InstanceRow['status'];
+type ViewMode = 'grid' | 'list';
+
 export function InstancesPage(): React.ReactElement {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [view, setView] = useState<ViewMode>('grid');
 
   const { data, isLoading, error } = useQuery<InstanceRow[]>({
     queryKey: ['instances'],
     queryFn: () => instancesApi.list() as Promise<InstanceRow[]>,
-    // Auto-refetch while any row is in a transient state.
     refetchInterval: (q) => {
       const rows = (q.state.data as InstanceRow[] | undefined) ?? [];
       const transient = rows.some((r) => ['provisioning', 'deleting'].includes(r.status));
@@ -26,170 +55,165 @@ export function InstancesPage(): React.ReactElement {
     },
   });
 
+  const rows = useMemo(() => {
+    const all = data ?? [];
+    return all
+      .filter((r) => (statusFilter === 'all' ? true : r.status === statusFilter))
+      .filter((r) => (query ? r.name.toLowerCase().includes(query.toLowerCase()) : true))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [data, statusFilter, query]);
+
+  const showNew = user?.role === 'admin';
+
   return (
-    <Shell email={user?.email ?? ''} onLogout={() => void logout()}>
-      <header
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-        }}
-      >
-        <h1 style={{ margin: 0 }}>Instances</h1>
-        {user?.role === 'admin' && (
-          <button onClick={() => navigate('/instances/new')} style={primaryButton}>
-            + New Instance
-          </button>
-        )}
-      </header>
-      {isLoading && <p>Loading…</p>}
-      {error && <p style={{ color: '#f99' }}>Failed to load instances</p>}
-      {data && data.length === 0 && <Empty role={user?.role ?? 'member'} />}
-      {data && data.length > 0 && (
-        <div style={{ display: 'grid', gap: 12 }}>
-          {data.map((r) => (
-            <Link
-              key={r.ref}
-              to={`/p/${r.ref}`}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr auto auto',
-                gap: 16,
-                padding: 16,
-                background: '#161616',
-                border: '1px solid #2a2a2a',
-                borderRadius: 6,
-                color: 'inherit',
-                textDecoration: 'none',
-              }}
+    <Shell wide>
+      <h1 className="mb-10 text-4xl font-normal tracking-tight text-foreground">Projects</h1>
+
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <div className="relative w-72">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search for a project"
+            className="h-8 pl-8 text-sm"
+          />
+        </div>
+
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+          <SelectTrigger className="h-8 border-dashed text-sm">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="running">Running</SelectItem>
+            <SelectItem value="paused">Paused</SelectItem>
+            <SelectItem value="stopped">Stopped</SelectItem>
+            <SelectItem value="provisioning">Provisioning</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="deleting">Deleting</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <span className="inline-flex h-8 items-center gap-1.5 px-3 text-sm text-foreground">
+          <ArrowDownUp className="size-3 text-muted-foreground" />
+          Sorted by name
+        </span>
+
+        <div className="ml-auto flex items-center gap-2">
+          <div className="inline-flex gap-0.5">
+            <Button
+              variant={view === 'grid' ? 'secondary' : 'ghost'}
+              size="icon-sm"
+              onClick={() => setView('grid')}
+              aria-label="grid view"
             >
-              <div>
-                <div style={{ fontWeight: 600 }}>{r.name}</div>
-                <div style={{ fontSize: 12, color: '#888', fontFamily: 'ui-monospace, monospace' }}>
-                  {r.ref}
-                </div>
-              </div>
-              <StatusPill status={r.status} />
-              <div style={{ color: '#888', fontSize: 12 }}>
-                {r.urls.kong ?? '<no apex configured>'}
-              </div>
-            </Link>
+              <LayoutGrid className="size-3.5" />
+            </Button>
+            <Button
+              variant={view === 'list' ? 'secondary' : 'ghost'}
+              size="icon-sm"
+              onClick={() => setView('list')}
+              aria-label="list view"
+            >
+              <List className="size-3.5" />
+            </Button>
+          </div>
+          {showNew && (
+            <Button size="sm" onClick={() => navigate('/instances/new')}>
+              <Plus className="size-3" />
+              New project
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {isLoading && <p className="text-muted-foreground">Loading…</p>}
+      {error && <p className="text-destructive">Failed to load projects</p>}
+
+      {data && rows.length === 0 && (
+        <EmptyState role={user?.role ?? 'member'} onNew={() => navigate('/instances/new')} />
+      )}
+
+      {data && rows.length > 0 && view === 'grid' && (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-4">
+          {rows.map((r) => (
+            <ProjectCard key={r.ref} row={r} />
           ))}
         </div>
       )}
+      {data && rows.length > 0 && view === 'list' && <ProjectList rows={rows} />}
     </Shell>
   );
 }
 
-function Empty({ role }: { role: string }): React.ReactElement {
+function ProjectCard({ row }: { row: InstanceRow }): React.ReactElement {
   return (
-    <div
-      style={{ padding: 32, background: '#161616', border: '1px solid #2a2a2a', borderRadius: 6 }}
-    >
-      <p style={{ marginTop: 0 }}>No instances yet.</p>
-      {role === 'admin' && <p>Click &quot;+ New Instance&quot; to provision your first one.</p>}
+    <Link to={`/p/${row.ref}`} className="no-underline">
+      <Card className="flex min-h-[200px] flex-col gap-1.5 rounded-lg border border-border-soft bg-card p-6 transition-colors hover:border-border">
+        <div className="flex items-start gap-2">
+          <span className="flex-1 break-words text-base font-medium text-foreground">
+            {row.name}
+          </span>
+          <MoreVertical className="size-4 text-muted-foreground" />
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Self-hosted {row.supabaseVersion ? `· ${row.supabaseVersion}` : ''}
+        </div>
+        <div className="mt-3">
+          <StatusPill status={row.status} />
+        </div>
+      </Card>
+    </Link>
+  );
+}
+
+function ProjectList({ rows }: { rows: InstanceRow[] }): React.ReactElement {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border-soft bg-card">
+      {rows.map((r, i) => (
+        <Link
+          key={r.ref}
+          to={`/p/${r.ref}`}
+          className={cn(
+            'grid grid-cols-[1fr_auto_auto] items-center gap-4 px-5 py-3.5 text-foreground no-underline',
+            i > 0 && 'border-t border-border-soft',
+          )}
+        >
+          <div>
+            <div className="text-sm font-medium text-foreground">{r.name}</div>
+            <div className="text-xs text-muted-foreground">
+              Self-hosted {r.supabaseVersion ? `· ${r.supabaseVersion}` : ''}
+            </div>
+          </div>
+          <StatusPill status={r.status} />
+          <MoreVertical className="size-4 text-muted-foreground" />
+        </Link>
+      ))}
     </div>
   );
 }
 
-function StatusPill({ status }: { status: InstanceRow['status'] }): React.ReactElement {
-  const colors: Record<InstanceRow['status'], { bg: string; fg: string }> = {
-    provisioning: { bg: '#3a3a17', fg: '#fadc6b' },
-    running: { bg: '#19402c', fg: '#3ECF8E' },
-    paused: { bg: '#1f2a3a', fg: '#7ab8f5' },
-    stopped: { bg: '#333', fg: '#aaa' },
-    failed: { bg: '#3a1717', fg: '#ff8b8b' },
-    deleting: { bg: '#2a2a2a', fg: '#888' },
-  };
-  const c = colors[status];
-  return (
-    <span
-      style={{
-        background: c.bg,
-        color: c.fg,
-        padding: '4px 10px',
-        borderRadius: 999,
-        fontSize: 12,
-        fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-      }}
-    >
-      {status}
-    </span>
-  );
-}
-
-function Shell({
-  email,
-  onLogout,
-  children,
+function EmptyState({
+  role,
+  onNew,
 }: {
-  email: string;
-  onLogout: () => void;
-  children: React.ReactNode;
+  role: string;
+  onNew: () => void;
 }): React.ReactElement {
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#0a0a0a',
-        color: '#eee',
-        fontFamily: 'system-ui, sans-serif',
-      }}
-    >
-      <nav
-        style={{
-          padding: '12px 24px',
-          borderBottom: '1px solid #2a2a2a',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <strong>Selfbase</strong>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: 14 }}>
-          <Link to="/settings/org" style={navLink}>
-            Org
-          </Link>
-          <Link to="/settings/members" style={navLink}>
-            Members
-          </Link>
-          <Link to="/settings/tokens" style={navLink}>
-            Tokens
-          </Link>
-          <Link to="/settings/audit" style={navLink}>
-            Audit
-          </Link>
-          <span style={{ color: '#888' }}>{email}</span>
-          <button
-            onClick={onLogout}
-            style={{
-              background: 'none',
-              border: '1px solid #444',
-              color: '#eee',
-              padding: '4px 12px',
-              borderRadius: 4,
-              cursor: 'pointer',
-            }}
-          >
-            Sign out
-          </button>
-        </div>
-      </nav>
-      <main style={{ padding: 32, maxWidth: 960, margin: '0 auto' }}>{children}</main>
+    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-6 py-16">
+      <Package className="size-8 text-foreground-light" />
+      <h2 className="m-0 text-lg font-medium text-foreground">Create a project</h2>
+      <p className="m-0 text-sm text-muted-foreground">
+        Launch a complete backend built on Postgres.
+      </p>
+      {role === 'admin' && (
+        <Button variant="secondary" size="sm" onClick={onNew} className="mt-2">
+          <Plus className="size-3" />
+          New project
+        </Button>
+      )}
     </div>
   );
 }
-
-const primaryButton: React.CSSProperties = {
-  padding: '10px 16px',
-  background: '#3ECF8E',
-  color: '#000',
-  border: 'none',
-  borderRadius: 4,
-  fontWeight: 600,
-  cursor: 'pointer',
-};
-const navLink: React.CSSProperties = { color: '#7ab8f5', textDecoration: 'none' };

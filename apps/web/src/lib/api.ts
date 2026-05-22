@@ -34,6 +34,32 @@ export const authApi = {
   revokeToken: (id: string) => unwrap(client.delete(`/auth/tokens/${id}`)),
 };
 
+// ─── apex domain + TLS status (setup wizard step 2) ─────────────────────────
+export interface ApexCert {
+  reachable: boolean;
+  issued: boolean;
+  issuer?: string;
+  subject?: string;
+  notAfter?: string;
+  selfSigned?: boolean;
+  error?: string;
+}
+export interface ApexStatus {
+  apex: string | null;
+  expectedIp: string | null;
+  observedIps: string[];
+  dnsResolved: boolean;
+  cert: ApexCert | null;
+}
+export const apexApi = {
+  status: () => unwrap<ApexStatus>(client.get('/apex')),
+  recheck: () => unwrap<ApexStatus>(client.post('/apex/recheck')),
+  // Long-poll (~45s on the server). Triggers Caddy on-demand TLS from
+  // inside the docker network and returns once the cert is issued or
+  // the issue budget runs out.
+  issue: () => unwrap<ApexStatus>(client.post('/apex/issue', null, { timeout: 60_000 })),
+};
+
 // ─── org + members ──────────────────────────────────────────────────────────
 export const orgApi = {
   get: () => unwrap(client.get('/org')),
