@@ -60,6 +60,14 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     networks: [internal]
+    # Allow Caddy to reach per-instance Supabase containers which publish
+    # their ports on the host (Kong 30000, Studio 30001, etc.). The
+    # generated caddy-config.ts proxies to `host.docker.internal:<port>`;
+    # on Linux that name isn't auto-populated, so we map it to the host
+    # gateway explicitly. Without this every per-instance request 502s
+    # with "dial tcp: lookup host.docker.internal: no such host".
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     # admin :2019 is intentionally NOT published; only reachable from `internal` network
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:2019/config/']
