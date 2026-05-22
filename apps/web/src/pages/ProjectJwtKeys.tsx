@@ -6,7 +6,7 @@ import { CopyButton } from '@/components/CopyButton';
 import { RevealDialog } from '@/components/RevealDialog';
 import { useRevealCredentials } from '@/lib/use-reveal-credentials';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 export function ProjectJwtKeysPage(): React.ReactElement {
   const { ref = '' } = useParams<{ ref: string }>();
@@ -17,26 +17,26 @@ export function ProjectJwtKeysPage(): React.ReactElement {
       title="JWT Keys"
       subtitle="Control the keys used to sign JSON Web Tokens for your project."
     >
-      <Card>
-        <CardHeader>
-          <CardTitle>JWT Signing Keys</CardTitle>
-          <CardDescription>
-            Used to verify JSON Web Tokens issued by this project — including the{' '}
-            <Link to={`/p/${ref}/api-keys`} className="text-success no-underline hover:underline">
-              anon and service_role API keys
-            </Link>
-            .
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <JwtRow
-            label="Legacy JWT secret"
-            description="40-byte random base64 string. Required to verify the anon and service_role JWTs that callers send in the apikey header. Treat it like a password — if leaked, every issued JWT must be considered compromised."
-            value={reveal.creds?.jwtSecret ?? null}
-            onReveal={reveal.openDialog}
-          />
-        </CardContent>
-      </Card>
+      <div>
+        <h2 className="m-0 mb-3 text-lg font-medium text-foreground">JWT Signing Keys</h2>
+        <p className="m-0 mb-4 text-sm text-muted-foreground">
+          Used to verify JSON Web Tokens issued by this project — including the{' '}
+          <Link to={`/p/${ref}/api-keys`} className="text-success no-underline hover:underline">
+            anon and service_role API keys
+          </Link>
+          .
+        </p>
+        <Card>
+          <CardContent>
+            <JwtRow
+              label="Legacy JWT secret"
+              description="40-byte random base64 string. Required to verify the anon and service_role JWTs that callers send in the apikey header. Treat it like a password — if leaked, every issued JWT must be considered compromised."
+              value={reveal.creds?.jwtSecret ?? null}
+              onReveal={reveal.openDialog}
+            />
+          </CardContent>
+        </Card>
+      </div>
 
       <RevealDialog
         open={reveal.dialogOpen}

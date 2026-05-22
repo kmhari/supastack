@@ -7,7 +7,7 @@ import { RevealDialog } from '@/components/RevealDialog';
 import { useRevealCredentials } from '@/lib/use-reveal-credentials';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 
 export function ProjectApiKeysPage(): React.ReactElement {
   const { ref = '' } = useParams<{ ref: string }>();
@@ -18,16 +18,17 @@ export function ProjectApiKeysPage(): React.ReactElement {
       title="API Keys"
       subtitle="Configure API keys to securely control access to your project."
     >
-      <Card>
-        <CardHeader>
-          <CardTitle>Legacy anon, service_role API keys</CardTitle>
-          <CardDescription>
-            JWTs signed with this project&apos;s JWT secret. Send as the <code>apikey</code> header
-            (and as a Bearer token) on every request to <code>/rest/v1</code>, <code>/auth/v1</code>,
-            <code>/realtime/v1</code>, <code>/storage/v1</code>, <code>/functions/v1</code>.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
+      <div>
+        <h2 className="m-0 mb-3 text-lg font-medium text-foreground">
+          Legacy anon, service_role API keys
+        </h2>
+        <p className="m-0 mb-4 text-sm text-muted-foreground">
+          JWTs signed with this project&apos;s JWT secret. Send as the <code>apikey</code> header
+          (and as a Bearer token) on every request to <code>/rest/v1</code>,{' '}
+          <code>/auth/v1</code>, <code>/realtime/v1</code>, <code>/storage/v1</code>,{' '}
+          <code>/functions/v1</code>.
+        </p>
+        <Card>
           <KeyRow
             name="anon"
             badgeText="public"
@@ -46,8 +47,8 @@ export function ProjectApiKeysPage(): React.ReactElement {
             isSecret
             onReveal={reveal.openDialog}
           />
-        </CardContent>
-      </Card>
+        </Card>
+      </div>
 
       <RevealDialog
         open={reveal.dialogOpen}
@@ -83,7 +84,7 @@ function KeyRow({
   const masked = '•'.repeat(40);
 
   return (
-    <div className="border-t border-border-soft first:border-t-0 p-6">
+    <div className="px-6 py-5">
       <div className="mb-3 flex items-center gap-2.5">
         <code className="font-mono text-sm font-medium text-foreground">{name}</code>
         <Badge variant={badgeVariant}>{badgeText}</Badge>
