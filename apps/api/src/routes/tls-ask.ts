@@ -13,6 +13,7 @@ const TTL_MS = 60_000;
  *
  * Admissible:
  *  - host equals the configured apex domain
+ *  - host equals `api.<apex>` (Supabase CLI-compat management API)
  *  - host equals `<ref>.<apex>` (data plane) for any non-deleted instance
  *  - host equals `studio-<ref>.<apex>` (Studio UI) for any non-deleted instance
  *
@@ -46,6 +47,10 @@ async function isAdmissible(domain: string): Promise<boolean> {
   if (!apex) return false;
 
   if (domain === apex) return true;
+
+  // api.<apex> — the Supabase CLI-compatibility management surface. Always
+  // admissible whenever an apex is configured; no DB lookup needed.
+  if (domain === `api.${apex}`) return true;
 
   // <ref>.<apex> (data plane) or studio-<ref>.<apex> (Studio UI)
   const suffix = `.${apex}`;
