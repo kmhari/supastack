@@ -111,7 +111,10 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
     if (!orgRow) throw errors.invalidInput('org not initialized — complete /setup first');
 
     const ref = generateRef();
-    const secrets = generateInstanceSecrets({ jwtExpirySec: body.jwtExpirySec });
+    const secrets = generateInstanceSecrets({
+      jwtExpirySec: body.jwtExpirySec,
+      postgresPasswordOverride: body.dbPassword,
+    });
     const encryptedSecrets = encryptInstanceSecrets(secrets);
 
     // SMTP password (if provided) encrypted separately so future granular

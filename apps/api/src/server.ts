@@ -14,6 +14,7 @@ import { authRoutes } from './routes/auth.js';
 import { instancesRoutes } from './routes/instances.js';
 import { backupsRoutes } from './routes/backups.js';
 import { orgRoutes } from './routes/org.js';
+import { apexRoutes } from './routes/apex.js';
 import { membersRoutes } from './routes/members.js';
 import { auditRoutes } from './routes/audit.js';
 
@@ -83,6 +84,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(setupRoutes, { prefix: '/api/v1' });
   await app.register(authRoutes, { prefix: '/api/v1' });
   await app.register(orgRoutes, { prefix: '/api/v1' });
+  await app.register(apexRoutes, { prefix: '/api/v1' });
   await app.register(instancesRoutes, { prefix: '/api/v1' });
   await app.register(backupsRoutes, { prefix: '/api/v1' });
   await app.register(membersRoutes, { prefix: '/api/v1' });

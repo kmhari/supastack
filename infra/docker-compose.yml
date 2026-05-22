@@ -84,6 +84,11 @@ services:
       CADDY_ADMIN_URL: http://caddy:2019
       INSTANCES_DIR: /var/selfbase/instances
       BACKUPS_DIR: /var/selfbase/backups
+      SELFBASE_PUBLIC_IP: ${SELFBASE_PUBLIC_IP:-}
+      # COOKIE_SECURE=0 (default) lets the session cookie work over plain HTTP
+      # — required for /setup + /login before an apex + HTTPS cert exist.
+      # Flip to 1 once HTTPS is in place.
+      COOKIE_SECURE: ${COOKIE_SECURE:-0}
     ports:
       - 3001:3001
     volumes:
