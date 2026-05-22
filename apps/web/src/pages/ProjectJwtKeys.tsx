@@ -64,7 +64,7 @@ export function ProjectJwtKeysPage(): React.ReactElement {
                   variant="outline"
                   size="sm"
                   className="mt-2 self-start"
-                  onClick={() => navigate(`/dashboard/project/${ref}/admin/api-keys`)}
+                  onClick={() => navigate(`/dashboard/project/${ref}/api-keys`)}
                 >
                   <ExternalLink className="size-3.5" />
                   Go to API keys

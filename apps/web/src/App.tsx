@@ -11,7 +11,6 @@ import { ProjectApiKeysPage } from './pages/ProjectApiKeys.js';
 import { ProjectJwtKeysPage } from './pages/ProjectJwtKeys.js';
 import { InstanceBackupsPage } from './pages/InstanceBackups.js';
 import { ProjectHealthPage } from './pages/ProjectHealth.js';
-import { ProjectStudioPage } from './pages/ProjectStudio.js';
 import { SettingsOrgPage } from './pages/SettingsOrg.js';
 import { SettingsMembersPage } from './pages/SettingsMembers.js';
 import { SettingsAuditPage } from './pages/SettingsAudit.js';
@@ -63,20 +62,12 @@ export function App(): React.ReactElement {
           path="/dashboard/project/:ref"
           element={
             <RequireAuth>
-              <ProjectStudioPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/dashboard/project/:ref/admin"
-          element={
-            <RequireAuth>
               <ProjectGeneralPage />
             </RequireAuth>
           }
         />
         <Route
-          path="/dashboard/project/:ref/admin/api-keys"
+          path="/dashboard/project/:ref/api-keys"
           element={
             <RequireAuth>
               <ProjectApiKeysPage />
@@ -84,7 +75,7 @@ export function App(): React.ReactElement {
           }
         />
         <Route
-          path="/dashboard/project/:ref/admin/jwt-keys"
+          path="/dashboard/project/:ref/jwt-keys"
           element={
             <RequireAuth>
               <ProjectJwtKeysPage />
@@ -92,7 +83,7 @@ export function App(): React.ReactElement {
           }
         />
         <Route
-          path="/dashboard/project/:ref/admin/backups"
+          path="/dashboard/project/:ref/backups"
           element={
             <RequireAuth>
               <InstanceBackupsPage />
@@ -100,7 +91,7 @@ export function App(): React.ReactElement {
           }
         />
         <Route
-          path="/dashboard/project/:ref/admin/health"
+          path="/dashboard/project/:ref/health"
           element={
             <RequireAuth>
               <ProjectHealthPage />
@@ -222,12 +213,9 @@ function RequireAuth({ children }: { children: React.ReactElement }): React.Reac
   return children;
 }
 
-/** Redirect old /p/:ref[/:tab] (settings pages) to /dashboard/project/:ref/admin[/:tab].
- *  The new /dashboard/project/:ref is Studio, not General. */
+/** Redirect old /p/:ref and /p/:ref/:tab URLs to /dashboard/project/:ref/... */
 function LegacyProjectRedirect(): React.ReactElement {
   const { ref = '', tab } = useParams<{ ref: string; tab?: string }>();
-  const target = tab
-    ? `/dashboard/project/${ref}/admin/${tab}`
-    : `/dashboard/project/${ref}/admin`;
+  const target = tab ? `/dashboard/project/${ref}/${tab}` : `/dashboard/project/${ref}`;
   return <Navigate to={target} replace />;
 }
