@@ -122,6 +122,8 @@ CREATE TABLE IF NOT EXISTS project_secrets (
   name              text        NOT NULL,
   encrypted_value   bytea       NOT NULL,
                                   -- @selfbase/crypto encryptJson({value}, masterKey)
+  value_sha256      text        NOT NULL,
+                                  -- SHA-256 hex digest of plaintext value
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
   created_by        uuid        REFERENCES users(id) ON DELETE SET NULL,
@@ -134,6 +136,7 @@ CREATE TABLE IF NOT EXISTS project_secrets (
 - `name` must match `^[A-Z][A-Z0-9_]{0,63}$` (enforced in `secret-store.ts`, not at the DB layer — easier to evolve).
 - `name` MUST NOT be in `RESERVED_SECRET_NAMES` (see research.md R-005). Enforced before insert.
 - `encrypted_value` is the per-instance master-key-encrypted JSON `{ "value": "..." }`. Decryption is performed only when writing the `.env` file or restoring from backup; the dashboard's list endpoint never decrypts.
+- `value_sha256` is a non-reversible per-row indicator (hex SHA-256 of the plaintext value), computed at write-time. The redacted-list response for FR-015 (`GET /v1/projects/:ref/secrets`) surfaces it directly so the dashboard and CLI can render a stable per-secret fingerprint **without decrypting per-call**. Plaintext is recoverable only via the encrypted blob; this column is safe to expose.
 
 ---
 
@@ -286,12 +289,17 @@ CREATE TABLE IF NOT EXISTS project_secrets (
   instance_ref    text        NOT NULL REFERENCES supabase_instances(ref) ON DELETE CASCADE,
   name            text        NOT NULL,
   encrypted_value bytea       NOT NULL,
+  value_sha256    text        NOT NULL,
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now(),
   created_by      uuid        REFERENCES users(id) ON DELETE SET NULL,
   updated_by      uuid        REFERENCES users(id) ON DELETE SET NULL,
   UNIQUE (instance_ref, name)
 );
+-- value_sha256 was added in a follow-up; the shipped migration also includes
+-- a defensive ADD COLUMN IF NOT EXISTS + backfill block so re-runs against
+-- migrated DBs converge to the same schema. See the actual migration file
+-- packages/db/migrations/0002_cli_compat.sql for the idempotent version.
 ```
 
 The Drizzle schema in `packages/db/src/schema.ts` is updated in parallel to mirror these tables. The migration is the source of truth; the Drizzle schema is a typed mirror.
