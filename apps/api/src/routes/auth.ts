@@ -64,6 +64,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       .select({
         id: schema.apiTokens.id,
         label: schema.apiTokens.label,
+        prefix: schema.apiTokens.prefix,
         lastUsedAt: schema.apiTokens.lastUsedAt,
         createdAt: schema.apiTokens.createdAt,
       })

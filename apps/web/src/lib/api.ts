@@ -116,3 +116,20 @@ export const auditApi = {
     limit?: string;
   }) => unwrap(client.get('/audit', { params })),
 };
+
+// ─── connect-cli (Supabase CLI compatibility helpers) ──────────────────────
+export const cliApi = {
+  /** Returns the deployment's selfbase.toml profile snippet as text/plain. */
+  profileToml: () =>
+    client
+      .get<string>('/cli/profile.toml', { responseType: 'text', transformResponse: (v) => v })
+      .then((r) => r.data),
+  /**
+   * Mints a fresh PAT. The plaintext token is returned ONCE — display it,
+   * stash it, do not round-trip.
+   */
+  mintToken: (label?: string) =>
+    unwrap<{ token: string; label: string; prefix: string; id: string }>(
+      client.post('/cli/mint-token', { label }),
+    ),
+};

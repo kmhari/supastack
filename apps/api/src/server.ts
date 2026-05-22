@@ -20,6 +20,9 @@ import { apexRoutes } from './routes/apex.js';
 import { membersRoutes } from './routes/members.js';
 import { auditRoutes } from './routes/audit.js';
 import { notImplementedRoutes } from './routes/management/not-implemented.js';
+import { profileRoutes } from './routes/management/profile.js';
+import { organizationsRoutes } from './routes/management/organizations.js';
+import { connectCliRoutes } from './routes/connect-cli.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -92,6 +95,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(backupsRoutes, { prefix: '/api/v1' });
   await app.register(membersRoutes, { prefix: '/api/v1' });
   await app.register(auditRoutes, { prefix: '/api/v1' });
+  await app.register(connectCliRoutes, { prefix: '/api/v1' });
   await app.register(tlsAskRoutes); // /internal/tls/ask
   await app.register(caddyInternalRoutes); // /internal/caddy/reload
 
@@ -111,13 +115,10 @@ export async function buildApp(): Promise<FastifyInstance> {
       await mgmt.register(multipart, {
         limits: { fileSize: 50 * 1024 * 1024, files: 100 },
       });
-      // Real routes register here (Phase 3+):
-      //   await mgmt.register(profileRoutes);
-      //   await mgmt.register(organizationsRoutes);
-      //   await mgmt.register(projectsRoutes);
-      //   await mgmt.register(apiKeysRoutes);
-      //   await mgmt.register(functionsRoutes);
-      //   await mgmt.register(secretsRoutes);
+      // US1 — auth/profile/organizations:
+      await mgmt.register(profileRoutes);
+      await mgmt.register(organizationsRoutes);
+      // US2/US3/US4 land here (projects, api-keys, functions, secrets).
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },

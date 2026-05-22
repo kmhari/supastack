@@ -67,14 +67,44 @@ export async function mintTestToken(
 ): Promise<string> {
   const raw = `sbp_${randomBytes(20).toString('hex')}`;
   const tokenSha256 = createHash('sha256').update(raw, 'utf8').digest();
-  // After T004 ships, `prefix` exists; before then the column is absent and
-  // Drizzle's insert ignores any unknown values silently when using `.values()`
-  // — but only if the schema TYPE doesn't list it. So we MUST switch the
-  // schema first (T004) then this insert.
-  await db()
-    .insert(schema.apiTokens)
-    .values({ userId, tokenSha256, label });
+  const prefix = raw.slice(0, 12);
+  await db().insert(schema.apiTokens).values({ userId, tokenSha256, label, prefix });
   return raw;
+}
+
+/**
+ * Seed a complete authentication context: a user, the singleton org (if
+ * absent), an org_members row, and a PAT bound to the user. Returns every
+ * id the test will need plus the plaintext token.
+ *
+ * The auth plugin's bearer-token path joins users + org_members; without
+ * an org membership the user isn't visible to authenticated routes.
+ */
+export async function seedTestUser(opts: {
+  email?: string;
+  role?: 'admin' | 'member';
+} = {}) {
+  const email = opts.email ?? `test-${randomBytes(4).toString('hex')}@selfbase.test`;
+  const [user] = await db()
+    .insert(schema.users)
+    .values({ email, hashedPassword: 'unused' })
+    .returning({ id: schema.users.id });
+  if (!user) throw new Error('failed to insert test user');
+
+  // Org may already exist (singleton). Insert if missing.
+  const existingOrgs = await db().select({ id: schema.org.id }).from(schema.org).limit(1);
+  const orgId = existingOrgs[0]?.id
+    ?? (await db()
+      .insert(schema.org)
+      .values({ name: 'Test Org' })
+      .returning({ id: schema.org.id }))[0]!.id;
+
+  await db()
+    .insert(schema.orgMembers)
+    .values({ orgId, userId: user.id, role: opts.role ?? 'admin' });
+
+  const token = await mintTestToken(user.id);
+  return { userId: user.id, email, orgId, token };
 }
 
 /**
