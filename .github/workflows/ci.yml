@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main, '001-*']
+
+jobs:
+  guardrails:
+    name: guardrails (gitignore + format)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert src/lib/ is NOT gitignored (Multibase regression)
+        run: |
+          # `git check-ignore` exits 0 if the path IS ignored, 1 if it ISN'T.
+          # We want it to NOT be ignored — so we want exit 1.
+          if git check-ignore -v apps/web/src/lib/api.ts; then
+            echo "::error::apps/web/src/lib/api.ts is gitignored. The Multibase failure mode has returned. Remove 'lib/' from .gitignore."
+            exit 1
+          else
+            echo "OK: src/lib/api.ts is not gitignored."
+          fi
+
+      - name: Setup Node + pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck || true # warn-only until packages exist
+
+  test:
+    name: unit tests
+    runs-on: ubuntu-latest
+    needs: guardrails
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Test
+        run: pnpm test

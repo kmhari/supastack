@@ -1,0 +1,156 @@
+# Selfbase control-plane stack.
+#
+# This is *not* a managed Supabase instance — it's the platform that manages
+# them. It owns: control-plane Postgres, Redis (sessions + queue), Caddy
+# (HTTPS + on-demand TLS), the Fastify API, the BullMQ worker, and the static
+# React dashboard.
+
+name: selfbase
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  pg-data:
+  redis-data:
+  caddy-data:
+  caddy-config:
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: selfbase
+      POSTGRES_PASSWORD: ${CONTROL_DB_PASSWORD:?CONTROL_DB_PASSWORD required}
+      POSTGRES_DB: selfbase
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U selfbase -d selfbase']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--save', '60', '1', '--loglevel', 'warning']
+    volumes:
+      - redis-data:/data
+    networks: [internal]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'PING']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ../apps/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [internal]
+    # Allow Caddy to reach per-instance Supabase containers which publish
+    # their ports on the host (Kong 30000, Studio 30001, etc.). The
+    # generated caddy-config.ts proxies to `host.docker.internal:<port>`;
+    # on Linux that name isn't auto-populated, so we map it to the host
+    # gateway explicitly. Without this every per-instance request 502s
+    # with "dial tcp: lookup host.docker.internal: no such host".
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    # admin :2019 is intentionally NOT published; only reachable from `internal` network
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:2019/config/']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  api:
+    image: selfbase/api:${SELFBASE_VERSION:-dev}
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SELFBASE_SERVICE: api
+      DATABASE_URL: postgres://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
+      REDIS_URL: redis://redis:6379
+      MASTER_KEY: ${MASTER_KEY:?MASTER_KEY required}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET required}
+      CADDY_ADMIN_URL: http://caddy:2019
+      INSTANCES_DIR: /var/selfbase/instances
+      BACKUPS_DIR: /var/selfbase/backups
+      SELFBASE_PUBLIC_IP: ${SELFBASE_PUBLIC_IP:-}
+      # COOKIE_SECURE=0 (default) lets the session cookie work over plain HTTP
+      # — required for /setup + /login before an apex + HTTPS cert exist.
+      # Flip to 1 once HTTPS is in place.
+      COOKIE_SECURE: ${COOKIE_SECURE:-0}
+    ports:
+      - 3001:3001
+    volumes:
+      - /var/selfbase/instances:/var/selfbase/instances
+      - /var/selfbase/backups:/var/selfbase/backups
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [internal]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', 'fetch("http://localhost:3001/api/v1/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    image: selfbase/worker:${SELFBASE_VERSION:-dev}
+    build:
+      context: ..
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SELFBASE_SERVICE: worker
+      DATABASE_URL: postgres://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
+      REDIS_URL: redis://redis:6379
+      MASTER_KEY: ${MASTER_KEY:?MASTER_KEY required}
+      CADDY_ADMIN_URL: http://caddy:2019
+      INSTANCES_DIR: /var/selfbase/instances
+      BACKUPS_DIR: /var/selfbase/backups
+      STUDIO_IMAGE: ${STUDIO_IMAGE:-selfbase/studio:latest}
+    volumes:
+      - /var/selfbase/instances:/var/selfbase/instances
+      - /var/selfbase/backups:/var/selfbase/backups
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../infra/supabase-template:/app/infra/supabase-template:ro
+    networks: [internal]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    image: selfbase/web:${SELFBASE_VERSION:-dev}
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    networks: [internal]
+    # web is fronted by Caddy; no public port published.

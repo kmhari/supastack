@@ -1,244 +1,200 @@
 #!/usr/bin/env bash
-set -euo pipefail
+#
+# Selfbase installer — bootstraps the control plane on a Linux host.
+#
+# After this finishes, a single command (the printed URL) opens the dashboard
+# at /setup, where the operator creates the super-admin and optionally
+# registers an apex domain.
+#
+# Idempotent. Safe to re-run; existing data is preserved.
+#
+# Environment overrides:
+#   INSTALL_DIR      where the repo lives (default: /opt/selfbase)
+#   DATA_DIR         host bind-mount root (default: /var/selfbase)
+#   REPO_URL         git source (default: this repo's origin)
+#   REPO_REF         git branch/tag/commit (default: main)
+#   SELFBASE_VERSION docker tag suffix for built images (default: dev)
+#   STUDIO_IMAGE     prebuilt Studio image tag (default: selfbase/studio:<commit>)
+#   LOG_LEVEL        pino log level for api+worker (default: info)
+#   SKIP_BUILD       set to 1 to skip image builds (useful if pre-pulled)
+set -Eeuo pipefail
 
-# ─── Config ───────────────────────────────────────────────────────────────────
-INSTALL_DIR="${INSTALL_DIR:-$HOME/supabase}"
-PUBLIC_URL="${PUBLIC_URL:-}"          # auto-detected if empty
-STUDIO_PORT="${STUDIO_PORT:-8000}"
-SITE_PORT="${SITE_PORT:-3000}"
+# ─── colours ────────────────────────────────────────────────────────────────
+if [[ -t 1 ]]; then
+  R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; C='\033[0;36m'; B='\033[1m'; X='\033[0m'
+else
+  R=''; G=''; Y=''; C=''; B=''; X=''
+fi
+info()    { echo -e "${C}[info]${X} $*"; }
+ok()      { echo -e "${G}[ok]${X}   $*"; }
+warn()    { echo -e "${Y}[warn]${X} $*"; }
+die()     { echo -e "${R}[err]${X}  $*" >&2; exit 1; }
 
-# ─── Colours ──────────────────────────────────────────────────────────────────
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
-info()    { echo -e "${CYAN}[info]${RESET} $*"; }
-success() { echo -e "${GREEN}[ok]${RESET}   $*"; }
-warn()    { echo -e "${YELLOW}[warn]${RESET} $*"; }
-die()     { echo -e "${RED}[err]${RESET}  $*" >&2; exit 1; }
+# ─── config ─────────────────────────────────────────────────────────────────
+INSTALL_DIR="${INSTALL_DIR:-/opt/selfbase}"
+DATA_DIR="${DATA_DIR:-/var/selfbase}"
+REPO_URL_DEFAULT=""
+if [[ -d "${BASH_SOURCE[0]%/*}/.git" ]]; then
+  REPO_URL_DEFAULT="$(git -C "${BASH_SOURCE[0]%/*}" remote get-url origin 2>/dev/null || true)"
+fi
+REPO_URL="${REPO_URL:-${REPO_URL_DEFAULT:-https://github.com/your-org/selfbase.git}}"
+REPO_REF="${REPO_REF:-main}"
+SELFBASE_VERSION="${SELFBASE_VERSION:-dev}"
+LOG_LEVEL="${LOG_LEVEL:-info}"
+SKIP_BUILD="${SKIP_BUILD:-0}"
 
-# ─── Root check ───────────────────────────────────────────────────────────────
+# ─── root check ─────────────────────────────────────────────────────────────
 if [[ $EUID -eq 0 ]]; then
-  die "Do not run as root. Run as a regular user with sudo access."
+  die "Do not run as root. Run as a sudo-capable regular user."
+fi
+if ! sudo -n true 2>/dev/null; then
+  warn "This script needs sudo for Docker install, /opt and /var paths. You may be prompted."
 fi
 
-# ─── OS detection ─────────────────────────────────────────────────────────────
-detect_os() {
-  if [[ -f /etc/os-release ]]; then
-    # shellcheck source=/dev/null
-    source /etc/os-release
-    echo "${ID:-linux}"
-  else
-    echo "linux"
-  fi
-}
+# ─── OS / arch sanity ───────────────────────────────────────────────────────
+case "$(uname -s)" in
+  Linux) ;;
+  *) die "Linux only (got $(uname -s))." ;;
+esac
 
-OS=$(detect_os)
-
-# ─── Dependency installers ────────────────────────────────────────────────────
-install_docker() {
-  info "Installing Docker..."
-  curl -fsSL https://get.docker.com | sh
+# ─── 1. install Docker if missing ───────────────────────────────────────────
+if ! command -v docker >/dev/null 2>&1; then
+  info "Installing Docker via get.docker.com…"
+  curl -fsSL https://get.docker.com | sudo sh
   sudo usermod -aG docker "$USER"
-  warn "Added $USER to docker group. You may need to log out and back in for group changes to take effect."
-  warn "Re-run this script after logging back in if docker commands fail."
-  # Activate group in current shell without logout
-  exec sg docker "$0 $*" || true
-}
+  warn "User '$USER' added to the docker group. Log out and back in if subsequent commands fail with permission errors."
+else
+  ok "docker $(docker --version | awk '{print $3}' | tr -d ',')"
+fi
+if ! docker info >/dev/null 2>&1; then
+  warn "Docker daemon not reachable yet. Re-running via 'sg docker'…"
+  exec sg docker "$0 $*"
+fi
+if ! docker compose version >/dev/null 2>&1; then
+  die "docker compose v2 plugin missing. Install: https://docs.docker.com/compose/install/"
+fi
+ok "docker compose $(docker compose version --short)"
 
-install_package() {
-  local pkg="$1"
-  case "$OS" in
-    ubuntu|debian) sudo apt-get install -y -qq "$pkg" ;;
-    fedora|rhel|centos|rocky|almalinux) sudo dnf install -y "$pkg" ;;
-    arch) sudo pacman -S --noconfirm "$pkg" ;;
-    *) die "Cannot auto-install '$pkg' on '$OS'. Please install it manually." ;;
-  esac
-}
+# ─── 2. clone or update the repo ────────────────────────────────────────────
+if [[ ! -d "$INSTALL_DIR/.git" ]]; then
+  info "Cloning $REPO_URL@$REPO_REF → $INSTALL_DIR"
+  sudo mkdir -p "$INSTALL_DIR"
+  sudo chown -R "$USER:$USER" "$INSTALL_DIR"
+  git clone --depth=1 --branch "$REPO_REF" "$REPO_URL" "$INSTALL_DIR"
+else
+  info "Updating existing checkout in $INSTALL_DIR"
+  git -C "$INSTALL_DIR" fetch --depth=1 origin "$REPO_REF"
+  git -C "$INSTALL_DIR" checkout "$REPO_REF"
+  git -C "$INSTALL_DIR" reset --hard "origin/$REPO_REF" || true
+fi
+cd "$INSTALL_DIR"
 
-# ─── Prerequisite checks ──────────────────────────────────────────────────────
-check_prerequisites() {
-  info "Checking prerequisites..."
+# ─── 3. data dirs ───────────────────────────────────────────────────────────
+info "Creating data dirs under $DATA_DIR"
+sudo mkdir -p "$DATA_DIR/instances" "$DATA_DIR/backups"
+sudo chown -R "$USER:$USER" "$DATA_DIR"
 
-  # git
-  if ! command -v git &>/dev/null; then
-    info "Installing git..."
-    install_package git
-  fi
-  success "git $(git --version | awk '{print $3}')"
+# ─── 4. .env (idempotent — won't overwrite existing secrets) ────────────────
+ENV_FILE="$INSTALL_DIR/.env"
+if [[ -f "$ENV_FILE" ]]; then
+  ok "Existing .env preserved at $ENV_FILE"
+else
+  info "Generating fresh .env (secrets via openssl rand)…"
+  MASTER_KEY="$(openssl rand -hex 32)"
+  SESSION_SECRET="$(openssl rand -hex 32)"
+  CONTROL_DB_PASSWORD="$(openssl rand -base64 32 | tr -d '/+=$\\`' | cut -c1-32)"
+  STUDIO_COMMIT="$(cat "$INSTALL_DIR/infra/supabase-template/COMMIT" 2>/dev/null || echo 'unknown')"
 
-  # openssl
-  if ! command -v openssl &>/dev/null; then
-    info "Installing openssl..."
-    install_package openssl
-  fi
-  success "openssl $(openssl version | awk '{print $2}')"
+  cat > "$ENV_FILE" <<EOF
+# Selfbase control-plane secrets — DO NOT COMMIT
+# Generated $(date -u +%FT%TZ) by install.sh
 
-  # docker
-  if ! command -v docker &>/dev/null; then
-    install_docker
-  fi
-  if ! docker info &>/dev/null; then
-    die "Docker daemon not running or current user lacks access. Try: sudo systemctl start docker"
-  fi
-  success "docker $(docker --version | awk '{print $3}' | tr -d ',')"
+MASTER_KEY=$MASTER_KEY
+SESSION_SECRET=$SESSION_SECRET
+CONTROL_DB_PASSWORD=$CONTROL_DB_PASSWORD
 
-  # docker compose (plugin v2)
-  if ! docker compose version &>/dev/null; then
-    info "Installing docker compose plugin..."
-    case "$OS" in
-      ubuntu|debian)
-        sudo apt-get install -y -qq docker-compose-plugin ;;
-      *)
-        die "Docker Compose plugin not found. Install it manually: https://docs.docker.com/compose/install/"
-        ;;
-    esac
-  fi
-  success "docker compose $(docker compose version --short)"
-}
+# Logging
+LOG_LEVEL=$LOG_LEVEL
 
-# ─── IP detection ─────────────────────────────────────────────────────────────
-detect_public_ip() {
-  local ip
-  ip=$(curl -sf --max-time 5 https://api.ipify.org 2>/dev/null \
-    || curl -sf --max-time 5 https://ifconfig.me 2>/dev/null \
-    || hostname -I | awk '{print $1}')
-  echo "$ip"
-}
+# Image tags
+SELFBASE_VERSION=$SELFBASE_VERSION
+STUDIO_IMAGE=selfbase/studio:$STUDIO_COMMIT
+EOF
+  chmod 600 "$ENV_FILE"
+  ok "Wrote $ENV_FILE (600)"
+fi
 
-# ─── Setup ────────────────────────────────────────────────────────────────────
-setup_project() {
-  info "Setting up project in ${INSTALL_DIR}..."
+# Export so docker compose picks up secrets
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
 
-  if [[ -d "$INSTALL_DIR" && -f "$INSTALL_DIR/docker-compose.yml" ]]; then
-    warn "Existing install found at ${INSTALL_DIR}. Skipping clone."
+# ─── 5. build the Studio image once (per pinned commit) ─────────────────────
+if [[ "$SKIP_BUILD" != "1" ]]; then
+  STUDIO_COMMIT="$(cat "$INSTALL_DIR/infra/supabase-template/COMMIT" 2>/dev/null || echo '')"
+  if [[ -z "$STUDIO_COMMIT" ]]; then
+    warn "infra/supabase-template/COMMIT not found yet — Studio image will be built later."
   else
-    local tmp_clone
-    tmp_clone=$(mktemp -d)
-    info "Cloning Supabase repository..."
-    git clone --depth 1 https://github.com/supabase/supabase "$tmp_clone/supabase" \
-      --quiet 2>&1
-
-    mkdir -p "$INSTALL_DIR"
-    cp -rf "$tmp_clone/supabase/docker/." "$INSTALL_DIR/"
-    cp "$tmp_clone/supabase/docker/.env.example" "$INSTALL_DIR/.env"
-    rm -rf "$tmp_clone"
-    success "Project cloned to ${INSTALL_DIR}"
+    STUDIO_TAG="selfbase/studio:$STUDIO_COMMIT"
+    if docker image inspect "$STUDIO_TAG" >/dev/null 2>&1; then
+      ok "Studio image already built ($STUDIO_TAG)"
+    else
+      info "Building Studio image $STUDIO_TAG (one-time, ~2–4 min)…"
+      docker build \
+        --build-arg NEXT_PUBLIC_BASE_PATH=/studio \
+        --build-arg SUPABASE_COMMIT="$STUDIO_COMMIT" \
+        -t "$STUDIO_TAG" \
+        -f "$INSTALL_DIR/infra/studio/Dockerfile" \
+        "$INSTALL_DIR/infra/studio"
+      ok "Built $STUDIO_TAG"
+    fi
   fi
-}
+fi
 
-configure_env() {
-  local env_file="${INSTALL_DIR}/.env"
-  info "Generating secrets..."
-  (cd "$INSTALL_DIR" && sh utils/generate-keys.sh --update-env)
-  success "Secrets written to .env"
+# ─── 6. control-plane stack up ──────────────────────────────────────────────
+info "Pulling base images…"
+docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" pull --ignore-pull-failures || true
 
-  # Detect public URL
-  if [[ -z "$PUBLIC_URL" ]]; then
-    local ip
-    ip=$(detect_public_ip)
-    PUBLIC_URL="http://${ip}:${STUDIO_PORT}"
-    info "Auto-detected public IP: $ip"
+if [[ "$SKIP_BUILD" != "1" ]]; then
+  info "Building control-plane images (api, worker, web)…"
+  docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" build
+fi
+
+info "Starting control plane…"
+docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" up -d
+
+# ─── 7. wait for health ─────────────────────────────────────────────────────
+info "Waiting for control plane to become healthy…"
+TIMEOUT=180
+elapsed=0
+until docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" ps --format json \
+        | grep -q '"Health":"healthy"' && \
+      docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" exec -T api wget -qO- http://localhost:3001/api/v1/health >/dev/null 2>&1; do
+  if (( elapsed >= TIMEOUT )); then
+    die "Control plane did not become healthy in ${TIMEOUT}s. Check: docker compose -f $INSTALL_DIR/infra/docker-compose.yml logs"
   fi
+  sleep 5
+  elapsed=$((elapsed + 5))
+done
+ok "Control plane is healthy (${elapsed}s)"
 
-  info "Configuring URLs..."
-  sed -i "s|SUPABASE_PUBLIC_URL=.*|SUPABASE_PUBLIC_URL=${PUBLIC_URL}|" "$env_file"
-  sed -i "s|API_EXTERNAL_URL=.*|API_EXTERNAL_URL=${PUBLIC_URL}|" "$env_file"
-
-  # Set SITE_URL — extract host from PUBLIC_URL, replace port with SITE_PORT
-  local host
-  host=$(echo "$PUBLIC_URL" | sed -E 's|https?://([^:/]+).*|\1|')
-  local scheme
-  scheme=$(echo "$PUBLIC_URL" | sed -E 's|(https?)://.*|\1|')
-  sed -i "s|SITE_URL=.*|SITE_URL=${scheme}://${host}:${SITE_PORT}|" "$env_file"
-
-  success "URLs configured → ${PUBLIC_URL}"
-}
-
-pull_and_start() {
-  info "Pulling Docker images (this may take a few minutes)..."
-  (cd "$INSTALL_DIR" && docker compose pull --quiet)
-  success "Images pulled"
-
-  info "Starting services..."
-  (cd "$INSTALL_DIR" && docker compose up -d)
-}
-
-# ─── Health wait ──────────────────────────────────────────────────────────────
-wait_healthy() {
-  info "Waiting for services to become healthy..."
-  local timeout=120
-  local elapsed=0
-  while (( elapsed < timeout )); do
-    local unhealthy
-    unhealthy=$(cd "$INSTALL_DIR" && docker compose ps --format json \
-      | grep -c '"Health":"starting"' 2>/dev/null || true)
-    [[ "$unhealthy" -eq 0 ]] && break
-    sleep 3
-    (( elapsed += 3 ))
-  done
-  success "Services ready (${elapsed}s)"
-}
-
-# ─── Summary ──────────────────────────────────────────────────────────────────
-print_summary() {
-  local env_file="${INSTALL_DIR}/.env"
-  local db_pass dashboard_pass anon_key service_key
-  db_pass=$(grep '^POSTGRES_PASSWORD=' "$env_file" | cut -d= -f2-)
-  dashboard_pass=$(grep '^DASHBOARD_PASSWORD=' "$env_file" | cut -d= -f2-)
-  anon_key=$(grep '^ANON_KEY=' "$env_file" | cut -d= -f2-)
-  service_key=$(grep '^SERVICE_ROLE_KEY=' "$env_file" | cut -d= -f2-)
-
-  echo
-  echo -e "${BOLD}═══════════════════════════════════════════════════${RESET}"
-  echo -e "${GREEN}${BOLD}  Supabase is running!${RESET}"
-  echo -e "${BOLD}═══════════════════════════════════════════════════${RESET}"
-  echo
-  echo -e "  ${BOLD}Studio Dashboard${RESET}  ${PUBLIC_URL}"
-  echo -e "  ${BOLD}REST API${RESET}          ${PUBLIC_URL}/rest/v1/"
-  echo -e "  ${BOLD}Auth API${RESET}          ${PUBLIC_URL}/auth/v1/"
-  echo -e "  ${BOLD}Storage API${RESET}       ${PUBLIC_URL}/storage/v1/"
-  echo
-  echo -e "  ${BOLD}Dashboard login${RESET}   supabase / ${dashboard_pass}"
-  echo -e "  ${BOLD}DB password${RESET}       ${db_pass}"
-  echo
-  echo -e "  ${BOLD}Anon key${RESET}"
-  echo    "  ${anon_key}"
-  echo
-  echo -e "  ${BOLD}Service role key${RESET}"
-  echo    "  ${service_key}"
-  echo
-  echo -e "  ${BOLD}Config${RESET}            ${INSTALL_DIR}/.env"
-  echo
-  echo -e "${YELLOW}  Next steps:${RESET}"
-  echo    "  • Ensure port ${STUDIO_PORT} is open in your firewall"
-  echo    "  • Add a reverse proxy (Caddy/Nginx) with TLS for production"
-  echo    "  • Configure SMTP in .env for email auth"
-  echo    "  • Store secrets in a secrets manager (Doppler, Infisical, etc.)"
-  echo
-  echo -e "  ${BOLD}Manage:${RESET}"
-  echo    "  cd ${INSTALL_DIR}"
-  echo    "  docker compose ps          # status"
-  echo    "  docker compose logs -f     # logs"
-  echo    "  docker compose down        # stop"
-  echo    "  docker compose pull && docker compose up -d  # update"
-  echo -e "${BOLD}═══════════════════════════════════════════════════${RESET}"
-}
-
-# ─── Main ─────────────────────────────────────────────────────────────────────
-main() {
-  echo -e "${BOLD}Supabase Self-Host Installer${RESET}"
-  echo "────────────────────────────────"
-  echo "  Install dir : ${INSTALL_DIR}"
-  echo "  Public URL  : ${PUBLIC_URL:-auto-detect}"
-  echo "  Studio port : ${STUDIO_PORT}"
-  echo "────────────────────────────────"
-  echo
-
-  check_prerequisites
-  setup_project
-  configure_env
-  pull_and_start
-  wait_healthy
-  print_summary
-}
-
-main "$@"
+# ─── 8. point operator at /setup ────────────────────────────────────────────
+PUBLIC_HOST="${PUBLIC_HOST:-$(curl -fsSL --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')}"
+echo
+echo -e "${B}═══════════════════════════════════════════════════${X}"
+echo -e "${G}${B}  Selfbase is running.${X}"
+echo -e "${B}═══════════════════════════════════════════════════${X}"
+echo
+echo -e "  Open: ${B}http://${PUBLIC_HOST}/setup${X}"
+echo "    create the super-admin account, then optionally register your apex domain."
+echo
+echo "  Config:   $INSTALL_DIR/.env  (secrets — keep safe)"
+echo "  Data:     $DATA_DIR/instances  +  $DATA_DIR/backups"
+echo "  Manage:   docker compose -f $INSTALL_DIR/infra/docker-compose.yml ps"
+echo "            docker compose -f $INSTALL_DIR/infra/docker-compose.yml logs -f"
+echo "            docker compose -f $INSTALL_DIR/infra/docker-compose.yml down"
+echo
+echo -e "${Y}  Next step:${X} point DNS for your apex (and per-instance subdomains)"
+echo "             at this host's IP, then visit /setup."
+echo

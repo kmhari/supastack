@@ -1,0 +1,81 @@
+# Selfbase Caddy skeleton — boot-time minimum.
+#
+# This file defines what's reachable from the moment Caddy starts, BEFORE the
+# selfbase API has pushed any per-instance routes via the admin API. Two
+# critical properties:
+#
+#   1. :80 ALWAYS serves the dashboard in plain HTTP, regardless of whether
+#      an apex domain has been registered. This is how the operator reaches
+#      /setup at `http://<server-ip>/` before any DNS is configured (the
+#      chicken-and-egg fix).
+#
+#   2. :443 is enabled with on-demand TLS, gated by /internal/tls/ask. Even
+#      before any instance is provisioned, this server exists so that the
+#      moment the apex is set + DNS resolves, the first HTTPS request gets
+#      its cert issued automatically.
+#
+# Per-instance routes (one per <ref>.<apex>) are added at runtime by
+# `apps/api/src/services/caddy-reload.ts`, which POSTs a complete JSON
+# config to the admin API. That config preserves the :80 plumbing below.
+{
+	admin :2019
+
+	on_demand_tls {
+		# Caddy calls this before issuing a cert for any unfamiliar hostname.
+		# 2xx = allow issuance; non-2xx = deny.
+		ask http://api:3001/internal/tls/ask
+	}
+
+	# Override for ACME staging during development:
+	#   CADDY_ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# Plain HTTP — always reachable. No unconditional redirect to HTTPS;
+# /setup must work over plain HTTP at first install, before DNS.
+:80 {
+	# API routes go to the api container
+	handle_path /api/* {
+		reverse_proxy api:3001
+	}
+	# WebSockets go to api too
+	@websocket {
+		path /socket.io/*
+	}
+	handle @websocket {
+		reverse_proxy api:3001
+	}
+	# Internal endpoints are NEVER exposed externally
+	handle /internal/* {
+		respond 404
+	}
+	# Everything else → the React dashboard
+	handle {
+		reverse_proxy web:80
+	}
+}
+
+# Plain HTTPS — always listening so on-demand TLS can fire. The runtime
+# config from caddy-reload.ts adds per-host (apex + <ref>.<apex>) routes
+# on top of this.
+:443 {
+	tls {
+		on_demand
+	}
+	# Default: route to dashboard. Per-instance routes are inserted via
+	# the admin API and matched before this fallback.
+	handle_path /api/* {
+		reverse_proxy api:3001
+	}
+	@websocket {
+		path /socket.io/*
+	}
+	handle @websocket {
+		reverse_proxy api:3001
+	}
+	handle /internal/* {
+		respond 404
+	}
+	handle {
+		reverse_proxy web:80
+	}
+}

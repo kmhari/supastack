@@ -1,0 +1,28 @@
+{
+  "name": "@selfbase/crypto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./aes": "./src/aes-gcm.ts",
+    "./argon2": "./src/argon2.ts",
+    "./jwt": "./src/jwt.ts",
+    "./passwords": "./src/passwords.ts",
+    "./ref": "./src/ref.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "argon2": "^0.41.1",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.7",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  }
+}
