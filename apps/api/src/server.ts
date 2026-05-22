@@ -87,17 +87,43 @@ export async function buildApp(): Promise<FastifyInstance> {
     (_req, body, done) => done(null, body),
   );
 
-  // Uniform error formatter.
+  // Uniform error formatter. Dashboard surface (everything except /v1) uses
+  // selfbase's envelope `{error: {code, message}}`; the CLI compat surface
+  // (`/v1/*`) needs the cloud envelope `{message, code, details?}` so the
+  // upstream Supabase CLI's generated Go client can parse it.
+  //
+  // The /v1 scope's own setErrorHandler (mgmt-api-errors plugin) only catches
+  // errors thrown from routes/preValidation/preHandlers REGISTERED inside
+  // that scope. The global auth plugin uses fastify-plugin (fp) which
+  // escapes encapsulation; its preHandler throws AppError at the global
+  // level, landing here. URL-sniff so cloud consumers see the right shape.
   app.setErrorHandler((err, req, reply) => {
+    const isMgmt = req.url.startsWith('/v1/') || req.url === '/v1';
     if (err instanceof AppError) {
+      if (isMgmt) {
+        reply.status(err.statusCode).send({
+          message: err.message,
+          code: err.code,
+          ...(err.details ? { details: err.details } : {}),
+        });
+        return;
+      }
       reply.status(err.statusCode).send(err.toBody());
       return;
     }
     if ((err as { validation?: unknown }).validation) {
+      if (isMgmt) {
+        reply.status(400).send({ message: err.message, code: 'bad_request' });
+        return;
+      }
       reply.status(400).send(errors.invalidInput(err.message).toBody());
       return;
     }
     req.log.error({ err }, 'unhandled error');
+    if (isMgmt) {
+      reply.status(500).send({ message: 'Internal server error', code: 'internal' });
+      return;
+    }
     reply.status(500).send(errors.internal().toBody());
   });
 
