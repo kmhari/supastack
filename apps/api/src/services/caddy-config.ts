@@ -59,30 +59,29 @@ export async function buildCaddyConfig(): Promise<unknown> {
     },
   ];
 
-  const instanceRoute = (ref: string, portKong: number, portStudio: number, hostname: string) => ({
+  /**
+   * Every request to a per-instance subdomain goes to Kong on the host's
+   * published Kong port. Kong's own routing handles the demux:
+   *   /rest/v1/*       → PostgREST
+   *   /auth/v1/*       → GoTrue
+   *   /realtime/v1/*   → Realtime
+   *   /storage/v1/*    → Storage
+   *   /functions/v1/*  → Edge Functions
+   *   /pg/*            → pg-meta
+   *   /*               → Studio (the `dashboard` service in kong.yml)
+   *
+   * Earlier versions tried to short-circuit /studio* directly to the
+   * Studio container, but that bypassed Kong's basic-auth gate and
+   * required publishing Studio on the host AND a baked-in
+   * NEXT_PUBLIC_BASE_PATH. Kong-only is simpler and matches the
+   * upstream supabase/docker layout.
+   */
+  const instanceRoute = (ref: string, portKong: number, _portStudio: number, hostname: string) => ({
     match: [{ host: [hostname] }],
     handle: [
       {
-        handler: 'subroute',
-        routes: [
-          {
-            match: [{ path: ['/studio*'] }],
-            handle: [
-              {
-                handler: 'reverse_proxy',
-                upstreams: [{ dial: `host.docker.internal:${portStudio}` }],
-              },
-            ],
-          },
-          {
-            handle: [
-              {
-                handler: 'reverse_proxy',
-                upstreams: [{ dial: `host.docker.internal:${portKong}` }],
-              },
-            ],
-          },
-        ],
+        handler: 'reverse_proxy',
+        upstreams: [{ dial: `host.docker.internal:${portKong}` }],
       },
     ],
     terminal: true,
