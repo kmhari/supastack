@@ -155,9 +155,19 @@ export function InstancesPage(): React.ReactElement {
  * (provisioning, no apex configured, paused, etc.) the whole card
  * falls back to the detail page so the user can see what's going on.
  */
+/**
+ * Card click goes to Studio whenever we have a URL — independent of
+ * status. If the instance is paused/stopped/failed the browser will
+ * show a connection error, which is the desired feedback (matches the
+ * Supabase pattern: a project tile always opens its dashboard). The
+ * gear icon is the way to reach selfbase's own settings page.
+ *
+ * Returns null only when there's no URL at all (no apex configured),
+ * in which case the card falls back to /p/:ref so the user can see
+ * why nothing is reachable yet.
+ */
 function studioHref(row: InstanceRow): string | null {
-  if (row.status !== 'running' || !row.urls.kong) return null;
-  return `${row.urls.kong}/project/default`;
+  return row.urls.kong ? `${row.urls.kong}/project/default` : null;
 }
 
 function ProjectCard({ row }: { row: InstanceRow }): React.ReactElement {
