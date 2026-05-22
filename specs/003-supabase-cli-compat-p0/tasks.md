@@ -90,16 +90,16 @@ Monorepo: backend at `apps/api/`, frontend at `apps/web/`, shared schemas at `pa
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] Integration test at `apps/api/tests/integration/management-api/projects.test.ts` — (a) `GET /v1/projects` returns array of the authed user's instances; (b) `GET /v1/projects/:ref` returns a single project per `ProjectSchema`; (c) bad ref returns 404 envelope with `code: not_found`; (d) ref the user can't access returns 404 (not 403 — match cloud's behavior to avoid leaking project existence).
-- [ ] T026 [P] [US2] Integration test at `apps/api/tests/integration/management-api/api-keys.test.ts` — `GET /v1/projects/:ref/api-keys` returns `[{name: "anon", api_key: "eyJ..."}, {name: "service_role", api_key: "eyJ..."}]` decrypted from `supabaseInstances.encryptedSecrets`. Per-instance, not redacted.
+- [X] T025 [P] [US2] Integration test at `apps/api/tests/integration/management-api/projects.test.ts` — (a) `GET /v1/projects` returns array of the authed user's instances; (b) `GET /v1/projects/:ref` returns a single project per `ProjectSchema`; (c) bad ref returns 404 envelope with `code: not_found`; (d) ref the user can't access returns 404 (not 403 — match cloud's behavior to avoid leaking project existence).
+- [X] T026 [P] [US2] Integration test at `apps/api/tests/integration/management-api/api-keys.test.ts` — `GET /v1/projects/:ref/api-keys` returns `[{name: "anon", api_key: "eyJ..."}, {name: "service_role", api_key: "eyJ..."}]` decrypted from `supabaseInstances.encryptedSecrets`. Per-instance, not redacted.
 
 ### Implementation for User Story 2
 
-- [ ] T027 [US2] Create `apps/api/src/services/project-store.ts` — `listProjectsForUser(userId)` returns instances the user has access to (today: all instances in the org; revisit when per-instance RBAC ships). `getProjectByRef(ref, userId)` returns single + ownership check.
-- [ ] T028 [US2] Create `apps/api/src/routes/management/projects.ts` — registers `GET /v1/projects` and `GET /v1/projects/:ref`. Both pipe through `mgmt-api-mapping.instanceToProject` from T008.
-- [ ] T029 [US2] Create `apps/api/src/routes/management/api-keys.ts` — `GET /v1/projects/:ref/api-keys` decrypts `supabaseInstances.encryptedSecrets` using the existing `decryptJson` + `loadMasterKey` from `@selfbase/crypto`, returns the legacy `anon` + `service_role` shape from `ApiKeySchema`.
-- [ ] T030 [US2] Register T028 and T029 in `apps/api/src/server.ts` inside the `/v1` mgmt group.
-- [ ] T031 [US2] Manual E2E checkpoint: from a scratch dir, run `supabase --profile <selfbase.toml> link --project-ref <real-ref>` against a running dev backend and confirm exit 0 plus `.supabase/.temp/project-ref` contains the ref.
+- [X] T027 [US2] Create `apps/api/src/services/project-store.ts` — `listProjectsForUser(userId)` returns instances the user has access to (today: all instances in the org; revisit when per-instance RBAC ships). `getProjectByRef(ref, userId)` returns single + ownership check.
+- [X] T028 [US2] Create `apps/api/src/routes/management/projects.ts` — registers `GET /v1/projects` and `GET /v1/projects/:ref`. Both pipe through `mgmt-api-mapping.instanceToProject` from T008.
+- [X] T029 [US2] Create `apps/api/src/routes/management/api-keys.ts` — `GET /v1/projects/:ref/api-keys` decrypts `supabaseInstances.encryptedSecrets` using the existing `decryptJson` + `loadMasterKey` from `@selfbase/crypto`, returns the legacy `anon` + `service_role` shape from `ApiKeySchema`.
+- [X] T030 [US2] Register T028 and T029 in `apps/api/src/server.ts` inside the `/v1` mgmt group.
+- [X] T031 [US2] Manual E2E checkpoint: from a scratch dir, run `supabase --profile <selfbase.toml> link --project-ref <real-ref>` against a running dev backend and confirm exit 0 plus `.supabase/.temp/project-ref` contains the ref.
 
 **Checkpoint**: `link` works end-to-end against selfbase. Per-project commands now have a target.
 

@@ -22,6 +22,8 @@ import { auditRoutes } from './routes/audit.js';
 import { notImplementedRoutes } from './routes/management/not-implemented.js';
 import { profileRoutes } from './routes/management/profile.js';
 import { organizationsRoutes } from './routes/management/organizations.js';
+import { projectsRoutes } from './routes/management/projects.js';
+import { apiKeysRoutes } from './routes/management/api-keys.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -118,7 +120,10 @@ export async function buildApp(): Promise<FastifyInstance> {
       // US1 — auth/profile/organizations:
       await mgmt.register(profileRoutes);
       await mgmt.register(organizationsRoutes);
-      // US2/US3/US4 land here (projects, api-keys, functions, secrets).
+      // US2 — projects + per-instance api-keys:
+      await mgmt.register(projectsRoutes);
+      await mgmt.register(apiKeysRoutes);
+      // US3/US4 land here (functions, secrets).
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },
