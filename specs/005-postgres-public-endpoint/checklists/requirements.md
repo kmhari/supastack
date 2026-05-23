@@ -1,7 +1,7 @@
-# Specification Quality Checklist: Postgres Public Endpoint via SNI Routing
+# Specification Quality Checklist: Postgres Public Endpoint via Top-Level Pooler
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-05-23
+**Created**: 2026-05-23 (updated post-architecture-pivot)
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -31,11 +31,19 @@
 
 ## Notes
 
-- FR-001 mentions "L4 SNI routing" and "TLS offload" — these are accepted domain terms for this
-  networking feature, not implementation-detail leakage. They describe the user-visible behavior
-  (TLS-protected Postgres access) rather than a specific library or code path.
-- The wildcard cert (feature 004) is a hard prerequisite and is already implemented. This spec
-  correctly lists it as an assumption, not a scope item.
-- US2 (Studio connection string) is P1 because it is a direct symptom of the same root cause and
-  is resolved by the same Caddy config change — no extra scope.
-- All items pass on first iteration.
+- The Assumptions section names Supavisor as the chosen pooler implementation. This is a domain
+  term (the proven multi-tenant Postgres pooler from Supabase) rather than implementation-detail
+  leakage — same way the wildcard cert spec named Let's Encrypt by name. Operators reading the
+  spec recognize the dependency.
+- The previous Caddy-L4 routing approach is explicitly retired in the Assumptions section so
+  future readers don't try to revive it without context. The pivot was forced by a hard upstream
+  limitation in caddy-l4's Postgres matcher (cannot complete STARTTLS).
+- US3 (operator visibility) is P2 because the pooler exposes its own metrics endpoint operators
+  can use directly. Dashboard integration is a nice-to-have for v1.
+- New FRs vs. previous version:
+  - FR-002 (single pooler, not per-project at the edge)
+  - FR-003 (per-tenant pooling with tunable size)
+  - FR-005–FR-008 (tenant lifecycle management — new with this architecture)
+  - FR-013–FR-014 (operator visibility into pooler health)
+- New SC-006 / SC-007 quantify the pooling benefit and recovery time — both verifiable.
+- All 16 items pass on first iteration after the rewrite.
