@@ -18,12 +18,19 @@
 # `apps/api/src/services/caddy-reload.ts`, which POSTs a complete JSON
 # config to the admin API. That config preserves the :80 plumbing below.
 {
-	admin :2019
+	admin :2019 {
+		# Caddy 2.7+ enforces an Origin/Host header check on the admin API.
+		# Must include the EXACT Host header value (with port). The api and
+		# worker containers connect via http://caddy:2019 → Host: "caddy:2019".
+		# The admin port is NOT published externally (infra/docker-compose.yml).
+		origins caddy:2019 api:2019 worker:2019 localhost:2019 127.0.0.1:2019
+	}
 
 	on_demand_tls {
 		# Caddy calls this before issuing a cert for any unfamiliar hostname.
 		# 2xx = allow issuance; non-2xx = deny.
-		ask http://api:3001/internal/tls/ask
+		# Caddy 2.7+ replaced bare `ask` with the http permission module.
+		permission http http://api:3001/internal/tls/ask
 	}
 
 	# Override for ACME staging during development:

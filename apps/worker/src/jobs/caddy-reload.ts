@@ -30,7 +30,10 @@ export async function handleCaddyReload(): Promise<void> {
   // tiny internal route in Phase 3 wiring. For now we call Caddy directly.)
   // We probe Caddy admin first so an empty DB / cold start doesn't fail.
   try {
-    const probe = await fetch(`${CADDY_ADMIN_URL}/config/`);
+    // Caddy 2.7+ admin origin check — include Origin matching the configured list.
+    const probe = await fetch(`${CADDY_ADMIN_URL}/config/`, {
+      headers: { origin: CADDY_ADMIN_URL },
+    });
     if (!probe.ok && probe.status !== 404) {
       throw new Error(`caddy admin not reachable (${probe.status})`);
     }
