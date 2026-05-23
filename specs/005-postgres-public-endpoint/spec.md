@@ -8,6 +8,12 @@
 
 **Input**: GitHub issue [kmhari/selfbase#3](https://github.com/kmhari/selfbase/issues/3)
 
+## Clarifications
+
+### Session 2026-05-23
+
+- Q: Should the spec mandate an automated E2E shell test for `supabase db push` without `--db-url`? → A: Yes — create a dedicated `tests/cli-e2e/db-push.sh` script covering all database CLI commands (`db push`, `db pull`, `db diff`, `migration list`, `inspect db`). Separate from the existing `deploy-hello.sh` to keep database command testing isolated and runnable independently.
+
 **Cross-refs**:
 - Depends on: [kmhari/selfbase#2](https://github.com/kmhari/selfbase/issues/2) (wildcard cert, feature 004 — **complete**)
 - Unblocks: `supabase db push/pull/diff/migration/inspect` without `--db-url`
@@ -23,7 +29,7 @@ After this feature: when the operator connects their CLI (`supabase link` or `su
 
 **Why this priority**: The database commands are the most common daily workflow for backend developers. Without this, selfbase is not a usable self-hosted Supabase drop-in for any project that runs migrations.
 
-**Independent Test**: From a machine with the supabase CLI and the selfbase profile configured, run `supabase db push` against an existing selfbase project without `--db-url`. The command must connect, apply any pending migrations, and exit 0. The connection target resolved by the CLI (`db.<ref>.<apex>:5432`) must be reachable with a valid TLS certificate (the wildcard `*.<apex>` cert).
+**Independent Test**: Run `tests/cli-e2e/db-push.sh` (a dedicated E2E script, separate from the existing `deploy-hello.sh`) with `SELFBASE_APEX`, `SELFBASE_PAT`, `SELFBASE_PROJECT_REF`, and `SELFBASE_DB_PASSWORD` set. The script creates a throwaway migration, runs `supabase db push --project-ref <ref>` without `--db-url`, asserts exit 0, and rolls back. The connection target resolved by the CLI (`db.<ref>.<apex>:5432`) must be reachable with a valid TLS certificate (the wildcard `*.<apex>` cert).
 
 **Acceptance Scenarios**:
 
@@ -91,13 +97,14 @@ After this feature: Studio shows `db.<ref>.<apex>:5432` with a `[YOUR-PASSWORD]`
 
 - **L4 Route Entry**: A mapping from SNI pattern (`db.<ref>.<apex>`) to a Postgres upstream (`host.docker.internal:<portPostgres>`). One entry per active instance. The complete set of entries is rebuilt on every Caddy config reload.
 - **Studio Postgres Host**: The externally-reachable hostname for a given instance's Postgres. Previously an internal Docker hostname (`db`), now `db.<ref>.<apex>`. Stored in the per-instance Docker Compose environment and regenerated on Caddy reload (or at instance creation time if the apex is already set).
+- **db-push E2E Test Script** (`tests/cli-e2e/db-push.sh`): A dedicated shell script that validates all database CLI commands against a live selfbase deployment. Env vars: `SELFBASE_APEX`, `SELFBASE_PAT`, `SELFBASE_PROJECT_REF`, `SELFBASE_DB_PASSWORD`. Separate from the functions-deploy script (`deploy-hello.sh`) so database tests can be run independently.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: `supabase db push` with no `--db-url` flag exits 0 and applies pending migrations on a selfbase project, measured on a real CLI session against a live selfbase deployment.
-- **SC-002**: Every supabase CLI database sub-command (`db pull`, `db diff`, `migration list`, `inspect db`, `inspect replication-slots`, `inspect locks`) works without `--db-url` on the same deployment. All must exit 0 or return expected output.
+- **SC-001**: `supabase db push` with no `--db-url` flag exits 0 and applies pending migrations on a selfbase project. Verified by running `tests/cli-e2e/db-push.sh` against a live deployment with `SELFBASE_APEX`, `SELFBASE_PAT`, `SELFBASE_PROJECT_REF`, and `SELFBASE_DB_PASSWORD` set.
+- **SC-002**: Every supabase CLI database sub-command covered in `tests/cli-e2e/db-push.sh` — `db push`, `db pull`, `db diff`, `migration list`, `inspect db` — exits 0 or returns expected output with no `--db-url` flag, verified by the same script.
 - **SC-003**: A project provisioned before this feature shipped becomes reachable at `db.<ref>.<apex>:5432` within 60 seconds of the first Caddy config reload — with no per-project restart or operator action.
 - **SC-004**: The "Direct connection" panel in Studio shows `db.<ref>.<apex>:5432` for newly provisioned instances. Measured by opening the Studio UI for a project created after this feature is deployed.
 - **SC-005**: An existing `--db-url postgresql://postgres:<pwd>@<vm-ip>:<portPostgres>/postgres` connection string remains functional — confirmed by connecting with psql and running a query.
