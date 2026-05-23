@@ -14,9 +14,12 @@
 #
 # Module reference: https://github.com/mholt/caddy-l4
 
-FROM caddy:2.8-builder AS builder
+FROM caddy:2.11-builder AS builder
+# caddy-l4 v0.1.1+ requires Caddy ≥ 2.11.3 and Go ≥ 1.25.
+# GOTOOLCHAIN=auto lets Go auto-download the right toolchain version.
+ENV GOTOOLCHAIN=auto
 RUN xcaddy build \
     --with github.com/mholt/caddy-l4
 
-FROM caddy:2.8-alpine
+FROM caddy:2.11-alpine
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
