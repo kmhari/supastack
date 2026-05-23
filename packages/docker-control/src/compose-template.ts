@@ -156,7 +156,10 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     MAILER_URLPATHS_EMAIL_CHANGE: '/auth/v1/verify',
 
     // DB
-    POSTGRES_HOST: 'db',
+    // db.<ref>.<apex> when apex is set so Studio's Direct Connection panel
+    // shows the publicly-reachable hostname (feature 005). Falls back to
+    // internal 'db' if no apex (instance unreachable from outside anyway).
+    POSTGRES_HOST: apex ? `db.${ref}.${apex}` : 'db',
     POSTGRES_DB: 'postgres',
     POSTGRES_USER: 'postgres',
     PGRST_DB_SCHEMAS: 'public,storage,graphql_public',

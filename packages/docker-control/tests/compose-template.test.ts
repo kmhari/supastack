@@ -141,6 +141,18 @@ describe('renderInstanceEnv — happy path', () => {
     expect(out).toMatch(/^NEXT_PUBLIC_BASE_PATH=\/studio$/m);
   });
 
+  test('POSTGRES_HOST is db.<ref>.<apex> when apex is set (feature 005)', async () => {
+    const out = await renderInstanceEnv(
+      baseInputs({ ref: 'abcdefghijklmnopqrst', apex: 'selfbase.example.com' }),
+    );
+    expect(out).toMatch(/^POSTGRES_HOST=db\.abcdefghijklmnopqrst\.selfbase\.example\.com$/m);
+  });
+
+  test('POSTGRES_HOST falls back to internal "db" when apex is empty', async () => {
+    const out = await renderInstanceEnv(baseInputs({ apex: '' }));
+    expect(out).toMatch(/^POSTGRES_HOST=db$/m);
+  });
+
   test('output is sorted (deterministic diffs)', async () => {
     const out = await renderInstanceEnv(baseInputs());
     const keys = out

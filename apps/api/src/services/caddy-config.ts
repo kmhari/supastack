@@ -42,6 +42,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
       ref: schema.supabaseInstances.ref,
       portKong: schema.supabaseInstances.portKong,
       portStudio: schema.supabaseInstances.portStudio,
+      portPostgres: schema.supabaseInstances.portPostgres,
     })
     .from(schema.supabaseInstances)
     .where(not(inArray(schema.supabaseInstances.status, ['deleting'])));
@@ -193,6 +194,55 @@ export async function buildCaddyConfig(): Promise<unknown> {
       ]
     : undefined;
 
+  // ─── Layer 4 (TCP) routing for Postgres on :5432 ──────────────────────────
+  // Only emitted when BOTH apex AND wildcard cert are configured. The wildcard
+  // cert (loaded above via tls.certificates.load_files) covers db.<ref>.<apex>.
+  //
+  // Flow per connection on :5432:
+  //   1. Caddy `postgres` handler reads the Postgres SSLRequest startup message
+  //      (8 bytes, magic 80877103) and responds with 'S' to accept TLS.
+  //   2. `subroute` reads the subsequent TLS ClientHello and matches by SNI.
+  //   3. `tls` handler terminates TLS using the wildcard cert from the store.
+  //   4. `proxy` forwards plaintext Postgres protocol to the per-instance
+  //      port at host.docker.internal:<portPostgres>.
+  //
+  // Requires the caddy-l4 module (github.com/mholt/caddy-l4) — see
+  // apps/caddy/Dockerfile. Module names verified at deploy time via
+  // `caddy list-modules | grep layer4`.
+  const layer4App =
+    apex && wildcardCert
+      ? {
+          servers: {
+            postgres: {
+              listen: [':5432'],
+              routes: [
+                {
+                  match: [{ postgres: {} }],
+                  handle: [
+                    { handler: 'postgres' },
+                    {
+                      handler: 'subroute',
+                      routes: instances.map((i) => ({
+                        match: [{ tls: { sni: [`db.${i.ref}.${apex}`] } }],
+                        handle: [
+                          { handler: 'tls' },
+                          {
+                            handler: 'proxy',
+                            upstreams: [
+                              { dial: [`host.docker.internal:${i.portPostgres}`] },
+                            ],
+                          },
+                        ],
+                      })),
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        }
+      : null;
+
   return {
     admin: { listen: ':2019' },
     apps: {
@@ -211,6 +261,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
           },
         },
       },
+      ...(layer4App ? { layer4: layer4App } : {}),
     },
   };
 }
