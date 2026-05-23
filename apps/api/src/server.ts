@@ -30,6 +30,7 @@ import { connectCliRoutes } from './routes/connect-cli.js';
 import { wildcardCertRoutes } from './routes/wildcard-certs.js';
 import { acmeChallengeRoutes } from './routes/acme-challenge.js';
 import { pgEdgeCertInternalRoutes } from './routes/pg-edge-cert-internal.js';
+import { poolerInternalRoutes } from './routes/pooler-internal.js';
 import { createCertCheckQueue, createCertCheckWorker } from './services/cert-check.js';
 import { startPgEdgeProxy, type PgEdgeProxy } from './services/pg-edge-proxy.js';
 import { existsSync } from 'node:fs';
@@ -157,6 +158,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(caddyInternalRoutes); // /internal/caddy/reload
   await app.register(acmeChallengeRoutes); // /.well-known/acme-challenge/:token (HTTP-01)
   await app.register(pgEdgeCertInternalRoutes); // /internal/pg-edge-cert/issue
+  await app.register(poolerInternalRoutes); // /internal/pooler/tenants
 
   // ─── /v1/* — Supabase Management API compatibility surface ─────────────
   //
