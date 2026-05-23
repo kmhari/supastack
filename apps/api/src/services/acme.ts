@@ -4,8 +4,17 @@ import { Resolver } from 'node:dns/promises';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { eq, and } from 'drizzle-orm';
+import Redis from 'ioredis';
 import { db, schema } from '@selfbase/db';
 import { encryptJson, decryptJson, loadMasterKey } from '@selfbase/crypto';
+
+let _redisPub: Redis | null = null;
+function getRedisPub(): Redis | null {
+  const url = process.env.REDIS_URL;
+  if (!url) return null;
+  if (!_redisPub) _redisPub = new Redis(url, { maxRetriesPerRequest: null, lazyConnect: true });
+  return _redisPub;
+}
 
 const CERTS_DIR = process.env.SELFBASE_CERTS_DIR ?? '/var/selfbase/certs';
 const DIRECTORY_URL =
@@ -279,4 +288,123 @@ export async function verifyAndFinalize(apex: string): Promise<VerifyResult> {
 
     return { status: 'failed', message };
   }
+}
+
+// ─── Per-Project HTTP-01 Cert (feature 005 Option B) ───────────────────────
+// In-memory map: ACME challenge token → key authorization. Populated when an
+// order is initiated, consumed when LE hits /.well-known/acme-challenge/:token.
+// The Fastify route in apps/api/src/routes/acme-challenge.ts reads this map.
+export const acmeChallengeTokens = new Map<string, { keyAuth: string; expiresAt: number }>();
+
+function pruneExpiredChallenges(): void {
+  const now = Date.now();
+  for (const [token, entry] of acmeChallengeTokens) {
+    if (entry.expiresAt < now) acmeChallengeTokens.delete(token);
+  }
+}
+
+/**
+ * Issue (or re-issue) a per-project cert for `db.<ref>.<apex>` via HTTP-01.
+ * Returns the row from `pg_edge_certs` after success. Throws on failure.
+ *
+ * Reuses the ACME account key from the wildcard cert (same LE account, fewer
+ * rate-limit headaches). Caller is responsible for ensuring the wildcard
+ * cert exists (we assert it does).
+ */
+export async function issuePerProjectCert(
+  instanceRef: string,
+  apex: string,
+): Promise<{ hostname: string; notAfter: Date }> {
+  pruneExpiredChallenges();
+  const hostname = `db.${instanceRef}.${apex}`;
+
+  // Pull the ACME account key from wildcard_certs (same LE account).
+  const [wc] = await db()
+    .select({ accountKeyPem: schema.wildcardCerts.accountKeyPem, email: schema.wildcardCerts.accountEmail })
+    .from(schema.wildcardCerts)
+    .where(eq(schema.wildcardCerts.apex, apex))
+    .limit(1);
+  if (!wc?.accountKeyPem) {
+    throw new Error(`per-project cert: wildcard cert for ${apex} must exist first`);
+  }
+  const { pem: accountKeyPemStr } = decryptJson(wc.accountKeyPem, loadMasterKey()) as { pem: string };
+
+  // Upsert pg_edge_certs row with status='pending'.
+  await db()
+    .insert(schema.pgEdgeCerts)
+    .values({ instanceRef, hostname, status: 'pending', lastAttemptAt: new Date() })
+    .onConflictDoUpdate({
+      target: schema.pgEdgeCerts.hostname,
+      set: { status: 'pending', lastError: null, lastAttemptAt: new Date(), updatedAt: new Date() },
+    });
+
+  const client = new acme.Client({
+    directoryUrl: DIRECTORY_URL,
+    accountKey: Buffer.from(accountKeyPemStr, 'utf8'),
+  });
+  await client.createAccount({ termsOfServiceAgreed: true, contact: [`mailto:${wc.email}`] });
+
+  let certPem: string;
+  let keyPemStr: string;
+  try {
+    const order = await client.createOrder({
+      identifiers: [{ type: 'dns', value: hostname }],
+    });
+    const authorizations = await client.getAuthorizations(order);
+
+    for (const authz of authorizations) {
+      const httpChallenge = authz.challenges.find((c) => c.type === 'http-01');
+      if (!httpChallenge) throw new Error(`no http-01 challenge for ${authz.identifier.value}`);
+      const keyAuth = await client.getChallengeKeyAuthorization(httpChallenge);
+      acmeChallengeTokens.set(httpChallenge.token, {
+        keyAuth,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      });
+      try {
+        await client.completeChallenge(httpChallenge);
+        await client.waitForValidStatus(httpChallenge);
+      } finally {
+        acmeChallengeTokens.delete(httpChallenge.token);
+      }
+    }
+
+    const [keyPemBuf, csr] = await acme.crypto.createCsr({ commonName: hostname, altNames: [hostname] });
+    const finalized = await client.finalizeOrder(order, csr);
+    certPem = await client.getCertificate(finalized);
+    keyPemStr = keyPemBuf.toString('utf8');
+  } catch (err) {
+    const msg = (err as Error).message;
+    await db()
+      .update(schema.pgEdgeCerts)
+      .set({ status: 'failed', lastError: msg, updatedAt: new Date() })
+      .where(eq(schema.pgEdgeCerts.hostname, hostname));
+    throw err;
+  }
+
+  const { notBefore, notAfter } = parseCertValidity(certPem);
+  const encryptedKey = encryptJson({ pem: keyPemStr }, loadMasterKey());
+  await db()
+    .update(schema.pgEdgeCerts)
+    .set({
+      certPem,
+      keyPem: encryptedKey,
+      notBefore,
+      notAfter,
+      status: 'issued',
+      lastError: null,
+      lastIssuedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.pgEdgeCerts.hostname, hostname));
+
+  // Notify pg-edge-proxy to invalidate its cert cache for this ref.
+  const rpub = getRedisPub();
+  if (rpub) {
+    try {
+      await rpub.connect().catch(() => undefined);
+      await rpub.publish('selfbase:pg-edge-cert:issued', JSON.stringify({ ref: instanceRef, hostname }));
+    } catch { /* non-fatal */ }
+  }
+
+  return { hostname, notAfter };
 }

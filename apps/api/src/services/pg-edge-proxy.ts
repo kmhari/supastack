@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { eq, and, not, inArray } from 'drizzle-orm';
 import Redis from 'ioredis';
 import { db, schema } from '@selfbase/db';
+import { decryptJson, loadMasterKey } from '@selfbase/crypto';
 import { logger } from '@selfbase/shared';
 
 /**
@@ -51,11 +52,50 @@ export function startPgEdgeProxy(opts: ProxyOptions): PgEdgeProxy {
   const apexEscaped = opts.apexDomain.replace(/[.\\]/g, '\\$&');
   let sniRegex = new RegExp(`^db\\.([a-z]{20})\\.${apexEscaped}$`);
 
-  // TLS context — recreated on cert reload.
-  let tlsContext = tls.createSecureContext({
+  // Wildcard TLS context (fallback for SNIs without a per-project cert).
+  // Recreated on cert reload via Redis pub/sub.
+  let wildcardContext = tls.createSecureContext({
     cert: readFileSync(opts.certPath),
     key: readFileSync(opts.keyPath),
   });
+
+  // Per-project cert cache: ref → SecureContext + expiry timestamp.
+  // Built lazily on SNI hit, invalidated on `selfbase:pg-edge-cert:issued` event.
+  const perProjectCache = new Map<string, { ctx: tls.SecureContext; expiresAt: number }>();
+  const PER_PROJECT_TTL_MS = 60_000;
+
+  async function getPerProjectContext(ref: string): Promise<tls.SecureContext | null> {
+    const now = Date.now();
+    const cached = perProjectCache.get(ref);
+    if (cached && cached.expiresAt > now) return cached.ctx;
+
+    const hostname = `db.${ref}.${opts.apexDomain}`;
+    const rows = await db()
+      .select({
+        certPem: schema.pgEdgeCerts.certPem,
+        keyPem: schema.pgEdgeCerts.keyPem,
+        status: schema.pgEdgeCerts.status,
+      })
+      .from(schema.pgEdgeCerts)
+      .where(eq(schema.pgEdgeCerts.hostname, hostname))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row || row.status !== 'issued' || !row.certPem || !row.keyPem) {
+      // Negative cache so repeated SNI hits don't hammer the DB.
+      perProjectCache.set(ref, { ctx: wildcardContext, expiresAt: now + PER_PROJECT_TTL_MS });
+      return null;
+    }
+    try {
+      const { pem: keyPemStr } = decryptJson(row.keyPem, loadMasterKey()) as { pem: string };
+      const ctx = tls.createSecureContext({ cert: row.certPem, key: keyPemStr });
+      perProjectCache.set(ref, { ctx, expiresAt: now + PER_PROJECT_TTL_MS });
+      return ctx;
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, ref }, 'pg-edge: per-project cert decode failed, falling back to wildcard');
+      return null;
+    }
+  }
 
   // Backend lookup cache (60s TTL).
   const backendCache = new Map<string, BackendInfo>();
@@ -110,8 +150,17 @@ export function startPgEdgeProxy(opts: ProxyOptions): PgEdgeProxy {
 
       const tlsSocket = new tls.TLSSocket(clientSocket, {
         isServer: true,
-        secureContext: tlsContext,
-        SNICallback: (_servername, cb) => cb(null, tlsContext),
+        secureContext: wildcardContext,
+        SNICallback: (servername, cb) => {
+          // Try to find a per-project cert for db.<ref>.<apex>.
+          // On miss / error, fall back to wildcard. Async-safe: cb is invoked
+          // once the lookup completes (Node.js TLS supports this).
+          const match = servername?.match(sniRegex);
+          if (!match) return cb(null, wildcardContext);
+          getPerProjectContext(match[1]!)
+            .then((ctx) => cb(null, ctx ?? wildcardContext))
+            .catch(() => cb(null, wildcardContext));
+        },
       });
       if (extra.length > 0) tlsSocket.unshift(extra);
 
@@ -187,12 +236,13 @@ export function startPgEdgeProxy(opts: ProxyOptions): PgEdgeProxy {
       'selfbase:wildcard-cert:reloaded',
       'selfbase:apex:changed',
       'selfbase:instance:deleted',
+      'selfbase:pg-edge-cert:issued',
     ).catch((err) => logger.warn({ err: err.message }, 'pg-edge: redis subscribe failed'));
     redis.on('message', (channel, raw) => {
       try {
         if (channel === 'selfbase:wildcard-cert:reloaded') {
           if (existsSync(opts.certPath) && existsSync(opts.keyPath)) {
-            tlsContext = tls.createSecureContext({
+            wildcardContext = tls.createSecureContext({
               cert: readFileSync(opts.certPath),
               key: readFileSync(opts.keyPath),
             });
@@ -203,13 +253,21 @@ export function startPgEdgeProxy(opts: ProxyOptions): PgEdgeProxy {
           if (typeof apex === 'string' && apex.length > 0) {
             sniRegex = new RegExp(`^db\\.([a-z]{20})\\.${apex.replace(/[.\\]/g, '\\$&')}$`);
             backendCache.clear();
+            perProjectCache.clear();
             logger.info({ apex }, 'pg-edge: apex updated');
           }
         } else if (channel === 'selfbase:instance:deleted') {
           const { ref } = JSON.parse(raw);
           if (typeof ref === 'string') {
             backendCache.delete(ref);
-            logger.info({ ref }, 'pg-edge: backend cache invalidated');
+            perProjectCache.delete(ref);
+            logger.info({ ref }, 'pg-edge: caches invalidated');
+          }
+        } else if (channel === 'selfbase:pg-edge-cert:issued') {
+          const { ref } = JSON.parse(raw);
+          if (typeof ref === 'string') {
+            perProjectCache.delete(ref);
+            logger.info({ ref }, 'pg-edge: per-project cert cache invalidated');
           }
         }
       } catch (err) {

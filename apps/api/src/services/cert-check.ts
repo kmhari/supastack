@@ -38,6 +38,52 @@ export async function runCertCheck(): Promise<void> {
       payload: { apex: row.apex, notAfter: row.notAfter?.toISOString() ?? null },
     });
   }
+
+  // Per-project pg-edge certs (feature 005 Option B). Enqueue re-issuance for
+  // any cert within the renewal window.
+  const edgeRows = await db()
+    .select({
+      id: schema.pgEdgeCerts.id,
+      instanceRef: schema.pgEdgeCerts.instanceRef,
+      hostname: schema.pgEdgeCerts.hostname,
+      notAfter: schema.pgEdgeCerts.notAfter,
+    })
+    .from(schema.pgEdgeCerts)
+    .where(
+      and(
+        eq(schema.pgEdgeCerts.status, 'issued'),
+        lt(schema.pgEdgeCerts.notAfter, cutoff),
+      ),
+    );
+
+  if (edgeRows.length > 0) {
+    const redisUrl = process.env.REDIS_URL;
+    if (redisUrl) {
+      const queue = new Queue('selfbase.pg-edge-cert-issue', {
+        connection: makeConnection(redisUrl),
+      });
+      for (const row of edgeRows) {
+        await queue.add(
+          'renew',
+          { ref: row.instanceRef },
+          {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5000 },
+            removeOnComplete: 50,
+            removeOnFail: 50,
+          },
+        );
+        await db().insert(schema.auditLog).values({
+          actorUserId: null,
+          action: 'tls.pg_edge.renewal_enqueued',
+          targetKind: 'pg_edge_cert',
+          targetId: row.id,
+          payload: { hostname: row.hostname, notAfter: row.notAfter?.toISOString() ?? null },
+        });
+      }
+      await queue.close();
+    }
+  }
 }
 
 function makeConnection(redisUrl: string): Redis {

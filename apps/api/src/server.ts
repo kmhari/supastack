@@ -28,6 +28,8 @@ import { functionsRoutes } from './routes/management/functions.js';
 import { secretsRoutes } from './routes/management/secrets.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 import { wildcardCertRoutes } from './routes/wildcard-certs.js';
+import { acmeChallengeRoutes } from './routes/acme-challenge.js';
+import { pgEdgeCertInternalRoutes } from './routes/pg-edge-cert-internal.js';
 import { createCertCheckQueue, createCertCheckWorker } from './services/cert-check.js';
 import { startPgEdgeProxy, type PgEdgeProxy } from './services/pg-edge-proxy.js';
 import { existsSync } from 'node:fs';
@@ -153,6 +155,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(wildcardCertRoutes, { prefix: '/api/v1' });
   await app.register(tlsAskRoutes); // /internal/tls/ask
   await app.register(caddyInternalRoutes); // /internal/caddy/reload
+  await app.register(acmeChallengeRoutes); // /.well-known/acme-challenge/:token (HTTP-01)
+  await app.register(pgEdgeCertInternalRoutes); // /internal/pg-edge-cert/issue
 
   // ─── /v1/* — Supabase Management API compatibility surface ─────────────
   //
