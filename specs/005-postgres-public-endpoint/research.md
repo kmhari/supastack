@@ -1,179 +1,153 @@
-# Research: Postgres Public Endpoint via SNI Routing
+# Research: Postgres Public Endpoint via Top-Level Pooler
 
-**Feature**: 005-postgres-public-endpoint | **Date**: 2026-05-23
+**Feature**: 005-postgres-public-endpoint | **Date**: 2026-05-23 (rewritten post-pivot)
 
 ---
 
-## Decision 1: Routing Technology — Caddy L4 Module
+## Decision 1: Routing Technology — Supavisor (Top-Level)
 
-**Decision**: Use `github.com/mholt/caddy-l4` (the `caddy-l4` module) to add a TCP layer-4 server on port 5432 inside Caddy. This module extends Caddy with a `layer4` app that can read TLS SNI, match by hostname, and proxy to per-instance upstreams.
+**Decision**: Add a single `supabase/supavisor:2.7.4` service to the selfbase control plane. It owns the external `:5432` port, terminates TLS using the wildcard cert, extracts the tenant ref from SNI, and proxies to the per-instance Postgres backend with built-in connection pooling.
 
 **Rationale**:
-- caddy-l4 is the official upstream extension for TCP/L4 routing in Caddy. It integrates natively with Caddy's existing TLS certificate store, so the wildcard cert loaded via `tls.certificates.load_files` (feature 004) is automatically available for TLS termination on port 5432.
-- No separate TLS infrastructure needed — the same wildcard `*.<apex>` cert covers `db.<ref>.<apex>`.
-- All routing config lives in the same Caddy admin JSON (`buildCaddyConfig()`) that already manages HTTP routing. The full atomic reload via `POST :2019/load` covers both HTTP and L4 configs in one transaction.
+- Supavisor was designed by Supabase specifically for multi-tenant Postgres routing — it's the same component running Supabase Cloud's database-edge layer.
+- Battle-tested: handles thousands of tenants at scale in production at Supabase.
+- Built-in features we'd otherwise have to write: STARTTLS handshake (`'S'` response), TLS termination, SNI-based tenant lookup, per-tenant connection pooling (transaction + session modes), Prometheus metrics, tenant CRUD API, SCRAM-SHA-256 auth, encrypted password storage.
+- Same Docker image we already use per-instance — zero new vendor risk; already in our image set.
+- Architecture matches Supabase Cloud exactly → "self-host the real thing" parity.
+
+**Alternatives considered and rejected**:
+- **Caddy L4 (previous approach)** — caddy-l4's `postgres` matcher detects SSLRequest but doesn't write `'S'` response. Client never sends ClientHello → SNI never visible → routing impossible. Confirmed empirically on the VM (Caddy debug log showed `read:8, written:0` then connection close).
+- **Custom Node.js TCP proxy (~100 lines)** — reimplements what supavisor already does; no pooling; no metrics; diverges from Cloud behavior. Faster to ship but creates technical debt forever.
+- **HAProxy + Lua** — same custom-code burden as the Node.js path, in a less-familiar language (Lua), with worse debugging. No HAProxy-native primitive for Postgres STARTTLS dance.
+- **pgcat / pgbouncer** — routing logic uses database name or username, not SNI subdomain. Doesn't fit our `db.<ref>.<apex>` hostname-as-tenant-key convention.
+
+---
+
+## Decision 2: Supavisor Metadata DB Location
+
+**Decision**: Use the existing selfbase control-plane Postgres (`db` service in `infra/docker-compose.yml`) as supavisor's metadata DB. Supavisor's Ecto migrations create tables in a `_supavisor` schema on first boot.
+
+**Rationale**:
+- No new database to provision, back up, or monitor.
+- Supavisor's tenant CRUD becomes a same-host transaction (low latency).
+- The control-plane DB is already protected by `pg-data` volume backups, `CONTROL_DB_PASSWORD` secret, and `MASTER_KEY` for any secrets we encrypt before passing to supavisor.
+- Selfbase's own tracking table (`pooler_tenants`) can JOIN against `_supavisor.tenants` if needed for debug/reconciliation.
 
 **Alternatives considered**:
-- HAProxy with SSL termination — external dependency, separate config file, separate lifecycle.
-- stunnel as a sidecar — doesn't integrate with Caddy's cert store; adds another container.
-- Nginx stream — same concerns; no Caddy integration.
-- Direct host port exposure per instance — doesn't give the clean `db.<ref>.<apex>:5432` hostname the supabase CLI expects.
+- Dedicated supavisor Postgres — extra container, extra backup story, no benefit for our scale.
 
-**Module location**: `github.com/mholt/caddy-l4`
-
----
-
-## Decision 2: TLS Termination Strategy
-
-**Decision**: **TLS termination at Caddy** — Caddy terminates TLS (using the wildcard cert), then proxies plaintext TCP to the per-instance Postgres at `host.docker.internal:<portPostgres>`.
-
-**Rationale**:
-- Per-instance Postgres containers run inside the instance's Docker Compose network (internal only). They accept plaintext Postgres connections from within the Docker network. Caddy already connects to Kong and Studio via `host.docker.internal:<port>` using the same pattern.
-- TLS passthrough would require each per-instance Postgres to have a valid cert — not currently configured and unnecessarily complex for internal containers.
-- Caddy's TLS termination is zero-cost in this topology since the TLS cert is already loaded.
-
-**Postgres STARTTLS handling**: The Postgres TLS handshake is NOT a standard TLS-from-first-byte connection. Clients send an 8-byte SSLRequest message (magic number `80877103`) before the TLS ClientHello. Caddy-l4 includes a `postgres` handler module (`l4postgres`) specifically for this: it reads the SSLRequest bytes, responds with `S` (SSL accepted), and hands the connection to the TLS handler which then reads the proper ClientHello (including SNI).
-
-**caddy-l4 handler chain for Postgres**:
+**Connection string** (Supavisor's `DATABASE_URL`):
 ```
-TCP :5432
-  → [postgres handler]  read SSLRequest, respond 'S'
-  → [tls handler]       terminate TLS using wildcard cert, extract SNI
-  → [subroute]          match SNI = db.<ref>.<apex> → proxy to host.docker.internal:<portPostgres>
+postgres://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
 ```
 
 ---
 
-## Decision 3: Caddy Dockerfile (custom build)
+## Decision 3: Tenant Lifecycle Ownership
 
-**Decision**: Create `apps/caddy/Dockerfile` using `xcaddy` to build Caddy with the `caddy-l4` module. This replaces the stock `image: caddy:2.8-alpine` in `docker-compose.yml`.
+**Decision**: Selfbase's `api` owns tenant lifecycle. On project provision: api INSERTs `pooler_tenants` row + calls supavisor's HTTP API to register the tenant. On project destroy: api DELETEs + calls supavisor to unregister.
 
-```dockerfile
-FROM caddy:2.8-builder AS builder
-RUN xcaddy build --with github.com/mholt/caddy-l4
+**Why HTTP API and not direct SQL into `_supavisor.tenants`**:
+- Supavisor's Ecto schema has invariants (auth_query format, user role mapping, encrypted password handling) that we shouldn't bypass. Direct SQL would mean re-implementing supavisor's encryption.
+- The supavisor admin HTTP API is the supported contract; surviving upgrades is easier this way.
 
-FROM caddy:2.8-alpine
-COPY --from=builder /usr/bin/caddy /usr/bin/caddy
-```
+**JWT auth for the admin API**: Supavisor expects `Authorization: Bearer <jwt>` signed with `API_JWT_SECRET` (HS256). The api mints a short-TTL JWT (5 min) per request — no JWT cache.
 
-**Note**: Feature 004 (wildcard cert) kept stock Caddy because `acme-client` npm handles cert issuance and `tls.certificates.load_files` loads the cert from disk — no Caddy DNS plugin needed. This feature (005) is the first one that requires a custom Caddy build.
-
-**docker-compose.yml change**:
-```yaml
-caddy:
-  build:
-    context: ..
-    dockerfile: apps/caddy/Dockerfile
-  # remove: image: caddy:2.8-alpine
-  ports:
-    - '80:80'
-    - '443:443'
-    - '5432:5432'   # ← new
-```
+**Atomicity**: Tenant registration runs INSIDE the same database transaction that creates the `supabase_instances` row. On supavisor HTTP failure, the transaction rolls back the entire provision — operator never sees a half-created project. Selfbase's `pooler_tenants` row carries `status='registering'` while the supavisor call is in flight; flipped to `'active'` only after success. The reconciler picks up `'registering'` rows older than 60s and either retries or marks `'failed'`.
 
 ---
 
-## Decision 4: caddy-l4 Layer4 Config Shape
+## Decision 4: Network Topology for Per-Instance Backend Access
 
-**Decision**: Add a `layer4` app to the Caddy JSON config (alongside the existing `tls` and `http` apps). The `layer4` app is only emitted when a wildcard cert exists AND an apex is configured — when neither condition holds, the config is identical to today.
+**Decision**: Supavisor connects to per-instance Postgres via `host.docker.internal:<published-port>`. Each per-instance compose stack publishes its db on a unique host port (`POSTGRES_DIRECT_HOST_PORT`, allocated from the existing port pool).
 
-**Config shape** (emitted by `buildCaddyConfig()` when wildcard active):
-```json
-{
-  "apps": {
-    "layer4": {
-      "servers": {
-        "postgres": {
-          "listen": [":5432"],
-          "routes": [
-            {
-              "match": [{"postgres": {}}],
-              "handle": [
-                {"handler": "postgres"},
-                {
-                  "handler": "subroute",
-                  "routes": [
-                    {
-                      "match": [{"tls": {"sni": ["db.<ref1>.<apex>"]}}],
-                      "handle": [
-                        {"handler": "tls"},
-                        {"handler": "proxy", "upstreams": [{"dial": "host.docker.internal:<portPostgres1>"}]}
-                      ]
-                    },
-                    {
-                      "match": [{"tls": {"sni": ["db.<ref2>.<apex>"]}}],
-                      "handle": [
-                        {"handler": "tls"},
-                        {"handler": "proxy", "upstreams": [{"dial": "host.docker.internal:<portPostgres2>"}]}
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      }
-    }
-  }
-}
-```
+**Why not Docker network bridging**:
+- Per-instance compose stacks run on isolated docker networks (`selfbase-<ref>_default`). Supavisor would need to join each per-instance network — Docker doesn't easily support a container being on N dynamically-changing networks.
+- `host.docker.internal` is already wired in selfbase (Caddy uses it for per-instance Kong/Studio routing). Reusing this pattern keeps networking consistent.
 
-**Important**: The exact module/handler names (`"postgres"`, `"tls"`, `"proxy"`, `"subroute"`) must be verified against the installed caddy-l4 version during implementation — caddy-l4 uses Caddy's module registration system and names can differ across versions. The reference is the caddy-l4 README and the `modules/` directory in the repo.
+**Why publishing per-instance db is safe**:
+- The host port is on the VM's loopback / internal network. Not exposed externally unless the operator opens the firewall.
+- Per-instance Postgres still enforces password auth — no anonymous access regardless.
+
+**Port allocation**: Add `POSTGRES_DIRECT_HOST_PORT` to the port pool alongside existing `kong`, `studio`, `postgres` (supavisor transaction), `pooler` (supavisor session), `analytics`. One additional integer per instance.
 
 ---
 
-## Decision 5: POSTGRES_HOST Fix in compose-template.ts
+## Decision 5: TLS Cert Distribution to Supavisor
 
-**Decision**: Change `POSTGRES_HOST: 'db'` to `POSTGRES_HOST: \`db.${ref}.${apex}\`` in `packages/docker-control/src/compose-template.ts` when an apex is provided.
+**Decision**: Mount the shared `certs-data` Docker volume into supavisor as read-only at `/var/selfbase/certs`. Supavisor's `SUPAVISOR_SSL_CERT` and `SUPAVISOR_SSL_KEY` env vars point at the file paths.
 
-**Rationale**: Studio reads `POSTGRES_HOST` from its environment to display the "Direct connection" string. Currently it shows `db` (the Docker-internal hostname), which produces `127.0.0.1:5432` or `db:5432` in Studio's UI — neither meaningful to an external developer. With `db.<ref>.<apex>`, Studio shows the correct publicly-reachable hostname.
+**Cert rotation**: When the wildcard cert renews (feature 004 daily cron), the cert files on the shared volume update in place. Supavisor needs to be signaled to reload. Two paths:
+- **Auto** — supavisor 2.x supports SIGHUP for cert reload; the api sends SIGHUP after cert renewal succeeds
+- **Restart** — `docker compose restart supavisor` (brief downtime, ~5s)
 
-**Fallback**: When `apex` is an empty string or not configured, keep `POSTGRES_HOST: 'db'` (current behavior). The `apex` parameter is already required in `ComposeTemplateInputs` so the value is always available — but during the setup wizard before an apex is configured, instances can't be provisioned anyway (the wizard gate prevents it).
-
-**Impact scope**: Only affects the displayed connection string in Studio UI. The per-instance Postgres itself continues to accept connections on both the internal `db:5432` path (within the Docker network) and the external `host.docker.internal:<portPostgres>` path (from Caddy).
-
----
-
-## Decision 6: tls-ask.ts — No Change Required
-
-**Decision**: `apps/api/src/routes/tls-ask.ts` does NOT need to be updated for Postgres routing.
-
-**Rationale**: The `tls-ask.ts` route is the gate for Caddy's on-demand HTTP-01 cert issuance. With the wildcard cert (feature 004), `*.<apex>` is already covered — Caddy uses the loaded wildcard cert for `db.<ref>.<apex>` SNI without calling `tls-ask`. On-demand ACME is irrelevant for L4/TCP connections (Caddy never calls `tls-ask` for the `layer4` app; cert selection for L4 comes from the loaded certificates store).
-
-**This is a deliberate simplification** vs. what the issue suggested. The issue mentioned updating `tls-ask.ts` as a defensive measure, but with the wildcard cert in place, `db.<ref>.<apex>` TLS just works via `tls_connection_policies` in the HTTP app and the wildcard cert tags in the L4 TLS handler.
+Preferred: SIGHUP via the api's existing cert-renewal flow. Fallback to restart if SIGHUP is unreliable.
 
 ---
 
-## Decision 7: E2E Test Script (tests/cli-e2e/db-push.sh)
+## Decision 6: Selfbase Tracking Table (`pooler_tenants`)
 
-**Decision**: Create `tests/cli-e2e/db-push.sh` as a standalone E2E script covering all database CLI commands. Separate from `deploy-hello.sh` (functions-only) so database tests are independently runnable.
+**Decision**: Keep a selfbase-side `pooler_tenants` table separate from supavisor's `_supavisor.tenants`. Selfbase owns its source-of-truth row; the reconciler reconciles between the two.
 
-**Env vars**:
-- `SELFBASE_APEX` — the apex domain
-- `SELFBASE_PAT` — personal access token
-- `SELFBASE_PROJECT_REF` — 20-char project ref
-- `SELFBASE_DB_PASSWORD` — Postgres password (from instance secrets, needed for direct connection verification)
-
-**Commands covered**:
-1. `supabase db push` — apply a throwaway migration, assert exit 0
-2. `supabase db pull` — dump current schema to a file
-3. `supabase db diff` — diff against current schema (no pending migrations)
-4. `supabase migration list` — list applied migrations
-5. `supabase inspect db` — schema inspection
-
-**Cleanup**: Roll back the throwaway migration after each run to keep the DB clean.
+**Why two tables**:
+- Selfbase's `pooler_tenants` can carry selfbase-specific state (last health check, retry counters, audit-friendly fields) without polluting supavisor's schema.
+- If we ever migrate off supavisor (unlikely), our DB still has the canonical list of which instances have public Postgres endpoints.
+- Reconciler logic compares the two and surfaces drift.
 
 ---
 
-## Existing Code Integration Points
+## Decision 7: Backfill for Existing Instances
 
-| File | Current state | Change needed |
-|------|--------------|---------------|
-| `apps/caddy/Dockerfile` | Does not exist | Create (xcaddy + caddy-l4) |
-| `infra/docker-compose.yml` | `image: caddy:2.8-alpine` | Switch to build; add 5432 port |
-| `apps/api/src/services/caddy-config.ts` | HTTP + TLS apps only | Add `layer4` app |
-| `packages/docker-control/src/compose-template.ts` | `POSTGRES_HOST: 'db'` | `POSTGRES_HOST: db.<ref>.<apex>` |
-| `apps/api/src/routes/tls-ask.ts` | No db.* patterns | No change needed |
-| `tests/cli-e2e/db-push.sh` | Does not exist | Create |
-| `docs/supabase-cli.md` | "db push requires --db-url" caveat | Remove caveat |
+**Decision**: One-shot `backfill-pooler-tenants.ts` script. Runs as part of deploy. For each row in `supabase_instances` not yet registered, decrypts the password and registers via the supavisor HTTP API. Idempotent — skips already-registered tenants.
+
+**Why a script not an automatic on-startup migration**:
+- Decryption requires `MASTER_KEY` which we don't want to run on every api startup more than necessary.
+- Operator gets visible feedback: `✓ ref1`, `✓ ref2`, `✗ ref3 (error)`. Logs are easy to diff against expected count.
+- Re-runnable safely if interrupted.
+
+**Failure mode**: If the script can't register some instance (e.g., transient DB error), it logs and moves on. The reconciler picks up the gap on its next run.
+
+---
+
+## Decision 8: Reconciler Cadence and Drift Categories
+
+**Decision**: Daily BullMQ cron at `0 3 * * *` (3 AM, 1 hour after cert-check). Detects four kinds of drift:
+
+| Drift | Action |
+|---|---|
+| `pooler_tenants` row exists but no matching instance | Unregister from supavisor, DELETE row, log `reconcile orphan` |
+| Instance exists, no `pooler_tenants` row | Register, INSERT row, log `reconcile missing` |
+| `pooler_tenants` row + supavisor tenant + instance exist but password mismatch (e.g., operator rotated) | Update supavisor's stored password via HTTP API, log `reconcile rotate` |
+| `pooler_tenants.status = 'registering'` for >60s | Re-attempt register, set `failed` if still erroring |
+
+---
+
+## Decision 9: Studio "Direct Connection" Display — Deferred
+
+**Decision**: Defer Studio's "Direct connection" display fix to a follow-up. For v1 of this feature, Studio may still show `db:5432` (the internal hostname). The PRIMARY user value of this feature — `supabase db push` working without `--db-url` — works regardless of Studio display.
+
+**Why deferred**:
+- Studio reads `POSTGRES_HOST` for its display. Setting `POSTGRES_HOST=db.<ref>.<apex>` breaks sibling-container connections (we proved this empirically when supavisor crashed).
+- Fixing properly requires either: (a) finding a Studio-specific env var that controls display independently, OR (b) patching the Studio image.
+- Both are real work but orthogonal to the routing feature. Tracked separately so they don't block.
+
+The dashboard's TLS/Database settings panel (built in this feature via `PoolerHealthCard.tsx`) WILL show the correct connection string — operators can copy from there until Studio is fixed.
+
+---
+
+## Decision 10: Caddy L4 Code — Removed (not just disabled)
+
+**Decision**: Remove the `layer4` block from `apps/api/src/services/caddy-config.ts` entirely. Remove port `5432:5432` from the caddy service in `infra/docker-compose.yml`. Keep the custom Caddy Dockerfile + caddy-l4 module — they don't hurt and are useful for future raw-TCP needs.
+
+**Why delete the layer4 emission code rather than disabling it**:
+- Code that's "off but kept around" rots; future maintainers re-enable it and re-hit the STARTTLS limit.
+- Removal is one revert; restoration (if ever needed) is one revert.
+- Tests for `caddy-config.ts` need to be updated regardless — they currently assert layer4 IS emitted under certain conditions.
+
+---
+
+## Reference Implementation
+
+- **Supavisor docs**: https://supabase.github.io/supavisor/ (API, tenant schema, env vars)
+- **Existing per-instance config**: `infra/supabase-template/docker-compose.yml` (supavisor service) — same image, similar env, narrower role (single-tenant) — serves as a template for the top-level service config
+- **Per-instance bootstrap**: `infra/supabase-template/volumes/pooler/pooler.exs` shows how a tenant is registered programmatically (Elixir API). The HTTP API mirrors these fields.
