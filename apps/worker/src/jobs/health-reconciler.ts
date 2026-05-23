@@ -14,21 +14,32 @@ import { composePs } from '@selfbase/docker-control';
  *    otherwise flip to 'stopped' (silent crash / OOM-kill)
  *  - mixed (some running some not) → status='failed' with a synthetic provision_error
  *
- * We never overwrite status='provisioning' or 'deleting' (those are owned by
- * other workers).
+ * `deleting` is owned by the lifecycle worker and never touched.
+ * `provisioning` is owned by the provision worker, but if it's stuck for
+ * longer than PROVISION_STUCK_THRESHOLD_MS (the provision worker died mid-run
+ * after containers started), we rescue based on actual container state.
  */
+const PROVISION_STUCK_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+
 export async function handleHealthReconciler(): Promise<void> {
   const rows = await db()
     .select({
       ref: schema.supabaseInstances.ref,
       status: schema.supabaseInstances.status,
+      updatedAt: schema.supabaseInstances.updatedAt,
     })
     .from(schema.supabaseInstances)
-    .where(not(inArray(schema.supabaseInstances.status, ['provisioning', 'deleting'])));
+    .where(not(inArray(schema.supabaseInstances.status, ['deleting'])));
 
+  const now = Date.now();
   for (const row of rows) {
+    // Skip provisioning rows that haven't been stuck long enough — the
+    // provision worker still owns them.
+    if (row.status === 'provisioning' && now - row.updatedAt.getTime() < PROVISION_STUCK_THRESHOLD_MS) {
+      continue;
+    }
     try {
-      await reconcile(row.ref, row.status as 'running' | 'paused' | 'stopped' | 'failed');
+      await reconcile(row.ref, row.status as 'running' | 'paused' | 'stopped' | 'failed' | 'provisioning');
     } catch (err) {
       logger.warn(
         { ref: row.ref, err: (err as Error).message },
@@ -40,7 +51,7 @@ export async function handleHealthReconciler(): Promise<void> {
 
 async function reconcile(
   ref: string,
-  current: 'running' | 'paused' | 'stopped' | 'failed',
+  current: 'running' | 'paused' | 'stopped' | 'failed' | 'provisioning',
 ): Promise<void> {
   const ctx = { projectName: `selfbase-${ref}`, dir: '' };
   const containers = await composePs(ctx);
@@ -78,13 +89,18 @@ async function reconcile(
   }
 
   // Mixed state — partial outage. Mark failed so the dashboard surfaces it.
+  // For a stuck `provisioning` row, the rescue path is the same: surface the
+  // real failure instead of leaving it in limbo.
   if (current !== 'failed') {
     const bad = containers
       .filter((c) => c.state !== 'running' || c.health === 'unhealthy')
       .map((c) => `${c.service}=${c.state}/${c.health}`)
       .join(', ');
-    await setStatus(ref, 'failed', `partial outage: ${bad}`);
-    logger.warn({ ref, bad }, 'reconciler: partial outage; marking failed');
+    const msg = current === 'provisioning'
+      ? `provision stuck — partial outage detected: ${bad}`
+      : `partial outage: ${bad}`;
+    await setStatus(ref, 'failed', msg);
+    logger.warn({ ref, bad, from: current }, 'reconciler: partial outage; marking failed');
   }
 }
 
