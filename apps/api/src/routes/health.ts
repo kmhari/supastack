@@ -38,6 +38,9 @@ async function probeRedis(): Promise<void> {
 }
 
 async function probeCaddy(): Promise<void> {
-  const res = await fetch(`${CADDY_ADMIN_URL}/config/`);
+  // Caddy 2.7+ admin origin check — include Origin matching the configured list.
+  const res = await fetch(`${CADDY_ADMIN_URL}/config/`, {
+    headers: { origin: CADDY_ADMIN_URL },
+  });
   if (!res.ok) throw new Error(`caddy ${res.status}`);
 }

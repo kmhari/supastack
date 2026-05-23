@@ -162,7 +162,9 @@ export async function buildCaddyConfig(): Promise<unknown> {
     automation: {
       policies: [{ on_demand: true }],
       on_demand: {
-        ask: 'http://api:3001/internal/tls/ask',
+        // Caddy 2.7+ replaced `ask: <url>` with a `permission` module.
+        // The http permission module hits the same endpoint we already expose.
+        permission: { module: 'http', endpoint: 'http://api:3001/internal/tls/ask' },
       },
     },
   };
@@ -248,7 +250,14 @@ export async function buildCaddyConfig(): Promise<unknown> {
       : null;
 
   return {
-    admin: { listen: ':2019' },
+    // Caddy 2.7+ enforces an origin check on the admin endpoint. Allow the
+    // internal Docker hostnames that need to POST /load (api, worker, caddy
+    // itself). The admin port is NOT published externally.
+    admin: {
+      listen: ':2019',
+      // Caddy 2.7+ Origin/Host check requires exact Host header match (incl. port).
+      origins: ['caddy:2019', 'api:2019', 'worker:2019', 'localhost:2019', '127.0.0.1:2019'],
+    },
     apps: {
       tls: tlsApp,
       http: {

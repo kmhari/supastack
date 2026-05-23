@@ -12,7 +12,12 @@ export async function reloadCaddy(): Promise<void> {
   const config = await buildCaddyConfig();
   const res = await fetch(`${CADDY_ADMIN_URL}/load`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      // Caddy 2.7+ admin requires Origin header that matches the configured
+      // `origins` list (in apps/caddy/Caddyfile and caddy-config.ts admin block).
+      origin: CADDY_ADMIN_URL,
+    },
     body: JSON.stringify(config),
   });
   if (!res.ok) {
