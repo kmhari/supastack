@@ -80,7 +80,7 @@ export function Shell({
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
       <RenewalBanner />
-      <nav className="flex h-12 items-center justify-between border-b border-border-soft px-8">
+      <nav className="flex h-12 items-center justify-between border-b border-border-soft px-4 sm:px-8">
         <div className="flex items-center gap-7">
           <Link to="/dashboard" className="flex items-center gap-2.5 text-foreground no-underline">
             <span aria-hidden className="inline-block size-[22px] rounded bg-success" />
@@ -116,7 +116,12 @@ export function Shell({
       {bare ? (
         <main>{children}</main>
       ) : (
-        <main className={cn('mx-auto px-8 pt-10 pb-20', wide ? 'max-w-[1280px]' : 'max-w-[960px]')}>
+        <main
+          className={cn(
+            'mx-auto px-4 pt-6 pb-12 sm:px-8 sm:pt-10 sm:pb-20',
+            wide ? 'max-w-[1280px]' : 'max-w-[960px]',
+          )}
+        >
           {children}
         </main>
       )}

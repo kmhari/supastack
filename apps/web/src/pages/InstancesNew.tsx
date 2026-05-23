@@ -56,11 +56,10 @@ export function InstancesNewPage(): React.ReactElement {
     <Shell>
       <form onSubmit={(e) => void onSubmit(e)} className="mx-auto max-w-[960px]">
         <Card className="overflow-hidden rounded-lg border border-border-soft bg-card p-0 gap-0">
-          <div className="px-10 py-8">
+          <div className="px-4 py-5 sm:px-10 sm:py-8">
             <h1 className="m-0 text-[22px] font-medium text-foreground">Create a new project</h1>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Your project will have its own dedicated instance and full Postgres database.
-              <br />
               An API will be set up so you can easily interact with your new database.
             </p>
           </div>
@@ -120,7 +119,7 @@ export function InstancesNewPage(): React.ReactElement {
           {error && (
             <>
               <Separator className="bg-border-soft" />
-              <div className="px-10 py-5">
+              <div className="px-4 py-4 sm:px-10 sm:py-5">
                 <Alert variant="destructive">
                   <AlertCircle />
                   <AlertDescription>{error}</AlertDescription>
@@ -131,7 +130,7 @@ export function InstancesNewPage(): React.ReactElement {
 
           <Separator className="bg-border-soft" />
 
-          <div className="flex justify-end gap-2 bg-black/15 px-10 py-5">
+          <div className="flex flex-col-reverse gap-2 bg-black/15 px-4 py-4 sm:flex-row sm:justify-end sm:px-10 sm:py-5">
             <Button type="button" variant="outline" onClick={() => navigate('/dashboard')}>
               Cancel
             </Button>
@@ -155,8 +154,8 @@ function FormRow({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <div className="grid grid-cols-[320px_1fr] items-start gap-10 px-10 py-8">
-      <Label className="pt-2 text-sm font-normal text-foreground">{label}</Label>
+    <div className="flex flex-col gap-3 px-4 py-5 sm:grid sm:grid-cols-[260px_1fr] sm:items-start sm:gap-10 sm:px-10 sm:py-8 lg:grid-cols-[320px_1fr]">
+      <Label className="text-sm font-normal text-foreground sm:pt-2">{label}</Label>
       <div className="flex min-w-0 flex-col gap-3">
         {children}
         {hint && (
