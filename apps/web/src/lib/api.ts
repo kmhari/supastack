@@ -133,3 +133,57 @@ export const cliApi = {
       client.post('/cli/mint-token', { label }),
     ),
 };
+
+// ─── wildcard cert (DNS-01) ──────────────────────────────────────────────────
+export interface ChallengeRecord {
+  name: string;
+  value: string;
+}
+export interface DnsCheck {
+  name: string;
+  value: string;
+  found: boolean;
+}
+export interface WildcardCertStatus {
+  cert: {
+    apex: string;
+    status: 'pending' | 'awaiting_dns' | 'verifying' | 'issued' | 'failed' | 'disabled';
+    challengeRecords: ChallengeRecord[];
+    dnsChecks?: DnsCheck[];
+    allDnsReady?: boolean;
+    notBefore: string | null;
+    notAfter: string | null;
+    renewalDue: boolean;
+    issuedAt: string | null;
+    lastError: string | null;
+    renewalHistory: {
+      triggeredBy: 'initial' | 'manual';
+      outcome: 'success' | 'failure' | 'in_progress';
+      errorMessage: string | null;
+      certNotAfter: string | null;
+      startedAt: string;
+      finishedAt: string | null;
+    }[];
+  } | null;
+}
+export interface WildcardCertInitiate {
+  apex: string;
+  status: 'awaiting_dns';
+  challengeRecords: ChallengeRecord[];
+  ttlHint: number;
+}
+export interface WildcardCertVerify {
+  status: 'awaiting_dns' | 'issued' | 'failed';
+  dnsChecks?: DnsCheck[];
+  allDnsReady?: boolean;
+  notBefore?: string;
+  notAfter?: string;
+  message?: string;
+}
+
+export const wildcardCertApi = {
+  initiate: () => unwrap<WildcardCertInitiate>(client.post('/wildcard-certs/initiate')),
+  verify: () => unwrap<WildcardCertVerify>(client.post('/wildcard-certs/verify')),
+  status: () => unwrap<WildcardCertStatus>(client.get('/wildcard-certs/status')),
+  disable: () => client.delete('/wildcard-certs'),
+};

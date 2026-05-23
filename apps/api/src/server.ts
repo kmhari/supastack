@@ -27,6 +27,8 @@ import { apiKeysRoutes } from './routes/management/api-keys.js';
 import { functionsRoutes } from './routes/management/functions.js';
 import { secretsRoutes } from './routes/management/secrets.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
+import { wildcardCertRoutes } from './routes/wildcard-certs.js';
+import { createCertCheckQueue, createCertCheckWorker } from './services/cert-check.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -144,6 +146,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(membersRoutes, { prefix: '/api/v1' });
   await app.register(auditRoutes, { prefix: '/api/v1' });
   await app.register(connectCliRoutes, { prefix: '/api/v1' });
+  await app.register(wildcardCertRoutes, { prefix: '/api/v1' });
   await app.register(tlsAskRoutes); // /internal/tls/ask
   await app.register(caddyInternalRoutes); // /internal/caddy/reload
 
@@ -186,6 +189,17 @@ async function main(): Promise<void> {
   const app = await buildApp();
   await app.listen({ port: PORT, host: HOST });
   app.log.info({ port: PORT }, 'selfbase api listening');
+
+  // Daily cert-check job: sets renewal_due=true on certs within 30 days of expiry.
+  if (REDIS_URL) {
+    const certQueue = createCertCheckQueue(REDIS_URL);
+    createCertCheckWorker(REDIS_URL);
+    await certQueue.upsertJobScheduler(
+      'daily-cert-check',
+      { pattern: '0 2 * * *' },
+      { name: 'cert-check', opts: { removeOnComplete: { count: 5 }, removeOnFail: { count: 10 } } },
+    );
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

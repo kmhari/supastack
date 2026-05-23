@@ -1,5 +1,7 @@
-import { not, inArray } from 'drizzle-orm';
+import { not, inArray, eq } from 'drizzle-orm';
 import { db, schema } from '@selfbase/db';
+
+const CERTS_DIR = process.env.SELFBASE_CERTS_DIR ?? '/var/selfbase/certs';
 
 /**
  * Build the complete Caddy JSON config from the current DB state.
@@ -26,6 +28,14 @@ export async function buildCaddyConfig(): Promise<unknown> {
   const orgRows = await db().select().from(schema.org).limit(1);
   const org = orgRows[0];
   const apex = org?.apexDomain ?? null;
+
+  // Check for an issued wildcard cert to use instead of per-subdomain on-demand TLS.
+  const certRows = await db()
+    .select({ apex: schema.wildcardCerts.apex })
+    .from(schema.wildcardCerts)
+    .where(eq(schema.wildcardCerts.status, 'issued'))
+    .limit(1);
+  const wildcardCert = certRows[0] ?? null;
 
   const instances = await db()
     .select({
@@ -147,40 +157,56 @@ export async function buildCaddyConfig(): Promise<unknown> {
     dashboardFallback,
   ];
 
+  const tlsApp: Record<string, unknown> = {
+    automation: {
+      policies: [{ on_demand: true }],
+      on_demand: {
+        ask: 'http://api:3001/internal/tls/ask',
+      },
+    },
+  };
+
+  // When a wildcard cert is issued, load it from disk via load_files so Caddy
+  // serves *.apex and apex from the single cert without triggering on-demand ACME.
+  if (wildcardCert) {
+    tlsApp.certificates = {
+      load_files: [
+        {
+          certificate: `${CERTS_DIR}/${wildcardCert.apex}/cert.pem`,
+          key: `${CERTS_DIR}/${wildcardCert.apex}/key.pem`,
+          tags: [`wildcard:${wildcardCert.apex}`],
+        },
+      ],
+    };
+  }
+
+  // tls_connection_policies: when the wildcard exists, route apex + *.apex
+  // SNI to the pre-loaded cert. The trailing empty policy {} is required —
+  // without it any SNI not matching the first policy gets TLS alert 80.
+  const httpsConnectionPolicies = wildcardCert
+    ? [
+        {
+          match: { sni: [wildcardCert.apex, `*.${wildcardCert.apex}`] },
+          certificate_selection: { any_tag: [`wildcard:${wildcardCert.apex}`] },
+        },
+        {},
+      ]
+    : undefined;
+
   return {
     admin: { listen: ':2019' },
     apps: {
-      tls: {
-        automation: {
-          // An explicit catch-all automation policy with on_demand:true is
-          // REQUIRED for Caddy to actually trigger ACME on unknown SNIs.
-          // Without this Caddy answers handshakes with TLS alert 80
-          // (internal_error) and never calls /internal/tls/ask. The global
-          // `automation.on_demand` block below is only the GATE URL —
-          // the policy is what enables on-demand at all.
-          policies: [{ on_demand: true }],
-          on_demand: {
-            ask: 'http://api:3001/internal/tls/ask',
-          },
-        },
-      },
+      tls: tlsApp,
       http: {
         servers: {
-          // ALWAYS-ON plain-HTTP listener. Reachable from boot even with no
-          // apex configured. Lets /setup work before DNS exists.
           openfront_http: {
             listen: [':80'],
             routes: httpRoutes,
           },
-          // HTTPS listener. `automatic_https.disable_redirects` keeps
-          // Caddy's cert-provisioning machinery engaged while preventing
-          // the default :80 → :443 redirect that would otherwise break
-          // plain-HTTP /setup access. Combined with the automation policy
-          // above, Caddy will start ACME for any unknown SNI that the
-          // tls-ask gate approves.
           openfront_https: {
             listen: [':443'],
             automatic_https: { disable_redirects: true },
+            ...(httpsConnectionPolicies ? { tls_connection_policies: httpsConnectionPolicies } : {}),
             routes: httpsRoutes,
           },
         },
