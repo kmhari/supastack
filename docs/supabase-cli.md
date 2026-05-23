@@ -173,7 +173,10 @@ selfbase implements a strict, drift-resistant subset of the Supabase Management 
 - `supabase functions list`
 - `supabase functions download <slug> [--use-api]`
 - `supabase functions delete <slug>`
-- `supabase secrets list`- `supabase secrets set <k>=<v>...`- `supabase secrets unset <k>`- DB-level commands that take `--db-url` explicitly: `db push`, `db pull`, `db diff`, `migration *`, `inspect *`. These don't hit selfbase's management API at all — they connect directly to Postgres.
+- `supabase secrets list`
+- `supabase secrets set <k>=<v>...`
+- `supabase secrets unset <k>`
+- DB-level commands — `db push`, `db pull`, `db diff`, `migration *`, `inspect *`. These connect directly to Postgres at `db.<ref>.<apex>:5432` via Caddy L4 SNI routing (feature 005). **No `--db-url` flag required** — works the same as Supabase Cloud as long as the wildcard certificate (feature 004) is active on your deployment. For full validation, run `bash tests/cli-e2e/db-push.sh`.
 
 ### Not yet (P1+)
 
@@ -183,8 +186,7 @@ selfbase implements a strict, drift-resistant subset of the Supabase Management 
 - `supabase network-restrictions *` / `supabase network-bans *`
 - `supabase ssl-enforcement *`
 - `supabase advisors *`
-- `supabase gen types typescript` (works if you pass `--db-url`; doesn't work via project ref alone — yet)
-- `supabase db push/pull` *without* `--db-url` (would need DB host `db.<ref>.<apex>` to resolve and accept Postgres 5432; out of P0 scope)
+- `supabase gen types typescript` (works via `db.<ref>.<apex>` Postgres endpoint when the wildcard cert is active; project-ref-only path still pending CLI upstream support)
 
 ---
 

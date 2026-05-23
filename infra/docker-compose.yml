@@ -49,13 +49,19 @@ services:
       retries: 12
 
   caddy:
-    image: caddy:2.8-alpine
+    # Custom Caddy build with caddy-l4 module (Postgres SNI routing on :5432).
+    # See apps/caddy/Dockerfile for build context. First feature requiring a
+    # custom Caddy build (feature 005); feature 004 wildcard cert stayed on stock.
+    build:
+      context: ..
+      dockerfile: apps/caddy/Dockerfile
     restart: unless-stopped
     cap_add:
       - NET_BIND_SERVICE
     ports:
       - '80:80'
       - '443:443'
+      - '5432:5432'
     volumes:
       - ../apps/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
