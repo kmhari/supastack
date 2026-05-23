@@ -34,7 +34,7 @@
 # /setup must work over plain HTTP at first install, before DNS.
 :80 {
 	# API routes go to the api container
-	handle_path /api/* {
+	handle /api/* {
 		reverse_proxy api:3001
 	}
 	# WebSockets go to api too
@@ -63,7 +63,7 @@
 	}
 	# Default: route to dashboard. Per-instance routes are inserted via
 	# the admin API and matched before this fallback.
-	handle_path /api/* {
+	handle /api/* {
 		reverse_proxy api:3001
 	}
 	@websocket {

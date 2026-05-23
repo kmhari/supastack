@@ -199,16 +199,21 @@ export async function buildCaddyConfig(): Promise<unknown> {
   // cert (loaded above via tls.certificates.load_files) covers db.<ref>.<apex>.
   //
   // Flow per connection on :5432:
-  //   1. Caddy `postgres` handler reads the Postgres SSLRequest startup message
-  //      (8 bytes, magic 80877103) and responds with 'S' to accept TLS.
-  //   2. `subroute` reads the subsequent TLS ClientHello and matches by SNI.
+  //   1. Outer `postgres` matcher detects the Postgres SSLRequest (8 bytes,
+  //      magic 80877103), consumes those bytes, and responds 'S' to the
+  //      client to accept TLS. After it matches, the connection is in
+  //      "TLS handshake about to start" state — there is no separate
+  //      `postgres` handler (the matcher does the STARTTLS work).
+  //   2. `subroute` reads the subsequent TLS ClientHello via the inner
+  //      `tls` matcher and routes by SNI.
   //   3. `tls` handler terminates TLS using the wildcard cert from the store.
   //   4. `proxy` forwards plaintext Postgres protocol to the per-instance
   //      port at host.docker.internal:<portPostgres>.
   //
   // Requires the caddy-l4 module (github.com/mholt/caddy-l4) — see
-  // apps/caddy/Dockerfile. Module names verified at deploy time via
-  // `caddy list-modules | grep layer4`.
+  // apps/caddy/Dockerfile. Module names verified at deploy time:
+  //   `docker exec selfbase-caddy-1 caddy list-modules | grep layer4`
+  // → confirmed handlers: subroute, tls, proxy; matchers: postgres, tls
   const layer4App =
     apex && wildcardCert
       ? {
@@ -219,7 +224,6 @@ export async function buildCaddyConfig(): Promise<unknown> {
                 {
                   match: [{ postgres: {} }],
                   handle: [
-                    { handler: 'postgres' },
                     {
                       handler: 'subroute',
                       routes: instances.map((i) => ({

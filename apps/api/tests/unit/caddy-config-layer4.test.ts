@@ -121,7 +121,7 @@ describe('buildCaddyConfig — layer4 emission', () => {
     expect(cfg.apps.layer4).toBeDefined();
     expect(cfg.apps.layer4!.servers.postgres.listen).toEqual([':5432']);
     const outer = cfg.apps.layer4!.servers.postgres.routes[0]!;
-    const subroute = outer.handle[1]!;
+    const subroute = outer.handle[0]!;
     expect(subroute.handler).toBe('subroute');
     expect(subroute.routes!).toHaveLength(2);
     expect(subroute.routes![0]!.match[0]!.tls.sni).toEqual([
@@ -145,11 +145,11 @@ describe('buildCaddyConfig — layer4 emission', () => {
     const cfg = (await buildCaddyConfig()) as CaddyConfig;
     expect(cfg.apps.layer4).toBeDefined();
     const outer = cfg.apps.layer4!.servers.postgres.routes[0]!;
-    const subroute = outer.handle[1]!;
+    const subroute = outer.handle[0]!;
     expect(subroute.routes!).toEqual([]);
   });
 
-  it('includes the postgres handler and tls handler in the correct order', async () => {
+  it('uses postgres matcher, subroute handler, then tls + proxy in subroute', async () => {
     fixtures.orgRow = { apexDomain: 'selfbase.example.com' };
     fixtures.certRows = [{ apex: 'selfbase.example.com' }];
     fixtures.instances = [
@@ -157,9 +157,11 @@ describe('buildCaddyConfig — layer4 emission', () => {
     ];
     const cfg = (await buildCaddyConfig()) as CaddyConfig;
     const outer = cfg.apps.layer4!.servers.postgres.routes[0]!;
-    expect(outer.handle[0]!.handler).toBe('postgres');
-    expect(outer.handle[1]!.handler).toBe('subroute');
-    const inner = outer.handle[1]!.routes![0]!;
+    // The postgres matcher (not a handler) consumes the SSLRequest exchange,
+    // so the outer handle chain has only the subroute (no separate postgres handler).
+    expect(outer.handle).toHaveLength(1);
+    expect(outer.handle[0]!.handler).toBe('subroute');
+    const inner = outer.handle[0]!.routes![0]!;
     expect(inner.handle[0]!.handler).toBe('tls');
     expect(inner.handle[1]!.handler).toBe('proxy');
   });
