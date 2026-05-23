@@ -1,7 +1,59 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { wildcardCertApi } from '@/lib/api';
+
+function RenewalBanner(): React.ReactElement | null {
+  const navigate = useNavigate();
+  const [info, setInfo] = useState<{ notAfter: string } | null>(null);
+  const [dismissed, setDismissed] = useState(() =>
+    sessionStorage.getItem('cert-renewal-dismissed') === '1',
+  );
+
+  useEffect(() => {
+    if (dismissed) return;
+    wildcardCertApi.status().then((res) => {
+      if (res.cert?.renewalDue && res.cert.notAfter) {
+        setInfo({ notAfter: res.cert.notAfter });
+      }
+    }).catch(() => undefined);
+  }, [dismissed]);
+
+  if (dismissed || !info) return null;
+
+  const expires = new Date(info.notAfter).toLocaleDateString(undefined, {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  return (
+    <div className="flex items-center justify-between border-b border-amber-600/30 bg-amber-950/40 px-8 py-2 text-sm text-amber-300">
+      <span>
+        Your wildcard certificate expires on <strong>{expires}</strong>. Renew it to avoid disruption.
+      </span>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          className="font-medium text-amber-200 hover:text-white underline bg-transparent p-0"
+          onClick={() => navigate('/settings/tls')}
+        >
+          Renew now →
+        </button>
+        <button
+          type="button"
+          className="text-amber-400 hover:text-amber-200 bg-transparent p-0"
+          onClick={() => {
+            sessionStorage.setItem('cert-renewal-dismissed', '1');
+            setDismissed(true);
+          }}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function Shell({
   children,
@@ -27,6 +79,7 @@ export function Shell({
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
+      <RenewalBanner />
       <nav className="flex h-12 items-center justify-between border-b border-border-soft px-8">
         <div className="flex items-center gap-7">
           <Link to="/dashboard" className="flex items-center gap-2.5 text-foreground no-underline">

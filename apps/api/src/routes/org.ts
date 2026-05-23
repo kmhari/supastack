@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db, schema } from '@selfbase/db';
 import { encryptJson, loadMasterKey } from '@selfbase/crypto';
 import { schemas, errors } from '@selfbase/shared';
@@ -18,7 +18,19 @@ export const orgRoutes: FastifyPluginAsync = async (app) => {
       .from(schema.org)
       .limit(1);
     if (!row) throw errors.notFound('org not initialized');
-    return reply.send(row);
+
+    const certRows = await db()
+      .select({ id: schema.wildcardCerts.id })
+      .from(schema.wildcardCerts)
+      .where(
+        and(
+          eq(schema.wildcardCerts.orgId, row.id),
+          eq(schema.wildcardCerts.status, 'issued'),
+        ),
+      )
+      .limit(1);
+
+    return reply.send({ ...row, hasCert: certRows.length > 0 });
   });
 
   app.patch('/org', async (req, reply) => {

@@ -114,6 +114,65 @@ export const OrgPatchRequest = z
   .strict();
 export type OrgPatchRequest = z.infer<typeof OrgPatchRequest>;
 
+// ─── wildcard certs ──────────────────────────────────────────────────────────
+export const ChallengeRecord = z.object({
+  name: z.string(),
+  value: z.string(),
+});
+
+export const DnsCheckResult = z.object({
+  name: z.string(),
+  value: z.string(),
+  found: z.boolean(),
+});
+
+export const WildcardCertInitiateResponse = z.object({
+  apex: z.string(),
+  status: z.literal('awaiting_dns'),
+  challengeRecords: z.array(ChallengeRecord),
+  ttlHint: z.number(),
+});
+export type WildcardCertInitiateResponse = z.infer<typeof WildcardCertInitiateResponse>;
+
+export const WildcardCertVerifyResponse = z.object({
+  status: z.enum(['awaiting_dns', 'issued', 'failed']),
+  dnsChecks: z.array(DnsCheckResult).optional(),
+  allDnsReady: z.boolean().optional(),
+  notBefore: z.string().optional(),
+  notAfter: z.string().optional(),
+  message: z.string().optional(),
+});
+export type WildcardCertVerifyResponse = z.infer<typeof WildcardCertVerifyResponse>;
+
+export const RenewalHistoryItem = z.object({
+  triggeredBy: z.enum(['initial', 'manual']),
+  outcome: z.enum(['success', 'failure', 'in_progress']),
+  errorMessage: z.string().nullable(),
+  certNotAfter: z.string().nullable(),
+  startedAt: z.string(),
+  finishedAt: z.string().nullable(),
+});
+
+export const WildcardCertStatusResponse = z.object({
+  cert: z
+    .object({
+      apex: z.string(),
+      status: z.enum(['pending', 'awaiting_dns', 'verifying', 'issued', 'failed', 'disabled']),
+      challengeRecords: z.array(ChallengeRecord),
+      dnsChecks: z.array(DnsCheckResult).optional(),
+      allDnsReady: z.boolean().optional(),
+      notBefore: z.string().nullable(),
+      notAfter: z.string().nullable(),
+      renewalDue: z.boolean(),
+      issuedAt: z.string().nullable(),
+      lastError: z.string().nullable(),
+      renewalHistory: z.array(RenewalHistoryItem),
+    })
+    .nullable(),
+});
+export type WildcardCertStatusResponse = z.infer<typeof WildcardCertStatusResponse>;
+
+// ─── backup store ────────────────────────────────────────────────────────────
 export const BackupStoreConfig = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('local') }),
   z.object({

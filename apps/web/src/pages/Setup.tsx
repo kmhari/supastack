@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Circle, Loader2, AlertTriangle, AlertCircle } from 'lucide-react';
-import { apexApi, authApi, orgApi, setupApi, type ApexStatus } from '@/lib/api';
+import { apexApi, authApi, orgApi, setupApi, wildcardCertApi, type ApexStatus, type DnsCheck, type ChallengeRecord } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CopyButton } from '@/components/CopyButton';
+import { WildcardCertCard } from '@/components/WildcardCertCard';
 
-type Step = 'loading' | 'admin' | 'token' | 'apex-enter' | 'apex-verify';
+type Step = 'loading' | 'admin' | 'token' | 'apex-enter' | 'apex-verify' | 'wildcard-cert';
 
 const masterTokenRef: { current: string | null } = { current: null };
 
@@ -97,9 +98,12 @@ export function SetupPage(): React.ReactElement {
       {step === 'apex-enter' && <ApexEnterStep onSaved={() => setStep('apex-verify')} />}
       {step === 'apex-verify' && (
         <ApexVerifyStep
-          onIssued={() => navigate('/dashboard')}
+          onIssued={() => setStep('wildcard-cert')}
           onChangeDomain={() => setStep('apex-enter')}
         />
+      )}
+      {step === 'wildcard-cert' && (
+        <WildcardCertStep onDone={() => navigate('/dashboard')} />
       )}
     </div>
   );
@@ -143,7 +147,7 @@ function AdminStep({
         First-time setup
       </h1>
       <p className="m-0 text-sm text-muted-foreground">
-        Step 1 of 3 — create the super-admin account for this Selfbase install.
+        Step 1 of 4 — create the super-admin account for this Selfbase install.
       </p>
       <Field label="Email">
         <Input
@@ -196,7 +200,7 @@ function TokenStep({
       <Wordmark />
       <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">Master API token</h1>
       <p className="m-0 text-sm text-muted-foreground">
-        Step 2 of 3 — shown once and not recoverable. Copy it before continuing. You can always
+        Step 2 of 4 — shown once and not recoverable. Copy it before continuing. You can always
         mint more later in Settings.
       </p>
       <pre className="m-0 overflow-x-auto rounded-md border border-border bg-card p-3.5 font-mono text-sm break-all whitespace-pre-wrap text-success">
@@ -247,7 +251,7 @@ function ApexEnterStep({ onSaved }: { onSaved: () => void }): React.ReactElement
         Connect your domain
       </h1>
       <p className="m-0 text-sm text-muted-foreground">
-        Step 3 of 3 — your Selfbase dashboard and instance subdomains will live under this apex.
+        Step 3 of 4 — your Selfbase dashboard and instance subdomains will live under this apex.
         Pick something you control DNS for, like <code>selfbase.example.com</code>. Required.
       </p>
       <Field label="Apex domain">
@@ -382,7 +386,7 @@ function ApexVerifyStep({
         Verifying {apex}
       </h1>
       <p className="m-0 text-sm text-muted-foreground">
-        Step 3 of 3 — point DNS at this server, then issue an HTTPS certificate.
+        Step 3 of 4 — point DNS at this server, then issue an HTTPS certificate.
       </p>
 
       <DnsRecordCard apex={apex} expectedIp={expectedIp} />
@@ -464,6 +468,184 @@ function ApexVerifyStep({
       >
         ← Change apex domain
       </button>
+    </div>
+  );
+}
+
+// ─── Step 4: wildcard cert DNS-01 ──────────────────────────────────────────
+
+type WildcardSub = 'loading' | 'waiting' | 'issuing' | 'done' | 'error';
+
+function WildcardCertStep({ onDone }: { onDone: () => void }): React.ReactElement {
+  const [sub, setSub] = useState<WildcardSub>('loading');
+  const [apex, setApex] = useState('');
+  const [challengeRecords, setChallengeRecords] = useState<ChallengeRecord[]>([]);
+  const [dnsChecks, setDnsChecks] = useState<DnsCheck[]>([]);
+  const [allDnsReady, setAllDnsReady] = useState(false);
+  const [notAfter, setNotAfter] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const advancedRef = useRef(false);
+
+  // On mount: initiate the ACME order
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await wildcardCertApi.initiate();
+        if (cancelled) return;
+        setApex(res.apex);
+        setChallengeRecords(res.challengeRecords);
+        setSub('waiting');
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+        setError(e.response?.data?.error?.message ?? e.message ?? 'Failed to start ACME order');
+        setSub('error');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Auto-poll DNS status every 10s while waiting
+  useEffect(() => {
+    if (sub !== 'waiting') return;
+    let cancelled = false;
+    const poll = async (): Promise<void> => {
+      try {
+        const res = await wildcardCertApi.status();
+        if (cancelled) return;
+        const cert = res.cert;
+        if (!cert) return;
+        setDnsChecks(cert.dnsChecks ?? []);
+        setAllDnsReady(cert.allDnsReady ?? false);
+      } catch { /* swallow poll errors */ }
+    };
+    void poll();
+    const id = setInterval(() => { void poll(); }, 10_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [sub]);
+
+  // Auto-advance when cert shows as issued from a previous attempt
+  useEffect(() => {
+    if (advancedRef.current) return;
+    (async () => {
+      const res = await wildcardCertApi.status().catch(() => null);
+      if (res?.cert?.status === 'issued') {
+        advancedRef.current = true;
+        setNotAfter(res.cert.notAfter);
+        setSub('done');
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onIssue = async (): Promise<void> => {
+    setSub('issuing');
+    setError(null);
+    try {
+      const res = await wildcardCertApi.verify();
+      if (res.status === 'issued') {
+        setNotAfter(res.notAfter ?? null);
+        setSub('done');
+      } else if (res.status === 'awaiting_dns') {
+        setDnsChecks(res.dnsChecks ?? []);
+        setAllDnsReady(res.allDnsReady ?? false);
+        setSub('waiting');
+      } else {
+        setError(res.message ?? 'ACME challenge failed');
+        setSub('error');
+      }
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      setError(e.response?.data?.error?.message ?? e.message ?? 'cert issuance failed');
+      setSub('waiting');
+    }
+  };
+
+  const onSkip = (): void => { onDone(); };
+
+  if (sub === 'loading') {
+    return (
+      <div className="flex w-96 max-w-full flex-col gap-4">
+        <Wordmark />
+        <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">
+          Wildcard certificate
+        </h1>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          <span>Preparing ACME order…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (sub === 'done') {
+    const expires = notAfter
+      ? new Date(notAfter).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+      : null;
+    return (
+      <div className="flex w-96 max-w-full flex-col gap-4">
+        <Wordmark />
+        <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">
+          Certificate issued 🎉
+        </h1>
+        <p className="m-0 text-sm text-muted-foreground">
+          Your wildcard certificate for <code>*.{apex}</code> is active.
+          {expires && ` Valid until ${expires}.`} All subdomains are covered — no per-request
+          ACME delays.
+        </p>
+        <Button onClick={onDone} className="w-full">
+          Go to dashboard →
+        </Button>
+      </div>
+    );
+  }
+
+  if (sub === 'error' && challengeRecords.length === 0) {
+    return (
+      <div className="flex w-96 max-w-full flex-col gap-4">
+        <Wordmark />
+        <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">
+          Wildcard certificate
+        </h1>
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <div className="flex gap-2">
+          <Button variant="secondary" className="flex-1" onClick={() => { setSub('loading'); setError(null); }}>
+            Try again
+          </Button>
+          <Button variant="secondary" className="flex-1" onClick={onSkip}>
+            Skip for now
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex w-[30rem] max-w-full flex-col gap-4">
+      <Wordmark />
+      <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">
+        Wildcard certificate
+      </h1>
+      <p className="m-0 text-sm text-muted-foreground">
+        Step 4 of 4 — add these TXT records at your DNS registrar to prove you control{' '}
+        <code>{apex}</code>, then issue a wildcard certificate that covers all subdomains.
+      </p>
+      <WildcardCertCard
+        apex={apex}
+        challengeRecords={challengeRecords}
+        dnsChecks={dnsChecks}
+        allDnsReady={allDnsReady}
+        issuing={sub === 'issuing'}
+        error={sub === 'error' ? error : null}
+        onIssue={() => { void onIssue(); }}
+        onSkip={onSkip}
+      />
     </div>
   );
 }

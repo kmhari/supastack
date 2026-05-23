@@ -16,6 +16,7 @@ volumes:
   redis-data:
   caddy-data:
   caddy-config:
+  certs-data:
 
 services:
   db:
@@ -59,6 +60,7 @@ services:
       - ../apps/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+      - certs-data:/var/selfbase/certs:ro
     networks: [internal]
     # Allow Caddy to reach per-instance Supabase containers which publish
     # their ports on the host (Kong 30000, Studio 30001, etc.). The
@@ -93,6 +95,8 @@ services:
       INSTANCES_DIR: /var/selfbase/instances
       BACKUPS_DIR: /var/selfbase/backups
       SELFBASE_PUBLIC_IP: ${SELFBASE_PUBLIC_IP:-}
+      SELFBASE_CERTS_DIR: /var/selfbase/certs
+      ACME_DIRECTORY_URL: ${ACME_DIRECTORY_URL:-}
       # COOKIE_SECURE=0 (default) lets the session cookie work over plain HTTP
       # — required for /setup + /login before an apex + HTTPS cert exist.
       # Flip to 1 once HTTPS is in place.
@@ -103,6 +107,7 @@ services:
       - /var/selfbase/instances:/var/selfbase/instances
       - /var/selfbase/backups:/var/selfbase/backups
       - /var/run/docker.sock:/var/run/docker.sock
+      - certs-data:/var/selfbase/certs
     networks: [internal]
     depends_on:
       db:
