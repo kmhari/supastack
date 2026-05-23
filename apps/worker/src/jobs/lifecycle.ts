@@ -67,6 +67,17 @@ export async function handleLifecycle(
     case 'delete':
       await composeDown(ctx, { removeVolumes: true });
       await releasePortsForInstance(db(), ref);
+      // Unregister pooler tenant before dropping the instance row (feature 005).
+      // Non-fatal: reconciler will sweep stragglers.
+      try {
+        const apiUrl = process.env.SELFBASE_API_URL ?? 'http://api:3001';
+        const res = await fetch(`${apiUrl}/internal/pooler/tenants/${ref}`, { method: 'DELETE' });
+        if (!res.ok && res.status !== 404) {
+          log.warn({ status: res.status }, 'pooler tenant unregister non-2xx; non-fatal');
+        }
+      } catch (err) {
+        log.warn({ err: (err as Error).message }, 'pooler tenant unregister failed; non-fatal');
+      }
       await db().delete(schema.supabaseInstances).where(eq(schema.supabaseInstances.ref, ref));
       try {
         await fs.rm(ctx.dir, { recursive: true, force: true });

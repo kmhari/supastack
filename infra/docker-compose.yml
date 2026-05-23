@@ -107,6 +107,10 @@ services:
       # — required for /setup + /login before an apex + HTTPS cert exist.
       # Flip to 1 once HTTPS is in place.
       COOKIE_SECURE: ${COOKIE_SECURE:-0}
+      # Supavisor admin client (feature 005 Phase 5) — pooler-client mints
+      # short-TTL HS256 JWTs with this secret to call supavisor's /api/tenants.
+      SUPAVISOR_URL: http://supavisor:4000
+      SUPAVISOR_API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET:-}
     ports:
       - 3001:3001
       # pg-edge proxy — direct Postgres endpoint for db.<ref>.<apex>:5432
@@ -162,6 +166,43 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  # Top-level Supavisor — multi-tenant Postgres pooler (feature 005 Phase 5).
+  # Provides pooler.<apex>:6543 (transaction mode). Each project is registered
+  # as a tenant; clients connect with username postgres.<ref> per Supabase Cloud
+  # convention. Tenants are managed by the selfbase api via supavisor's HTTP
+  # admin API. See specs/005-postgres-public-endpoint/.
+  supavisor:
+    image: supabase/supavisor:2.7.4
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '6543:6543'
+    volumes:
+      - certs-data:/var/selfbase/certs:ro
+    environment:
+      PORT: 4000
+      DATABASE_URL: ecto://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
+      CLUSTER_POSTGRES: "true"
+      SECRET_KEY_BASE: ${SUPAVISOR_SECRET_KEY_BASE:?SUPAVISOR_SECRET_KEY_BASE required}
+      VAULT_ENC_KEY: ${SUPAVISOR_VAULT_ENC_KEY:?SUPAVISOR_VAULT_ENC_KEY required}
+      API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET:?SUPAVISOR_API_JWT_SECRET required}
+      METRICS_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET}
+      REGION: local
+      ERL_AFLAGS: -proto_dist inet_tcp
+      GLOBAL_DOWNSTREAM_CERT_PATH: /var/selfbase/certs/${SELFBASE_APEX:?SELFBASE_APEX required}/cert.pem
+      GLOBAL_DOWNSTREAM_KEY_PATH: /var/selfbase/certs/${SELFBASE_APEX}/key.pem
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    networks: [internal]
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:4000/api/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
   web:
     image: selfbase/web:${SELFBASE_VERSION:-dev}

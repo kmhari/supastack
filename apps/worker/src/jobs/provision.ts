@@ -163,6 +163,16 @@ export async function handleProvision(payload: { ref: string }): Promise<void> {
       .where(eq(schema.supabaseInstances.ref, ref));
     log.info('instance running');
 
+    // 7b. Register this project as a tenant in the top-level supavisor (feature
+    //     005 Phase 5). Best-effort — non-fatal so a supavisor outage doesn't
+    //     prevent provisioning. The api's daily reconciler will catch any drift.
+    try {
+      await registerPoolerTenant(ref);
+      log.info({ ref }, 'pooler tenant registered');
+    } catch (err) {
+      log.warn({ err: (err as Error).message }, 'pooler tenant registration failed; non-fatal');
+    }
+
     // 8. Enqueue per-project ACME cert issuance for db.<ref>.<apex> (feature 005
     //    Option B). Non-blocking: instance is already 'running' and reachable
     //    via the wildcard cert; the per-project cert lands within ~30s and lets
@@ -186,6 +196,18 @@ export async function handleProvision(payload: { ref: string }): Promise<void> {
     }
     // Re-throw so BullMQ marks the job failed (operator sees it in the queue).
     throw err;
+  }
+}
+
+async function registerPoolerTenant(ref: string): Promise<void> {
+  const res = await fetch(`${API_URL}/internal/pooler/tenants`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ref }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`pooler register ${res.status}: ${text.slice(0, 200)}`);
   }
 }
 
