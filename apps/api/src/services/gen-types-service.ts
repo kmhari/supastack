@@ -50,10 +50,11 @@ export async function generateTypes(
     );
   }
 
-  // pg-meta's /generators/typescript endpoint accepts repeated `included_schemas`
-  // and returns the TS source as text. Match upstream Cloud's behavior.
+  // pg-meta's /generators/typescript expects `included_schemas` as a single
+  // comma-separated string (not repeated). Verified empirically: a repeated
+  // form yields `request.query.included_schemas?.split is not a function`.
   const qs = new URLSearchParams();
-  for (const s of schemas) qs.append('included_schemas', s);
+  qs.set('included_schemas', schemas.join(','));
   const resp = await callPerInstanceMetaSafe(inst, `/generators/typescript?${qs.toString()}`);
 
   // pg-meta returns either a plain text TS source OR a JSON envelope like
