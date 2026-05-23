@@ -4,7 +4,7 @@
 
 **Created**: 2026-05-23
 
-**Status**: Updated — architecture pivoted from Caddy L4 to top-level pooler
+**Status**: Updated 2x — final architecture is custom STARTTLS proxy on :5432 + top-level supavisor on :6543 (per-instance supavisor removed)
 
 **Input**: GitHub issue [kmhari/selfbase#3](https://github.com/kmhari/selfbase/issues/3)
 
@@ -18,7 +18,12 @@
 ### Session 2026-05-23
 
 - Q: Should the spec mandate an automated E2E shell test for `supabase db push` without `--db-url`? → A: Yes — create a dedicated `tests/cli-e2e/db-push.sh` script covering all database CLI commands (`db push`, `db pull`, `db diff`, `migration list`, `inspect db`). Separate from the existing `deploy-hello.sh`.
-- Q: How is the Postgres traffic routed from `db.<ref>.<apex>:5432` to the right per-instance Postgres? → A: A **top-level multi-tenant pooler** (a single selfbase control-plane service) handles TLS termination using the wildcard cert, extracts the tenant ref from the SNI hostname, and proxies to the matching per-instance Postgres. Initial attempt to do this in Caddy via SNI routing was abandoned because the upstream caddy-l4 module's Postgres matcher cannot complete the Postgres STARTTLS handshake (no `'S'` response). The top-level pooler approach matches Supabase Cloud's architecture and adds free connection pooling.
+- Q: How is the Postgres traffic routed from `db.<ref>.<apex>:5432` to the right per-instance Postgres? → A: Two endpoints (matches Supabase Cloud's architecture exactly).
+  - **`db.<ref>.<apex>:5432` (direct)**: a small custom Postgres-aware proxy in the selfbase api container handles the STARTTLS dance, terminates TLS with the wildcard cert, extracts the tenant ref from SNI, and forwards the plaintext stream to the per-instance Postgres backend. Roughly 100 lines of code we own.
+  - **`pooler.<apex>:6543` (pooled)**: a single top-level Supavisor service in the control plane provides connection pooling for app clients that opt in. Uses `postgres.<ref>` username convention (same as Cloud's pooler endpoint).
+  - **Per-instance supavisor: REMOVED** for new instances. Live VM inspection confirmed every per-instance sibling container (auth, rest, storage, realtime, meta) connects directly to `db:5432`, never via per-instance supavisor — its only role was the external pooler endpoint, now subsumed by the top-level supavisor.
+  - **Why not pure top-level supavisor**: live test on VM revealed a bug in Supavisor 2.7.4 (latest) — SNI-based tenant lookup with plain `postgres` username crashes in `Supavisor.Tenants.get_pool_config` with `comparison with nil is forbidden`. The supabase CLI sends plain `postgres`. Two-endpoint split bypasses the bug for the direct path while still getting supavisor's pooling for the pooler path.
+  - **Why not Caddy L4**: caddy-l4's Postgres matcher detects SSLRequest but doesn't write the `'S'` response — confirmed empirically (Caddy debug log: `read:8, written:0`).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -92,10 +97,10 @@ The top-level pooler concentrates traffic for every project's Postgres. If it go
 
 #### External Postgres Endpoint
 
-- **FR-001**: Selfbase MUST accept TCP connections on port 5432 at the deployment's public IP/hostname. Connections destined for `db.<ref>.<apex>:5432` MUST be terminated with the wildcard TLS certificate, demultiplexed by tenant ref extracted from the SNI hostname, and proxied to the per-instance Postgres backend.
-- **FR-002**: A SINGLE top-level pooler service MUST handle ALL external Postgres traffic for the deployment. There MUST NOT be one pooler per project at the external-facing edge.
-- **FR-003**: The pooler MUST support per-tenant connection pooling. Each project gets a configurable pool size (default 20 connections) shared across all its external clients. Pool size MUST be tunable per project from the dashboard.
-- **FR-004**: The pooler MUST respond correctly to the Postgres STARTTLS handshake (SSLRequest → 'S' → TLS ClientHello → certificate negotiation). Standard Postgres clients (psql, libpq, `supabase` CLI, every supabase-js variant, every Postgres ORM) MUST be able to connect without any client-side workaround or non-standard flags.
+- **FR-001 (direct endpoint)**: Selfbase MUST accept TCP connections on port 5432 at the deployment's public IP. Connections destined for `db.<ref>.<apex>:5432` MUST be handled by a STARTTLS-aware proxy that: (a) responds `'S'` to the Postgres SSLRequest, (b) terminates TLS using the wildcard cert, (c) extracts the tenant ref from SNI, (d) opens a TCP connection to the matching per-instance Postgres backend, (e) forwards bytes bidirectionally. Standard Postgres clients (psql, libpq, `supabase` CLI, every supabase-js variant) MUST connect with NO client-side workaround and NO non-standard username format.
+- **FR-002 (pooler endpoint)**: Selfbase MUST optionally provide a connection pooler on port 6543 at `pooler.<apex>:6543` for clients that opt in. The pooler is a single top-level Supavisor service in the control plane. Clients use the standard Supabase Cloud username convention: `postgres.<ref>` (the project ref as a suffix). Per-tenant pool size defaults to 20, tunable per project from the dashboard.
+- **FR-003 (per-instance supavisor removed)**: New project compose stacks MUST NOT include a per-instance supavisor. All external Postgres traffic flows through the top-level direct proxy (FR-001) or the top-level supavisor (FR-002). Sibling containers within a project (auth, rest, storage, realtime, meta) continue to connect to the per-instance `db:5432` directly, unchanged.
+- **FR-004 (backward compat for existing instances)**: Instances provisioned before this feature shipped retain their per-instance supavisor container. It runs idle (no external traffic) and is harmless. Operators may opt to remove it via a one-shot script as a cleanup, but the platform does NOT force this migration.
 
 #### Tenant Registration Lifecycle
 
@@ -122,9 +127,10 @@ The top-level pooler concentrates traffic for every project's Postgres. If it go
 
 ### Key Entities
 
-- **Top-Level Pooler**: A single multi-tenant Postgres connection pooler running in the selfbase control plane. Terminates TLS using the wildcard cert. Maintains a tenant registry and per-tenant connection pools. Exposes port 5432 externally; metrics endpoint internally.
-- **Pooler Tenant**: One row per project. Stores the project ref (used as the SNI subdomain), upstream Postgres host:port (internal Docker hostname for the per-instance db), database name, encrypted Postgres password. Lifecycle bound to the project (create on provision, delete on destroy).
-- **db-push E2E Test Script** (`tests/cli-e2e/db-push.sh`): A dedicated shell script that validates all database CLI commands against a live selfbase deployment. Env vars: `SELFBASE_APEX`, `SELFBASE_PAT`, `SELFBASE_PROJECT_REF`, `SELFBASE_DB_PASSWORD`. Separate from the functions-deploy script.
+- **Direct Postgres Proxy (`pg-edge`)**: A small custom service in the selfbase api container. Listens on port 5432. For each connection: reads the Postgres SSLRequest, responds `'S'`, terminates TLS with the wildcard cert, reads SNI (`db.<ref>.<apex>`), extracts `<ref>`, looks up the per-instance Postgres backend in the selfbase DB, opens a TCP connection, forwards bytes bidirectionally. ~100 lines. Handles ALL direct-Postgres traffic — what `supabase db push/pull/diff/migration/inspect` uses.
+- **Top-Level Supavisor**: A single multi-tenant Postgres connection pooler in the selfbase control plane. Exposes port 6543 externally for clients that want pooling (e.g., serverless functions, high-traffic apps). Uses Supabase Cloud's standard `postgres.<ref>` username convention for tenant identification. Tenant lifecycle managed by the selfbase api.
+- **Pooler Tenant**: One row per project in supavisor's metadata. Stores the project ref (used by clients as the username suffix), upstream Postgres host:port (internal Docker hostname for the per-instance db), database name, encrypted Postgres password. Lifecycle bound to the project (create on provision, delete on destroy).
+- **db-push E2E Test Script** (`tests/cli-e2e/db-push.sh`): A dedicated shell script that validates all database CLI commands against a live selfbase deployment via the direct endpoint (port 5432). Env vars: `SELFBASE_APEX`, `SELFBASE_PAT`, `SELFBASE_PROJECT_REF`, `SELFBASE_DB_PASSWORD`.
 
 ## Success Criteria *(mandatory)*
 
@@ -142,9 +148,10 @@ The top-level pooler concentrates traffic for every project's Postgres. If it go
 ## Assumptions
 
 - The wildcard TLS certificate (feature 004) is issued and active before this feature is deployed. The `db.<ref>.<apex>` hostname is covered by `*.<apex>`.
-- The top-level pooler used is **Supabase Supavisor** (the same multi-tenant pooler used by Supabase Cloud). It natively supports SNI-based tenant routing, the Postgres STARTTLS handshake, TLS termination, per-tenant connection pooling, and a tenant metadata schema in a Postgres database. This is the same software image already used (per-instance) in selfbase's compose stack, so it is a known-good dependency.
-- Supavisor's tenant metadata is stored in the selfbase control-plane Postgres (the `db` service in `infra/docker-compose.yml`) using a dedicated schema. No new database is required.
-- Per-instance Postgres containers remain on the per-instance Docker network and accept connections from the top-level pooler via a Docker network bridge OR via host port mappings. The exact networking topology is a planning concern, not a spec concern.
+- The custom direct-Postgres proxy is implemented as a small TCP service (~100 LOC) inside the existing `api` container. It uses Node.js's built-in `tls` and `net` modules — no new dependencies. The wildcard cert and key are read from `/var/selfbase/certs/<apex>/` (the shared volume populated by feature 004).
+- The top-level pooler used for the OPTIONAL pooler endpoint is **Supabase Supavisor** (the same multi-tenant pooler used by Supabase Cloud's pooler endpoint). Its tenant metadata lives in the selfbase control-plane Postgres using a `_supavisor` schema. No new database is required.
+- Supavisor 2.7.4 (current latest) has a known bug in SNI-based tenant lookup that crashes when the client uses plain `postgres` username. This is why the direct endpoint (FR-001) does NOT use supavisor — the custom proxy handles direct traffic correctly. Supavisor handles only the pooler endpoint (FR-002) which uses the `postgres.<ref>` username convention that avoids the bug.
+- Per-instance Postgres containers (the `db` service inside each per-instance compose stack) MUST publish their port 5432 on a unique host port so the direct proxy can reach them via `host.docker.internal:<port>`. The port is allocated alongside the existing per-instance ports.
 - The supabase CLI uses `sslmode=require` (or higher) when connecting to `db.<ref>.<apex>:5432`. SSL is mandatory; plaintext connections are rejected. This matches Supabase Cloud's policy.
 - Connection pooling defaults (pool size 20, max client connections 100, transaction-mode pooling) match Supabase Cloud defaults. Operators can tune per-project from the dashboard.
 - The platform's existing master-key encryption mechanism is appropriate for protecting tenant passwords stored in the pooler's metadata. No new key management infrastructure required.

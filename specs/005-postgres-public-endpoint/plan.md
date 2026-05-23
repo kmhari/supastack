@@ -1,402 +1,302 @@
-# Implementation Plan: Postgres Public Endpoint via Top-Level Pooler
+# Implementation Plan: Postgres Public Endpoint (Custom Proxy + Top-Level Supavisor)
 
 **Branch**: `005-postgres-public-endpoint` | **Date**: 2026-05-23 | **Spec**: [spec.md](./spec.md)
 
-**Input**: GitHub issue [kmhari/selfbase#3](https://github.com/kmhari/selfbase/issues/3) — pivoted from Caddy-L4 SNI routing to top-level Supavisor
+**Input**: GitHub issue [kmhari/selfbase#3](https://github.com/kmhari/selfbase/issues/3) — pivoted twice. Final architecture: Option B after live VM testing confirmed Supavisor's SNI bug.
 
 ## Summary
 
-Add a single `supavisor` service to the selfbase control plane that fronts ALL external Postgres traffic at `db.<ref>.<apex>:5432`. Supavisor terminates TLS with the wildcard cert (loaded from `/var/selfbase/certs/<apex>/`), reads the SNI, looks up the tenant in its metadata DB (a schema inside selfbase's control-plane Postgres), and proxies to the per-instance Postgres backend with per-tenant connection pooling.
+**Two endpoints, matching Supabase Cloud:**
 
-Tenant lifecycle is owned by the api: insert on project create, delete on project destroy, periodic reconciler removes orphans. A one-time backfill migration registers all pre-existing instances so they work immediately after deploy.
+1. **`db.<ref>.<apex>:5432` (direct)** — small custom STARTTLS+SNI proxy in the `api` container. ~100 lines Node.js. Handles `supabase db push` and all standard Postgres clients with plain `postgres` username. NO supavisor in this path.
+2. **`pooler.<apex>:6543` (pooled)** — single top-level Supavisor service in the control plane. For clients that opt in to pooling. Uses `postgres.<ref>` username (Cloud convention).
 
-Caddy stops handling port 5432 entirely. The `caddy-l4` Dockerfile + module stay (they're useful for future raw-TCP work) but the `layer4` block is removed from `caddy-config.ts`.
+**Per-instance supavisor removed** for new instances. Live VM test confirmed it has zero traffic from sibling containers (all use `db:5432` direct). Existing instances keep theirs running idle (no migration forced).
+
+This avoids the Supavisor 2.7.4 SNI-lookup bug (`comparison with nil is forbidden` in `get_pool_config`) while still getting connection pooling for clients that want it.
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.x (Node.js 20) — existing stack
 
 **Primary Dependencies**:
-- `supabase/supavisor:2.7.4` Docker image — multi-tenant Postgres pooler (same image already used per-instance; battle-tested)
-- `drizzle-orm` + `pg` — existing DB layer; new tables for tenant tracking AND supavisor's own schema bootstrap
-- `@selfbase/crypto` — existing `decryptJson`/`loadMasterKey` to read per-instance Postgres passwords for tenant registration
-- `bullmq` — existing job queue; new `tenant-reconciler` daily cron
+- Node.js built-in `tls` + `net` modules — no new npm dep for the proxy
+- `supabase/supavisor:2.7.4` — same image we already use; serves the optional pooler endpoint
+- `drizzle-orm` + `pg` — existing DB layer, new `pooler_tenants` table
+- `@selfbase/crypto` — existing `decryptJson`/`loadMasterKey` for password handling
+- `bullmq` — existing; new `pooler-reconciler` daily cron
 
-**Storage**:
-- Two new schemas in selfbase's control-plane Postgres:
-  - `_supavisor` — supavisor's own Ecto-managed tables (tenants, users, etc.) — schema owned by supavisor on first boot
-  - Three new selfbase tables: `pooler_tenants` (selfbase's tracking row per tenant), `pooler_events` (audit), shared schema with existing tables
+**Storage**: Two new schemas in control-plane Postgres:
+- `_supavisor` — supavisor's Ecto-managed tables (auto-created on supavisor first boot)
+- New selfbase tables: `pooler_tenants` (tracking) + `pooler_events` (audit)
 
-**Testing**: Vitest (existing); reuse `tests/cli-e2e/db-push.sh` for E2E
+**Testing**: Vitest (existing) for the proxy unit tests; `tests/cli-e2e/db-push.sh` for E2E
 
 **Target Platform**: Linux server (Docker Compose stack)
 
 **Performance Goals**:
-- 50 concurrent clients on one project → <25 upstream Postgres connections (SC-006)
-- `SELECT 1` p95 < 50ms end-to-end
-- Pooler restart → all clients reconnect within 10s (SC-007)
+- Direct endpoint: TLS handshake + tenant lookup adds <10ms latency on top of raw Postgres
+- Pooler endpoint: 50 concurrent clients → <25 upstream Postgres connections; `SELECT 1` p95 <50ms
 
 **Constraints**:
 - Wildcard cert (feature 004) is a hard prerequisite
-- Per-instance Postgres password is encrypted at rest in `supabase_instances.encrypted_secrets`; tenant registration must decrypt + re-encrypt for supavisor's storage (or store plaintext in supavisor's secured metadata DB — supavisor's `_supabase.users.db_password` is plaintext by design)
-- Backfill MUST be idempotent and atomic per-project (a half-registered project breaks db push for that project, not the whole deployment)
+- Per-instance Postgres MUST publish its 5432 on a host port (new port allocation slot)
 
 **Prerequisite**: Feature 004 (wildcard cert) — complete
 
-## Constitution Check
-
-No filled constitution. Governing conventions:
-- All new DB migrations are idempotent (`IF NOT EXISTS` everywhere) ✓
-- Tenant registration / removal logged to existing `audit_log` ✓
-- No new external services (supavisor is a Docker image, runs in our compose stack) ✓
-- Backward compat: existing `--db-url <vm-ip>:<portPostgres>` connections continue working ✓
-- Per-instance Postgres passwords stay encrypted in selfbase's `supabase_instances.encrypted_secrets`; supavisor stores them in its own metadata table (the supavisor metadata DB is inside our control-plane Postgres which uses pg-data volume — encrypted at host disk level via deployment posture) ✓
-
 ## Project Structure
 
-### Documentation (this feature)
 ```text
 specs/005-postgres-public-endpoint/
 ├── plan.md                           ← this file
-├── research.md                       ← supavisor SNI routing, tenant model, networking
-├── data-model.md                     ← pooler_tenants, pooler_events; supavisor schema bootstrap
+├── research.md                       ← (existing — top-level supavisor decisions, still valid)
+├── data-model.md                     ← (existing — pooler_tenants schema, still valid)
 ├── contracts/
-│   ├── tenant-registration.md        ← api ↔ supavisor metadata DB contract
-│   ├── pooler-health-api.md          ← dashboard polling contract
-│   └── db-push-test.md               ← existing E2E script (unchanged)
-├── quickstart.md                     ← acceptance scenarios + manual verification commands
-└── tasks.md                          ← generated by /speckit-tasks
+│   ├── tenant-registration.md        ← supavisor admin HTTP API (for pooler endpoint)
+│   ├── pooler-health-api.md          ← dashboard health panel
+│   ├── pg-edge-proxy.md              ← NEW: STARTTLS+SNI proxy contract
+│   └── db-push-test.md
+├── quickstart.md
+└── tasks.md                          ← regenerated by /speckit-tasks
 ```
 
 ### Source Code Changes
+
 ```text
 infra/
-└── docker-compose.yml                EDIT: add `supavisor` service in selfbase control plane;
-                                              expose :5432 on host; mount certs-data ro
+├── docker-compose.yml                EDIT: add `supavisor` service (port 6543);
+│                                            remove port 5432 from caddy (api owns it now)
+└── supabase-template/docker-compose.yml
+                                      EDIT: remove `supavisor` service entirely;
+                                            add port mapping on `db` service
+                                            (${POSTGRES_DIRECT_HOST_PORT}:5432)
 
 packages/db/
 ├── migrations/
-│   ├── 0004_supavisor_schema.sql    NEW: create `_supavisor` schema (Ecto bootstraps own tables);
-│   │                                       grant role; precondition for supavisor first-boot
-│   └── 0005_pooler_tenants.sql      NEW: pooler_tenants (selfbase's tracking) +
-│                                          pooler_events (audit)
+│   ├── 0004_supavisor_schema.sql    NEW: CREATE SCHEMA IF NOT EXISTS _supavisor
+│   └── 0005_pooler_tenants.sql      NEW: pooler_tenants + pooler_events
 └── src/schema/
-    ├── pooler.ts                     NEW: Drizzle schema for pooler_tenants + pooler_events
-    └── index.ts                      EDIT: export './pooler.js'
-
-packages/shared/src/
-└── schemas.ts                        EDIT: PoolerHealthResponse, PoolerTenantStatus Zod types
-
-apps/api/src/
-├── services/
-│   ├── pooler-client.ts              NEW: thin HTTP client for supavisor admin API
-│   │                                       (register/remove tenant, list, get metrics)
-│   ├── pooler-tenants.ts             NEW: high-level register/unregister on instance
-│   │                                       lifecycle (decrypts secrets, calls pooler-client,
-│   │                                       writes pooler_tenants row, inserts audit log)
-│   └── pooler-reconciler.ts          NEW: BullMQ daily cron — orphan detection + cleanup
-├── routes/
-│   ├── instances.ts                  EDIT: call registerTenant on create, unregisterTenant
-│   │                                       on destroy (inside same transaction)
-│   └── pooler-health.ts              NEW: GET /api/pooler/health
-└── server.ts                         EDIT: register pooler-health route + schedule reconciler
-
-apps/api/scripts/
-└── backfill-pooler-tenants.ts        NEW: one-shot — iterate all supabase_instances,
-                                            register each in supavisor; idempotent
-
-apps/api/src/services/
-└── caddy-config.ts                   EDIT: REMOVE layer4 block; revert :5432 publish
-                                            (Caddy no longer touches port 5432)
-
-infra/docker-compose.yml              EDIT: REMOVE port 5432 from caddy.ports
-                                            (supavisor owns it now)
+    ├── pooler.ts                     NEW: Drizzle schema
+    └── index.ts                      EDIT: export
 
 packages/docker-control/src/
-└── compose-template.ts               EDIT: POSTGRES_HOST stays = 'db' (already done);
-                                            STUDIO_PG_META_URL or equivalent so Studio's
-                                            "Direct connection" panel shows db.<ref>.<apex>
+└── compose-template.ts               EDIT: remove all POOLER_* env vars except
+                                            POSTGRES_DIRECT_HOST_PORT (allocated from
+                                            port pool); drop supavisor-specific vars
+
+apps/api/
+├── src/
+│   ├── services/
+│   │   ├── pg-edge-proxy.ts          NEW: ~100 line STARTTLS+SNI proxy
+│   │   ├── pooler-client.ts          NEW: HTTP client for supavisor admin API
+│   │   ├── pooler-tenants.ts         NEW: register/unregister tenant business logic
+│   │   └── pooler-reconciler.ts      NEW: BullMQ daily cron
+│   ├── routes/
+│   │   ├── instances.ts              EDIT: call register/unregister on lifecycle
+│   │   └── pooler-health.ts          NEW: GET /api/pooler/health
+│   ├── server.ts                     EDIT: start pg-edge-proxy on :5432;
+│                                            register pooler-health; schedule reconciler
+│   └── services/caddy-config.ts      EDIT: REMOVE layer4 block (Caddy no longer
+│                                            on port 5432; api proxy owns it)
+└── scripts/
+    └── backfill-pooler-tenants.ts    NEW: one-shot — register existing instances
+                                            in supavisor (pooler endpoint only)
 
 apps/web/src/
-├── pages/Settings.tsx                EDIT: add "Database connection" panel with pooler health
-│                                            + per-project connection counts
+├── pages/Settings.tsx                EDIT: add "Database Connection" panel
 └── components/
-    └── PoolerHealthCard.tsx          NEW: reusable health badge + metrics
+    └── PoolerHealthCard.tsx          NEW: pooler status + per-tenant table
 ```
 
 ## Implementation Architecture
 
-### 1. Supavisor Service (infra/docker-compose.yml)
+### 1. Custom STARTTLS+SNI Proxy (`apps/api/src/services/pg-edge-proxy.ts`)
+
+The core ~100 lines. Pseudocode:
+
+```ts
+import net from 'node:net';
+import tls from 'node:tls';
+import { readFileSync } from 'node:fs';
+
+const POSTGRES_SSL_REQUEST = Buffer.from([0,0,0,8, 0x04,0xD2,0x16,0x2F]);
+
+export function startPgEdgeProxy({ port, certPath, keyPath, apexDomain }) {
+  const tlsContext = tls.createSecureContext({
+    cert: readFileSync(certPath),
+    key: readFileSync(keyPath),
+  });
+
+  net.createServer(async (clientSocket) => {
+    // 1. Read first 8 bytes — should be Postgres SSLRequest
+    const preamble = await readN(clientSocket, 8);
+    if (!preamble.equals(POSTGRES_SSL_REQUEST)) {
+      clientSocket.end(); return;
+    }
+
+    // 2. Respond 'S' to accept TLS
+    clientSocket.write('S');
+
+    // 3. Upgrade to TLS, capture SNI
+    const tlsSocket = new tls.TLSSocket(clientSocket, {
+      isServer: true, secureContext: tlsContext,
+      SNICallback: (servername, cb) => cb(null, tlsContext),
+    });
+
+    tlsSocket.on('secure', async () => {
+      const sni = tlsSocket.servername; // db.<ref>.<apex>
+      const match = sni?.match(new RegExp(`^db\\.([a-z]{20})\\.${apexDomain}$`));
+      if (!match) { tlsSocket.end(); return; }
+      const ref = match[1];
+
+      // 4. Look up backend
+      const backend = await lookupBackend(ref); // → { host, port }
+      if (!backend) { tlsSocket.end(); return; }
+
+      // 5. Open backend TCP and bidirectionally pipe
+      const backendSocket = net.connect(backend);
+      tlsSocket.pipe(backendSocket).pipe(tlsSocket);
+      // ... error handling, close propagation ...
+    });
+  }).listen(port);
+}
+
+async function lookupBackend(ref) {
+  // Cached for 60s. Reads supabase_instances + computes host.docker.internal:<port_postgres_direct>
+}
+```
+
+Key edge cases handled:
+- Wrong SSLRequest magic → close immediately
+- Unknown SNI / no matching instance → close cleanly
+- Backend connection failure → relay clean error to client
+- Half-close: both sides propagate FIN
+
+Started from `apps/api/src/server.ts` immediately after the Fastify HTTP listener.
+
+### 2. Top-Level Supavisor (control plane)
+
+Added to `infra/docker-compose.yml` (single instance, port 6543 for transaction pooling):
 
 ```yaml
-volumes:
-  pg-data:
-  redis-data:
-  caddy-data:
-  caddy-config:
-  certs-data:
-  supavisor-data:                  # NEW (logs, runtime state if any)
-
-services:
-  caddy:
-    ports:
-      - '80:80'
-      - '443:443'
-      # REMOVED: '5432:5432' — supavisor owns it now
-
-  supavisor:
-    image: supabase/supavisor:2.7.4
-    restart: unless-stopped
-    depends_on:
-      db: { condition: service_healthy }
-    ports:
-      - '5432:5432'                # transaction-mode pooler (selfbase L4 endpoint)
-      - '6543:6543'                # session-mode pooler (optional, for long-lived connections)
-    volumes:
-      - certs-data:/var/selfbase/certs:ro
-    environment:
-      PORT: 4000                                  # supavisor admin API
-      DATABASE_URL: postgres://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
-      CLUSTER_POSTGRES: "true"
-      SECRET_KEY_BASE: ${SUPAVISOR_SECRET_KEY_BASE}   # NEW required env
-      VAULT_ENC_KEY: ${SUPAVISOR_VAULT_ENC_KEY}       # NEW required env
-      API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET}     # NEW required env (used by api for tenant ops)
-      METRICS_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET}
-      REGION: local
-      ERL_AFLAGS: -proto_dist inet_tcp
-      # SSL termination — supavisor reads cert from disk
-      SUPAVISOR_SSL_CERT: /var/selfbase/certs/${SELFBASE_APEX}/cert.pem
-      SUPAVISOR_SSL_KEY: /var/selfbase/certs/${SELFBASE_APEX}/key.pem
-    networks: [internal]
-    healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:4000/api/health']
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 30s
+supavisor:
+  image: supabase/supavisor:2.7.4
+  restart: unless-stopped
+  depends_on:
+    db: { condition: service_healthy }
+  ports:
+    - '6543:6543'      # transaction pooler endpoint
+    # NOT publishing :5432 — the custom pg-edge-proxy owns that
+  volumes:
+    - certs-data:/var/selfbase/certs:ro
+  environment:
+    PORT: 4000
+    DATABASE_URL: ecto://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
+    CLUSTER_POSTGRES: "true"
+    SECRET_KEY_BASE: ${SUPAVISOR_SECRET_KEY_BASE}
+    VAULT_ENC_KEY: ${SUPAVISOR_VAULT_ENC_KEY}
+    API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET}
+    METRICS_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET}
+    REGION: local
+    ERL_AFLAGS: -proto_dist inet_tcp
+    GLOBAL_DOWNSTREAM_CERT_PATH: /var/selfbase/certs/${SELFBASE_APEX}/cert.pem
+    GLOBAL_DOWNSTREAM_KEY_PATH: /var/selfbase/certs/${SELFBASE_APEX}/key.pem
+  networks: [internal]
+  healthcheck:
+    test: ['CMD', 'wget', '-qO-', 'http://localhost:4000/api/health']
 ```
 
-### 2. Supavisor Schema Migration (0004_supavisor_schema.sql)
+Three new required env vars (`infra/.env.example`):
+- `SUPAVISOR_SECRET_KEY_BASE` (64+ chars random)
+- `SUPAVISOR_VAULT_ENC_KEY` (32 hex chars)
+- `SUPAVISOR_API_JWT_SECRET` (64 hex chars)
 
-Supavisor manages its own tables (Ecto migrations) once given a DB URL. We just need to:
-1. Ensure the target DB exists (already does — `selfbase`)
-2. Optionally pre-create a `_supavisor` schema for organization
-3. Grant supavisor's user the right perms
+### 3. Per-Instance Supavisor Removal
 
-```sql
--- Idempotent — Ecto handles its own table creation on first boot.
-CREATE SCHEMA IF NOT EXISTS _supavisor;
--- supavisor uses the `selfbase` role (same as everything else); no extra grant needed
--- since the selfbase user owns the DB.
-```
+`infra/supabase-template/docker-compose.yml`: remove the `supavisor` service entirely. Replace `db` service ports with the new direct-host-port mapping.
 
-### 3. pooler_tenants Migration (0005_pooler_tenants.sql)
+`packages/docker-control/src/compose-template.ts`: drop these env vars from rendered `.env`:
+- `POOLER_PROXY_PORT_TRANSACTION`
+- `POOLER_DEFAULT_POOL_SIZE`
+- `POOLER_MAX_CLIENT_CONN`
+- `POOLER_TENANT_ID`
+- `POOLER_DB_POOL_SIZE`
+- `POOLER_POOL_MODE`
+- `POOLER_TRANSACTION_HOST_PORT`
 
-Selfbase's own bookkeeping — separate from supavisor's `_supavisor.tenants` table. We track tenant state for reconciliation and for the operator-facing dashboard.
+Add new env:
+- `POSTGRES_DIRECT_HOST_PORT` = `ports.dbDirect` (allocated alongside kong, studio, etc.)
 
-```sql
-CREATE TABLE IF NOT EXISTS pooler_tenants (
-  id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  instance_ref  text        NOT NULL REFERENCES supabase_instances(ref) ON DELETE CASCADE,
-  external_id   text        NOT NULL UNIQUE,    -- same as instance_ref; what supavisor uses
-  sni_hostname  text        NOT NULL,           -- db.<ref>.<apex>
-  registered_at timestamptz NOT NULL DEFAULT now(),
-  last_health_at timestamptz,
-  status        text        NOT NULL DEFAULT 'active'
-                              CHECK (status IN ('active', 'registering', 'failed', 'orphaned'))
-);
-CREATE INDEX IF NOT EXISTS pooler_tenants_instance_idx ON pooler_tenants (instance_ref);
+### 4. Port Allocator Update
 
-CREATE TABLE IF NOT EXISTS pooler_events (
-  id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id     uuid        REFERENCES pooler_tenants(id) ON DELETE CASCADE,
-  event         text        NOT NULL CHECK (event IN ('register', 'unregister', 'reconcile', 'reregister', 'health_fail')),
-  detail        jsonb,
-  created_at    timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS pooler_events_tenant_idx ON pooler_events (tenant_id, created_at DESC);
-```
+`packages/db/src/port-allocator.ts`: add `dbDirect` slot. The allocation function returns a port distinct from the existing kong/studio/postgres/pooler/analytics ports.
 
-### 4. pooler-client.ts (Supavisor HTTP admin)
+For existing instances (already allocated without `dbDirect`): add a one-shot script that allocates a new port for each, updates the `.env`, restarts the per-instance stack.
 
-Supavisor exposes an admin HTTP API at `:4000/api/tenants`. Requires `Authorization: Bearer <API_JWT>` minted using the `API_JWT_SECRET`.
+### 5. Caddy Cleanup
 
-```ts
-export interface RegisterTenantInput {
-  externalId: string;          // = instance ref
-  dbHost: string;              // internal Docker network: 'host.docker.internal' or instance-specific
-  dbPort: number;              // host port for per-instance Postgres
-  dbDatabase: string;          // 'postgres'
-  dbPassword: string;          // plaintext (supavisor stores encrypted internally)
-  sniHostname: string;         // db.<ref>.<apex>
-  poolSize?: number;           // default 20
-  maxClients?: number;         // default 100
-}
+`apps/api/src/services/caddy-config.ts`: remove the `layer4` block we added. Caddy goes back to handling only :80 and :443.
 
-export async function registerTenant(input: RegisterTenantInput): Promise<void>;
-export async function unregisterTenant(externalId: string): Promise<void>;
-export async function listTenants(): Promise<Tenant[]>;
-export async function getHealth(): Promise<{ status: 'healthy' | 'degraded' | 'down', poolStats: ... }>;
-```
+`infra/docker-compose.yml` caddy service: remove `'5432:5432'` port. The api container owns port 5432 now (via the proxy).
 
-JWT minting: HS256 with `API_JWT_SECRET`, claim `{ role: 'admin' }`, short TTL (5 min).
+### 6. Tenant Registration (pooler endpoint only)
 
-### 5. Tenant Registration Lifecycle (apps/api/src/services/pooler-tenants.ts)
+Same as previous plan version, but ONLY for the pooler endpoint (not the direct endpoint — that doesn't need tenant registration; it reads directly from `supabase_instances`).
 
-```ts
-export async function registerTenantForInstance(ref: string, tx?: DbTransaction): Promise<void> {
-  const inst = await loadInstance(ref);
-  const secrets = decryptInstanceSecrets(inst.encryptedSecrets);
-  const org = await loadOrg();
-  if (!org.apexDomain) throw errors.invalidInput('apex required');
+The `apps/api/src/services/pooler-tenants.ts` registers tenants in supavisor when a project is created. The custom proxy uses `supabase_instances` directly (no separate tenant table for the direct endpoint).
 
-  await poolerClient.registerTenant({
-    externalId: ref,
-    dbHost: 'host.docker.internal',
-    dbPort: inst.portPostgres,    // NEW: must be a port that exposes the per-instance db:5432
-    dbDatabase: 'postgres',
-    dbPassword: secrets.postgresPassword,
-    sniHostname: `db.${ref}.${org.apexDomain}`,
-    poolSize: 20,
-    maxClients: 100,
-  });
+### 7. Direct Endpoint Doesn't Need Tenant Registration
 
-  await (tx ?? db()).insert(schema.poolerTenants).values({
-    instanceRef: ref,
-    externalId: ref,
-    sniHostname: `db.${ref}.${org.apexDomain}`,
-  });
+The `pg-edge-proxy` looks up backend on every connection (cached 60s) from `supabase_instances.ref` → `port_postgres_direct`. No tenant table to maintain for the direct path. This is a deliberate simplification: the direct proxy is stateless.
 
-  await (tx ?? db()).insert(schema.poolerEvents).values({
-    tenantId: /* select id */, event: 'register', detail: { sni: ... },
-  });
-}
+`pooler_tenants` table is ONLY for tracking supavisor pooler-endpoint tenants. The reconciler only cares about the pooler.
 
-export async function unregisterTenantForInstance(ref: string, tx?: DbTransaction): Promise<void>;
-```
+## Sequencing (Phase 1 = MVP, Phase 2 = pooler, Phase 3 = polish)
 
-Called from:
-- `apps/api/src/routes/instances.ts` POST handler (inside the provision transaction; rollback on failure)
-- `apps/api/src/routes/instances.ts` DELETE handler
+### Phase 1 — MVP (makes `supabase db push` work)
 
-### 6. Per-Instance DB External Port
+1. DB migration `0005_pooler_tenants.sql` (for phase 2 to use later) + Drizzle schema
+2. Port allocator gets `dbDirect` slot
+3. `infra/supabase-template/docker-compose.yml`: REMOVE per-instance supavisor; add db port publish
+4. `packages/docker-control/src/compose-template.ts`: drop POOLER_* env vars; add POSTGRES_DIRECT_HOST_PORT
+5. `apps/api/src/services/pg-edge-proxy.ts`: the proxy itself (~100 lines + tests)
+6. `apps/api/src/server.ts`: start the proxy on :5432
+7. `apps/api/src/services/caddy-config.ts`: REMOVE layer4 block
+8. `infra/docker-compose.yml`: REMOVE 5432 from caddy ports
+9. **Deploy + run `tests/cli-e2e/db-push.sh` — feature done from user POV**
 
-For supavisor to reach the per-instance Postgres, the per-instance db container needs a host port published. We've already proven this works (the docker-compose.override.yml trick I used during testing).
+### Phase 2 — Pooler endpoint (Supavisor :6543)
 
-**Real fix**: patch `infra/supabase-template/docker-compose.yml` to publish `db` on `${POSTGRES_DIRECT_HOST_PORT}:5432`. Allocate a new port from the existing pool (e.g., reuse `ports.postgres` since the supavisor service in per-instance compose no longer needs the externally-published port — clients will reach the top-level supavisor instead, never per-instance supavisor).
+10. `infra/docker-compose.yml`: add supavisor service
+11. Migration `0004_supavisor_schema.sql`: CREATE SCHEMA _supavisor
+12. `apps/api/src/services/pooler-client.ts`: HTTP client for supavisor admin API
+13. `apps/api/src/services/pooler-tenants.ts`: register/unregister logic
+14. `apps/api/src/routes/instances.ts`: wire register/unregister into create/delete
+15. `apps/api/scripts/backfill-pooler-tenants.ts`: one-shot for existing instances
+16. `apps/api/src/services/pooler-reconciler.ts`: daily cron
+17. `apps/api/src/routes/pooler-health.ts`: dashboard endpoint
+18. Frontend `PoolerHealthCard.tsx`: dashboard panel
 
-### 7. Caddy Config Revert
+### Phase 3 — Polish
 
-```ts
-// apps/api/src/services/caddy-config.ts
-// REMOVE the layer4 block entirely. Caddy no longer touches :5432.
-// Keep tls + http apps as before.
-```
+19. Unit tests for pg-edge-proxy edge cases
+20. Documentation: `docs/supabase-cli.md` updated; `docs/pooler.md` new
+21. Cleanup script for existing instances to drop their idle per-instance supavisor (opt-in)
 
-```yaml
-# infra/docker-compose.yml — caddy.ports
-ports:
-  - '80:80'
-  - '443:443'
-# REMOVED: '5432:5432'
-```
+## Verification Checklist
 
-### 8. Backfill Script (apps/api/scripts/backfill-pooler-tenants.ts)
+**Phase 1 done when**:
+- [ ] `pg-edge-proxy` running on :5432; api container healthy
+- [ ] `psql "postgresql://postgres:$PWD@db.$REF.$APEX:5432/postgres?sslmode=require" -c "SELECT 1"` returns 1
+- [ ] `bash tests/cli-e2e/db-push.sh` exits 0 (db push WITHOUT --db-url)
+- [ ] New project provisioned → reachable via direct endpoint within seconds
+- [ ] No `supavisor` container in NEW project compose stacks
+- [ ] Old `--db-url <vm-ip>:<direct-port>` still works
 
-```ts
-// Run once per deploy:  pnpm --filter @selfbase/api exec tsx scripts/backfill-pooler-tenants.ts
-// Idempotent — skips tenants already registered.
-import { db, schema } from '@selfbase/db';
-import { registerTenantForInstance } from '../src/services/pooler-tenants.js';
-
-const instances = await db().select().from(schema.supabaseInstances)
-  .where(not(inArray(schema.supabaseInstances.status, ['deleting'])));
-for (const inst of instances) {
-  const existing = await db().select().from(schema.poolerTenants)
-    .where(eq(schema.poolerTenants.externalId, inst.ref)).limit(1);
-  if (existing.length > 0) { console.log(`skip ${inst.ref} (already registered)`); continue; }
-  try { await registerTenantForInstance(inst.ref); console.log(`✓ ${inst.ref}`); }
-  catch (e) { console.error(`✗ ${inst.ref}:`, e.message); }
-}
-```
-
-### 9. Reconciler (apps/api/src/services/pooler-reconciler.ts)
-
-Daily BullMQ cron:
-1. List supavisor tenants
-2. List selfbase instances
-3. For each supavisor tenant with no matching instance → unregister + log
-4. For each selfbase instance with no matching supavisor tenant → re-register + log
-5. Update `pooler_tenants.last_health_at`
-
-### 10. Dashboard Pooler Health Panel
-
-`apps/api/src/routes/pooler-health.ts` → `GET /api/pooler/health`:
-```json
-{
-  "status": "healthy",
-  "tenants": [
-    { "ref": "abcdef...", "activeConnections": 3, "poolSize": 20, "lastSeen": "..." }
-  ],
-  "version": "2.7.4"
-}
-```
-
-`apps/web/src/components/PoolerHealthCard.tsx` — green/yellow/red badge + table.
-
-### 11. Studio "Direct Connection" Display Fix
-
-Studio reads `POSTGRES_HOST` from env to build the connection string. We can't change that (sibling containers need internal `db`). Two options:
-
-- **Option A — Set `DEFAULT_PROJECT_PG_HOST` in Studio's env** if such a var exists in the Studio image. (Need to verify from Studio source.)
-- **Option B — Patch Studio image** with a tiny override that shows the configured public hostname.
-
-**Decision**: Punt to a separate plan item (TBD during implementation — needs Studio image investigation). For v1 of this feature, Studio's Direct Connection display may still show `db:5432`. The CLI / external tools work via the pooler (which is the primary user value). Dashboard UI fix tracked separately.
-
-## Sequencing (Recommended Build Order)
-
-1. **DB migrations** — `0004_supavisor_schema.sql` + `0005_pooler_tenants.sql`
-2. **Drizzle schema** + **Zod types**
-3. **`apps/api/src/services/pooler-client.ts`** — supavisor HTTP client (unit testable in isolation; mock supavisor)
-4. **`apps/api/src/services/pooler-tenants.ts`** — register/unregister business logic
-5. **Per-instance compose patch** — add `${POSTGRES_DIRECT_HOST_PORT}:5432` to db service
-6. **`infra/docker-compose.yml`** — add supavisor service; remove 5432 from caddy
-7. **`apps/api/src/services/caddy-config.ts`** — remove layer4 block
-8. **`apps/api/src/routes/instances.ts`** — wire register/unregister into create/delete
-9. **`apps/api/scripts/backfill-pooler-tenants.ts`** — one-shot backfill
-10. **`apps/api/src/services/pooler-reconciler.ts`** — BullMQ daily cron
-11. **`apps/api/src/routes/pooler-health.ts`** + frontend `PoolerHealthCard.tsx`
-12. **End-to-end verification on VM** — deploy, backfill, run `tests/cli-e2e/db-push.sh`
-
-## Phase 0: Research (COMPLETE)
-
-See `research.md`. Key decisions:
-- Supavisor is the pooler (battle-tested, already in our image set)
-- Supavisor's metadata DB lives in the selfbase control-plane Postgres (`_supavisor` schema)
-- TLS cert mounted from shared `certs-data` volume (read-only) — same volume populated by feature 004
-- Tenant ops via supavisor HTTP API + JWT (NOT direct SQL inserts — supavisor's Ecto schema has invariants we shouldn't bypass)
-- Per-instance db published on a host port for supavisor to reach
-- Per-instance supavisor stays for now (internal sibling-container pooling); the external-facing role moves to the top-level
-
-## Phase 1: Design (COMPLETE)
-
-Artifacts:
-- `data-model.md` — pooler_tenants, pooler_events tables; supavisor schema bootstrap; state transitions
-- `contracts/tenant-registration.md` — pooler-client API + supavisor HTTP contract
-- `contracts/pooler-health-api.md` — dashboard polling shape
-- `contracts/db-push-test.md` — unchanged from previous version (test script contract still valid)
-- `quickstart.md` — 8 acceptance scenarios mapped to SCs
-
-## Verification Checklist (post-implementation, on VM)
-
-- [ ] `docker compose ps` shows `supavisor` as healthy
-- [ ] `curl -s http://supavisor:4000/api/health` returns 200 from inside docker network
-- [ ] After backfill: `SELECT count(*) FROM pooler_tenants` matches `SELECT count(*) FROM supabase_instances WHERE status != 'deleting'`
-- [ ] `psql "postgresql://postgres:<pwd>@db.<ref>.<apex>:5432/postgres?sslmode=require" -c "SELECT 1"` returns 1
-- [ ] `bash tests/cli-e2e/db-push.sh` exits 0 on a real project
-- [ ] Provision a new project from dashboard → confirm `pooler_tenants` row created in same transaction → `supabase db push` works against new project immediately
-- [ ] Delete a project from dashboard → confirm `pooler_tenants` row deleted + supavisor no longer routes for it
-- [ ] Reconciler test: manually delete a `pooler_tenants` row without deleting the instance → next reconciler tick re-registers it
-- [ ] Kill supavisor container → dashboard shows "pooler down" within 30s → restart supavisor → status flips to "healthy" → existing clients reconnect
-- [ ] Run 50 concurrent connections via pgbench → `SELECT count(*) FROM pg_stat_activity` on per-instance db shows <25 active backends (pooling effective)
-- [ ] Old `--db-url <vm-ip>:<portPostgres>` connection still works (backward compat)
+**Phase 2 done when**:
+- [ ] supavisor container healthy
+- [ ] `psql "postgresql://postgres.$REF:$PWD@pooler.$APEX:6543/postgres?sslmode=require" -c "SELECT 1"` returns 1
+- [ ] Tenant registered automatically on new project create
+- [ ] Tenant unregistered on project delete
+- [ ] Reconciler removes orphan tenants
+- [ ] Dashboard shows pooler health
