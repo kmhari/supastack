@@ -102,6 +102,11 @@ export async function handleProvision(payload: { ref: string }): Promise<void> {
         postgres: row.portPostgres,
         pooler: row.portPooler,
         analytics: row.portAnalytics,
+        // portDbDirect may be null for instances created before feature 005.
+        // Default to portPostgres in that case so docker compose doesn't reject
+        // (the per-instance supavisor is gone, so portPostgres is unused; we
+        // can safely reuse it for db's host port mapping on legacy instances).
+        dbDirect: row.portDbDirect ?? row.portPostgres,
       },
       secrets,
       config: {

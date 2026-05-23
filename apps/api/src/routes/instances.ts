@@ -162,6 +162,7 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
         portPostgres: ports.postgres,
         portPooler: ports.pooler,
         portAnalytics: ports.analytics,
+        portDbDirect: ports.dbDirect,
         createSmtpHost: body.smtp?.host ?? null,
         createSmtpPort: body.smtp?.port ?? null,
         createSmtpUser: body.smtp?.user ?? null,
