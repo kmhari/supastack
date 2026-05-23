@@ -83,13 +83,13 @@ curl -s http://localhost:3001/api/wildcard-certs/status | jq .cert.status
 
 ### Frontend — Components
 
-- [ ] T013 [P] [US1] Create `apps/web/src/components/WildcardCertCard.tsx` — reusable card showing: TXT record instructions (for each `challengeRecord`: hostname in a copyable `InputWithCopy`, value in a copyable `InputWithCopy`, TTL hint); per-record DNS status row (`⏳ Checking...` / `✅ Found` / `❌ Not found`) driven by `dnsChecks` prop; "Verify" button (always enabled, shows spinner while verifying); "Skip for now" link; error message box when `status === 'error'`; uses existing theme tokens (`s.form`, `s.label`, `s.buttonPrimary`, `s.buttonSecondary`, `theme.color.*`) from `apps/web/src/lib/theme.ts`
+- [ ] T013 [P] [US1] Create `apps/web/src/components/WildcardCertCard.tsx` — reusable card showing: TXT record instructions (for each `challengeRecord`: hostname in a copyable `InputWithCopy`, value in a copyable `InputWithCopy`, TTL hint); per-record DNS status row (`⏳ Checking...` / `✅ Found` / `❌ Not found`) driven by `dnsChecks` prop; "Issue Certificate" button that is **disabled and greyed out** until `allDnsReady === true` (both records ✅) — once DNS confirms, button enables and triggers ACME completion; "Skip for now" link (always visible); error message box when `status === 'error'`; uses existing theme tokens (`s.form`, `s.label`, `s.buttonPrimary`, `s.buttonSecondary`, `theme.color.*`) from `apps/web/src/lib/theme.ts`
 
 ### Frontend — Setup Wizard Step 4
 
 - [ ] T014 [US1] Edit `apps/web/src/pages/Setup.tsx` — add Step 4 (`step === 'wildcard-cert'`) immediately after the apex step (Step 3); the step uses sub-states:
   - `sub === 'loading'`: mounts → call `wildcardCertApi.initiate()` → advance to `'waiting'`
-  - `sub === 'waiting'`: render `<WildcardCertCard>` with challenge records + live DNS checks; auto-poll `wildcardCertApi.status()` every 10s to update DNS `found` flags; "Verify" button → call `wildcardCertApi.verify()` → if `allDnsReady: false` stay in `'waiting'` with updated dnsChecks; if `status: 'issued'` advance to `'done'`; if `status: 'failed'` advance to `'error'`
+  - `sub === 'waiting'`: render `<WildcardCertCard>` with challenge records + live DNS checks; auto-poll `wildcardCertApi.status()` every 10s to update DNS `found` flags; "Issue Certificate" button is **disabled** until `allDnsReady === true`; once enabled, clicking it calls `wildcardCertApi.verify()` (which completes the ACME challenge) → if `status: 'issued'` advance to `'done'`; if `status: 'failed'` advance to `'error'`; button is never shown/enabled while any TXT record still shows ⏳
   - `sub === 'done'`: show cert-issued card with `notAfter` expiry date; "Go to Dashboard" button → `window.location.href = 'https://' + apex + '/dashboard'`; auto-redirect after 3 seconds
   - `sub === 'error'`: show error message + "Try again" button (resets to `'loading'`) + "Skip for now" link
   - "Skip for now" link in `'waiting'` sub-state → `navigate('/')` (completes setup without wildcard)
