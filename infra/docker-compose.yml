@@ -118,6 +118,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - certs-data:/var/selfbase/certs
     networks: [internal]
+    # pg-edge proxy (feature 005) connects to per-instance Postgres via
+    # host.docker.internal:<port_db_direct>. Same mapping as caddy uses
+    # for per-instance Kong/Studio.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     depends_on:
       db:
         condition: service_healthy
