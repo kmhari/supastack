@@ -121,7 +121,13 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     // port from outside.
     KONG_HTTPS_PORT: 8443,
     STUDIO_PORT: ports.studio,
-    POSTGRES_PORT: ports.postgres,
+    // POSTGRES_PORT is the INTERNAL Docker network port — all sibling
+    // containers (auth, rest, supavisor, etc.) connect to db:5432 via this.
+    // The HOST publish port for supavisor's transaction pooler is a separate
+    // env var (POOLER_TRANSACTION_HOST_PORT) introduced by selfbase's patch
+    // to infra/supabase-template/docker-compose.yml — see feature 005.
+    POSTGRES_PORT: 5432,
+    POOLER_TRANSACTION_HOST_PORT: ports.postgres,
     POOLER_PROXY_PORT_TRANSACTION: ports.pooler,
     LOGFLARE_PORT: ports.analytics,
 
@@ -155,11 +161,17 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     MAILER_URLPATHS_RECOVERY: '/auth/v1/verify',
     MAILER_URLPATHS_EMAIL_CHANGE: '/auth/v1/verify',
 
-    // DB
-    // db.<ref>.<apex> when apex is set so Studio's Direct Connection panel
-    // shows the publicly-reachable hostname (feature 005). Falls back to
-    // internal 'db' if no apex (instance unreachable from outside anyway).
-    POSTGRES_HOST: apex ? `db.${ref}.${apex}` : 'db',
+    // DB — internal Docker network hostname. ALL per-instance containers
+    // (supavisor, auth, rest, storage, etc.) use this to connect to the
+    // per-instance Postgres on the docker network.
+    //
+    // NOTE: this also drives Studio's Direct Connection panel display, which
+    // means Studio shows 'db:5432' (internal). Fixing the display to show
+    // the public 'db.<ref>.<apex>:5432' requires a separate env var that
+    // the upstream Studio image reads — tracked as a follow-up issue. The
+    // initial attempt to set POSTGRES_HOST=db.<ref>.<apex> broke supavisor
+    // and all sibling container connections.
+    POSTGRES_HOST: 'db',
     POSTGRES_DB: 'postgres',
     POSTGRES_USER: 'postgres',
     PGRST_DB_SCHEMAS: 'public,storage,graphql_public',

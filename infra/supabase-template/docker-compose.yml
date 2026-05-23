@@ -602,7 +602,12 @@ services:
     image: supabase/supavisor:2.7.4
     restart: unless-stopped
     ports:
-      - ${POSTGRES_PORT}:5432
+      # SELFBASE PATCH (feature 005): upstream binds host port ${POSTGRES_PORT}
+      # to supavisor:5432, but POSTGRES_PORT serves dual duty as both internal
+      # connect port AND external publish port. With selfbase's L4 routing
+      # owning host port 5432 (Caddy), we must use POOLER_TRANSACTION_HOST_PORT
+      # (allocated separately by selfbase, distinct from POSTGRES_PORT=5432).
+      - ${POOLER_TRANSACTION_HOST_PORT}:5432
       - ${POOLER_PROXY_PORT_TRANSACTION}:6543
     volumes:
       - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
