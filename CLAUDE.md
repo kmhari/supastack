@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: [specs/005-postgres-public-endpoint/plan.md](specs/005-postgres-public-endpoint/plan.md)
-Spec: [specs/005-postgres-public-endpoint/spec.md](specs/005-postgres-public-endpoint/spec.md)
+Active feature spec: [specs/006-cli-mgmt-tier1/spec.md](specs/006-cli-mgmt-tier1/spec.md)
+(Previous: 005-postgres-public-endpoint — merged to main)
 Project-root engineering blueprint: [plan.md](plan.md)
 <!-- SPECKIT END -->
