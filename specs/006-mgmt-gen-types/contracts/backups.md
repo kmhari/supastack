@@ -74,6 +74,7 @@ The CLI sends `{ "recovery_time_target": "2026-05-23T03:00:00Z" }` — the api a
 - `restore_in_progress`: another restore is `pending` or `running` for this project.
 - `project_paused`: project is paused; must resume before restoring.
 - `backup_status_invalid`: backup is `MISSING` or `FAILED`.
+- `disk_space_insufficient`: pre-flight disk check failed. Body includes `{ details: { required_bytes, available_bytes, data_dir_bytes } }`. Required = `2 × data_dir_bytes`. No state mutated.
 
 ### Response 400
 - `invalid_target`: neither `backup_id` nor `recovery_time_target` present, or both invalid.
@@ -89,13 +90,15 @@ The CLI sends `{ "recovery_time_target": "2026-05-23T03:00:00Z" }` — the api a
 1. RBAC check: caller must be owner or admin of the project's org. 403 otherwise.
 2. Validate input → resolve `backup_id`.
 3. Verify backup exists, status = `COMPLETED`, blob present in store.
-4. Pre-flight: compare backup's PG major version vs running instance's. 400 on mismatch.
-5. Begin TX:
-   - INSERT `restore_jobs` (the partial unique index gates concurrency → 409 on conflict).
+4. Pre-flight PG version: compare backup's PG major version vs running instance's. 400 on mismatch.
+5. **Pre-flight disk space**: stat the instance's data dir size, stat `df` on the volume. If `available_bytes < 2 × data_dir_bytes`, return 409 `disk_space_insufficient` (no state changes).
+6. Compute dynamic timeout budget: `300 + ceil(backup_size_bytes / 1e9) * 60 + 300` seconds (5 min base + 1 min/GB + 5 min healthcheck).
+7. Begin TX:
+   - INSERT `restore_jobs` with `timeout_budget_seconds` stored on the row (the partial unique index gates concurrency → 409 on conflict).
    - UPDATE `supabase_instances.status = 'restoring'`.
-6. Commit TX, enqueue BullMQ `restore` job with `{ restore_job_id }`.
-7. Return 202.
-8. Emit audit log `mgmt_api.backup.restore_started` (severity high).
+8. Commit TX, enqueue BullMQ `restore` job with `{ restore_job_id }`.
+9. Return 202.
+10. Emit audit log `mgmt_api.backup.restore_started` (severity high).
 
 ---
 
@@ -130,29 +133,36 @@ The CLI sends `{ "recovery_time_target": "2026-05-23T03:00:00Z" }` — the api a
 
 **Trigger**: BullMQ message `{ restore_job_id }` from the restore-pitr POST.
 
-**Steps**:
+**Steps** (whole worker wrapped in a watchdog that aborts at `timeout_budget_seconds`):
 1. Load job from DB. If status != `pending`, exit (idempotency guard for retries).
 2. UPDATE `restore_jobs.status = 'running', started_at = now()`.
 3. Fetch the backup blob to `/tmp/restore-<job_id>.tar.gz`. Verify SHA-256 if recorded; else continue.
-4. Take pre-restore snapshot: `mv /var/selfbase/instances/<ref>/volumes/db/data /var/selfbase/instances/<ref>/volumes/db/data.pre-restore-<job_id>`. Record path in `restore_jobs.pre_restore_dir`.
-5. `docker compose stop db` for the instance.
+4. `docker compose stop` for the WHOLE per-instance stack (db + auth + rest + storage + realtime + meta + functions + analytics + vector + imgproxy + studio + kong). FR-025 — sibling services must not run against an inconsistent / mid-restore Postgres.
+5. Take pre-restore snapshot: `mv /var/selfbase/instances/<ref>/volumes/db/data /var/selfbase/instances/<ref>/volumes/db/data.pre-restore-<job_id>`. Record path in `restore_jobs.pre_restore_dir`.
 6. Extract blob into the now-empty `db/data` location.
-7. `docker compose start db` for the instance.
-8. Wait for healthcheck (timeout 5 min).
+7. `docker compose start` for the WHOLE per-instance stack.
+8. Wait for db healthcheck (5 min window, part of overall budget).
 9. Smoke probe: `SELECT 1 FROM pg_catalog.pg_tables LIMIT 1` succeeds.
-10. UPDATE `restore_jobs.status = 'success', completed_at = now()`.
-11. UPDATE `supabase_instances.status = 'running'`.
-12. Schedule a delayed BullMQ message to GC `pre_restore_dir` after 24h.
-13. Emit audit log `mgmt_api.backup.restore_completed`.
+10. Wait for sibling-service healthchecks to recover (auth, rest, kong reachable).
+11. UPDATE `restore_jobs.status = 'success', completed_at = now()`.
+12. UPDATE `supabase_instances.status = 'running'`.
+13. Schedule a delayed BullMQ message to the `restore-gc` worker for 24h later, payload `{ restore_job_id }`.
+14. Emit audit log `mgmt_api.backup.restore_completed`.
 
-**On any error**:
-1. Best-effort `docker compose stop db`.
+**On any error (including watchdog timeout)**:
+1. Best-effort `docker compose stop` for the whole stack.
 2. If pre-restore snapshot exists: `rm -rf db/data && mv db/data.pre-restore-<job_id> db/data`.
-3. `docker compose start db` for the instance.
-4. Wait for healthcheck. If THAT fails: leave instance in `failed` status, log a high-severity event, and require operator intervention.
-5. UPDATE `restore_jobs.status = 'failed', completed_at = now(), error_message = <reason>`.
-6. UPDATE `supabase_instances.status = 'running'` (if healthcheck recovered) else `'failed'`.
+3. `docker compose start` for the whole stack.
+4. Wait for db healthcheck + sibling services. If THAT fails: leave instance in `failed` status, log a high-severity event, require operator intervention.
+5. UPDATE `restore_jobs.status = 'failed', completed_at = now(), error_message = <reason or 'timeout_exceeded (budget: <N>s)'>`.
+6. UPDATE `supabase_instances.status = 'running'` (if rollback healthcheck recovered) else `'failed'`.
 7. Emit audit log `mgmt_api.backup.restore_failed`.
+8. Clear `pre_restore_dir` on the job row (rollback consumed it).
+
+**`restore-gc` worker** (separate, fires 24h after success):
+1. Load job. If `pre_restore_dir` is null, exit (already GC'd).
+2. `rm -rf <pre_restore_dir>`.
+3. UPDATE `restore_jobs.pre_restore_dir = null`.
 
 ---
 

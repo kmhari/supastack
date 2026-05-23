@@ -31,6 +31,17 @@ This feature replaces the `501 not_implemented` response for four more CLI surfa
 
 Out of scope: arbitrary-SQL `POST /v1/projects/<ref>/database/query` (security-sensitive, own spec); all other Tier 1/2/3 endpoints.
 
+## Clarifications
+
+### Session 2026-05-23
+
+Scoped to US4 (backups list/restore).
+
+- Q: When restore can't take the pre-restore snapshot (insufficient disk), what's the behavior? → A: Pre-flight check. Reject with `409 disk_space_insufficient` before any state is touched, including a message stating how much more free space is needed (estimated `2 × existing data_dir size`).
+- Q: What happens to the other per-instance containers (auth, rest, storage, realtime, edge functions) during restore? → A: Stop them all before the swap, restart them after Postgres is back to healthy. Clean state; clients see consistent unreachability during the restore window rather than per-service transient errors.
+- Q: What's the absolute timeout for the restore worker? → A: Dynamic, scaled to backup size. Formula: `5 min base + 1 min per GB of backup blob + 5 min final healthcheck`. Worker marks job `failed` with `timeout_exceeded` and runs rollback if the budget is exhausted.
+- Q: How long is the pre-restore snapshot dir retained after a successful restore? → A: 24 hours fixed, then GC'd by a scheduled BullMQ job.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Generate TypeScript types for a project (Priority: P1)
@@ -149,9 +160,12 @@ An operator runs nightly snapshots of a production project (selfbase already sup
 - **Backup id from a different project**: 404 (don't leak cross-project existence).
 - **Restore while a restore is already in-flight**: 409 with `restore_in_progress`.
 - **Restore while project is paused**: 409 with `project_paused` — operator must resume first.
-- **Restore that fails mid-run**: must leave the project either fully rolled back to pre-restore state OR cleanly marked `failed` with the data dir preserved for manual recovery (no zombie state).
+- **Restore that fails mid-run**: rollback runs automatically (swap the pre-restore data dir back in, restart all sibling services). Job is marked `failed` with `error_message`; project returns to `running` if the rollback restart succeeds, else `failed`.
 - **Backup file deleted from underlying storage** (operator pruned it manually): list shows it with status `MISSING`; restore on it returns 410 Gone.
 - **Backup created on a different Postgres major version**: restore returns 400 with `incompatible_pg_version` before touching the data dir.
+- **Insufficient disk space for the pre-restore snapshot**: pre-flight check (estimated `2 × existing data_dir size`) rejects the POST with `409 disk_space_insufficient` and tells the user how much more is needed. No state is mutated.
+- **Restore exceeds its time budget** (dynamic per Clarifications: `5 min base + 1 min/GB of blob + 5 min healthcheck`): job marked `failed` with `timeout_exceeded`; rollback runs as usual.
+- **Sibling services (auth, rest, storage, realtime, edge functions) during restore**: stopped before the data-dir swap, restarted after Postgres is healthy. Clients see consistent unreachability during the restore window rather than per-service partial errors.
 - **Restore with concurrent client connections**: existing connections are terminated as part of stopping the instance; the CLI documents this in its confirmation prompt.
 
 ## Requirements *(mandatory)*
@@ -187,18 +201,22 @@ An operator runs nightly snapshots of a production project (selfbase already sup
 - **FR-016**: MUST expose `GET /v1/projects/<ref>/database/backups` returning `{ backups: [{ id, inserted_at, status, kind, size_bytes }], physical_backup_data: { earliest_physical_backup_date_at, latest_physical_backup_date_at } }`. Matches upstream Cloud shape (Cloud uses PITR for the dates; selfbase uses snapshot timestamps).
 - **FR-017**: MUST expose `POST /v1/projects/<ref>/database/backups/restore-pitr` accepting `{ backup_id: <id> }` (selfbase uses snapshot id rather than recovery_time_target). Returns 202 with `{ restore_job_id }`.
 - **FR-018**: MUST expose `GET /v1/projects/<ref>/database/backups/restore-status` returning the current/most-recent restore job: `{ id, status, started_at?, completed_at?, error_message? }`. Status values: `pending`, `running`, `success`, `failed`.
-- **FR-019**: Restore MUST be an async job — the API returns 202 immediately and the actual restore (stop instance → swap data dir → restart → verify) runs in the background.
+- **FR-019**: Restore MUST be an async job — the API returns 202 immediately and the actual restore (stop ALL sibling services → swap data dir → restart ALL services → verify) runs in the background.
 - **FR-020**: During restore, the project's status MUST be `restoring` (new value); the dashboard MUST show this state and disable destructive ops on the project.
-- **FR-021**: If restore fails partway through, the worker MUST roll the project back to its pre-restore state (preserved data dir snapshot) such that the final project state is consistent.
+- **FR-021**: If restore fails partway through, the worker MUST roll the project back to its pre-restore state (preserved data dir snapshot) and restart all sibling services such that the final project state is consistent.
 - **FR-022**: Restore MUST be RBAC-gated to organisation owners + admins; member-level roles get 403.
 - **FR-023**: Restore initiation MUST emit a high-severity audit log entry capturing actor, project ref, backup id, and timestamp.
+- **FR-024**: System MUST pre-flight disk space before accepting the restore. If `df` on the instance's data volume reports less than `2 × existing data_dir size` free, the POST is rejected with `409 disk_space_insufficient` and a body including `required_bytes` + `available_bytes`. No `restore_jobs` row is created; no instance state is touched.
+- **FR-025**: The restore worker MUST stop the entire per-instance compose stack (db + auth + rest + storage + realtime + meta + functions + analytics + vector + imgproxy + studio + kong) before the data-dir swap and restart it after Postgres returns to healthy. Sibling services do not run against an inconsistent / mid-restore Postgres.
+- **FR-026**: The restore worker MUST enforce a dynamic timeout per job, computed as `5 minutes (base) + 1 minute per GB of backup blob size + 5 minutes (final healthcheck window)`. On budget exhaustion the worker MUST mark the job `failed` with `error_message = 'timeout_exceeded (budget: <N> minutes)'` and run the standard rollback.
+- **FR-027**: The pre-restore data-dir snapshot (`data.pre-restore-<job_id>`) MUST be retained for 24 hours after a successful restore, then garbage-collected by a scheduled job. The path MUST be cleared from `restore_jobs.pre_restore_dir` after GC. For failed restores, the pre-restore dir is consumed by the rollback and removed in the same job.
 
 #### Cross-cutting
 
-- **FR-024**: All endpoints MUST require a valid PAT (existing mechanism from feature 003), and MUST reject requests for refs the PAT's owner cannot access with 403.
-- **FR-025**: All endpoints MUST return 404 for unknown refs and 409 for refs not in a usable state, with the standard error envelope.
-- **FR-026**: All endpoints MUST use the existing structured error envelope (`{ error: { code, message, details? } }`) and HTTP status conventions across `/v1/*`.
-- **FR-027**: All endpoints outside this feature's scope continue to return `501 not_implemented`.
+- **FR-028**: All endpoints MUST require a valid PAT (existing mechanism from feature 003), and MUST reject requests for refs the PAT's owner cannot access with 403.
+- **FR-029**: All endpoints MUST return 404 for unknown refs and 409 for refs not in a usable state, with the standard error envelope.
+- **FR-030**: All endpoints MUST use the existing structured error envelope (`{ error: { code, message, details? } }`) and HTTP status conventions across `/v1/*`.
+- **FR-031**: All endpoints outside this feature's scope continue to return `501 not_implemented`.
 
 ### Key Entities
 
@@ -217,8 +235,10 @@ An operator runs nightly snapshots of a production project (selfbase already sup
 - **SC-004**: `supabase migration list` against a project with ≤500 applied migrations returns within 5 seconds; `supabase migration fetch` within 30 seconds.
 - **SC-005**: Two concurrent `supabase migration up` invocations against the same project from different CLI sessions do not result in the same migration being applied twice.
 - **SC-006**: `supabase snippets list` against a project with ≤200 snippets returns within 2 seconds. `supabase snippets download <id>` returns the full SQL body for snippets up to 5MB in under 3 seconds.
-- **SC-007**: Backup-restore round-trip works: drop a table → `supabase backups restore --backup-id <id>` → after restore completes (≤5 minutes for a 1GB database), the dropped table exists with its original rows.
-- **SC-008**: A failed restore mid-run leaves the project either fully rolled back OR cleanly marked `failed` — never in a partially-restored zombie state. Verified by killing the worker mid-restore and checking final state.
+- **SC-007**: Backup-restore round-trip works: drop a table → `supabase backups restore --backup-id <id>` → after restore completes (within the dynamic budget `5min + 1min/GB + 5min` — e.g., ≤11 min for a 1GB backup, ≤25min for a 15GB backup), the dropped table exists with its original rows and all sibling services (auth, rest, storage, realtime, edge functions) are reachable again.
+- **SC-008**: A failed restore mid-run leaves the project fully rolled back to the pre-restore state and restarts all sibling services — never in a partially-restored zombie state. Verified by killing the worker mid-restore and checking final state (data dir matches pre-restore, sibling services running, restore_jobs row marked `failed` with `error_message`).
+- **SC-011**: Restore against an instance with insufficient free disk (less than `2 × data_dir` available) is rejected pre-flight with `409 disk_space_insufficient` in under 500ms; the instance state is unchanged after the call.
+- **SC-012**: Pre-restore snapshot directory is automatically removed 24 hours after a successful restore (verified by an integration test that fast-forwards the GC clock).
 - **SC-009**: All four CLI surfaces (gen types, migration *, snippets list/download, backups list/restore) are operable end-to-end against a fresh selfbase install with zero `not_implemented` errors for the in-scope subcommands.
 - **SC-010**: Existing P0 CLI commands (`login`, `link`, `functions *`, `secrets *`) plus feature-005 commands (`db push/pull/diff`) continue to pass their existing integration tests with zero regressions.
 
