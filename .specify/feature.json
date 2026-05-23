@@ -1,1 +1,3 @@
-{"feature_directory":"specs/005-postgres-public-endpoint"}
+{
+  "feature_directory": "specs/006-mgmt-gen-types"
+}

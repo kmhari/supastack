@@ -26,6 +26,8 @@ import { projectsRoutes } from './routes/management/projects.js';
 import { apiKeysRoutes } from './routes/management/api-keys.js';
 import { functionsRoutes } from './routes/management/functions.js';
 import { secretsRoutes } from './routes/management/secrets.js';
+import { genTypesRoutes } from './routes/management/gen-types.js';
+import { migrationsRoutes } from './routes/management/migrations.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 import { wildcardCertRoutes } from './routes/wildcard-certs.js';
 import { acmeChallengeRoutes } from './routes/acme-challenge.js';
@@ -186,6 +188,10 @@ export async function buildApp(): Promise<FastifyInstance> {
       await mgmt.register(functionsRoutes);
       // US4 — secrets (list/set/delete):
       await mgmt.register(secretsRoutes);
+      // Feature 006 US1 — gen types typescript:
+      await mgmt.register(genTypesRoutes);
+      // Feature 006 US2 — migrations list/upsert/delete:
+      await mgmt.register(migrationsRoutes);
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },
