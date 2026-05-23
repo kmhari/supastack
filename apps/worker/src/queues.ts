@@ -7,6 +7,7 @@ import { handleLifecycle } from './jobs/lifecycle.js';
 import { handleBackup } from './jobs/backup.js';
 import { handleBackupSchedulerTick } from './jobs/backup-scheduler.js';
 import { handleHealthReconciler } from './jobs/health-reconciler.js';
+import { handlePgEdgeCertIssue } from './jobs/pg-edge-cert-issue.js';
 
 const REDIS_URL = process.env.REDIS_URL!;
 
@@ -29,6 +30,7 @@ export const QUEUES = {
   backupScheduler: 'selfbase.backup-scheduler',
   caddyReload: 'selfbase.caddy-reload',
   healthReconciler: 'selfbase.health-reconciler',
+  pgEdgeCertIssue: 'selfbase.pg-edge-cert-issue',
 } as const;
 
 export interface Queues {
@@ -38,6 +40,7 @@ export interface Queues {
   backupScheduler: Queue;
   caddyReload: Queue;
   healthReconciler: Queue;
+  pgEdgeCertIssue: Queue;
 }
 
 export function connectQueues(): Queues {
@@ -48,6 +51,7 @@ export function connectQueues(): Queues {
     backupScheduler: new Queue(QUEUES.backupScheduler, queueOpts()),
     caddyReload: new Queue(QUEUES.caddyReload, queueOpts()),
     healthReconciler: new Queue(QUEUES.healthReconciler, queueOpts()),
+    pgEdgeCertIssue: new Queue(QUEUES.pgEdgeCertIssue, queueOpts()),
   };
 }
 
@@ -85,6 +89,11 @@ export function startWorkers(): WorkersHandle {
     ),
     new Worker(QUEUES.backupScheduler, async () => handleBackupSchedulerTick(), workerOpts()),
     new Worker(QUEUES.healthReconciler, async () => handleHealthReconciler(), workerOpts()),
+    new Worker(
+      QUEUES.pgEdgeCertIssue,
+      async (job) => handlePgEdgeCertIssue(job.data as { ref: string }),
+      { ...workerOpts(), concurrency: 2 },
+    ),
   ];
   for (const w of workers) {
     w.on('failed', (job, err) => {

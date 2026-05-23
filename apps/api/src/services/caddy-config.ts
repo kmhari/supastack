@@ -54,6 +54,13 @@ export async function buildCaddyConfig(): Promise<unknown> {
   // through to the web (dashboard) container.
   const dashboardSubroutes = [
     {
+      // ACME HTTP-01 challenges for per-project Postgres certs (feature 005
+      // Option B). Routed to api regardless of hostname. Must come BEFORE
+      // /api/* so the well-known path always wins.
+      match: [{ path: ['/.well-known/acme-challenge/*'] }],
+      handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
+    },
+    {
       match: [{ path: ['/api/*'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },

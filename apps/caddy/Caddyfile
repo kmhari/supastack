@@ -40,6 +40,13 @@
 # Plain HTTP — always reachable. No unconditional redirect to HTTPS;
 # /setup must work over plain HTTP at first install, before DNS.
 :80 {
+	# ACME HTTP-01 challenges for per-project Postgres certs (feature 005
+	# Option B). LE hits http://db.<ref>.<apex>/.well-known/acme-challenge/<token>
+	# regardless of hostname — api serves the token from an in-memory map.
+	# Must come BEFORE /api/* so the well-known path always wins.
+	handle /.well-known/acme-challenge/* {
+		reverse_proxy api:3001
+	}
 	# API routes go to the api container
 	handle /api/* {
 		reverse_proxy api:3001

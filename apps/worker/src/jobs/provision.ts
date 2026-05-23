@@ -5,6 +5,9 @@ import { fetch } from 'undici';
 import { db, schema } from '@selfbase/db';
 import { decryptJson, loadMasterKey } from '@selfbase/crypto';
 import { logger } from '@selfbase/shared';
+import { Queue } from 'bullmq';
+import { Redis } from 'ioredis';
+import { QUEUES } from '../queues.js';
 import {
   composeUp,
   composeAllHealthy,
@@ -159,6 +162,19 @@ export async function handleProvision(payload: { ref: string }): Promise<void> {
       .set({ status: 'running', provisionError: null, updatedAt: new Date() })
       .where(eq(schema.supabaseInstances.ref, ref));
     log.info('instance running');
+
+    // 8. Enqueue per-project ACME cert issuance for db.<ref>.<apex> (feature 005
+    //    Option B). Non-blocking: instance is already 'running' and reachable
+    //    via the wildcard cert; the per-project cert lands within ~30s and lets
+    //    strict-TLS clients (rustls, sqlx, supabase db diff) connect cleanly.
+    if (apex) {
+      try {
+        await enqueuePgEdgeCertIssue(ref);
+        log.info({ ref }, 'pg-edge cert issuance enqueued');
+      } catch (err) {
+        log.warn({ err: (err as Error).message }, 'failed to enqueue pg-edge cert issuance; non-fatal');
+      }
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log.error({ err }, 'provision failed');
@@ -185,6 +201,22 @@ async function triggerCaddyReload(): Promise<void> {
       'caddy reload request failed (instance still running)',
     );
   }
+}
+
+let _pgEdgeQueue: Queue | null = null;
+async function enqueuePgEdgeCertIssue(ref: string): Promise<void> {
+  const url = process.env.REDIS_URL;
+  if (!url) throw new Error('REDIS_URL not set');
+  if (!_pgEdgeQueue) {
+    _pgEdgeQueue = new Queue(QUEUES.pgEdgeCertIssue, {
+      connection: new Redis(url, { maxRetriesPerRequest: null }),
+    });
+  }
+  await _pgEdgeQueue.add(
+    'issue',
+    { ref },
+    { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 50 },
+  );
 }
 
 // Touch fs import so the lint passes even if path manipulation gets simpler later.

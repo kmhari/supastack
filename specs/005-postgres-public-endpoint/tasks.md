@@ -126,6 +126,49 @@ Dashboard Settings → Database panel shows "Pooler: healthy" with active connec
 
 ---
 
+## Phase 7: Per-Project TLS Certs for Strict-TLS Compatibility (Option B follow-up)
+
+**Goal**: Issue a per-project ACME cert covering exactly `db.<ref>.<apex>` so strict-TLS clients (rustls, sqlx, `supabase db diff --linked`, Go `pgx` with verify-full, etc.) validate the hostname. Falls back to the wildcard cert when per-project cert isn't yet issued.
+
+**Why needed**: The wildcard `*.<apex>` only matches one label (RFC 6125). `db.<ref>.<apex>` is two labels. `sslmode=require` clients (libpq, supabase CLI) don't verify hostnames so they work today, but strict clients fail.
+
+**Why HTTP-01 (not DNS-01)**: fully automatable — no Cloudflare API needed. LE hits `http://db.<ref>.<apex>/.well-known/acme-challenge/<token>` which Caddy forwards to api. Per-project certs auto-issued on instance create.
+
+### Backend — schema + acme service
+
+- [ ] T034 [P] Create `packages/db/migrations/0006_pg_edge_certs.sql` — table `pg_edge_certs (id, instance_ref FK, hostname UNIQUE, cert_pem text, key_pem bytea encrypted, not_before, not_after, status CHECK('pending','issued','failed','expired'), last_error, last_issued_at, last_attempt_at, created_at, updated_at)`. Indexes on `instance_ref` and `not_after` (for renewal scans).
+- [ ] T035 [P] Create `packages/db/src/schema/pg-edge-certs.ts` — Drizzle schema. Export `pgEdgeCerts`. Add to `schema/index.ts`.
+- [ ] T036 [US1] Extend `apps/api/src/services/acme.ts` with `issuePerProjectCert(ref, apex)`: open ACME order for `db.<ref>.<apex>`; LE returns HTTP-01 challenge tokens; INSERT rows into a new in-memory `acmeChallengeTokens` map keyed by token; complete challenge; finalize order; download cert; INSERT/UPDATE `pg_edge_certs` row with `cert_pem` + encrypted `key_pem`; publish Redis pub/sub `selfbase:pg-edge-cert:issued` with `{ref, hostname}`. Reuse account key from `wildcard_certs.account_key_pem` (same LE account).
+
+### Backend — HTTP-01 challenge endpoint
+
+- [ ] T037 [P] [US1] Create `apps/api/src/routes/acme-challenge.ts` — `GET /.well-known/acme-challenge/:token`. Looks up token in the in-memory `acmeChallengeTokens` map, returns the matching key auth as `text/plain`. Tokens expire after 5 minutes of inactivity. Register in `server.ts` at root prefix (no `/api/v1`).
+
+### Caddy routing for challenge path
+
+- [ ] T038 [US1] Edit `apps/caddy/Caddyfile` — add a route at the top of the `:80` block: `handle /.well-known/acme-challenge/* { reverse_proxy api:3001 }`. Place BEFORE `handle /api/* ...` so it always wins for the well-known path.
+- [ ] T039 [US1] Edit `apps/api/src/services/caddy-config.ts` — runtime config: add `/.well-known/acme-challenge/*` route to `httpRoutes` (the :80 listener). Same precedence rule.
+
+### Proxy — SNICallback for per-project certs
+
+- [ ] T040 [US1] Edit `apps/api/src/services/pg-edge-proxy.ts` — replace the single `tlsContext` with: (a) wildcard context (loaded at startup, reload via existing Redis cert:reloaded subscriber); (b) `perProjectContextCache: Map<string, tls.SecureContext>` populated lazily on SNICallback. Add `selfbase:pg-edge-cert:issued` subscriber that invalidates the cache entry for the issued ref. SNICallback: extract ref from SNI, query `pg_edge_certs` for matching row (with 60s cache), build context from cert_pem + decrypted key_pem; on miss, return wildcard context.
+
+### Instance lifecycle integration
+
+- [ ] T041 [US1] Edit `apps/worker/src/jobs/provision.ts` — after instance reaches `running` (post `docker compose up -d` and healthcheck pass), enqueue a `pg-edge-cert-issue` BullMQ job. Job is non-blocking: instance is usable immediately on wildcard fallback; per-project cert lands within ~30 seconds.
+- [ ] T042 [US1] Create `apps/worker/src/jobs/pg-edge-cert-issue.ts` — BullMQ worker that calls `issuePerProjectCert(ref, apex)`. Retry 3 times with exponential backoff on transient ACME errors. On final failure, set `pg_edge_certs.status='failed'` + log; don't crash the worker.
+
+### Renewal automation
+
+- [ ] T043 [P] [US1] Edit `apps/api/src/services/cert-check.ts` — extend the daily cron to ALSO scan `pg_edge_certs WHERE status='issued' AND not_after < NOW() + INTERVAL '30 days'`; for each, enqueue `pg-edge-cert-issue` to re-issue.
+
+### Tests + docs
+
+- [ ] T044 [P] Create `apps/api/src/services/__tests__/pg-edge-proxy-sni.test.ts` — vitest: (a) SNI with no per-project cert → wildcard context returned, (b) SNI with per-project cert in DB → per-project context returned, (c) cert-reload signal invalidates cache.
+- [ ] T045 [P] Edit `docs/supabase-cli.md` — note that `supabase db diff --linked` (and other strict-TLS clients) work after the per-project cert lands (~30s after instance create).
+
+---
+
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [ ] T030 [P] Create `apps/api/src/services/__tests__/pg-edge-proxy.test.ts` — vitest unit tests per `contracts/pg-edge-proxy.md` test list: (1) valid SSLRequest → handshake → backend pipe, (2) wrong preamble → close, (3) SNI doesn't match regex → close after handshake, (4) ref not in DB → close, (5) backend dial fails → graceful close, (6) cert reload signal swaps context, (7) apex change signal updates regex. Mock `net.createServer`, `tls.TLSSocket`, DB queries. Aim for >80% branch coverage on the proxy module.
