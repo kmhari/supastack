@@ -86,21 +86,19 @@ This is a TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `packages/db
 
 ---
 
-## Phase 5: User Story 3 — Snippets list/download (Priority P3, INDEPENDENT)
+## Phase 5: User Story 3 — Snippets list/download (DEFERRED to issue #13)
 
-**Story goal**: `supabase snippets list/download` returns Studio-saved snippets across accessible projects.
+**Status**: Deferred during implementation. The spec assumed `/v1/snippets` reads from `user_content.content` on the per-instance Postgres; selfbase Studio actually stores snippets in browser localStorage (no server-side store). Tracked in [#13](https://github.com/kmhari/selfbase/issues/13).
 
-**Independent test**: Create a snippet via Studio → `supabase snippets list` shows it → `supabase snippets download <id>` returns the exact SQL body.
-
-- [ ] T020 [P] [US3] Create `apps/api/src/services/snippets-service.ts` — exports:
+- [~] T020 [P] [US3] **DEFERRED** — see #13 — Create `apps/api/src/services/snippets-service.ts` — exports:
   - `listSnippets(callerUserId, callerAccessibleProjects, opts?: { projectRef?: string }): Promise<SnippetSummary[]>`
   - `getSnippet(callerUserId, callerAccessibleProjects, snippetId): Promise<SnippetFull | null>`
 
   Both iterate accessible projects (cap 50). Per project, use `withPerInstancePg`. Probe `to_regclass('user_content.content')` first — if null, contribute zero rows (FR-015). Apply visibility filter in SQL (`WHERE type='sql' AND (visibility='project' OR visibility='org' OR owner_id=$1)`). Sort merged result by `updated_at DESC`. Cap at 200.
 
   For `getSnippet`, optionally Redis-cache the `snippet_id → project_ref` mapping for 60s (Decision 4) under key `snippet-project:<id>`. On hit, jump straight to that project's PG.
-- [ ] T021 [US3] Implement `apps/api/src/routes/management/snippets.ts` — `GET /snippets[?project_ref=]` and `GET /snippets/:id`. Pulls callerUserId from `req.session.userId`; resolves accessible projects via the existing RBAC helper (whichever util `instances.ts` and `secrets.ts` already use). If `project_ref` provided and caller has no access → 403. On no result for `:id` → 404 (never 403, to match FR + edge case).
-- [ ] T022 [P] [US3] Create `tests/cli-e2e/snippets.sh` — creates a snippet directly in the per-instance PG (`INSERT INTO user_content.content`), runs `supabase snippets list` + `supabase snippets download`, asserts shape + content match, cleans up.
+- [~] T021 [US3] **DEFERRED — see #13** — Implement `apps/api/src/routes/management/snippets.ts` — `GET /snippets[?project_ref=]` and `GET /snippets/:id`. Pulls callerUserId from `req.session.userId`; resolves accessible projects via the existing RBAC helper (whichever util `instances.ts` and `secrets.ts` already use). If `project_ref` provided and caller has no access → 403. On no result for `:id` → 404 (never 403, to match FR + edge case).
+- [~] T022 [P] [US3] **DEFERRED — see #13** — Create `tests/cli-e2e/snippets.sh` — creates a snippet directly in the per-instance PG (`INSERT INTO user_content.content`), runs `supabase snippets list` + `supabase snippets download`, asserts shape + content match, cleans up.
 
 **Checkpoint**: After T020-T022, snippet list + download work end-to-end.
 

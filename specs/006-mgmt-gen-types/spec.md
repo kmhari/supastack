@@ -83,7 +83,10 @@ A developer working against a self-hosted selfbase project wants the same migrat
 
 ---
 
-### User Story 3 — Import and export SQL editor snippets via CLI (Priority: P3)
+### User Story 3 — Import and export SQL editor snippets via CLI (Priority: P3) **— DEFERRED to issue #13**
+
+> **Deferred during implementation**: the spec assumed `/v1/snippets` reads from `user_content.content` on the per-instance Postgres (mirroring Supabase Cloud). Live inspection of a selfbase project showed no such schema — selfbase Studio (OSS Supabase Studio) stores SQL snippets in browser localStorage, not server-side. Implementing the endpoints requires either a new control-plane snippets table + Studio integration, or waiting for upstream OSS Studio to add server-side snippet storage. Tracked in [#13](https://github.com/kmhari/selfbase/issues/13).
+>
 
 A developer maintains a collection of useful SQL snippets in the selfbase Studio SQL editor (queries for ops, ad-hoc reports, debugging joins). They want to list them from the CLI for backup or to copy into version control. They run `supabase snippets list` to see all their snippets across projects they have access to, then `supabase snippets download <snippet-id> > my-query.sql` to pull the body of a specific one to disk.
 
