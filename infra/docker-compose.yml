@@ -61,7 +61,7 @@ services:
     ports:
       - '80:80'
       - '443:443'
-      - '5432:5432'
+      # Port 5432 is owned by the api container's pg-edge-proxy (feature 005)
     volumes:
       - ../apps/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -109,6 +109,9 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-0}
     ports:
       - 3001:3001
+      # pg-edge proxy — direct Postgres endpoint for db.<ref>.<apex>:5432
+      # (feature 005). Runs inside the api Node.js process.
+      - '5432:5432'
     volumes:
       - /var/selfbase/instances:/var/selfbase/instances
       - /var/selfbase/backups:/var/selfbase/backups

@@ -4,3 +4,4 @@ export * from './backups.js';
 export * from './audit.js';
 export * from './cli-compat.js';
 export * from './tls.js';
+export * from './pooler.js';

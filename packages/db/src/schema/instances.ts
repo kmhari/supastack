@@ -32,6 +32,9 @@ export const supabaseInstances = pgTable(
     portPostgres: integer('port_postgres').notNull().unique(),
     portPooler: integer('port_pooler').notNull().unique(),
     portAnalytics: integer('port_analytics').notNull().unique(),
+    // Host port where the per-instance db:5432 is published, used by the
+    // top-level pg-edge proxy. Nullable for pre-feature-005 instances.
+    portDbDirect: integer('port_db_direct').unique(),
     createSmtpHost: text('create_smtp_host'),
     createSmtpPort: integer('create_smtp_port'),
     createSmtpUser: text('create_smtp_user'),
@@ -51,7 +54,9 @@ export const supabaseInstances = pgTable(
 // ─── port_allocations ───────────────────────────────────────────────────────
 export const portAllocations = pgTable('port_allocations', {
   port: integer('port').primaryKey(),
-  kind: text('kind', { enum: ['kong', 'studio', 'postgres', 'pooler', 'analytics'] }).notNull(),
+  kind: text('kind', {
+    enum: ['kong', 'studio', 'postgres', 'pooler', 'analytics', 'dbDirect'],
+  }).notNull(),
   instanceRef: text('instance_ref').references(() => supabaseInstances.ref, {
     onDelete: 'set null',
   }),

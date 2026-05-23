@@ -176,7 +176,12 @@ selfbase implements a strict, drift-resistant subset of the Supabase Management 
 - `supabase secrets list`
 - `supabase secrets set <k>=<v>...`
 - `supabase secrets unset <k>`
-- DB-level commands — `db push`, `db pull`, `db diff`, `migration *`, `inspect *`. These connect directly to Postgres at `db.<ref>.<apex>:5432` via Caddy L4 SNI routing (feature 005). **No `--db-url` flag required** — works the same as Supabase Cloud as long as the wildcard certificate (feature 004) is active on your deployment. For full validation, run `bash tests/cli-e2e/db-push.sh`.
+- DB-level commands — `db push`, `db pull`, `db diff`, `migration *`, `inspect *`. These connect directly to Postgres at `db.<ref>.<apex>:5432` (feature 005). **No `--db-url` flag required** — works the same as Supabase Cloud as long as the wildcard certificate (feature 004) is active on your deployment. For full validation, run `bash tests/cli-e2e/db-push.sh`.
+
+Selfbase exposes Postgres at two endpoints (matching Supabase Cloud's architecture):
+
+- **`db.<ref>.<apex>:5432`** — direct Postgres. Standard clients (psql, libpq, `supabase` CLI, every Postgres ORM) connect with `sslmode=require` and username `postgres`. Handled by a small custom STARTTLS+SNI proxy inside the selfbase api container. This is what `supabase db push` uses.
+- **`pooler.<apex>:6543`** *(coming with feature 005 Phase 2)* — multi-tenant connection pooler (Supavisor) for apps that need pooling (high-traffic clients, serverless functions). Uses the Supabase Cloud pooler username convention: `postgres.<ref>` (project ref as suffix).
 
 ### Not yet (P1+)
 
