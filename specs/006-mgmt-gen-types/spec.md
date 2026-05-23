@@ -105,7 +105,10 @@ A developer maintains a collection of useful SQL snippets in the selfbase Studio
 
 ---
 
-### User Story 4 — List and restore backups via CLI (Priority: P2)
+### User Story 4 — List and restore backups via CLI (Priority: P2) **— DEFERRED to issue #14**
+
+> **Deferred from feature 006** as the heaviest piece (new restore_jobs entity, async BullMQ worker, filesystem-snapshot rollback, GC, RBAC gate, dynamic timeout, multiple pre-flight checks — ~11 tasks). All design work (FRs, contracts, data model, clarifications) is preserved here for the follow-up implementation. Tracked in [#14](https://github.com/kmhari/selfbase/issues/14).
+>
 
 An operator runs nightly snapshots of a production project (selfbase already supports this via the worker's backup job). When something goes wrong — a bad migration, an accidental `DELETE FROM users` — they need to restore. They run `supabase backups list --project-ref <ref>` to see available restore points, pick a recovery target, run `supabase backups restore --project-ref <ref> --backup-id <id>`, wait for the project to come back up, and verify data is at the chosen point in time.
 

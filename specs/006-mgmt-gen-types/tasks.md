@@ -104,7 +104,10 @@ This is a TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `packages/db
 
 ---
 
-## Phase 6: User Story 4 — Backups list/restore (Priority P2)
+## Phase 6: User Story 4 — Backups list/restore (DEFERRED to issue #14)
+
+**Status**: Deferred from feature 006 to its own implementation session. All design + tasks below are kept verbatim so a fresh session can lift them directly. Track in [#14](https://github.com/kmhari/selfbase/issues/14).
+
 
 **Story goal**: `supabase backups list/restore` works; restore is async with rollback guarantee.
 
