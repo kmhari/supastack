@@ -196,58 +196,11 @@ export async function buildCaddyConfig(): Promise<unknown> {
       ]
     : undefined;
 
-  // ─── Layer 4 (TCP) routing for Postgres on :5432 ──────────────────────────
-  // Only emitted when BOTH apex AND wildcard cert are configured. The wildcard
-  // cert (loaded above via tls.certificates.load_files) covers db.<ref>.<apex>.
-  //
-  // Flow per connection on :5432:
-  //   1. Outer `postgres` matcher detects the Postgres SSLRequest (8 bytes,
-  //      magic 80877103), consumes those bytes, and responds 'S' to the
-  //      client to accept TLS. After it matches, the connection is in
-  //      "TLS handshake about to start" state — there is no separate
-  //      `postgres` handler (the matcher does the STARTTLS work).
-  //   2. `subroute` reads the subsequent TLS ClientHello via the inner
-  //      `tls` matcher and routes by SNI.
-  //   3. `tls` handler terminates TLS using the wildcard cert from the store.
-  //   4. `proxy` forwards plaintext Postgres protocol to the per-instance
-  //      port at host.docker.internal:<portPostgres>.
-  //
-  // Requires the caddy-l4 module (github.com/mholt/caddy-l4) — see
-  // apps/caddy/Dockerfile. Module names verified at deploy time:
-  //   `docker exec selfbase-caddy-1 caddy list-modules | grep layer4`
-  // → confirmed handlers: subroute, tls, proxy; matchers: postgres, tls
-  const layer4App =
-    apex && wildcardCert
-      ? {
-          servers: {
-            postgres: {
-              listen: [':5432'],
-              routes: [
-                {
-                  match: [{ postgres: {} }],
-                  handle: [
-                    {
-                      handler: 'subroute',
-                      routes: instances.map((i) => ({
-                        match: [{ tls: { sni: [`db.${i.ref}.${apex}`] } }],
-                        handle: [
-                          { handler: 'tls' },
-                          {
-                            handler: 'proxy',
-                            upstreams: [
-                              { dial: [`host.docker.internal:${i.portPostgres}`] },
-                            ],
-                          },
-                        ],
-                      })),
-                    },
-                  ],
-                },
-              ],
-            },
-          },
-        }
-      : null;
+  // Postgres routing (port 5432) is handled OUTSIDE Caddy — the api container's
+  // pg-edge-proxy owns it. See apps/api/src/services/pg-edge-proxy.ts and
+  // specs/005-postgres-public-endpoint/. caddy-l4's postgres matcher can't
+  // complete the Postgres STARTTLS handshake (no 'S' response), so we built
+  // a small TCP/TLS proxy in the api container instead.
 
   return {
     // Caddy 2.7+ enforces an origin check on the admin endpoint. Allow the
@@ -274,7 +227,6 @@ export async function buildCaddyConfig(): Promise<unknown> {
           },
         },
       },
-      ...(layer4App ? { layer4: layer4App } : {}),
     },
   };
 }

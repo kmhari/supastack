@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { portAllocations } from './schema/instances.js';
 import type { SelfbaseDb } from './client.js';
 
-export const PORT_KINDS = ['kong', 'studio', 'postgres', 'pooler', 'analytics'] as const;
+export const PORT_KINDS = ['kong', 'studio', 'postgres', 'pooler', 'analytics', 'dbDirect'] as const;
 export type PortKind = (typeof PORT_KINDS)[number];
 
 export interface PortAllocation {
@@ -11,6 +11,8 @@ export interface PortAllocation {
   postgres: number;
   pooler: number;
   analytics: number;
+  // db's plaintext 5432 published on the host for the pg-edge proxy (feature 005).
+  dbDirect: number;
 }
 
 export interface PortAllocatorOptions {
@@ -63,14 +65,16 @@ export async function allocatePorts(
           LEFT JOIN port_allocations a ON a.port = p
           WHERE a.port IS NULL
           ORDER BY p ASC
-          LIMIT 5
+          LIMIT 6
         `);
 
-        if (rows.rows.length < 5) {
+        if (rows.rows.length < 6) {
           throw new PortPoolExhaustedError(start, end);
         }
 
-        const [kong, studio, postgres, pooler, analytics] = rows.rows.map((r) => Number(r.port));
+        const [kong, studio, postgres, pooler, analytics, dbDirect] = rows.rows.map((r) =>
+          Number(r.port),
+        );
 
         await tx.insert(portAllocations).values([
           { port: kong!, kind: 'kong', instanceRef: instanceRef ?? null },
@@ -78,6 +82,7 @@ export async function allocatePorts(
           { port: postgres!, kind: 'postgres', instanceRef: instanceRef ?? null },
           { port: pooler!, kind: 'pooler', instanceRef: instanceRef ?? null },
           { port: analytics!, kind: 'analytics', instanceRef: instanceRef ?? null },
+          { port: dbDirect!, kind: 'dbDirect', instanceRef: instanceRef ?? null },
         ]);
 
         return {
@@ -86,6 +91,7 @@ export async function allocatePorts(
           postgres: postgres!,
           pooler: pooler!,
           analytics: analytics!,
+          dbDirect: dbDirect!,
         };
       });
     } catch (err) {
@@ -114,7 +120,14 @@ export async function assignPortsToInstance(
 ): Promise<void> {
   // Set instance_ref on each of the 5 allocated rows individually. Avoids
   // array-cast headaches with pg's parameter binding.
-  for (const port of [ports.kong, ports.studio, ports.postgres, ports.pooler, ports.analytics]) {
+  for (const port of [
+    ports.kong,
+    ports.studio,
+    ports.postgres,
+    ports.pooler,
+    ports.analytics,
+    ports.dbDirect,
+  ]) {
     await db.execute(
       sql`UPDATE port_allocations SET instance_ref = ${instanceRef} WHERE port = ${port}`,
     );

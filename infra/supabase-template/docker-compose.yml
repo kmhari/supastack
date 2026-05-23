@@ -515,6 +515,13 @@ services:
   db:
     image: supabase/postgres:15.8.1.085
     restart: unless-stopped
+    # SELFBASE PATCH (feature 005): publish db:5432 on a unique host port so
+    # the top-level pg-edge-proxy in the api container can reach this per-
+    # instance Postgres via host.docker.internal:${POSTGRES_DIRECT_HOST_PORT}.
+    # Sibling containers within this compose stack still connect via the
+    # internal Docker network at db:5432.
+    ports:
+      - "${POSTGRES_DIRECT_HOST_PORT}:5432"
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
       # Must be superuser to create event trigger
@@ -597,63 +604,13 @@ services:
     security_opt:
       - "label=disable"
 
-  # Update the DATABASE_URL if you are using an external Postgres database
-  supavisor:
-    image: supabase/supavisor:2.7.4
-    restart: unless-stopped
-    ports:
-      # SELFBASE PATCH (feature 005): upstream binds host port ${POSTGRES_PORT}
-      # to supavisor:5432, but POSTGRES_PORT serves dual duty as both internal
-      # connect port AND external publish port. With selfbase's L4 routing
-      # owning host port 5432 (Caddy), we must use POOLER_TRANSACTION_HOST_PORT
-      # (allocated separately by selfbase, distinct from POSTGRES_PORT=5432).
-      - ${POOLER_TRANSACTION_HOST_PORT}:5432
-      - ${POOLER_PROXY_PORT_TRANSACTION}:6543
-    volumes:
-      - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "curl",
-          "-sSfL",
-          "--head",
-          "-o",
-          "/dev/null",
-          "http://127.0.0.1:4000/api/health"
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      PORT: 4000
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      DATABASE_URL: ecto://supabase_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/_supabase
-      CLUSTER_POSTGRES: "true"
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
-      VAULT_ENC_KEY: ${VAULT_ENC_KEY}
-      API_JWT_SECRET: ${JWT_SECRET}
-      METRICS_JWT_SECRET: ${JWT_SECRET}
-      REGION: local
-      ERL_AFLAGS: -proto_dist inet_tcp
-      POOLER_TENANT_ID: ${POOLER_TENANT_ID}
-      POOLER_DEFAULT_POOL_SIZE: ${POOLER_DEFAULT_POOL_SIZE}
-      POOLER_MAX_CLIENT_CONN: ${POOLER_MAX_CLIENT_CONN}
-      POOLER_POOL_MODE: transaction
-      DB_POOL_SIZE: ${POOLER_DB_POOL_SIZE}
-    command:
-      [
-        "/bin/sh",
-        "-c",
-        "/app/bin/migrate && /app/bin/supavisor eval \"$$(cat /etc/pooler/pooler.exs)\" && /app/bin/server"
-      ]
+  # SELFBASE PATCH (feature 005): the per-instance supavisor service has been
+  # REMOVED. The top-level supavisor in the selfbase control plane (Phase 5 /
+  # US3) handles the optional pooler endpoint for all instances. Direct Postgres
+  # connections are handled by the pg-edge-proxy in the selfbase api container.
+  # Per-instance sibling containers (auth, rest, storage, realtime, meta) all
+  # connect to db:5432 directly via the internal Docker network — they never
+  # used per-instance supavisor.
 
 volumes:
   db-config:

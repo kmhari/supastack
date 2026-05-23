@@ -29,6 +29,10 @@ import { secretsRoutes } from './routes/management/secrets.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 import { wildcardCertRoutes } from './routes/wildcard-certs.js';
 import { createCertCheckQueue, createCertCheckWorker } from './services/cert-check.js';
+import { startPgEdgeProxy, type PgEdgeProxy } from './services/pg-edge-proxy.js';
+import { existsSync } from 'node:fs';
+import { eq } from 'drizzle-orm';
+import { db, schema } from '@selfbase/db';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -200,7 +204,58 @@ async function main(): Promise<void> {
       { name: 'cert-check', opts: { removeOnComplete: { count: 5 }, removeOnFail: { count: 10 } } },
     );
   }
+
+  // pg-edge proxy: direct Postgres endpoint on :5432 (feature 005).
+  // Only starts if apex is configured AND wildcard cert files exist on disk.
+  const pgEdgeProxy = await maybeStartPgEdgeProxy(app);
+
+  // Graceful shutdown
+  const shutdown = async (sig: string): Promise<void> => {
+    app.log.info({ sig }, 'shutting down');
+    await pgEdgeProxy?.close();
+    await app.close();
+    process.exit(0);
+  };
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
 }
+
+async function maybeStartPgEdgeProxy(
+  app: FastifyInstance,
+): Promise<PgEdgeProxy | null> {
+  try {
+    const [orgRow] = await db()
+      .select({ apex: schema.org.apexDomain })
+      .from(schema.org)
+      .limit(1);
+    const apex = orgRow?.apex;
+    if (!apex) {
+      app.log.info('pg-edge: skipped (no apex configured)');
+      return null;
+    }
+    const certsDir = process.env.SELFBASE_CERTS_DIR ?? '/var/selfbase/certs';
+    const certPath = `${certsDir}/${apex}/cert.pem`;
+    const keyPath = `${certsDir}/${apex}/key.pem`;
+    if (!existsSync(certPath) || !existsSync(keyPath)) {
+      app.log.info({ certPath }, 'pg-edge: skipped (wildcard cert files not present)');
+      return null;
+    }
+    return startPgEdgeProxy({
+      port: Number(process.env.PG_EDGE_PROXY_PORT ?? 5432),
+      certPath,
+      keyPath,
+      apexDomain: apex,
+      redisUrl: REDIS_URL,
+    });
+  } catch (err) {
+    app.log.error({ err: (err as Error).message }, 'pg-edge: failed to start');
+    return null;
+  }
+}
+
+// Suppress unused import warning — eq isn't directly used here but kept for
+// future selectors in this module (server-startup queries).
+void eq;
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {

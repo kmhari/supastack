@@ -19,6 +19,9 @@ export interface ComposeTemplateInputs {
     postgres: number;
     pooler: number;
     analytics: number;
+    /** Host port for the per-instance db (feature 005). The top-level
+     *  pg-edge-proxy in the api container connects via host.docker.internal:<port>. */
+    dbDirect: number;
   };
   /** Decrypted per-instance secrets */
   secrets: {
@@ -122,12 +125,14 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     KONG_HTTPS_PORT: 8443,
     STUDIO_PORT: ports.studio,
     // POSTGRES_PORT is the INTERNAL Docker network port — all sibling
-    // containers (auth, rest, supavisor, etc.) connect to db:5432 via this.
-    // The HOST publish port for supavisor's transaction pooler is a separate
-    // env var (POOLER_TRANSACTION_HOST_PORT) introduced by selfbase's patch
-    // to infra/supabase-template/docker-compose.yml — see feature 005.
+    // containers (auth, rest, etc.) connect to db:5432 via this.
     POSTGRES_PORT: 5432,
-    POOLER_TRANSACTION_HOST_PORT: ports.postgres,
+    // Host port where db:5432 is published, used by the top-level
+    // pg-edge-proxy in the api container (feature 005).
+    POSTGRES_DIRECT_HOST_PORT: ports.dbDirect,
+    // POOLER_PROXY_PORT_TRANSACTION is referenced by upstream .env.example;
+    // unused now that the per-instance supavisor service is removed
+    // (feature 005). Kept as a dead value to satisfy completeness check.
     POOLER_PROXY_PORT_TRANSACTION: ports.pooler,
     LOGFLARE_PORT: ports.analytics,
 
