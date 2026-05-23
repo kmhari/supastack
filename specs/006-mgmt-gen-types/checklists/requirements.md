@@ -1,4 +1,4 @@
-# Specification Quality Checklist: CLI Management API — Tier 1 surface
+# Specification Quality Checklist: CLI Management API — `gen types typescript`
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-05-23
@@ -6,31 +6,31 @@
 
 ## Content Quality
 
-- [X] No implementation details (languages, frameworks, APIs) — endpoint paths described as user-visible CLI behavior, no Fastify/Node/etc. mentioned
-- [X] Focused on user value and business needs — every story leads with the developer/operator outcome
-- [X] Written for non-technical stakeholders — CLI command sequences shown, internal mechanics avoided
+- [X] No implementation details (languages, frameworks, APIs) — endpoint behavior described as user-visible CLI outcomes
+- [X] Focused on user value and business needs — story leads with the developer outcome (typed table access)
+- [X] Written for non-technical stakeholders — CLI command shown, internal mechanics abstracted
 - [X] All mandatory sections completed
 
 ## Requirement Completeness
 
 - [X] No [NEEDS CLARIFICATION] markers remain
-- [X] Requirements are testable and unambiguous — every FR specifies behavior with a measurable threshold or shape contract
-- [X] Success criteria are measurable — concrete time bounds, percentages, error shapes
+- [X] Requirements are testable and unambiguous — every FR specifies a measurable behavior or shape contract
+- [X] Success criteria are measurable — time bounds (10s / 30s), zero regressions, byte-equal diff
 - [X] Success criteria are technology-agnostic — phrased as user-observable outcomes
-- [X] All acceptance scenarios are defined — each story has 3-5 Given/When/Then scenarios
-- [X] Edge cases are identified — 8 edge cases covering boundary conditions across all four endpoint groups
-- [X] Scope is clearly bounded — Background section explicitly lists Tier 1 in / Tier 2-3 out
-- [X] Dependencies and assumptions identified — 7 assumptions covering CLI version target, cert reuse, container reload mechanics, auth, RBAC, scope of dashboard, DNS resolver model
+- [X] All acceptance scenarios are defined — 5 Given/When/Then scenarios covering happy path + auth + RBAC + invalid ref
+- [X] Edge cases are identified — 8 edge cases covering empty schemas, fake schemas, paused projects, exotic PG types, generated columns, views, functions, scale
+- [X] Scope is clearly bounded — 1 endpoint, gen-types only; the 3 sibling endpoint groups split to issues #10/#11/#12
+- [X] Dependencies and assumptions identified — 5 assumptions: upstream CLI shape is source of truth, pg-meta reuse, PAT/RBAC reuse, dashboard out of scope, type-mapping rules
 
 ## Feature Readiness
 
-- [X] All functional requirements have clear acceptance criteria — each FR maps to one or more acceptance scenarios in the user stories
-- [X] User scenarios cover primary flows — 4 stories, one per endpoint group, each independently testable as MVP slice
+- [X] All functional requirements have clear acceptance criteria — each FR maps to one or more scenarios or edge cases
+- [X] User scenarios cover primary flows — single user story is the primary flow; acceptance scenarios cover the variations
 - [X] Feature meets measurable outcomes defined in Success Criteria
 - [X] No implementation details leak into specification
 
 ## Notes
 
-- Custom-hostname TLS reuses ACME machinery from features 004/005 — assumption documented, no new cert mechanism introduced
-- gen-types byte-compatibility with upstream CLI is the contract; if upstream changes shapes across CLI versions, target the current stable at feature start (documented in Assumptions)
-- Dashboard UI explicitly deferred — CLI compatibility is the deliverable
+- Reusing per-instance `pg-meta` containers is mentioned as an assumption, not a requirement — implementation team may choose direct introspection if it's simpler/safer
+- Byte-equal diff to Cloud is aspirational (SC-003); fallback acceptance is `tsc --noEmit` + `information_schema` round-trip
+- Sibling endpoint groups split out: custom domains (#10), postgres/auth config (#11), ssl-enforcement (#12)
