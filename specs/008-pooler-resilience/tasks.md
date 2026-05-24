@@ -23,9 +23,9 @@ TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `apps/web/src/`, `pack
 
 **Purpose**: Schema changes + Drizzle bindings used by all three stories.
 
-- [ ] T001 Create `packages/db/migrations/0008_reconciler_runs.sql` (idempotent: `CREATE TABLE IF NOT EXISTS`, `CREATE UNIQUE INDEX IF NOT EXISTS`). Includes: `reconciler_runs` table per data-model.md (id, started_at, completed_at, status, instances_seen, actions_taken jsonb, error_message, trigger_source, actor_id FK); `idx_reconciler_runs_started_at`; partial unique `uq_reconciler_runs_one_running ON (status) WHERE status = 'running'`. Same migration also: `ALTER TABLE pooler_tenants DROP CONSTRAINT IF EXISTS pooler_tenants_status_check; ALTER TABLE pooler_tenants ADD CONSTRAINT pooler_tenants_status_check CHECK (status IN ('registering','active','failed','rotating','pg_password_drift'));` and `ALTER TABLE pooler_tenants ADD COLUMN IF NOT EXISTS last_reconciled_at timestamptz`.
-- [ ] T002 [P] Create `packages/db/src/schema/reconciler-runs.ts` — Drizzle schema for the new table. Export `reconcilerRuns`. Add to `packages/db/src/schema/index.ts` re-exports.
-- [ ] T003 [P] Edit `packages/db/src/schema/pooler.ts` (or wherever `poolerTenants` is defined): add `lastReconciledAt: timestamp('last_reconciled_at', { withTimezone: true })`; extend the status enum literal type to include `'pg_password_drift'`.
+- [X] T001 Create `packages/db/migrations/0008_reconciler_runs.sql` (idempotent: `CREATE TABLE IF NOT EXISTS`, `CREATE UNIQUE INDEX IF NOT EXISTS`). Includes: `reconciler_runs` table per data-model.md (id, started_at, completed_at, status, instances_seen, actions_taken jsonb, error_message, trigger_source, actor_id FK); `idx_reconciler_runs_started_at`; partial unique `uq_reconciler_runs_one_running ON (status) WHERE status = 'running'`. Same migration also: `ALTER TABLE pooler_tenants DROP CONSTRAINT IF EXISTS pooler_tenants_status_check; ALTER TABLE pooler_tenants ADD CONSTRAINT pooler_tenants_status_check CHECK (status IN ('registering','active','failed','rotating','pg_password_drift'));` and `ALTER TABLE pooler_tenants ADD COLUMN IF NOT EXISTS last_reconciled_at timestamptz`.
+- [X] T002 [P] Create `packages/db/src/schema/reconciler-runs.ts` — Drizzle schema for the new table. Export `reconcilerRuns`. Add to `packages/db/src/schema/index.ts` re-exports.
+- [X] T003 [P] Edit `packages/db/src/schema/pooler.ts` (or wherever `poolerTenants` is defined): add `lastReconciledAt: timestamp('last_reconciled_at', { withTimezone: true })`; extend the status enum literal type to include `'pg_password_drift'`.
 
 ---
 
@@ -33,9 +33,9 @@ TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `apps/web/src/`, `pack
 
 **Purpose**: Wire BullMQ queues + shared helpers that all three user-stories use.
 
-- [ ] T004 Create `apps/worker/src/queues/pooler-reconciler-queue.ts` exporting `createPoolerReconcilerQueue(redisUrl)` (BullMQ Queue with repeatable `0 3 * * *` schedule) and `createPoolerReconcilerWorker(redisUrl, handler)`. Mirror the pattern of feature 005's pooler-events queue.
-- [ ] T005 Edit `apps/worker/src/index.ts` to instantiate the queue + register the worker (handler will be filled in T009 below).
-- [ ] T006 [P] Create `apps/api/src/queues/pooler-reconciler-client.ts` exporting `enqueueReconcilerRun(payload: { runId, mode: 'full' | 'single', ref? }, opts?: { priority })` — used by US1's manual trigger endpoint AND US3's reset endpoint to kick off a single-instance reconcile.
+- [X] T004 Create `apps/worker/src/queues/pooler-reconciler-queue.ts` exporting `createPoolerReconcilerQueue(redisUrl)` (BullMQ Queue with repeatable `0 3 * * *` schedule) and `createPoolerReconcilerWorker(redisUrl, handler)`. Mirror the pattern of feature 005's pooler-events queue.
+- [X] T005 Edit `apps/worker/src/index.ts` to instantiate the queue + register the worker (handler will be filled in T009 below).
+- [X] T006 [P] Create `apps/api/src/queues/pooler-reconciler-client.ts` exporting `enqueueReconcilerRun(payload: { runId, mode: 'full' | 'single', ref? }, opts?: { priority })` — used by US1's manual trigger endpoint AND US3's reset endpoint to kick off a single-instance reconcile.
 
 ---
 
@@ -47,24 +47,24 @@ TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `apps/web/src/`, `pack
 
 ### Reconciler service
 
-- [ ] T007 [US1] Create `apps/api/src/services/pooler-reconciler.ts` exporting `runFullReconcile(runId, actorId?)` and `runSingleInstanceReconcile(runId, ref, actorId?)`. Implementation per research.md Decision 3 + data-model.md state machine:
+- [X] T007 [US1] Create `apps/api/src/services/pooler-reconciler.ts` exporting `runFullReconcile(runId, actorId?)` and `runSingleInstanceReconcile(runId, ref, actorId?)`. Implementation per research.md Decision 3 + data-model.md state machine:
   - At start: GC stale `running` reconciler_runs >1h (mark failed, error='worker_crash_detected'). DELETE old reconciler_runs beyond the last 30.
   - Snapshot three sources atomically: `supabase_instances` (status != 'deleting'), `pooler_tenants`, supavisor `getTenants()` via existing `pooler-client.ts`.
   - For each instance, classify: `consistent | missing_pooler_row | failed_stale | missing_in_supavisor | instance_gone | orphan_in_supavisor | pg_password_drift`.
   - Take corresponding remediation; emit per-action `pooler_events` row (NO event for `consistent`).
   - On per-instance failure, log + continue (FR-007). Track per-instance results in `actions_taken` jsonb.
   - At end: UPDATE `reconciler_runs` with final status (`success` if 0 failures; `partial_failure` if any single-instance failed; `failed` if the whole sweep aborted e.g. supavisor unreachable), `instances_seen`, `actions_taken`, `completed_at`. Also UPDATE `pooler_tenants.last_reconciled_at` for every instance touched (including consistent ones).
-- [ ] T008 [US1] Edit `apps/api/src/services/pooler-tenants.ts` `registerTenantForInstance` (or add a sibling function the reconciler uses): when supavisor's register call returns auth-class error, perform an active probe via `withPerInstancePg(ref, c => c.query('SELECT 1'))` to disambiguate. If probe also fails with `28P01` → set `pooler_tenants.status='pg_password_drift'`. Otherwise → generic `failed` with supavisor error.
-- [ ] T009 [US1] Create `apps/worker/src/jobs/pooler-reconciler.ts` — BullMQ job handler that dispatches to `runFullReconcile` or `runSingleInstanceReconcile` based on payload mode. Wire into the worker registration from T005.
+- [X] T008 [US1] Edit `apps/api/src/services/pooler-tenants.ts` `registerTenantForInstance` (or add a sibling function the reconciler uses): when supavisor's register call returns auth-class error, perform an active probe via `withPerInstancePg(ref, c => c.query('SELECT 1'))` to disambiguate. If probe also fails with `28P01` → set `pooler_tenants.status='pg_password_drift'`. Otherwise → generic `failed` with supavisor error.
+- [X] T009 [US1] Create `apps/worker/src/jobs/pooler-reconciler.ts` — BullMQ job handler that dispatches to `runFullReconcile` or `runSingleInstanceReconcile` based on payload mode. Wire into the worker registration from T005.
 
 ### Manual trigger endpoint
 
-- [ ] T010 [P] [US1] Create `apps/api/src/routes/pooler-reconciler-run.ts` — `POST /api/v1/pooler/reconciler/run` per `contracts/reconciler-run.md`. Admin RBAC, INSERT reconciler_runs with `trigger_source='manual', actor_id=user.id`, catch unique-constraint violation → 409 with the in-flight row's id + started_at. Enqueue the BullMQ job. Emit audit `pooler.reconciler.manual_trigger`. Return 202.
-- [ ] T011 [US1] Edit `apps/api/src/server.ts` to register `pooler-reconciler-run` route under `/api/v1`.
+- [X] T010 [P] [US1] Create `apps/api/src/routes/pooler-reconciler-run.ts` — `POST /api/v1/pooler/reconciler/run` per `contracts/reconciler-run.md`. Admin RBAC, INSERT reconciler_runs with `trigger_source='manual', actor_id=user.id`, catch unique-constraint violation → 409 with the in-flight row's id + started_at. Enqueue the BullMQ job. Emit audit `pooler.reconciler.manual_trigger`. Return 202.
+- [X] T011 [US1] Edit `apps/api/src/server.ts` to register `pooler-reconciler-run` route under `/api/v1`.
 
 ### E2E
 
-- [ ] T012 [P] [US1] Create `tests/cli-e2e/pooler-reconciler.sh` — exercises Quickstart US1: delete a `pooler_tenants` row, POST /reconciler/run, poll /pooler/status until the row is back, assert recent_events contains `reconciler.registered_missing`.
+- [X] T012 [P] [US1] Create `tests/cli-e2e/pooler-reconciler.sh` — exercises Quickstart US1: delete a `pooler_tenants` row, POST /reconciler/run, poll /pooler/status until the row is back, assert recent_events contains `reconciler.registered_missing`.
 
 **Checkpoint**: After T007-T012, the reconciler runs daily + can be manually triggered, detects + recovers 5 drift classes.
 
