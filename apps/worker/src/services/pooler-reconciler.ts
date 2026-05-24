@@ -81,14 +81,40 @@ interface SupavisorTenant {
   external_id: string;
 }
 
-async function supavisorListTenants(): Promise<SupavisorTenant[]> {
-  const res = await fetch(`${SUPAVISOR_URL}/api/tenants`, {
+/**
+ * Supavisor exposes no list-all endpoint; only GET /api/tenants/:external_id.
+ * The reconciler asks per-instance whether each one is registered, parallel-
+ * limited. With ≤50 projects this is ~1s on a healthy supavisor.
+ */
+async function supavisorGetTenant(externalId: string): Promise<SupavisorTenant | null> {
+  const res = await fetch(`${SUPAVISOR_URL}/api/tenants/${externalId}`, {
     headers: { authorization: `Bearer ${supavisorJwt()}` },
     signal: AbortSignal.timeout(5000),
   });
-  if (!res.ok) throw new Error(`supavisor list tenants ${res.status}`);
-  const body = (await res.json()) as { data?: SupavisorTenant[] };
-  return body.data ?? [];
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`supavisor get tenant ${externalId}: ${res.status}`);
+  return { external_id: externalId };
+}
+
+async function supavisorListExisting(externalIds: string[]): Promise<SupavisorTenant[]> {
+  if (externalIds.length === 0) return [];
+  const results = await Promise.allSettled(externalIds.map((id) => supavisorGetTenant(id)));
+  const out: SupavisorTenant[] = [];
+  let fulfilled = 0;
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i]!;
+    if (r.status === 'fulfilled') {
+      fulfilled++;
+      if (r.value) out.push(r.value);
+    } else {
+      logger.warn(
+        { externalId: externalIds[i], err: (r.reason as Error).message },
+        'reconciler: supavisor probe failed',
+      );
+    }
+  }
+  if (fulfilled === 0) throw new Error('all supavisor probes failed');
+  return out;
 }
 
 async function supavisorRegister(
@@ -293,16 +319,6 @@ export async function startRun(
 
 export async function runFullReconcile(runId: string): Promise<void> {
   const startedAt = Date.now();
-  let supavisorTenants: SupavisorTenant[];
-  try {
-    supavisorTenants = await supavisorListTenants();
-  } catch (err) {
-    await finishRun(runId, {
-      status: 'failed',
-      errorMessage: `supavisor_unreachable: ${(err as Error).message}`,
-    });
-    return;
-  }
 
   const instances = await db()
     .select({ ref: SUPABASE_INSTANCES.ref, status: SUPABASE_INSTANCES.status })
@@ -316,6 +332,26 @@ export async function runFullReconcile(runId: string): Promise<void> {
       updatedAt: POOLER_TENANTS.updatedAt,
     })
     .from(POOLER_TENANTS);
+
+  // Supavisor has no list endpoint; probe per-instance + per-orphan-candidate.
+  // We need to check every ref we know about (from supabase_instances OR
+  // pooler_tenants) since pooler_tenants might have stale rows.
+  const allExternalIds = Array.from(
+    new Set([
+      ...instances.filter((i) => i.status !== 'deleting').map((i) => i.ref),
+      ...poolerRows.map((p) => p.externalId),
+    ]),
+  );
+  let supavisorTenants: SupavisorTenant[];
+  try {
+    supavisorTenants = await supavisorListExisting(allExternalIds);
+  } catch (err) {
+    await finishRun(runId, {
+      status: 'failed',
+      errorMessage: `supavisor_unreachable: ${(err as Error).message}`,
+    });
+    return;
+  }
 
   type PoolerRow = { ref: string; externalId: string; status: string; updatedAt: Date };
   const instanceByRef = new Map<string, { ref: string; status: string }>(
@@ -395,8 +431,8 @@ export async function runSingleInstanceReconcile(
     .limit(1);
   let svTenant: SupavisorTenant | undefined;
   try {
-    const all = await supavisorListTenants();
-    svTenant = all.find((t: SupavisorTenant) => t.external_id === ref);
+    const result = await supavisorGetTenant(ref);
+    svTenant = result ?? undefined;
   } catch (err) {
     await finishRun(runId, {
       status: 'failed',
