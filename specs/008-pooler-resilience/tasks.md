@@ -108,12 +108,12 @@ TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `apps/web/src/`, `pack
 
 ### Prevention (provision-time probe)
 
-- [ ] T023 [P] [US3] Create `apps/api/src/services/pg-password-probe.ts` exporting `probeAuthWithStoredPassword(ref, opts?: { retries: 3, delayMs: 2000 }): Promise<{ ok: boolean; lastError?: string; isAuthClass: boolean }>`. Internally uses `withPerInstancePg(ref, c => c.query('SELECT 1'))`. Catches `28P01` SQLSTATE → `isAuthClass: true`. Other errors → `isAuthClass: false`. Retries with delay; returns first success or last error.
-- [ ] T024 [US3] Edit `apps/worker/src/jobs/provision.ts`: after the existing `waitHealthy(ctx, …)` call but BEFORE `setStatus(ref, 'running')`, call `probeAuthWithStoredPassword(ref)`. On failure with `isAuthClass=true`, mark instance `failed` with `provision_error='pg_password_drift_at_provision'` and a human-readable message pointing at the reset endpoint as recovery; do NOT set status=running. On `isAuthClass=false`, throw a generic provision error.
+- [X] T023 [P] [US3] Create `apps/api/src/services/pg-password-probe.ts` exporting `probeAuthWithStoredPassword(ref, opts?: { retries: 3, delayMs: 2000 }): Promise<{ ok: boolean; lastError?: string; isAuthClass: boolean }>`. Internally uses `withPerInstancePg(ref, c => c.query('SELECT 1'))`. Catches `28P01` SQLSTATE → `isAuthClass: true`. Other errors → `isAuthClass: false`. Retries with delay; returns first success or last error.
+- [X] T024 [US3] Edit `apps/worker/src/jobs/provision.ts`: after the existing `waitHealthy(ctx, …)` call but BEFORE `setStatus(ref, 'running')`, call `probeAuthWithStoredPassword(ref)`. On failure with `isAuthClass=true`, mark instance `failed` with `provision_error='pg_password_drift_at_provision'` and a human-readable message pointing at the reset endpoint as recovery; do NOT set status=running. On `isAuthClass=false`, throw a generic provision error.
 
 ### Recovery (reset endpoint)
 
-- [ ] T025 [P] [US3] Create `apps/api/src/services/pg-password-reset.ts` exporting `resetPgPasswordForInstance(ref): Promise<void>`. Loads instance, decrypts `encrypted_secrets.postgresPassword`. Constructs ALTER SQL with PG escaping (`'` → `''`):
+- [X] T025 [P] [US3] Create `apps/api/src/services/pg-password-reset.ts` exporting `resetPgPasswordForInstance(ref): Promise<void>`. Loads instance, decrypts `encrypted_secrets.postgresPassword`. Constructs ALTER SQL with PG escaping (`'` → `''`):
   ```sql
   BEGIN;
   ALTER USER postgres WITH PASSWORD '<escaped>';
@@ -121,8 +121,8 @@ TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `apps/web/src/`, `pack
   COMMIT;
   ```
   Runs via docker exec on `selfbase-<ref>-db-1` using the existing docker socket HTTP API (mirror the pattern from the demo + fix-asyo.mjs script). Use psql `-h 127.0.0.1 -U supabase_admin -d postgres -c "<sql>"`. Pass SQL via `-c`, NOT env. On any error, throw `PerInstancePgResetError` with the underlying message.
-- [ ] T026 [US3] Create `apps/api/src/routes/reset-pg-password.ts` — `POST /api/v1/instances/:ref/reset-pg-password` per `contracts/reset-pg-password.md`. Admin RBAC; 404 for unknown ref; 409 for `paused|deleting|provisioning` (note: status `failed` with `pg_password_drift_at_provision` is allowed). Emit audit `instances.pg_password.reset` (severity high) BEFORE running. Call `resetPgPasswordForInstance(ref)` → on success, enqueue single-instance reconciler pass with high priority, wait up to 5s for completion via BullMQ job promise (or polling the reconciler_runs row), include final `pooler_tenant_status` in response. 502 if container unreachable.
-- [ ] T027 [US3] Edit `apps/api/src/server.ts` to register the reset endpoint under `/api/v1`.
+- [X] T026 [US3] Create `apps/api/src/routes/reset-pg-password.ts` — `POST /api/v1/instances/:ref/reset-pg-password` per `contracts/reset-pg-password.md`. Admin RBAC; 404 for unknown ref; 409 for `paused|deleting|provisioning` (note: status `failed` with `pg_password_drift_at_provision` is allowed). Emit audit `instances.pg_password.reset` (severity high) BEFORE running. Call `resetPgPasswordForInstance(ref)` → on success, enqueue single-instance reconciler pass with high priority, wait up to 5s for completion via BullMQ job promise (or polling the reconciler_runs row), include final `pooler_tenant_status` in response. 502 if container unreachable.
+- [X] T027 [US3] Edit `apps/api/src/server.ts` to register the reset endpoint under `/api/v1`.
 
 ### E2E
 
