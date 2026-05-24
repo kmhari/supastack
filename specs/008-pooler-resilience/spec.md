@@ -26,7 +26,13 @@ Two real-world failure modes have already bitten us:
 This feature adds:
 - A daily reconciler that detects + auto-recovers from drift (US1)
 - A dashboard panel that surfaces the current state + recent events for operators (US2)
-- An admin endpoint + reconciler integration to detect and recover PG password drift specifically (US3)
+- An admin endpoint + reconciler integration to detect and recover PG password drift specifically, PLUS provision-time auth verification to prevent the most common cause of drift at the source (US3)
+
+## Clarifications
+
+### Session 2026-05-24
+
+- Q: Should US3 also include drift PREVENTION (provision-time auth verify), or stay purely reactive? → A: Add prevention. The most common drift cause is provision-time — `POSTGRES_PASSWORD` is only honored on first init, so a leftover data dir from a failed prior provision means the new env value is silently ignored and the project ships broken. After `docker compose up db`, the worker MUST actively connect with the stored password before marking the instance `running`; auth failure fails the provision loudly with `pg_password_drift_at_provision` rather than leaving a silently broken project.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -85,19 +91,25 @@ The page auto-refreshes every 10s when visible.
 
 ---
 
-### User Story 3 — Detect + recover from per-instance Postgres password drift (Priority: P2)
+### User Story 3 — Prevent + detect + recover from per-instance Postgres password drift (Priority: P2)
 
-The reconciler from US1 specifically detects when a pooler registration fails with `auth` (28P01) on a project where we expect the stored password to work — that's almost always password drift (the on-disk role's password no longer matches `encrypted_secrets.postgresPassword`). The reconciler marks such rows with a distinct status `pg_password_drift` (vs generic `failed`), and:
+PG password drift happens when the on-disk `postgres`/`supabase_admin` role passwords diverge from `encrypted_secrets.postgresPassword`. Root cause is almost always that `POSTGRES_PASSWORD` is only honored on first init — so a leftover data dir, a restored volume, or a manual `ALTER USER` for debugging leaves the live PG with a stale password while the control plane thinks otherwise. This silently breaks pooler registration, direct DB connections, and `supabase db push`.
 
-- The dashboard (US2) surfaces it differently — clear red banner, "Reset Postgres password to match stored secret" button
-- A new admin endpoint `POST /api/v1/instances/<ref>/reset-pg-password` runs `ALTER USER postgres ... ALTER USER supabase_admin ... WITH PASSWORD '<from encrypted_secrets>'` against the per-instance Postgres via 127.0.0.1 trust auth (the supabase template's pg_hba allows this for the in-container `supabase_admin` user)
-- After the reset succeeds, the reconciler retries registration on its next tick; the row should flip back to `active`
+This story addresses drift at three layers:
 
-The flow exactly matches the manual recovery we performed for ASYO during feature 005.
+1. **Prevention at provision (new)**: the worker, after starting `db` and reaching healthy, actively connects to the per-instance PG with the stored password BEFORE marking the instance `running`. If auth fails, the provision fails loudly with `pg_password_drift_at_provision` rather than shipping a silently broken project. This closes the most common drift cause at the source.
+
+2. **Detection by reconciler**: the reconciler from US1 specifically classifies pooler-registration auth-class failures as `pg_password_drift` (vs generic `failed`), giving the dashboard a distinct CTA.
+
+3. **One-click recovery**: a new admin endpoint `POST /api/v1/instances/<ref>/reset-pg-password` runs `ALTER USER postgres ... ALTER USER supabase_admin ... WITH PASSWORD '<from encrypted_secrets>'` against the per-instance Postgres via 127.0.0.1 trust auth (the supabase template's pg_hba allows this for the in-container `supabase_admin` user). After reset, the reconciler verifies on its next tick (or immediately, if the operator triggers a manual run).
+
+The recovery flow exactly matches the manual recovery we performed for ASYO during feature 005; the prevention flow stops it happening in the first place.
 
 **Why this priority**: Closes the loop on the most painful real-world failure mode discovered in feature 005. Without this, an operator hitting password drift has no UI path to recovery and would have to know the manual `ALTER USER` incantation.
 
-**Independent Test**: On a test instance, manually `ALTER USER postgres WITH PASSWORD 'wrong'` via 127.0.0.1 trust auth. Trigger reconciler — verify the `pooler_tenants` row flips to `pg_password_drift` with a clear error message + dashboard surfaces the reset button. Click reset → verify password is restored to match `encrypted_secrets.postgresPassword` → next reconciler tick re-registers cleanly.
+**Independent Test (recovery path)**: On a test instance, manually `ALTER USER postgres WITH PASSWORD 'wrong'` via 127.0.0.1 trust auth. Trigger reconciler — verify the `pooler_tenants` row flips to `pg_password_drift` with a clear error message + dashboard surfaces the reset button. Click reset → verify password is restored to match `encrypted_secrets.postgresPassword` → next reconciler tick re-registers cleanly.
+
+**Independent Test (prevention path)**: Pre-populate a per-instance data dir with a Postgres bootstrapped at a known-different password. Trigger provision against that ref. Verify provision fails with `pg_password_drift_at_provision` BEFORE the instance is marked `running`, and that the failure surfaces in the dashboard's instance status with a clear recovery CTA (run reset → retry provision).
 
 **Acceptance Scenarios**:
 
@@ -107,6 +119,8 @@ The flow exactly matches the manual recovery we performed for ASYO during featur
 4. **Given** a non-admin caller, **When** they call `POST /api/v1/instances/<ref>/reset-pg-password`, **Then** the response is 403.
 5. **Given** a project that is `paused` or `deleting`, **When** the reset endpoint is called, **Then** the response is 409 with `project_not_running` (we don't ALTER while the container is down or being torn down).
 6. **Given** the reset endpoint is called and ALTER fails (e.g., the per-instance container is unreachable), **When** the api responds, **Then** the response is 502 with the underlying error — no state change recorded.
+7. **Given** the worker reaches db healthcheck during provision, **When** it attempts an auth probe with the stored password and that probe fails, **Then** the instance is marked `failed` with `provision_error = 'pg_password_drift_at_provision'` and the instance is NOT marked `running`.
+8. **Given** an instance failed with `pg_password_drift_at_provision`, **When** the operator clicks "Reset Postgres password to match stored secret" + the lifecycle "Retry provision" action, **Then** the instance reaches `running` and the pooler tenant registers normally on next reconciler tick.
 
 ---
 
@@ -125,9 +139,12 @@ The flow exactly matches the manual recovery we performed for ASYO during featur
 
 **Password drift**:
 - **Per-instance Postgres container is stopped**: reset endpoint returns 409 `project_not_running`.
-- **ALTER succeeds but next reconciler still fails** (e.g., supavisor itself is down): row stays in `pg_password_drift` because we use that status for auth-class failures specifically; banner updates `last_error` to reflect the supavisor issue instead. Dashboard correctly shows the new failure mode.
+- **ALTER succeeds but next reconciler still fails** (e.g., supavisor itself is down): row reverts from `pg_password_drift` to generic `failed` because the auth-class probe now passes; banner updates `last_error` to reflect the supavisor issue instead. Dashboard correctly shows the new failure mode.
 - **Reset called repeatedly in quick succession**: idempotent — multiple ALTERs with the same password are a no-op at the PG level. No rate limit beyond standard RBAC checks.
 - **Master key rotated between secret storage and reset call**: secret decryption fails → 500 with `master_key_rotation_detected`. Operator must re-mint instance secrets (out of scope here).
+- **Provision-time probe times out** (e.g., db reports healthy but isn't actually accepting connections yet): probe retries up to 3 times with 2s delay before failing the provision. Avoids flaky false positives from healthcheck/socket race conditions.
+- **Pre-existing data dir at provision time** (leftover from a failed prior provision with a different password): the provision-time probe catches this and fails fast with `pg_password_drift_at_provision` instead of marking the instance `running` and shipping it broken. This is the primary case prevention exists for.
+- **Restoring a backup volume from another generation** (future feature #14): the restore worker SHOULD invoke the same reset endpoint after the data-dir swap to align the running PG with the current stored secret. Out of scope here; #14 will reference this contract.
 
 ## Requirements *(mandatory)*
 
@@ -152,13 +169,14 @@ The flow exactly matches the manual recovery we performed for ASYO during featur
 - **FR-012**: For each project, the panel MUST show both connection strings (direct + pooled), redacted by default, with a reveal-on-click toggle. Reveal is per-row (clicking another row does not auto-reveal its password).
 - **FR-013**: The panel MUST be admin-only via existing RBAC. Non-admins either get a 403 redirect or a read-only view (no action buttons, no password reveal).
 
-#### PG password drift (US3)
+#### PG password drift — prevention + detection + recovery (US3)
 
-- **FR-014**: When pooler registration fails specifically with PG auth error (`28P01` SQLSTATE or supavisor returning auth-failed in its error body), the reconciler MUST set `pooler_tenants.status = 'pg_password_drift'` (a distinct status from generic `failed`) and populate `last_error` with the human-readable reason.
-- **FR-015**: System MUST expose `POST /api/v1/instances/:ref/reset-pg-password` (admin-only) that decrypts the stored postgresPassword and runs `ALTER USER postgres ... ALTER USER supabase_admin ... WITH PASSWORD '<password>'` via the per-instance Postgres container (using 127.0.0.1 trust auth as supabase_admin — the supabase template's pg_hba allows this).
-- **FR-016**: The reset endpoint MUST return 200 on success, 409 if the project is `paused`/`deleting`/`provisioning`, 403 for non-admins, 502 if the per-instance container is unreachable. Success response includes `{ message: 'Password reset; reconciler will re-verify on next tick' }`.
-- **FR-017**: After a successful password reset, the next reconciler tick (or operator-triggered manual run) MUST re-attempt registration; on success, status transitions to `active` and a `password_reset_then_registered` event is logged.
-- **FR-018**: The reset endpoint MUST emit a high-severity audit log entry (`instances.pg_password.reset`) capturing actor, ref, and timestamp.
+- **FR-014**: The provision worker (`apps/worker/src/jobs/provision.ts`) MUST, after `db` reaches healthy and BEFORE setting the instance to `running`, actively connect to the per-instance Postgres via the same channel the api uses (host.docker.internal:<port_db_direct> as `postgres` with the freshly-decrypted `encrypted_secrets.postgresPassword`). On auth failure, the provision MUST mark the instance `failed` with `provision_error = 'pg_password_drift_at_provision'` and a human-readable explanation pointing at the reset endpoint as the recovery path. The instance MUST NOT be marked `running`.
+- **FR-015**: When pooler registration fails specifically with PG auth error (`28P01` SQLSTATE or, if supavisor's error body is ambiguous, confirmed by an active probe via 127.0.0.1 trust auth), the reconciler MUST set `pooler_tenants.status = 'pg_password_drift'` (a distinct status from generic `failed`) and populate `last_error` with the human-readable reason.
+- **FR-016**: System MUST expose `POST /api/v1/instances/:ref/reset-pg-password` (admin-only) that decrypts the stored postgresPassword and runs `ALTER USER postgres ... ALTER USER supabase_admin ... WITH PASSWORD '<password>'` against the per-instance Postgres container (using 127.0.0.1 trust auth as `supabase_admin` — the supabase template's pg_hba allows this). Both ALTER statements MUST run in a single PG transaction so partial failure rolls both back.
+- **FR-017**: The reset endpoint MUST return 200 on success, 409 if the project is `paused`/`deleting`/`provisioning`, 403 for non-admins, 502 if the per-instance container is unreachable. Success response includes `{ message: 'Password reset; reconciler verifying...', reconciler_run_id }`. After running ALTER, the endpoint synchronously kicks off a single-instance reconciler pass and waits up to 5 seconds for the result; if the pass completes within that window the response also includes the new `pooler_tenants.status`.
+- **FR-018**: For `pg_password_drift_at_provision` failures, the existing instance lifecycle "Retry provision" action MUST be usable to re-attempt provision after the reset endpoint has been invoked — no separate "retry" code path needed for this case.
+- **FR-019**: The reset endpoint MUST emit a high-severity audit log entry (`instances.pg_password.reset`) capturing actor, ref, and timestamp.
 
 ### Key Entities
 
@@ -179,7 +197,8 @@ The flow exactly matches the manual recovery we performed for ASYO during featur
 - **SC-003**: When the reconciler is healthy, a synthetic drift (deleting a `pooler_tenants` row directly) is recovered within 24 hours without operator action; with manual trigger, within 5 seconds.
 - **SC-004**: The dashboard pooler panel renders the full per-project table for a deployment with up to 50 projects in under 1 second on first load.
 - **SC-005**: An operator can identify a stuck or drifting project AND remediate it (re-register OR reset password) from the dashboard in under 60 seconds, with no terminal commands.
-- **SC-006**: For 100% of PG password resets, the new password is verified working by the reconciler within 5 minutes (or immediately if the operator triggers a manual reconciler run after reset).
+- **SC-006**: For 100% of PG password resets, the new password is verified working within 5 seconds of the reset endpoint returning (synchronous single-instance reconciler pass per FR-017).
+- **SC-009**: For 100% of provisions where the data dir contains a Postgres bootstrapped with a different password than the current encrypted_secrets, the provision fails with `pg_password_drift_at_provision` within 10 seconds of `db` reaching healthy — no silently-broken instances reach `running` status.
 - **SC-007**: The reconciler's existence is invisible to operators when nothing is drifting — no spurious banners, no excess log noise, no `pooler_events` rows for the consistent path.
 - **SC-008**: Zero regressions in the existing feature 005 happy path (provision → register on running → unregister on delete) — verified by the existing feature 005 quickstart still passing post-deploy.
 
