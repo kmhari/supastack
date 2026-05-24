@@ -39,6 +39,14 @@ async function main(): Promise<void> {
   // 30-second health reconciler (T110). Polls actual container state for
   // every non-deleted instance and updates the DB if it diverged.
   await queues.healthReconciler.add('tick', {}, { repeat: { every: 30_000 }, removeOnComplete: 1 });
+  // Feature 008 US1 — daily pooler reconciler at 03:00 UTC. The cron tick
+  // job has no payload; mode='full' is implied. Manual single-instance
+  // passes are enqueued by the api via the same queue with explicit payload.
+  await queues.poolerReconciler.add(
+    'cron',
+    { mode: 'full', triggerSource: 'cron' },
+    { repeat: { pattern: '0 3 * * *', tz: 'UTC' }, removeOnComplete: 1 },
+  );
 
   logger.info({ queues: Object.keys(queues) }, 'worker started');
 
