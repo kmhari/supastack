@@ -164,6 +164,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ../infra/supabase-template:/app/infra/supabase-template:ro
     networks: [internal]
+    # Feature 008 — pg-password probe (provision worker + pooler-reconciler)
+    # needs to reach per-instance Postgres via host.docker.internal:<port_db_direct>.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     depends_on:
       db:
         condition: service_healthy

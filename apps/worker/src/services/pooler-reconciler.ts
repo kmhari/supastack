@@ -440,7 +440,10 @@ export async function runSingleInstanceReconcile(
     });
     return { ref, classification: 'consistent', remediated: false, error: 'supavisor_unreachable' };
   }
-  const cls = classifyInstance(inst, poolerRow, svTenant);
+  // Single-instance pass always forces retry on `failed` rows — the caller
+  // is usually the reset-pg-password endpoint, which just took an action and
+  // wants immediate verification.
+  const cls = classifyInstance(inst, poolerRow, svTenant, true);
   const result = await remediate(ref, cls);
   if (poolerRow) {
     await db()
@@ -463,11 +466,16 @@ function classifyInstance(
     | { ref: string; externalId: string; status: string; updatedAt: Date }
     | undefined,
   svTenant: SupavisorTenant | undefined,
+  forceRetry = false,
 ): Classification {
   if (inst.status === 'deleting') return 'instance_gone';
   if (!poolerRow) return 'missing_pooler_row';
   if (poolerRow.status === 'pg_password_drift') return 'pg_password_drift';
   if (poolerRow.status === 'failed') {
+    // `forceRetry` is set by single-instance reconciles invoked from the
+    // reset-pg-password endpoint — there the operator just took an action
+    // and wants immediate retry regardless of failure age.
+    if (forceRetry) return 'failed_stale';
     const ageMs = Date.now() - poolerRow.updatedAt.getTime();
     if (ageMs > STALE_FAILED_MS) return 'failed_stale';
     return 'consistent';
@@ -483,9 +491,17 @@ async function remediate(ref: string, classification: Classification): Promise<P
         return { ref, classification, remediated: false };
       case 'missing_pooler_row':
       case 'missing_in_supavisor':
-        await registerTenantForInstance(ref);
-        await emitEvent(ref, 'reconciler.registered_missing', { classification });
-        return { ref, classification, remediated: true };
+        try {
+          await registerTenantForInstance(ref);
+          await emitEvent(ref, 'reconciler.registered_missing', { classification });
+          return { ref, classification, remediated: true };
+        } catch (err) {
+          // Registration failed — probe to detect drift. Without this, a
+          // freshly-missing row never gets promoted to pg_password_drift
+          // (only failed_stale does).
+          await maybePromoteToDrift(ref, (err as Error).message);
+          return { ref, classification, remediated: false, error: (err as Error).message };
+        }
       case 'failed_stale': {
         try {
           await registerTenantForInstance(ref);
@@ -530,10 +546,25 @@ async function remediate(ref: string, classification: Classification): Promise<P
   }
 }
 
+/**
+ * On any registration failure, run an active probe. If the probe also fails
+ * with auth-class error, this is definitively password drift; flip the
+ * status. Per research.md Decision 3, we treat the probe as ground truth
+ * rather than pattern-matching supavisor's error format (which has changed
+ * across versions and uses opaque Elixir error structs like
+ * "%DBConnection.ConnectionError{message: ...}").
+ */
 async function maybePromoteToDrift(ref: string, errMsg: string): Promise<void> {
-  const looksAuth = /28P01|password authentication failed|auth failed/i.test(errMsg);
-  if (!looksAuth) return;
-  const probe = await probeAuthForInstance(ref);
+  let probe;
+  try {
+    probe = await probeAuthForInstance(ref);
+  } catch (err) {
+    logger.warn(
+      { ref, err: (err as Error).message },
+      'reconciler: probe threw, skipping drift promotion',
+    );
+    return;
+  }
   if (!probe.ok && probe.isAuthClass) {
     await db()
       .update(POOLER_TENANTS)
@@ -544,6 +575,7 @@ async function maybePromoteToDrift(ref: string, errMsg: string): Promise<void> {
       })
       .where(eq(POOLER_TENANTS.externalId, ref));
     await emitEvent(ref, 'reconciler.password_drift_detected', { error: probe.error });
+    logger.info({ ref }, 'reconciler: status promoted to pg_password_drift');
   }
 }
 
