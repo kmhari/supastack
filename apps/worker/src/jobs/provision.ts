@@ -8,6 +8,7 @@ import { logger } from '@selfbase/shared';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { QUEUES } from '../queues.js';
+import { probeAuthWithStoredPassword } from '../services/pg-password-probe.js';
 import {
   composeUp,
   composeAllHealthy,
@@ -155,6 +156,27 @@ export async function handleProvision(payload: { ref: string }): Promise<void> {
 
     // 6. Reload Caddy so the new <ref>.<apex> route is live
     await triggerCaddyReload();
+
+    // 6b. Prevention probe (feature 008 US3 FR-014): actively verify the
+    //     per-instance Postgres accepts the stored password BEFORE marking
+    //     the instance running. POSTGRES_PASSWORD is only honored on first
+    //     init — a leftover data dir from a prior failed provision would
+    //     silently ship a project no one can connect to. Catch it here.
+    const probe = await probeAuthWithStoredPassword(ref);
+    if (!probe.ok && probe.isAuthClass) {
+      const msg =
+        'pg_password_drift_at_provision — per-instance Postgres rejected the stored password after ' +
+        `${probe.attempts} attempts. Likely a leftover data dir bootstrapped with a different password. ` +
+        `Recover via POST /api/v1/instances/${ref}/reset-pg-password then retry provision.`;
+      log.error({ probe }, 'provision auth probe failed (auth-class)');
+      throw new Error(msg);
+    }
+    if (!probe.ok) {
+      throw new Error(
+        `provision auth probe failed (non-auth) after ${probe.attempts} attempts: ${probe.lastError ?? '?'}`,
+      );
+    }
+    log.info({ attempts: probe.attempts }, 'auth probe ok — stored password matches');
 
     // 7. Mark running
     await db()

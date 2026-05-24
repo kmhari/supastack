@@ -34,6 +34,7 @@ import { acmeChallengeRoutes } from './routes/acme-challenge.js';
 import { pgEdgeCertInternalRoutes } from './routes/pg-edge-cert-internal.js';
 import { poolerInternalRoutes } from './routes/pooler-internal.js';
 import { poolerReconcilerRunRoutes } from './routes/pooler-reconciler-run.js';
+import { resetPgPasswordRoutes } from './routes/reset-pg-password.js';
 import { createCertCheckQueue, createCertCheckWorker } from './services/cert-check.js';
 import { startPgEdgeProxy, type PgEdgeProxy } from './services/pg-edge-proxy.js';
 import { existsSync } from 'node:fs';
@@ -163,6 +164,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(pgEdgeCertInternalRoutes); // /internal/pg-edge-cert/issue
   await app.register(poolerInternalRoutes); // /internal/pooler/tenants
   await app.register(poolerReconcilerRunRoutes); // /api/v1/pooler/reconciler/run (feature 008 US1)
+  await app.register(resetPgPasswordRoutes); // /api/v1/instances/:ref/reset-pg-password (feature 008 US3)
 
   // ─── /v1/* — Supabase Management API compatibility surface ─────────────
   //
