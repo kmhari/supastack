@@ -78,23 +78,23 @@ TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `apps/web/src/`, `pack
 
 ### Backend
 
-- [ ] T013 [P] [US2] Create `apps/api/src/routes/pooler-status.ts` — `GET /api/v1/pooler/status` per `contracts/pooler-status.md`. Admin RBAC. Concurrently fetch supavisor health (timeout 3s, gracefully handle unreachable), `supabase_instances` rows, `pooler_tenants` (joined), most-recent 50 `pooler_events`, most-recent 30 `reconciler_runs`. Shape + return.
-- [ ] T014 [P] [US2] Create `apps/api/src/routes/pooler-reregister.ts` — `POST /api/v1/pooler/tenants/:ref/re-register` per `contracts/pooler-reregister.md`. Admin RBAC, 404 for unknown ref, 409 for not-running, call `registerTenantForInstance(ref)` synchronously, return final pooler_tenants row.
-- [ ] T015 [US2] Edit `apps/api/src/server.ts` to register both new routes.
+- [X] T013 [P] [US2] Create `apps/api/src/routes/pooler-status.ts` — `GET /api/v1/pooler/status` per `contracts/pooler-status.md`. Admin RBAC. Concurrently fetch supavisor health (timeout 3s, gracefully handle unreachable), `supabase_instances` rows, `pooler_tenants` (joined), most-recent 50 `pooler_events`, most-recent 30 `reconciler_runs`. Shape + return.
+- [X] T014 [P] [US2] Create `apps/api/src/routes/pooler-reregister.ts` — `POST /api/v1/pooler/tenants/:ref/re-register` per `contracts/pooler-reregister.md`. Admin RBAC, 404 for unknown ref, 409 for not-running, call `registerTenantForInstance(ref)` synchronously, return final pooler_tenants row.
+- [X] T015 [US2] Edit `apps/api/src/server.ts` to register both new routes.
 
 ### Frontend
 
-- [ ] T016 [P] [US2] Edit `apps/web/src/lib/api.ts` adding `poolerApi`:
+- [X] T016 [P] [US2] Edit `apps/web/src/lib/api.ts` adding `poolerApi`:
   - `status()` → GET /pooler/status
   - `reregister(ref)` → POST /pooler/tenants/:ref/re-register
   - `runReconciler()` → POST /pooler/reconciler/run
   - `resetPgPassword(ref)` → POST /instances/:ref/reset-pg-password (also used by US3)
-- [ ] T017 [P] [US2] Create `apps/web/src/components/PoolerHealthCard.tsx` — renders supavisor health pill (green Up / red Down / yellow Degraded), pooler endpoint with copy button, per-project table (ref/name/instance_status/tenant_status with status-tinted badge, last_error truncated with tooltip, last_reconciled_at relative timestamp, action buttons: Re-register, Reset password if `pg_password_drift`).
-- [ ] T018 [P] [US2] Create `apps/web/src/components/PoolerEventsTail.tsx` — vertical list of last 50 events; timestamp + event type pill + ref + detail-on-hover.
-- [ ] T019 [P] [US2] Create `apps/web/src/components/ReconcilerRunsTable.tsx` — last 30 runs as a compact table (started_at, status pill, instances_seen, action summary, manual/cron source).
-- [ ] T020 [US2] Create `apps/web/src/pages/SettingsDatabase.tsx` — composes the three components above + "Run reconciler now" button at top. React Query for data fetching with 10s polling (only when document.visibilityState='visible' — pause on hidden tab). Immediate refetch after any action button click.
-- [ ] T021 [US2] Edit `apps/web/src/App.tsx` to register the `/settings/database` route. Also add a "Database" nav item under Settings (or wherever the Settings nav lives).
-- [ ] T022 [P] [US2] (Manual UX test, not a code task) Verify the panel in browser per Quickstart US2: health pill renders, auto-refresh fires, re-register button hits the api, button states reflect data correctly.
+- [X] T017 [P] [US2] Create `apps/web/src/components/PoolerHealthCard.tsx` — renders supavisor health pill (green Up / red Down / yellow Degraded), pooler endpoint with copy button, per-project table (ref/name/instance_status/tenant_status with status-tinted badge, last_error truncated with tooltip, last_reconciled_at relative timestamp, action buttons: Re-register, Reset password if `pg_password_drift`).
+- [X] T018 [P] [US2] Create `apps/web/src/components/PoolerEventsTail.tsx` — vertical list of last 50 events; timestamp + event type pill + ref + detail-on-hover.
+- [X] T019 [P] [US2] Create `apps/web/src/components/ReconcilerRunsTable.tsx` — last 30 runs as a compact table (started_at, status pill, instances_seen, action summary, manual/cron source).
+- [X] T020 [US2] Create `apps/web/src/pages/SettingsDatabase.tsx` — composes the three components above + "Run reconciler now" button at top. React Query for data fetching with 10s polling (only when document.visibilityState='visible' — pause on hidden tab). Immediate refetch after any action button click.
+- [X] T021 [US2] Edit `apps/web/src/App.tsx` to register the `/settings/database` route. Also add a "Database" nav item under Settings (or wherever the Settings nav lives).
+- [X] T022 [P] [US2] (Manual UX test, not a code task) Verify the panel in browser per Quickstart US2: health pill renders, auto-refresh fires, re-register button hits the api, button states reflect data correctly.
 
 **Checkpoint**: After T013-T022, admins have full pooler visibility + per-tenant action surface.
 
