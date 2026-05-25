@@ -27,7 +27,8 @@ async function main(): Promise<void> {
     .where(not(inArray(schema.supabaseInstances.status, ['deleting'])));
 
   console.log(`backfill: ${instances.length} instances to process`);
-  let ok = 0, fail = 0;
+  let ok = 0,
+    fail = 0;
   for (const inst of instances) {
     try {
       await registerTenantForInstance(inst.ref);

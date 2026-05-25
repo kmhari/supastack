@@ -61,9 +61,7 @@ vi.mock('@selfbase/shared', () => ({
 }));
 
 // Import the SUT after mocks are wired up.
-const { probeAuthWithStoredPassword } = await import(
-  '../../src/services/pg-password-probe.js'
-);
+const { probeAuthWithStoredPassword } = await import('../../src/services/pg-password-probe.js');
 
 beforeEach(() => {
   connectMock.mockReset();

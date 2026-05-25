@@ -98,9 +98,7 @@ describe('setSecrets (vault-backed)', () => {
       async (_ref: string, fn: (c: typeof client) => Promise<void>) => fn(client),
     );
     // Existing row for FOO, new for BAR
-    vaultFindIdByName.mockImplementation(async (_c, name) =>
-      name === 'FOO' ? 'uuid-foo' : null,
-    );
+    vaultFindIdByName.mockImplementation(async (_c, name) => (name === 'FOO' ? 'uuid-foo' : null));
 
     await setSecrets(
       'r0000000000000000001',
@@ -128,11 +126,7 @@ describe('setSecrets (vault-backed)', () => {
     });
 
     await expect(
-      setSecrets(
-        'r0000000000000000001',
-        [{ name: 'WILL_FAIL', value: 'x' }],
-        { userId: 'u' },
-      ),
+      setSecrets('r0000000000000000001', [{ name: 'WILL_FAIL', value: 'x' }], { userId: 'u' }),
     ).rejects.toThrow();
 
     expect(sqlCalls.find((c) => c.sql === 'ROLLBACK')).toBeTruthy();

@@ -16,11 +16,7 @@ import { Navigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { RefreshCw, AlertCircle, CheckCircle2, XCircle, KeyRound, Copy } from 'lucide-react';
-import {
-  poolerApi,
-  type PoolerStatusResponse,
-  type PoolerStatusProject,
-} from '@/lib/api';
+import { poolerApi, type PoolerStatusResponse, type PoolerStatusProject } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Shell } from '@/components/Shell';
 import { SettingsLayout } from '@/components/SettingsLayout';
@@ -171,8 +167,8 @@ function ProjectsTableCard({
       <CardHeader>
         <CardTitle>Projects ({projects.length})</CardTitle>
         <CardDescription>
-          Tenant registration state per project. Click an action button if
-          something needs intervention.
+          Tenant registration state per project. Click an action button if something needs
+          intervention.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -234,7 +230,9 @@ function ProjectRow({
     setBusy('reset');
     try {
       const r = await poolerApi.resetPgPassword(project.ref);
-      toast.success(`${project.name}: ${r.message} (status: ${r.pooler_tenant_status ?? 'unknown'})`);
+      toast.success(
+        `${project.name}: ${r.message} (status: ${r.pooler_tenant_status ?? 'unknown'})`,
+      );
       onAction();
     } catch (err) {
       toast.error(`Reset failed: ${(err as Error).message}`);
@@ -265,7 +263,10 @@ function ProjectRow({
           {project.tenant_status ?? 'not registered'}
         </StatusPill>
         {project.last_error ? (
-          <div className="text-xs text-muted-foreground mt-1 max-w-md truncate" title={project.last_error}>
+          <div
+            className="text-xs text-muted-foreground mt-1 max-w-md truncate"
+            title={project.last_error}
+          >
             {project.last_error}
           </div>
         ) : null}

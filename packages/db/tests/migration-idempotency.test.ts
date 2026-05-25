@@ -19,9 +19,7 @@ const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 
 describe.skipIf(!TEST_DATABASE_URL)('migration idempotency', () => {
   it('every *.sql file in migrations/ runs cleanly twice', async () => {
-    const files = (await readdir(MIGRATIONS_DIR))
-      .filter((f) => f.endsWith('.sql'))
-      .sort();
+    const files = (await readdir(MIGRATIONS_DIR)).filter((f) => f.endsWith('.sql')).sort();
     expect(files.length).toBeGreaterThan(0);
 
     const pool = new pg.Pool({ connectionString: TEST_DATABASE_URL, max: 1 });

@@ -12,23 +12,20 @@ import { getProjectByRef } from '../../services/project-store.js';
 import { getConfig, patchConfig } from '../../services/runtime-config-store.js';
 
 export const authConfigRoutes: FastifyPluginAsync = async (app) => {
-  app.get<{ Params: { ref: string } }>(
-    '/projects/:ref/config/auth',
-    async (req) => {
-      const user = app.requireAuth(req);
-      app.authorize(req, 'auth_config.read');
-      const inst = await getProjectByRef(user.id, req.params.ref);
-      if (!inst) {
-        throw new ManagementApiError(404, 'Project not found', 'not_found', {
-          ref: req.params.ref,
-        });
-      }
-      // GET is served from the persisted snapshot (or defaults). Project
-      // state is informational only — paused projects still return their
-      // last-known config (spec edge case).
-      return getConfig(req.params.ref, 'auth');
-    },
-  );
+  app.get<{ Params: { ref: string } }>('/projects/:ref/config/auth', async (req) => {
+    const user = app.requireAuth(req);
+    app.authorize(req, 'auth_config.read');
+    const inst = await getProjectByRef(user.id, req.params.ref);
+    if (!inst) {
+      throw new ManagementApiError(404, 'Project not found', 'not_found', {
+        ref: req.params.ref,
+      });
+    }
+    // GET is served from the persisted snapshot (or defaults). Project
+    // state is informational only — paused projects still return their
+    // last-known config (spec edge case).
+    return getConfig(req.params.ref, 'auth');
+  });
 
   app.patch<{ Params: { ref: string }; Body: unknown }>(
     '/projects/:ref/config/auth',

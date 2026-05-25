@@ -26,41 +26,41 @@ export const REDACTED_SECRET = '***';
  * or _access_key — see Q5 in spec Clarifications.
  */
 export const SECRET_FIELDS: ReadonlySet<string> = new Set<string>([
-  "smtp_pass",
-  "security_captcha_secret",
-  "sms_messagebird_access_key",
-  "sms_textlocal_api_key",
-  "sms_vonage_api_key",
-  "sms_vonage_api_secret",
-  "hook_mfa_verification_attempt_secrets",
-  "hook_password_verification_attempt_secrets",
-  "hook_custom_access_token_secrets",
-  "hook_send_sms_secrets",
-  "hook_send_email_secrets",
-  "hook_before_user_created_secrets",
-  "hook_after_user_created_secrets",
-  "external_apple_secret",
-  "external_azure_secret",
-  "external_bitbucket_secret",
-  "external_discord_secret",
-  "external_facebook_secret",
-  "external_figma_secret",
-  "external_github_secret",
-  "external_gitlab_secret",
-  "external_google_secret",
-  "external_kakao_secret",
-  "external_keycloak_secret",
-  "external_linkedin_oidc_secret",
-  "external_slack_oidc_secret",
-  "external_notion_secret",
-  "external_slack_secret",
-  "external_spotify_secret",
-  "external_twitch_secret",
-  "external_twitter_secret",
-  "external_x_secret",
-  "external_workos_secret",
-  "external_zoom_secret",
-  "nimbus_oauth_client_secret",
+  'smtp_pass',
+  'security_captcha_secret',
+  'sms_messagebird_access_key',
+  'sms_textlocal_api_key',
+  'sms_vonage_api_key',
+  'sms_vonage_api_secret',
+  'hook_mfa_verification_attempt_secrets',
+  'hook_password_verification_attempt_secrets',
+  'hook_custom_access_token_secrets',
+  'hook_send_sms_secrets',
+  'hook_send_email_secrets',
+  'hook_before_user_created_secrets',
+  'hook_after_user_created_secrets',
+  'external_apple_secret',
+  'external_azure_secret',
+  'external_bitbucket_secret',
+  'external_discord_secret',
+  'external_facebook_secret',
+  'external_figma_secret',
+  'external_github_secret',
+  'external_gitlab_secret',
+  'external_google_secret',
+  'external_kakao_secret',
+  'external_keycloak_secret',
+  'external_linkedin_oidc_secret',
+  'external_slack_oidc_secret',
+  'external_notion_secret',
+  'external_slack_secret',
+  'external_spotify_secret',
+  'external_twitch_secret',
+  'external_twitter_secret',
+  'external_x_secret',
+  'external_workos_secret',
+  'external_zoom_secret',
+  'nimbus_oauth_client_secret',
 ]);
 
 // ─── PATCH request body — full upstream UpdateAuthConfigBody shape ─────────
@@ -124,7 +124,10 @@ export const UpdateAuthConfigBodySchema = z
     saml_external_url: z.string().nullable().optional(),
     security_sb_forwarded_for_enabled: z.boolean().nullable().optional(),
     security_captcha_enabled: z.boolean().nullable().optional(),
-    security_captcha_provider: z.enum(["turnstile", "hcaptcha"] as const).nullable().optional(),
+    security_captcha_provider: z
+      .enum(['turnstile', 'hcaptcha'] as const)
+      .nullable()
+      .optional(),
     security_captcha_secret: z.string().nullable().optional(),
     sessions_timebox: z.number().min(0).nullable().optional(),
     sessions_inactivity_timeout: z.number().min(0).nullable().optional(),
@@ -141,17 +144,34 @@ export const UpdateAuthConfigBodySchema = z
     refresh_token_rotation_enabled: z.boolean().nullable().optional(),
     password_hibp_enabled: z.boolean().nullable().optional(),
     password_min_length: z.number().int().min(6).max(32767).nullable().optional(),
-    password_required_characters: z.enum(["abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ:0123456789", "abcdefghijklmnopqrstuvwxyz:ABCDEFGHIJKLMNOPQRSTUVWXYZ:0123456789", "abcdefghijklmnopqrstuvwxyz:ABCDEFGHIJKLMNOPQRSTUVWXYZ:0123456789:!@#$%^&*()_+-=[]{};'\\\\:\"|<>?,./`~", ""] as const).nullable().optional(),
+    password_required_characters: z
+      .enum([
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ:0123456789',
+        'abcdefghijklmnopqrstuvwxyz:ABCDEFGHIJKLMNOPQRSTUVWXYZ:0123456789',
+        'abcdefghijklmnopqrstuvwxyz:ABCDEFGHIJKLMNOPQRSTUVWXYZ:0123456789:!@#$%^&*()_+-=[]{};\'\\\\:"|<>?,./`~',
+        '',
+      ] as const)
+      .nullable()
+      .optional(),
     security_manual_linking_enabled: z.boolean().nullable().optional(),
     security_update_password_require_reauthentication: z.boolean().nullable().optional(),
-    security_refresh_token_reuse_interval: z.number().int().min(0).max(2147483647).nullable().optional(),
+    security_refresh_token_reuse_interval: z
+      .number()
+      .int()
+      .min(0)
+      .max(2147483647)
+      .nullable()
+      .optional(),
     mailer_otp_exp: z.number().int().min(0).max(2147483647).nullable().optional(),
     mailer_otp_length: z.number().int().min(6).max(10).nullable().optional(),
     sms_autoconfirm: z.boolean().nullable().optional(),
     sms_max_frequency: z.number().int().min(0).max(32767).nullable().optional(),
     sms_otp_exp: z.number().int().min(0).max(2147483647).nullable().optional(),
     sms_otp_length: z.number().int().min(0).max(32767).nullable().optional(),
-    sms_provider: z.enum(["messagebird", "textlocal", "twilio", "twilio_verify", "vonage"] as const).nullable().optional(),
+    sms_provider: z
+      .enum(['messagebird', 'textlocal', 'twilio', 'twilio_verify', 'vonage'] as const)
+      .nullable()
+      .optional(),
     sms_messagebird_access_key: z.string().nullable().optional(),
     sms_messagebird_originator: z.string().nullable().optional(),
     sms_test_otp: z.string().nullable().optional(),
@@ -283,7 +303,10 @@ export const UpdateAuthConfigBodySchema = z
     external_zoom_email_optional: z.boolean().nullable().optional(),
     external_zoom_secret: z.string().nullable().optional(),
     db_max_pool_size: z.number().int().nullable().optional(),
-    db_max_pool_size_unit: z.enum(["connections", "percent"] as const).nullable().optional(),
+    db_max_pool_size_unit: z
+      .enum(['connections', 'percent'] as const)
+      .nullable()
+      .optional(),
     api_max_request_duration: z.number().int().nullable().optional(),
     mfa_totp_enroll_enabled: z.boolean().nullable().optional(),
     mfa_totp_verify_enabled: z.boolean().nullable().optional(),

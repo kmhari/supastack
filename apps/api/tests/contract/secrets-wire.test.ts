@@ -85,21 +85,27 @@ describe.skipIf(!API || !TEST_REF)(
       expect(res.status).toBe(401);
     });
 
-    test.skipIf(!TOKEN_MEMBER)('403 for member on POST (lacks instance.secrets.write)', async () => {
-      const res = await fetch(`${API}/api/v1/projects/${TEST_REF}/secrets`, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${TOKEN_MEMBER}`, 'content-type': 'application/json' },
-        body: JSON.stringify([{ name: 'IRRELEVANT', value: 'x' }]),
-      });
-      expect(res.status).toBe(403);
-    });
+    test.skipIf(!TOKEN_MEMBER)(
+      '403 for member on POST (lacks instance.secrets.write)',
+      async () => {
+        const res = await fetch(`${API}/api/v1/projects/${TEST_REF}/secrets`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${TOKEN_MEMBER}`, 'content-type': 'application/json' },
+          body: JSON.stringify([{ name: 'IRRELEVANT', value: 'x' }]),
+        });
+        expect(res.status).toBe(403);
+      },
+    );
 
-    test.skipIf(!TOKEN_MEMBER)('200 for member on GET (instance.secrets.read allowed)', async () => {
-      const res = await fetch(`${API}/api/v1/projects/${TEST_REF}/secrets`, {
-        headers: { authorization: `Bearer ${TOKEN_MEMBER}` },
-      });
-      expect([200, 503]).toContain(res.status); // 503 if vault unreachable; both shapes valid
-    });
+    test.skipIf(!TOKEN_MEMBER)(
+      '200 for member on GET (instance.secrets.read allowed)',
+      async () => {
+        const res = await fetch(`${API}/api/v1/projects/${TEST_REF}/secrets`, {
+          headers: { authorization: `Bearer ${TOKEN_MEMBER}` },
+        });
+        expect([200, 503]).toContain(res.status); // 503 if vault unreachable; both shapes valid
+      },
+    );
 
     test.skipIf(!TOKEN_ADMIN)('GET returns same bare-array shape as /v1', async () => {
       const res = await fetch(`${API}/api/v1/projects/${TEST_REF}/secrets`, {

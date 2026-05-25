@@ -13,23 +13,23 @@ After: a single `*.<apex>` + `<apex>` certificate covers everything. Issued via 
 
 ## Architecture
 
-| Component | Role |
-|---|---|
-| `/setup` wizard step 4 | Shows the two TXT records the operator must add at their registrar |
-| `apps/api/src/services/acme.ts` | ACME DNS-01 client (acme-client lib) — opens order, retrieves TXT challenges, polls public DNS for propagation, completes validation, downloads cert |
-| `wildcard_certs` table | Persists ACME account key + cert + key, PEM-encoded; key encrypted via master key |
-| `certs-data` Docker volume | Mounted RO into caddy/api/supavisor at `/var/selfbase/certs/<apex>/{cert.pem,key.pem}` |
-| `apps/api/src/services/cert-check.ts` | Daily BullMQ job that surfaces a dashboard alert at 30 days remaining |
-| Redis pub/sub `selfbase:wildcard-cert:reloaded` | Hot-reload signal — caddy + pg-edge-proxy + supavisor subscribe and re-load the new cert without restart |
+| Component                                       | Role                                                                                                                                                 |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/setup` wizard step 4                          | Shows the two TXT records the operator must add at their registrar                                                                                   |
+| `apps/api/src/services/acme.ts`                 | ACME DNS-01 client (acme-client lib) — opens order, retrieves TXT challenges, polls public DNS for propagation, completes validation, downloads cert |
+| `wildcard_certs` table                          | Persists ACME account key + cert + key, PEM-encoded; key encrypted via master key                                                                    |
+| `certs-data` Docker volume                      | Mounted RO into caddy/api/supavisor at `/var/selfbase/certs/<apex>/{cert.pem,key.pem}`                                                               |
+| `apps/api/src/services/cert-check.ts`           | Daily BullMQ job that surfaces a dashboard alert at 30 days remaining                                                                                |
+| Redis pub/sub `selfbase:wildcard-cert:reloaded` | Hot-reload signal — caddy + pg-edge-proxy + supavisor subscribe and re-load the new cert without restart                                             |
 
 ## Endpoints / surfaces
 
-| Endpoint | What it does |
-|---|---|
-| `POST /api/v1/wildcard-certs/initiate` | Open ACME order, return the two TXT records for the operator to add |
-| `POST /api/v1/wildcard-certs/verify` | Poll DNS for the TXT records, complete the challenge, finalize, store the cert |
-| `GET /api/v1/wildcard-certs/status` | Current cert state (notAfter, issuer, etc.) — used by the renewal banner |
-| `DELETE /api/v1/wildcard-certs` | Remove the stored cert (operator override) |
+| Endpoint                               | What it does                                                                   |
+| -------------------------------------- | ------------------------------------------------------------------------------ |
+| `POST /api/v1/wildcard-certs/initiate` | Open ACME order, return the two TXT records for the operator to add            |
+| `POST /api/v1/wildcard-certs/verify`   | Poll DNS for the TXT records, complete the challenge, finalize, store the cert |
+| `GET /api/v1/wildcard-certs/status`    | Current cert state (notAfter, issuer, etc.) — used by the renewal banner       |
+| `DELETE /api/v1/wildcard-certs`        | Remove the stored cert (operator override)                                     |
 
 ## CLI / operator workflow
 

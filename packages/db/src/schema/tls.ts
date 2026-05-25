@@ -31,7 +31,9 @@ export const wildcardCerts = pgTable(
     accountEmail: text('account_email').notNull(),
     accountKeyPem: bytea('account_key_pem').notNull(),
     orderUrl: text('order_url'),
-    challengeRecords: jsonb('challenge_records').notNull().default(sql`'[]'`),
+    challengeRecords: jsonb('challenge_records')
+      .notNull()
+      .default(sql`'[]'`),
     certPem: text('cert_pem'),
     keyPem: bytea('key_pem'),
     notBefore: timestamp('not_before', { withTimezone: true }),

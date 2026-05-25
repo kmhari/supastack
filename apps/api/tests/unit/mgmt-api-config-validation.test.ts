@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import {
-  UpdateAuthConfigBodySchema,
-  UpdatePostgrestConfigBodySchema,
-} from '@selfbase/shared';
+import { UpdateAuthConfigBodySchema, UpdatePostgrestConfigBodySchema } from '@selfbase/shared';
 import type { ZodObject, ZodTypeAny } from 'zod';
 
 /**
@@ -116,24 +113,18 @@ describe('Zod bounds match upstream OpenAPI', () => {
 
   describe('bounds enforced', () => {
     it('postgrest: max_rows above ceiling rejected', () => {
-      expect(
-        UpdatePostgrestConfigBodySchema.safeParse({ max_rows: 2_000_000 }).success,
-      ).toBe(false);
+      expect(UpdatePostgrestConfigBodySchema.safeParse({ max_rows: 2_000_000 }).success).toBe(
+        false,
+      );
     });
     it('postgrest: negative max_rows rejected', () => {
-      expect(
-        UpdatePostgrestConfigBodySchema.safeParse({ max_rows: -1 }).success,
-      ).toBe(false);
+      expect(UpdatePostgrestConfigBodySchema.safeParse({ max_rows: -1 }).success).toBe(false);
     });
     it('auth: jwt_exp above 604800 rejected', () => {
-      expect(
-        UpdateAuthConfigBodySchema.safeParse({ jwt_exp: 700_000 }).success,
-      ).toBe(false);
+      expect(UpdateAuthConfigBodySchema.safeParse({ jwt_exp: 700_000 }).success).toBe(false);
     });
     it('auth: jwt_exp at boundary accepted', () => {
-      expect(
-        UpdateAuthConfigBodySchema.safeParse({ jwt_exp: 604_800 }).success,
-      ).toBe(true);
+      expect(UpdateAuthConfigBodySchema.safeParse({ jwt_exp: 604_800 }).success).toBe(true);
     });
   });
 });

@@ -16,11 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { db, schema } from '@selfbase/db';
 import { eq } from 'drizzle-orm';
-import {
-  buildAuthedApp,
-  hasTestEnv,
-  seedTestUser,
-} from '../../helpers/mgmt-api.js';
+import { buildAuthedApp, hasTestEnv, seedTestUser } from '../../helpers/mgmt-api.js';
 import { PAT_FORMAT_REGEX } from '../../../src/services/api-tokens.js';
 
 const TEST_APEX = 'cli-e2e.selfbase.test';
@@ -37,10 +33,7 @@ describe.skipIf(!hasTestEnv)('/api/v1/cli/* helpers', () => {
     orgId = seeded.orgId;
     // Ensure the org has an apex configured so profile.toml has something
     // concrete to render. Updates rather than depending on seed default.
-    await db()
-      .update(schema.org)
-      .set({ apexDomain: TEST_APEX })
-      .where(eq(schema.org.id, orgId));
+    await db().update(schema.org).set({ apexDomain: TEST_APEX }).where(eq(schema.org.id, orgId));
   });
 
   afterAll(async () => {

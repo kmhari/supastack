@@ -17,7 +17,9 @@ const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
 export const projectConfigSnapshots = pgTable(
   'project_config_snapshots',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     instanceRef: text('instance_ref')
       .notNull()
       .references(() => supabaseInstances.ref, { onDelete: 'cascade' }),
@@ -33,10 +35,7 @@ export const projectConfigSnapshots = pgTable(
       'project_config_snapshots_surface_check',
       sql`${t.surface} IN ('postgrest', 'auth')`,
     ),
-    uniquePerSurface: uniqueIndex('project_config_snapshots_unique').on(
-      t.instanceRef,
-      t.surface,
-    ),
+    uniquePerSurface: uniqueIndex('project_config_snapshots_unique').on(t.instanceRef, t.surface),
   }),
 );
 

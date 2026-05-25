@@ -39,11 +39,7 @@ export function WildcardCertCard({
         {/* TXT hostname — same for both values */}
         <div className="mb-2">
           <div className="mb-1 text-xs text-muted-foreground uppercase tracking-wide">Host</div>
-          <InputWithCopy
-            value={`_acme-challenge.${apex}`}
-            readOnly
-            className="font-mono text-xs"
-          />
+          <InputWithCopy value={`_acme-challenge.${apex}`} readOnly className="font-mono text-xs" />
         </div>
 
         {/* Two challenge values */}
@@ -56,11 +52,7 @@ export function WildcardCertCard({
           return (
             <div key={i} className="mt-2 flex items-center gap-2">
               <div className="flex-1">
-                <InputWithCopy
-                  value={rec.value}
-                  readOnly
-                  className="font-mono text-xs"
-                />
+                <InputWithCopy value={rec.value} readOnly className="font-mono text-xs" />
               </div>
               {found ? (
                 <CheckCircle2 className="size-4 flex-none text-success" />
@@ -104,11 +96,7 @@ export function WildcardCertCard({
         </Alert>
       )}
 
-      <Button
-        disabled={!allDnsReady || issuing}
-        onClick={onIssue}
-        className="w-full"
-      >
+      <Button disabled={!allDnsReady || issuing} onClick={onIssue} className="w-full">
         {issuing ? (
           <>
             <Loader2 className="size-3.5 animate-spin mr-2" />

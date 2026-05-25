@@ -101,10 +101,12 @@ describe.skipIf(!hasTestEnv)('PATCH /v1/projects/:ref/config/auth', () => {
     await withMockInstance(ref);
     const envPath = await seedEnv(ref);
     const envBefore = await readFile(envPath, 'utf8');
-    const auditCountBefore = (await db()
-      .select({ id: schema.auditLog.id })
-      .from(schema.auditLog)
-      .where(eq(schema.auditLog.action, 'mgmt_api.auth_config.update'))).length;
+    const auditCountBefore = (
+      await db()
+        .select({ id: schema.auditLog.id })
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'mgmt_api.auth_config.update'))
+    ).length;
 
     const res = await app.inject({
       method: 'PATCH',
@@ -118,10 +120,12 @@ describe.skipIf(!hasTestEnv)('PATCH /v1/projects/:ref/config/auth', () => {
 
     expect(await readFile(envPath, 'utf8')).toBe(envBefore);
     expect(fakeDocker.restartCalls).toEqual([]);
-    const auditCountAfter = (await db()
-      .select({ id: schema.auditLog.id })
-      .from(schema.auditLog)
-      .where(eq(schema.auditLog.action, 'mgmt_api.auth_config.update'))).length;
+    const auditCountAfter = (
+      await db()
+        .select({ id: schema.auditLog.id })
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'mgmt_api.auth_config.update'))
+    ).length;
     expect(auditCountAfter).toBe(auditCountBefore);
   });
 

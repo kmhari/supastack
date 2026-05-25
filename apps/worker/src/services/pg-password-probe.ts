@@ -51,7 +51,9 @@ export async function probeAuthWithStoredPassword(
     return { ok: false, isAuthClass: false, attempts: 0, lastError: 'instance_not_found' };
   }
 
-  const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as { postgresPassword: string };
+  const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as {
+    postgresPassword: string;
+  };
   const port = inst.portDbDirect ?? inst.portPostgres;
 
   let attempts = 0;

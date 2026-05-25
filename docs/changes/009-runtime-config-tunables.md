@@ -9,11 +9,11 @@
 
 Replaced the catch-all `501 not_implemented` response for four Supabase Management API surfaces:
 
-| Method | Path | Powers |
-|---|---|---|
-| `GET` | `/v1/projects/<ref>/postgrest` | direct HTTP / future `supabase config push` (issue #26) |
-| `PATCH` | `/v1/projects/<ref>/postgrest` | direct HTTP / future `supabase config push` (issue #26) |
-| `GET` | `/v1/projects/<ref>/config/auth` | direct HTTP / future `supabase config push` (issue #26) |
+| Method  | Path                             | Powers                                                  |
+| ------- | -------------------------------- | ------------------------------------------------------- |
+| `GET`   | `/v1/projects/<ref>/postgrest`   | direct HTTP / future `supabase config push` (issue #26) |
+| `PATCH` | `/v1/projects/<ref>/postgrest`   | direct HTTP / future `supabase config push` (issue #26) |
+| `GET`   | `/v1/projects/<ref>/config/auth` | direct HTTP / future `supabase config push` (issue #26) |
 | `PATCH` | `/v1/projects/<ref>/config/auth` | direct HTTP / future `supabase config push` (issue #26) |
 
 Today operators who want to change `jwt_exp`, add a schema to PostgREST, toggle an OAuth provider, or change SMTP creds SSH into the host and edit the per-instance `.env` by hand. After this feature, the HTTP API surface backs these knobs and the dashboard / curl / a future CLI shim can all consume it.
@@ -56,18 +56,18 @@ The PATCH endpoint accepts **the full upstream `UpdateAuthConfigBody` shape** (2
 
 Honored today (Phase 1 of this feature):
 
-| Surface | Field | Env var |
-|---|---|---|
-| postgrest | `db_schema` | `PGRST_DB_SCHEMAS` |
-| postgrest | `db_extra_search_path` | `PGRST_DB_EXTRA_SEARCH_PATH` |
-| postgrest | `max_rows` | `PGRST_DB_MAX_ROWS` |
-| postgrest | `db_pool` | `PGRST_DB_POOL` (omitted when `null` ⇒ auto-configured) |
-| auth | `jwt_exp` | `JWT_EXPIRY` |
-| auth | `site_url` | `SITE_URL` |
-| auth | `uri_allow_list` | `ADDITIONAL_REDIRECT_URLS` |
-| auth | `disable_signup` | `DISABLE_SIGNUP` |
-| auth | mailer + sms + smtp_* | corresponding `GOTRUE_SMTP_*` / `ENABLE_*` |
-| auth | 22 OAuth provider triples (`external_<p>_{enabled,client_id,secret}`) | `GOTRUE_EXTERNAL_<P>_*` ⚠ |
+| Surface   | Field                                                                 | Env var                                                 |
+| --------- | --------------------------------------------------------------------- | ------------------------------------------------------- |
+| postgrest | `db_schema`                                                           | `PGRST_DB_SCHEMAS`                                      |
+| postgrest | `db_extra_search_path`                                                | `PGRST_DB_EXTRA_SEARCH_PATH`                            |
+| postgrest | `max_rows`                                                            | `PGRST_DB_MAX_ROWS`                                     |
+| postgrest | `db_pool`                                                             | `PGRST_DB_POOL` (omitted when `null` ⇒ auto-configured) |
+| auth      | `jwt_exp`                                                             | `JWT_EXPIRY`                                            |
+| auth      | `site_url`                                                            | `SITE_URL`                                              |
+| auth      | `uri_allow_list`                                                      | `ADDITIONAL_REDIRECT_URLS`                              |
+| auth      | `disable_signup`                                                      | `DISABLE_SIGNUP`                                        |
+| auth      | mailer + sms + smtp\_\*                                               | corresponding `GOTRUE_SMTP_*` / `ENABLE_*`              |
+| auth      | 22 OAuth provider triples (`external_<p>_{enabled,client_id,secret}`) | `GOTRUE_EXTERNAL_<P>_*` ⚠                               |
 
 ⚠ The per-instance template has every `GOTRUE_EXTERNAL_*` provider line **commented out by default**. The mapper marks them honored (the env var name is the contract), but until the template is updated or operators uncomment manually, setting `external_<provider>_enabled: true` writes the env line but has no runtime effect. Tracked in [#21](https://github.com/kmhari/selfbase/issues/21).
 
@@ -78,7 +78,7 @@ Stored-only today: hook URIs and secrets (Cloud-only serverless hooks selfbase d
 - **PAT auth + RBAC** — 4 new actions mirror upstream Supabase FGA permissions: `data_api_config.{read,write}`, `auth_config.{read,write}`. Members get read; admins get write.
 - **Secrets at rest** — the snapshot JSONB is encrypted via the master-key envelope (`@selfbase/crypto`), same as `projectSecrets.encryptedValue`. Plaintext secrets never appear in the snapshot column.
 - **Secrets in GET** — every field in `SECRET_FIELDS` (35 entries: OAuth `_secret`s, SMTP password, hook secrets, captcha secret, SMS provider creds) is redacted to the literal `***` sentinel.
-- **Secrets in audit** — even on a successful PATCH that rotates a secret, both `old` and `new` in the `audit_log.payload.diff` are `***`. The audit log records *that* a secret changed; it does not record the values.
+- **Secrets in audit** — even on a successful PATCH that rotates a secret, both `old` and `new` in the `audit_log.payload.diff` are `***`. The audit log records _that_ a secret changed; it does not record the values.
 - **Secret round-trip** — on PATCH, if a SECRET_FIELDS value equals `***`, the merge preserves the existing value. This makes the CLI's `get → modify-one-field → patch-full-body` round-trip safe; CLI users won't accidentally clobber every secret with the literal string `***`.
 
 ## Per-project write serialization

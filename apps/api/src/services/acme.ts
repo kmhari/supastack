@@ -17,8 +17,7 @@ function getRedisPub(): Redis | null {
 }
 
 const CERTS_DIR = process.env.SELFBASE_CERTS_DIR ?? '/var/selfbase/certs';
-const DIRECTORY_URL =
-  process.env.ACME_DIRECTORY_URL || acme.directory.letsencrypt.production;
+const DIRECTORY_URL = process.env.ACME_DIRECTORY_URL || acme.directory.letsencrypt.production;
 
 export interface InitiateResult {
   apex: string;
@@ -143,12 +142,14 @@ export async function initiateWildcardOrder(
   // Insert in-progress renewal event
   const certRow = await loadRow(apex);
   if (certRow) {
-    await db().insert(schema.certRenewalEvents).values({
-      certId: certRow.id,
-      orgId,
-      triggeredBy: existing?.status === 'issued' ? 'manual' : 'initial',
-      outcome: 'in_progress',
-    });
+    await db()
+      .insert(schema.certRenewalEvents)
+      .values({
+        certId: certRow.id,
+        orgId,
+        triggeredBy: existing?.status === 'issued' ? 'manual' : 'initial',
+        outcome: 'in_progress',
+      });
   }
 
   return { apex, status: 'awaiting_dns', challengeRecords, ttlHint: 60 };
@@ -209,7 +210,10 @@ export async function verifyAndFinalize(apex: string): Promise<VerifyResult> {
   }
 
   try {
-    await client.createAccount({ termsOfServiceAgreed: true, contact: [`mailto:${row.accountEmail}`] });
+    await client.createAccount({
+      termsOfServiceAgreed: true,
+      contact: [`mailto:${row.accountEmail}`],
+    });
     const order = await client.getOrder({ url: row.orderUrl } as acme.Order);
     const authorizations = await client.getAuthorizations(order);
 
@@ -260,15 +264,21 @@ export async function verifyAndFinalize(apex: string): Promise<VerifyResult> {
         ),
       );
 
-    await db().insert(schema.auditLog).values({
-      actorUserId: null,
-      action: 'tls.issued',
-      targetKind: 'wildcard_cert',
-      targetId: row.id,
-      payload: { apex, notAfter: notAfter.toISOString() },
-    });
+    await db()
+      .insert(schema.auditLog)
+      .values({
+        actorUserId: null,
+        action: 'tls.issued',
+        targetKind: 'wildcard_cert',
+        targetId: row.id,
+        payload: { apex, notAfter: notAfter.toISOString() },
+      });
 
-    return { status: 'issued', notBefore: notBefore.toISOString(), notAfter: notAfter.toISOString() };
+    return {
+      status: 'issued',
+      notBefore: notBefore.toISOString(),
+      notAfter: notAfter.toISOString(),
+    };
   } catch (err) {
     const message = (err as Error).message;
     await db()
@@ -320,14 +330,19 @@ export async function issuePerProjectCert(
 
   // Pull the ACME account key from wildcard_certs (same LE account).
   const [wc] = await db()
-    .select({ accountKeyPem: schema.wildcardCerts.accountKeyPem, email: schema.wildcardCerts.accountEmail })
+    .select({
+      accountKeyPem: schema.wildcardCerts.accountKeyPem,
+      email: schema.wildcardCerts.accountEmail,
+    })
     .from(schema.wildcardCerts)
     .where(eq(schema.wildcardCerts.apex, apex))
     .limit(1);
   if (!wc?.accountKeyPem) {
     throw new Error(`per-project cert: wildcard cert for ${apex} must exist first`);
   }
-  const { pem: accountKeyPemStr } = decryptJson(wc.accountKeyPem, loadMasterKey()) as { pem: string };
+  const { pem: accountKeyPemStr } = decryptJson(wc.accountKeyPem, loadMasterKey()) as {
+    pem: string;
+  };
 
   // Upsert pg_edge_certs row with status='pending'.
   await db()
@@ -368,7 +383,10 @@ export async function issuePerProjectCert(
       }
     }
 
-    const [keyPemBuf, csr] = await acme.crypto.createCsr({ commonName: hostname, altNames: [hostname] });
+    const [keyPemBuf, csr] = await acme.crypto.createCsr({
+      commonName: hostname,
+      altNames: [hostname],
+    });
     const finalized = await client.finalizeOrder(order, csr);
     certPem = await client.getCertificate(finalized);
     keyPemStr = keyPemBuf.toString('utf8');
@@ -402,8 +420,13 @@ export async function issuePerProjectCert(
   if (rpub) {
     try {
       await rpub.connect().catch(() => undefined);
-      await rpub.publish('selfbase:pg-edge-cert:issued', JSON.stringify({ ref: instanceRef, hostname }));
-    } catch { /* non-fatal */ }
+      await rpub.publish(
+        'selfbase:pg-edge-cert:issued',
+        JSON.stringify({ ref: instanceRef, hostname }),
+      );
+    } catch {
+      /* non-fatal */
+    }
   }
 
   return { hostname, notAfter };

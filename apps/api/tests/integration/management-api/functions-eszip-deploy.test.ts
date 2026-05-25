@@ -80,9 +80,7 @@ describe.skipIf(!hasTestEnv)('functions deploy via eszip path', () => {
       // Eszip lands at <slug>/bundle.eszip + meta.json with source_path.
       const onDisk = await readFile(path.join(volumePath, 'hello', 'bundle.eszip'));
       expect(onDisk.equals(body)).toBe(true);
-      const meta = JSON.parse(
-        await readFile(path.join(volumePath, 'hello', 'meta.json'), 'utf8'),
-      );
+      const meta = JSON.parse(await readFile(path.join(volumePath, 'hello', 'meta.json'), 'utf8'));
       expect(meta.source_path).toBe('bundle.eszip');
       expect(meta.ezbr_sha256).toBe(sha);
     });

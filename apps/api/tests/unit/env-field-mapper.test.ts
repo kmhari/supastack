@@ -7,10 +7,7 @@ import {
   lookupAuthFieldMapping,
   lookupPostgrestFieldMapping,
 } from '../../src/services/env-field-mapper.js';
-import {
-  ALL_AUTH_CONFIG_FIELDS,
-  UpdatePostgrestConfigBodySchema,
-} from '@selfbase/shared';
+import { ALL_AUTH_CONFIG_FIELDS, UpdatePostgrestConfigBodySchema } from '@selfbase/shared';
 
 /**
  * T021 — env-field-mapper inventory tripwire.

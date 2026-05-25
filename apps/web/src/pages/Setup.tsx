@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Circle, Loader2, AlertTriangle, AlertCircle } from 'lucide-react';
-import { apexApi, authApi, orgApi, setupApi, wildcardCertApi, type ApexStatus, type DnsCheck, type ChallengeRecord } from '@/lib/api';
+import {
+  apexApi,
+  authApi,
+  orgApi,
+  setupApi,
+  wildcardCertApi,
+  type ApexStatus,
+  type DnsCheck,
+  type ChallengeRecord,
+} from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -102,9 +111,7 @@ export function SetupPage(): React.ReactElement {
           onChangeDomain={() => setStep('apex-enter')}
         />
       )}
-      {step === 'wildcard-cert' && (
-        <WildcardCertStep onDone={() => navigate('/dashboard')} />
-      )}
+      {step === 'wildcard-cert' && <WildcardCertStep onDone={() => navigate('/dashboard')} />}
     </div>
   );
 }
@@ -143,9 +150,7 @@ function AdminStep({
   return (
     <form onSubmit={(e) => void onSubmit(e)} className="flex w-96 max-w-full flex-col gap-4">
       <Wordmark />
-      <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">
-        First-time setup
-      </h1>
+      <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">First-time setup</h1>
       <p className="m-0 text-sm text-muted-foreground">
         Step 1 of 4 — create the super-admin account for this Selfbase install.
       </p>
@@ -200,8 +205,8 @@ function TokenStep({
       <Wordmark />
       <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">Master API token</h1>
       <p className="m-0 text-sm text-muted-foreground">
-        Step 2 of 4 — shown once and not recoverable. Copy it before continuing. You can always
-        mint more later in Settings.
+        Step 2 of 4 — shown once and not recoverable. Copy it before continuing. You can always mint
+        more later in Settings.
       </p>
       <pre className="m-0 overflow-x-auto rounded-md border border-border bg-card p-3.5 font-mono text-sm break-all whitespace-pre-wrap text-success">
         {token}
@@ -382,9 +387,7 @@ function ApexVerifyStep({
   return (
     <div className="flex w-[28rem] max-w-full flex-col gap-4">
       <Wordmark />
-      <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">
-        Verifying {apex}
-      </h1>
+      <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">Verifying {apex}</h1>
       <p className="m-0 text-sm text-muted-foreground">
         Step 3 of 4 — point DNS at this server, then issue an HTTPS certificate.
       </p>
@@ -443,7 +446,11 @@ function ApexVerifyStep({
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" disabled={refreshing || issuing} onClick={() => void onRecheck()}>
+        <Button
+          variant="secondary"
+          disabled={refreshing || issuing}
+          onClick={() => void onRecheck()}
+        >
           {refreshing ? 'Rechecking…' : 'Recheck DNS now'}
         </Button>
         <Button
@@ -498,12 +505,17 @@ function WildcardCertStep({ onDone }: { onDone: () => void }): React.ReactElemen
         setSub('waiting');
       } catch (err: unknown) {
         if (cancelled) return;
-        const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+        const e = err as {
+          response?: { data?: { error?: { message?: string } } };
+          message?: string;
+        };
         setError(e.response?.data?.error?.message ?? e.message ?? 'Failed to start ACME order');
         setSub('error');
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Auto-poll DNS status every 10s while waiting
@@ -518,11 +530,18 @@ function WildcardCertStep({ onDone }: { onDone: () => void }): React.ReactElemen
         if (!cert) return;
         setDnsChecks(cert.dnsChecks ?? []);
         setAllDnsReady(cert.allDnsReady ?? false);
-      } catch { /* swallow poll errors */ }
+      } catch {
+        /* swallow poll errors */
+      }
     };
     void poll();
-    const id = setInterval(() => { void poll(); }, 10_000);
-    return () => { cancelled = true; clearInterval(id); };
+    const id = setInterval(() => {
+      void poll();
+    }, 10_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, [sub]);
 
   // Auto-advance when cert shows as issued from a previous attempt
@@ -536,7 +555,7 @@ function WildcardCertStep({ onDone }: { onDone: () => void }): React.ReactElemen
         setSub('done');
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onIssue = async (): Promise<void> => {
@@ -562,7 +581,9 @@ function WildcardCertStep({ onDone }: { onDone: () => void }): React.ReactElemen
     }
   };
 
-  const onSkip = (): void => { onDone(); };
+  const onSkip = (): void => {
+    onDone();
+  };
 
   if (sub === 'loading') {
     return (
@@ -581,7 +602,11 @@ function WildcardCertStep({ onDone }: { onDone: () => void }): React.ReactElemen
 
   if (sub === 'done') {
     const expires = notAfter
-      ? new Date(notAfter).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+      ? new Date(notAfter).toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
       : null;
     return (
       <div className="flex w-96 max-w-full flex-col gap-4">
@@ -591,8 +616,8 @@ function WildcardCertStep({ onDone }: { onDone: () => void }): React.ReactElemen
         </h1>
         <p className="m-0 text-sm text-muted-foreground">
           Your wildcard certificate for <code>*.{apex}</code> is active.
-          {expires && ` Valid until ${expires}.`} All subdomains are covered — no per-request
-          ACME delays.
+          {expires && ` Valid until ${expires}.`} All subdomains are covered — no per-request ACME
+          delays.
         </p>
         <Button onClick={onDone} className="w-full">
           Go to dashboard →
@@ -615,7 +640,14 @@ function WildcardCertStep({ onDone }: { onDone: () => void }): React.ReactElemen
           </Alert>
         )}
         <div className="flex gap-2">
-          <Button variant="secondary" className="flex-1" onClick={() => { setSub('loading'); setError(null); }}>
+          <Button
+            variant="secondary"
+            className="flex-1"
+            onClick={() => {
+              setSub('loading');
+              setError(null);
+            }}
+          >
             Try again
           </Button>
           <Button variant="secondary" className="flex-1" onClick={onSkip}>
@@ -643,7 +675,9 @@ function WildcardCertStep({ onDone }: { onDone: () => void }): React.ReactElemen
         allDnsReady={allDnsReady}
         issuing={sub === 'issuing'}
         error={sub === 'error' ? error : null}
-        onIssue={() => { void onIssue(); }}
+        onIssue={() => {
+          void onIssue();
+        }}
         onSkip={onSkip}
       />
     </div>
@@ -672,7 +706,11 @@ function DnsRecordCard({
           <DnsRow
             label="Host"
             value={apexHost}
-            hint={apexHost === '@' ? '(or the apex itself — routes the dashboard)' : '(routes the dashboard)'}
+            hint={
+              apexHost === '@'
+                ? '(or the apex itself — routes the dashboard)'
+                : '(routes the dashboard)'
+            }
           />
           <DnsRow label="Value" value={expectedIp} copyable />
           <DnsRow label="TTL" value="60–300 seconds" />
@@ -712,9 +750,7 @@ function DnsRow({
       <td className="py-1 text-foreground">
         {value}
         {hint && <span className="ml-2 text-muted-foreground">{hint}</span>}
-        {copyable && (
-          <CopyButton value={value} variant="ghost" size="xs" className="ml-2" />
-        )}
+        {copyable && <CopyButton value={value} variant="ghost" size="xs" className="ml-2" />}
       </td>
     </tr>
   );
@@ -730,7 +766,13 @@ function StatusRow({
   detail: string;
 }): React.ReactElement {
   const Icon =
-    state === 'ok' ? CheckCircle2 : state === 'error' ? AlertTriangle : state === 'waiting' ? Circle : Loader2;
+    state === 'ok'
+      ? CheckCircle2
+      : state === 'error'
+        ? AlertTriangle
+        : state === 'waiting'
+          ? Circle
+          : Loader2;
   const iconClass =
     state === 'ok'
       ? 'text-success'

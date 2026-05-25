@@ -213,7 +213,10 @@ export async function handleProvision(payload: { ref: string }): Promise<void> {
         await enqueuePgEdgeCertIssue(ref);
         log.info({ ref }, 'pg-edge cert issuance enqueued');
       } catch (err) {
-        log.warn({ err: (err as Error).message }, 'failed to enqueue pg-edge cert issuance; non-fatal');
+        log.warn(
+          { err: (err as Error).message },
+          'failed to enqueue pg-edge cert issuance; non-fatal',
+        );
       }
     }
   } catch (err) {
@@ -268,7 +271,12 @@ async function enqueuePgEdgeCertIssue(ref: string): Promise<void> {
   await _pgEdgeQueue.add(
     'issue',
     { ref },
-    { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 50 },
+    {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5000 },
+      removeOnComplete: 50,
+      removeOnFail: 50,
+    },
   );
 }
 

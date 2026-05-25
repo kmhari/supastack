@@ -8,23 +8,23 @@ If the **Settings → Database** panel says everything is `active` and supavisor
 
 A BullMQ job runs **daily at 03:00 UTC** comparing three sources of truth:
 
-| Source | What it knows |
-|---|---|
-| `supabase_instances` | Which projects should exist (their refs + statuses) |
-| `pooler_tenants` (selfbase) | Which projects selfbase thinks are registered with supavisor |
-| `GET /api/tenants/<ref>` (supavisor) | Which projects are actually registered with supavisor |
+| Source                               | What it knows                                                |
+| ------------------------------------ | ------------------------------------------------------------ |
+| `supabase_instances`                 | Which projects should exist (their refs + statuses)          |
+| `pooler_tenants` (selfbase)          | Which projects selfbase thinks are registered with supavisor |
+| `GET /api/tenants/<ref>` (supavisor) | Which projects are actually registered with supavisor        |
 
 Per-project classification + remediation:
 
-| Classification | Detection | Action |
-|---|---|---|
-| `consistent` | All three agree | No-op (no event emitted — operator never sees these) |
-| `missing_pooler_row` | Instance exists; no row in `pooler_tenants` | Re-register tenant |
-| `missing_in_supavisor` | Tenant says `active` but supavisor doesn't have it | Re-register tenant |
-| `failed_stale` | Tenant `status='failed'` for over 1h | Retry register; on auth-class failure → flip to `pg_password_drift` |
-| `instance_gone` | Tenant row + supavisor entry but instance is `deleting` or gone | Unregister from supavisor + delete the row |
-| `orphan_in_supavisor` | Supavisor has a tenant we don't know about | Unregister from supavisor |
-| `pg_password_drift` | Registration auth-failed and active probe confirms | Status stays `pg_password_drift`; reset via reset-pg-password endpoint |
+| Classification         | Detection                                                       | Action                                                                 |
+| ---------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `consistent`           | All three agree                                                 | No-op (no event emitted — operator never sees these)                   |
+| `missing_pooler_row`   | Instance exists; no row in `pooler_tenants`                     | Re-register tenant                                                     |
+| `missing_in_supavisor` | Tenant says `active` but supavisor doesn't have it              | Re-register tenant                                                     |
+| `failed_stale`         | Tenant `status='failed'` for over 1h                            | Retry register; on auth-class failure → flip to `pg_password_drift`    |
+| `instance_gone`        | Tenant row + supavisor entry but instance is `deleting` or gone | Unregister from supavisor + delete the row                             |
+| `orphan_in_supavisor`  | Supavisor has a tenant we don't know about                      | Unregister from supavisor                                              |
+| `pg_password_drift`    | Registration auth-failed and active probe confirms              | Status stays `pg_password_drift`; reset via reset-pg-password endpoint |
 
 **The reconciler is silent when nothing is drifting.** No `pooler_events` rows for the consistent path, no banners, minimal log volume. If your `recent_events` tail is empty, that's healthy.
 
@@ -47,24 +47,24 @@ If a run is already in flight, you'll get a 409 with the in-flight `run_id` + `s
 
 ### Overview card
 
-| Pill | Meaning |
-|---|---|
-| **Status: Up** (green) | Supavisor's `/api/health` is responding |
+| Pill                   | Meaning                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Status: Up** (green) | Supavisor's `/api/health` is responding                                                                |
 | **Status: Down** (red) | Supavisor unreachable; new direct-pooler connections will fail. Check `docker compose logs supavisor`. |
-| **Endpoint** | The string apps should connect to: `pooler.<apex>:6543`. Copy button for clipboard. |
+| **Endpoint**           | The string apps should connect to: `pooler.<apex>:6543`. Copy button for clipboard.                    |
 
 ### Projects table
 
 Per row:
 
-| Column | Notes |
-|---|---|
-| Project | Name + ref (the 20-char string) |
-| Instance | `running` / `paused` / `failed` / etc. — the per-instance Docker compose state |
-| Tenant | `active` / `failed` / `pg_password_drift` / `registering` |
-| In Supavisor | ✓ if supavisor has the tenant; ✗ if not; — if unknown (project paused) |
-| Last reconciled | Time of the most recent reconciler pass for this project |
-| Actions | **Re-register**: synchronously retries registration. **Reset PG password** (only shown when status is `pg_password_drift`): see next section. |
+| Column          | Notes                                                                                                                                         |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project         | Name + ref (the 20-char string)                                                                                                               |
+| Instance        | `running` / `paused` / `failed` / etc. — the per-instance Docker compose state                                                                |
+| Tenant          | `active` / `failed` / `pg_password_drift` / `registering`                                                                                     |
+| In Supavisor    | ✓ if supavisor has the tenant; ✗ if not; — if unknown (project paused)                                                                        |
+| Last reconciled | Time of the most recent reconciler pass for this project                                                                                      |
+| Actions         | **Re-register**: synchronously retries registration. **Reset PG password** (only shown when status is `pg_password_drift`): see next section. |
 
 ### Recent reconciler runs
 
@@ -81,16 +81,16 @@ A `partial_failure` run isn't an emergency — it means ≥1 per-instance reconc
 
 Last 50 entries. Filter mentally by event type:
 
-| Event | Meaning |
-|---|---|
-| `reconciler.registered_missing` | Reconciler created a missing tenant. Normal recovery. |
-| `reconciler.retry_succeeded` | A previously-failed tenant retried and is now active. |
-| `reconciler.retry_failed` | Retry still failing — the project's tenant is stuck. Investigate. |
-| `reconciler.password_drift_detected` | Active probe confirmed the stored password doesn't match the live PG. Operator action needed → see drift recovery. |
-| `reconciler.unregistered_deleting` | Reconciler cleaned up after an instance was deleted. |
-| `reconciler.unregistered_orphan` | Supavisor had a tenant we didn't — cleaned up. |
-| `password_reset_then_registered` | Operator ran reset-pg-password + reconciler verified successfully. |
-| `register` / `register_failed` / `unregister` / `unregister_failed` | Per-tenant lifecycle from feature 005. |
+| Event                                                               | Meaning                                                                                                            |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `reconciler.registered_missing`                                     | Reconciler created a missing tenant. Normal recovery.                                                              |
+| `reconciler.retry_succeeded`                                        | A previously-failed tenant retried and is now active.                                                              |
+| `reconciler.retry_failed`                                           | Retry still failing — the project's tenant is stuck. Investigate.                                                  |
+| `reconciler.password_drift_detected`                                | Active probe confirmed the stored password doesn't match the live PG. Operator action needed → see drift recovery. |
+| `reconciler.unregistered_deleting`                                  | Reconciler cleaned up after an instance was deleted.                                                               |
+| `reconciler.unregistered_orphan`                                    | Supavisor had a tenant we didn't — cleaned up.                                                                     |
+| `password_reset_then_registered`                                    | Operator ran reset-pg-password + reconciler verified successfully.                                                 |
+| `register` / `register_failed` / `unregister` / `unregister_failed` | Per-tenant lifecycle from feature 005.                                                                             |
 
 ## PG password drift recovery (US3)
 
@@ -99,6 +99,7 @@ Last 50 entries. Filter mentally by event type:
 The per-instance Postgres's `postgres` role's on-disk password no longer matches what's stored in `encrypted_secrets.postgresPassword`. The most common cause: `POSTGRES_PASSWORD` is only honored on first init, so a leftover data dir from a prior failed provision leaves the role with whatever password the original bootstrap used, ignoring the env var.
 
 When this happens:
+
 - Pooler registration auth-fails
 - Direct connections via `db.<ref>.<apex>:5432` with the stored password fail
 - `supabase db push --linked` fails
@@ -126,6 +127,7 @@ curl -X POST -H "Authorization: Bearer $PAT" \
 ```
 
 Response:
+
 ```json
 {
   "ref": "...",
@@ -138,11 +140,11 @@ Response:
 
 ### When it doesn't work
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| 502 `per_instance_db_unreachable` | Per-instance db container is down | `docker compose -p selfbase-<ref> up -d db`, then retry |
-| 409 `project_not_running` | Project is `paused` or `deleting` | Resume the project first |
-| 500 `master_key_rotation_detected` | Master key changed since the secret was stored | Out of scope — re-mint instance secrets |
+| Symptom                                  | Likely cause                                   | Fix                                                         |
+| ---------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------- |
+| 502 `per_instance_db_unreachable`        | Per-instance db container is down              | `docker compose -p selfbase-<ref> up -d db`, then retry     |
+| 409 `project_not_running`                | Project is `paused` or `deleting`              | Resume the project first                                    |
+| 500 `master_key_rotation_detected`       | Master key changed since the secret was stored | Out of scope — re-mint instance secrets                     |
 | Reset succeeds but tenant still `failed` | Different root cause (supavisor down, network) | Look at the latest `register_failed` event's `detail.error` |
 
 ## Prevention at provision time

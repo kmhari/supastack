@@ -21,10 +21,7 @@ export interface InstanceRow {
 
 export class PerInstanceMetaError extends Error {
   constructor(
-    public readonly code:
-      | 'instance_not_running'
-      | 'meta_upstream_error'
-      | 'meta_unreachable',
+    public readonly code: 'instance_not_running' | 'meta_upstream_error' | 'meta_unreachable',
     message: string,
     public readonly upstreamStatus?: number,
   ) {

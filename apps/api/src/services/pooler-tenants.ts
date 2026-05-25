@@ -71,22 +71,26 @@ export async function registerTenantForInstance(ref: string): Promise<void> {
       .set({ status: 'active', lastError: null, updatedAt: new Date() })
       .where(eq(schema.poolerTenants.externalId, ref));
 
-    await db().insert(schema.poolerEvents).values({
-      externalId: ref,
-      event: 'register',
-      detail: { sniHostname, dbPort: dbHostPort },
-    });
+    await db()
+      .insert(schema.poolerEvents)
+      .values({
+        externalId: ref,
+        event: 'register',
+        detail: { sniHostname, dbPort: dbHostPort },
+      });
   } catch (err) {
     const msg = (err as Error).message;
     await db()
       .update(schema.poolerTenants)
       .set({ status: 'failed', lastError: msg, updatedAt: new Date() })
       .where(eq(schema.poolerTenants.externalId, ref));
-    await db().insert(schema.poolerEvents).values({
-      externalId: ref,
-      event: 'register_failed',
-      detail: { error: msg },
-    });
+    await db()
+      .insert(schema.poolerEvents)
+      .values({
+        externalId: ref,
+        event: 'register_failed',
+        detail: { error: msg },
+      });
     throw err;
   }
 }
@@ -96,11 +100,13 @@ export async function unregisterTenantForInstance(ref: string): Promise<void> {
     await unregisterTenant(ref);
     await db().insert(schema.poolerEvents).values({ externalId: ref, event: 'unregister' });
   } catch (err) {
-    await db().insert(schema.poolerEvents).values({
-      externalId: ref,
-      event: 'unregister_failed',
-      detail: { error: (err as Error).message },
-    });
+    await db()
+      .insert(schema.poolerEvents)
+      .values({
+        externalId: ref,
+        event: 'unregister_failed',
+        detail: { error: (err as Error).message },
+      });
     throw err;
   } finally {
     await db().delete(schema.poolerTenants).where(eq(schema.poolerTenants.externalId, ref));

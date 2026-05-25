@@ -12,11 +12,7 @@ import { z } from 'zod';
 import { SecretSetBodySchema } from '@selfbase/shared';
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { getProjectByRef } from '../../services/project-store.js';
-import {
-  deleteSecrets,
-  listSecrets,
-  setSecrets,
-} from '../../services/secret-store.js';
+import { deleteSecrets, listSecrets, setSecrets } from '../../services/secret-store.js';
 
 const DeleteBodySchema = z.array(z.string());
 
@@ -38,23 +34,17 @@ export const secretsRoutes: FastifyPluginAsync = async (app) => {
     return listSecrets(req.params.ref);
   });
 
-  app.post<{ Params: { ref: string } }>(
-    '/projects/:ref/secrets',
-    async (req, reply) => {
-      const userId = await ensureProject(req, req.params.ref);
-      const body = SecretSetBodySchema.parse(req.body);
-      await setSecrets(req.params.ref, body, { userId });
-      return reply.status(201).send({ message: 'All secrets stored' });
-    },
-  );
+  app.post<{ Params: { ref: string } }>('/projects/:ref/secrets', async (req, reply) => {
+    const userId = await ensureProject(req, req.params.ref);
+    const body = SecretSetBodySchema.parse(req.body);
+    await setSecrets(req.params.ref, body, { userId });
+    return reply.status(201).send({ message: 'All secrets stored' });
+  });
 
-  app.delete<{ Params: { ref: string } }>(
-    '/projects/:ref/secrets',
-    async (req, reply) => {
-      const userId = await ensureProject(req, req.params.ref);
-      const body = DeleteBodySchema.parse(req.body);
-      await deleteSecrets(req.params.ref, body, { userId });
-      return reply.status(200).send({ message: 'Secrets removed' });
-    },
-  );
+  app.delete<{ Params: { ref: string } }>('/projects/:ref/secrets', async (req, reply) => {
+    const userId = await ensureProject(req, req.params.ref);
+    const body = DeleteBodySchema.parse(req.body);
+    await deleteSecrets(req.params.ref, body, { userId });
+    return reply.status(200).send({ message: 'Secrets removed' });
+  });
 };

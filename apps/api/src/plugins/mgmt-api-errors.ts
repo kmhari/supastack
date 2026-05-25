@@ -48,9 +48,7 @@ interface Envelope {
 
 function envelopeFromZod(err: ZodError): Envelope {
   return {
-    message: err.issues
-      .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
-      .join('; '),
+    message: err.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; '),
     code: 'validation',
     details: { issues: err.issues },
   };

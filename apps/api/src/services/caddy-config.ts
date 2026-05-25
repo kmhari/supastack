@@ -139,7 +139,9 @@ export async function buildCaddyConfig(): Promise<unknown> {
         status_code: 302,
         headers: {
           Location: apex
-            ? [`https://${apex}/dashboard/project/${ref}/secrets{http.request.uri.query_string_with_question_mark}`]
+            ? [
+                `https://${apex}/dashboard/project/${ref}/secrets{http.request.uri.query_string_with_question_mark}`,
+              ]
             : [`/dashboard/project/${ref}/secrets`],
         },
       },
@@ -157,8 +159,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
   //   2. studio-<ref>.<apex>  → Studio (UI)
   //   3. api.<apex>           → api:3001 (Supabase CLI-compat management surface)
   //   4. <apex>/* + everything else → selfbase web (dashboard catch-all)
-  const dataHost = (ref: string): string =>
-    apex ? `${ref}.${apex}` : `${ref}.localhost`;
+  const dataHost = (ref: string): string => (apex ? `${ref}.${apex}` : `${ref}.localhost`);
   const studioHost = (ref: string): string =>
     apex ? `studio-${ref}.${apex}` : `studio-${ref}.localhost`;
 
@@ -266,7 +267,9 @@ export async function buildCaddyConfig(): Promise<unknown> {
           openfront_https: {
             listen: [':443'],
             automatic_https: { disable_redirects: true },
-            ...(httpsConnectionPolicies ? { tls_connection_policies: httpsConnectionPolicies } : {}),
+            ...(httpsConnectionPolicies
+              ? { tls_connection_policies: httpsConnectionPolicies }
+              : {}),
             routes: httpsRoutes,
           },
         },

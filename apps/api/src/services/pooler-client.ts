@@ -34,7 +34,9 @@ function mintJwt(): string {
       }),
     ),
   );
-  const sig = b64url(crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${payload}`).digest());
+  const sig = b64url(
+    crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${payload}`).digest(),
+  );
   return `${header}.${payload}.${sig}`;
 }
 
@@ -53,19 +55,23 @@ async function callSupavisor(
   });
   const text = await res.text();
   let data: unknown = text;
-  try { data = JSON.parse(text); } catch { /* keep text */ }
+  try {
+    data = JSON.parse(text);
+  } catch {
+    /* keep text */
+  }
   return { status: res.status, data };
 }
 
 export interface RegisterTenantInput {
-  externalId: string;          // = instance ref (20 chars)
-  dbHost: string;              // 'host.docker.internal'
-  dbPort: number;              // per-instance Postgres host port (port_db_direct)
-  dbDatabase: string;          // 'postgres'
-  dbPassword: string;          // plaintext (supavisor encrypts at rest)
-  sniHostname?: string;        // optional; supavisor matches SNI when client provides it
-  poolSize?: number;           // default 20
-  maxClients?: number;         // default 100
+  externalId: string; // = instance ref (20 chars)
+  dbHost: string; // 'host.docker.internal'
+  dbPort: number; // per-instance Postgres host port (port_db_direct)
+  dbDatabase: string; // 'postgres'
+  dbPassword: string; // plaintext (supavisor encrypts at rest)
+  sniHostname?: string; // optional; supavisor matches SNI when client provides it
+  poolSize?: number; // default 20
+  maxClients?: number; // default 100
 }
 
 export async function registerTenant(input: RegisterTenantInput): Promise<void> {
@@ -100,7 +106,10 @@ export async function registerTenant(input: RegisterTenantInput): Promise<void> 
     }
     if (status === 409) {
       // already exists — idempotent
-      logger.info({ ref: input.externalId }, 'supavisor: tenant already exists, treating as success');
+      logger.info(
+        { ref: input.externalId },
+        'supavisor: tenant already exists, treating as success',
+      );
       return;
     }
     if (status >= 500) {
@@ -110,7 +119,9 @@ export async function registerTenant(input: RegisterTenantInput): Promise<void> 
     }
     throw new Error(`supavisor register failed (${status}): ${JSON.stringify(data).slice(0, 300)}`);
   }
-  throw new Error(`supavisor register failed after 3 attempts: ${JSON.stringify(lastErr).slice(0, 300)}`);
+  throw new Error(
+    `supavisor register failed after 3 attempts: ${JSON.stringify(lastErr).slice(0, 300)}`,
+  );
 }
 
 export async function unregisterTenant(externalId: string): Promise<void> {

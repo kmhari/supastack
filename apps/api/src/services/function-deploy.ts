@@ -377,10 +377,7 @@ async function commitDeploy({
       })
       .from(schema.projectFunctions)
       .where(
-        and(
-          eq(schema.projectFunctions.instanceRef, ref),
-          eq(schema.projectFunctions.slug, slug),
-        ),
+        and(eq(schema.projectFunctions.instanceRef, ref), eq(schema.projectFunctions.slug, slug)),
       )
       .limit(1);
 
@@ -476,21 +473,19 @@ async function commitDeploy({
   }
 
   // Success — audit + clean up the rollback snapshot opportunistically.
-  await db()
-    .insert(schema.functionDeploys)
-    .values({
-      id: auditId,
-      functionId: row.id,
-      instanceRef: ref,
-      slug,
-      version: row.version,
-      status: 'SUCCEEDED',
-      sizeBytes: staged.sizeBytes,
-      sha256: staged.sha256,
-      finishedAt: new Date(),
-      deployedBy: deployerUserId,
-      source: 'cli',
-    });
+  await db().insert(schema.functionDeploys).values({
+    id: auditId,
+    functionId: row.id,
+    instanceRef: ref,
+    slug,
+    version: row.version,
+    status: 'SUCCEEDED',
+    sizeBytes: staged.sizeBytes,
+    sha256: staged.sha256,
+    finishedAt: new Date(),
+    deployedBy: deployerUserId,
+    source: 'cli',
+  });
   if (rollbackPath) await rm(rollbackPath, { recursive: true, force: true }).catch(() => {});
   void sql; // silences unused import when SQL helpers move out
 

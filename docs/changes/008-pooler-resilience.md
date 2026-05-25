@@ -9,27 +9,28 @@
 
 Three feature-005 follow-ups bundled into one feature because they all touch the same operational surface (`pooler_tenants` + `pooler_events` + dashboard panel):
 
-| Issue | User Story | What |
-|---|---|---|
-| **#7** reconciler cron | US1 | Daily BullMQ job at 03:00 UTC compares `supabase_instances × pooler_tenants × supavisor`; auto-recovers 5 classes of drift; manual trigger endpoint for ops |
-| **#8** dashboard panel | US2 | Settings → Database UI with health pill, per-project table, recent runs, events tail, per-row actions |
-| **#9** PG password drift | US3 | Provision-time auth probe (prevention), reconciler active-probe classification (detection), one-click reset endpoint (recovery) |
+| Issue                    | User Story | What                                                                                                                                                        |
+| ------------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **#7** reconciler cron   | US1        | Daily BullMQ job at 03:00 UTC compares `supabase_instances × pooler_tenants × supavisor`; auto-recovers 5 classes of drift; manual trigger endpoint for ops |
+| **#8** dashboard panel   | US2        | Settings → Database UI with health pill, per-project table, recent runs, events tail, per-row actions                                                       |
+| **#9** PG password drift | US3        | Provision-time auth probe (prevention), reconciler active-probe classification (detection), one-click reset endpoint (recovery)                             |
 
 ## US1 — reconciler
 
 7 classifications + remediations:
 
-| Classification | When | Remediation |
-|---|---|---|
-| `consistent` | All three sources agree | No-op (no event emitted — operator never sees these) |
-| `missing_pooler_row` | Instance exists, no row | Re-register tenant |
-| `missing_in_supavisor` | Row says `active` but supavisor doesn't know | Re-register |
-| `failed_stale` | Row `status='failed'` for >1h | Retry register; on auth-class fail → flip to `pg_password_drift` |
-| `instance_gone` | Tenant row but instance is `deleting`/gone | Unregister + delete row |
-| `orphan_in_supavisor` | Supavisor has a tenant we don't | Unregister from supavisor |
-| `pg_password_drift` | Auth-class failure confirmed by probe | Status stays; reset via reset-pg-password endpoint |
+| Classification         | When                                         | Remediation                                                      |
+| ---------------------- | -------------------------------------------- | ---------------------------------------------------------------- |
+| `consistent`           | All three sources agree                      | No-op (no event emitted — operator never sees these)             |
+| `missing_pooler_row`   | Instance exists, no row                      | Re-register tenant                                               |
+| `missing_in_supavisor` | Row says `active` but supavisor doesn't know | Re-register                                                      |
+| `failed_stale`         | Row `status='failed'` for >1h                | Retry register; on auth-class fail → flip to `pg_password_drift` |
+| `instance_gone`        | Tenant row but instance is `deleting`/gone   | Unregister + delete row                                          |
+| `orphan_in_supavisor`  | Supavisor has a tenant we don't              | Unregister from supavisor                                        |
+| `pg_password_drift`    | Auth-class failure confirmed by probe        | Status stays; reset via reset-pg-password endpoint               |
 
 **Endpoints:**
+
 - `POST /api/v1/pooler/reconciler/run` (admin-only) — manual trigger; 409 if already in flight
 - Daily cron `0 3 * * *` UTC via BullMQ repeatable
 
@@ -47,6 +48,7 @@ Settings → Database (`/settings/database`):
 - 10s auto-refresh while document visible; immediate refetch on action
 
 **Endpoints:**
+
 - `GET /api/v1/pooler/status` — aggregated state (supavisor health + projects + events + runs)
 - `POST /api/v1/pooler/tenants/:ref/re-register` — sync single-tenant retry with forceRetry semantics; polls reconciler_runs for up to 5s; admin-only
 
@@ -57,7 +59,7 @@ Settings → Database (`/settings/database`):
 After `waitHealthy` + caddy reload, BEFORE `setStatus(running)`:
 
 ```ts
-const probe = await probeAuthWithStoredPassword(ref);  // 3× retry, 2s delay
+const probe = await probeAuthWithStoredPassword(ref); // 3× retry, 2s delay
 if (!probe.ok && probe.isAuthClass) {
   throw new Error('pg_password_drift_at_provision — ...');
 }
@@ -95,13 +97,13 @@ PG password escape: `'` → `''` (PG standard rule). Tested in `apps/api/tests/u
 
 ## Polish
 
-| Task | Status |
-|---|---|
-| T029 vitest unit tests for pooler-reconciler service | Deferred to #16 (low-priority defense-in-depth) |
-| T030 vitest for pg-password-probe | ✅ 6 tests — retry semantics, auth-class discrimination, defensive cleanup |
-| T031 vitest for pg-password-reset | ✅ 6 tests — extracted `buildResetSql` + tested PG single-quote escape incl. injection edges |
-| T032 operator runbook `docs/pooler-resilience.md` | ✅ |
-| T033 final VM E2E | ✅ done inline during implementation |
+| Task                                                 | Status                                                                                       |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| T029 vitest unit tests for pooler-reconciler service | Deferred to #16 (low-priority defense-in-depth)                                              |
+| T030 vitest for pg-password-probe                    | ✅ 6 tests — retry semantics, auth-class discrimination, defensive cleanup                   |
+| T031 vitest for pg-password-reset                    | ✅ 6 tests — extracted `buildResetSql` + tested PG single-quote escape incl. injection edges |
+| T032 operator runbook `docs/pooler-resilience.md`    | ✅                                                                                           |
+| T033 final VM E2E                                    | ✅ done inline during implementation                                                         |
 
 ## Schema changes (additive, idempotent)
 
@@ -115,6 +117,7 @@ PG password escape: `'` → `''` (PG standard rule). Tested in `apps/api/tests/u
 ## RBAC additions
 
 Four new actions in `packages/shared/src/rbac.ts`:
+
 - `pooler.read` — admin + member (dashboard panel read access)
 - `pooler.reregister` — admin only
 - `pooler.reconciler.run` — admin only

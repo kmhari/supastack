@@ -59,7 +59,7 @@ This stores the PAT in your OS keyring keyed by the profile name `selfbase`. Fro
 
 ### 4. (Optional) Skip `--profile` on every command
 
-By default the CLI's `--profile` flag is set to the literal string `"supabase"` (the cloud profile), and that default *wins* even if you've written a path into `~/.supabase/profile`. So every command you run against selfbase needs `--profile ~/.supabase/profiles/selfbase.toml` somewhere.
+By default the CLI's `--profile` flag is set to the literal string `"supabase"` (the cloud profile), and that default _wins_ even if you've written a path into `~/.supabase/profile`. So every command you run against selfbase needs `--profile ~/.supabase/profiles/selfbase.toml` somewhere.
 
 There's a way to skip that. The CLI auto-binds every flag to a `SUPABASE_<NAME>` environment variable via Cobra's automatic-env feature. Set the env var once in your shell rc:
 
@@ -181,7 +181,7 @@ selfbase implements a strict, drift-resistant subset of the Supabase Management 
 Selfbase exposes Postgres at two endpoints (matching Supabase Cloud's architecture):
 
 - **`db.<ref>.<apex>:5432`** — direct Postgres. Standard clients (psql, libpq, `supabase` CLI, every Postgres ORM) connect with `sslmode=require` and username `postgres`. Handled by a small custom STARTTLS+SNI proxy inside the selfbase api container. This is what `supabase db push` uses.
-- **`pooler.<apex>:6543`** *(coming with feature 005 Phase 2)* — multi-tenant connection pooler (Supavisor) for apps that need pooling (high-traffic clients, serverless functions). Uses the Supabase Cloud pooler username convention: `postgres.<ref>` (project ref as suffix).
+- **`pooler.<apex>:6543`** _(coming with feature 005 Phase 2)_ — multi-tenant connection pooler (Supavisor) for apps that need pooling (high-traffic clients, serverless functions). Uses the Supabase Cloud pooler username convention: `postgres.<ref>` (project ref as suffix).
 
 ### Not yet (P1+)
 
@@ -263,19 +263,19 @@ supabase <whatever> --project-ref <ref>
 
 For the curious or for debugging, here's what the CLI is actually talking to:
 
-| CLI command | HTTP request | Selfbase handler |
-|---|---|---|
-| `supabase login --token <PAT>` | none (writes PAT to keyring) | — |
-| `supabase projects list` | `GET /v1/projects` | `apps/api/src/routes/management/projects.ts` |
-| `supabase link --project-ref <r>` | `GET /v1/projects/<r>` + `GET /v1/projects/<r>/api-keys?reveal=true` | projects.ts + api-keys.ts |
-| `supabase functions deploy <s>` (default) | `PATCH /v1/projects/<r>/functions/<s>?ezbr_sha256=...` (or `POST` for first deploy), body = `EZBR` + Brotli + eszip | functions.ts → function-deploy.ts (`deployFromEszip`) |
-| `supabase functions deploy <s> --use-api` | `POST /v1/projects/<r>/functions/deploy?slug=<s>`, multipart body | functions.ts → function-deploy.ts (`deployFromMultipart`) |
-| `supabase functions list` | `GET /v1/projects/<r>/functions` | functions.ts |
-| `supabase functions download <s>` | `GET /v1/projects/<r>/functions/<s>/body` | functions.ts |
-| `supabase functions delete <s>` | `DELETE /v1/projects/<r>/functions/<s>` | functions.ts |
-| `supabase secrets list` | `GET /v1/projects/<r>/secrets` | `apps/api/src/routes/management/secrets.ts` |
-| `supabase secrets set K=V` | `POST /v1/projects/<r>/secrets` (JSON array) | secrets.ts → secret-store.ts (`setSecrets`) |
-| `supabase secrets unset K` | `DELETE /v1/projects/<r>/secrets` (JSON array of names) | secrets.ts → secret-store.ts (`deleteSecrets`) |
+| CLI command                               | HTTP request                                                                                                        | Selfbase handler                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `supabase login --token <PAT>`            | none (writes PAT to keyring)                                                                                        | —                                                         |
+| `supabase projects list`                  | `GET /v1/projects`                                                                                                  | `apps/api/src/routes/management/projects.ts`              |
+| `supabase link --project-ref <r>`         | `GET /v1/projects/<r>` + `GET /v1/projects/<r>/api-keys?reveal=true`                                                | projects.ts + api-keys.ts                                 |
+| `supabase functions deploy <s>` (default) | `PATCH /v1/projects/<r>/functions/<s>?ezbr_sha256=...` (or `POST` for first deploy), body = `EZBR` + Brotli + eszip | functions.ts → function-deploy.ts (`deployFromEszip`)     |
+| `supabase functions deploy <s> --use-api` | `POST /v1/projects/<r>/functions/deploy?slug=<s>`, multipart body                                                   | functions.ts → function-deploy.ts (`deployFromMultipart`) |
+| `supabase functions list`                 | `GET /v1/projects/<r>/functions`                                                                                    | functions.ts                                              |
+| `supabase functions download <s>`         | `GET /v1/projects/<r>/functions/<s>/body`                                                                           | functions.ts                                              |
+| `supabase functions delete <s>`           | `DELETE /v1/projects/<r>/functions/<s>`                                                                             | functions.ts                                              |
+| `supabase secrets list`                   | `GET /v1/projects/<r>/secrets`                                                                                      | `apps/api/src/routes/management/secrets.ts`               |
+| `supabase secrets set K=V`                | `POST /v1/projects/<r>/secrets` (JSON array)                                                                        | secrets.ts → secret-store.ts (`setSecrets`)               |
+| `supabase secrets unset K`                | `DELETE /v1/projects/<r>/secrets` (JSON array of names)                                                             | secrets.ts → secret-store.ts (`deleteSecrets`)            |
 
 All authenticated calls carry `Authorization: Bearer sbp_<40hex>` and `User-Agent: SupabaseCLI/<version>`.
 

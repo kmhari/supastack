@@ -41,8 +41,7 @@ async function copyToClipboard(value: string): Promise<boolean> {
   }
 }
 
-interface InputWithCopyProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
+interface InputWithCopyProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
   /** Value to copy. Defaults to the input's `value` prop. */
   copyValue?: string;
   /** Hide the right-side button entirely (renders as a plain framed input). */

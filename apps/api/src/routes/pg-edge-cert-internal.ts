@@ -18,10 +18,7 @@ export const pgEdgeCertInternalRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: { code: 'bad_request', message: 'invalid ref' } });
     }
 
-    const [orgRow] = await db()
-      .select({ apex: schema.org.apexDomain })
-      .from(schema.org)
-      .limit(1);
+    const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
     if (!orgRow?.apex) {
       return reply.status(409).send({
         error: { code: 'no_apex', message: 'apex domain not configured' },
@@ -35,10 +32,14 @@ export const pgEdgeCertInternalRoutes: FastifyPluginAsync = async (app) => {
       .where(eq(schema.supabaseInstances.ref, ref))
       .limit(1);
     if (!instRow) {
-      return reply.status(404).send({ error: { code: 'not_found', message: 'instance not found' } });
+      return reply
+        .status(404)
+        .send({ error: { code: 'not_found', message: 'instance not found' } });
     }
     if (instRow.status === 'deleting') {
-      return reply.status(409).send({ error: { code: 'deleting', message: 'instance is being deleted' } });
+      return reply
+        .status(409)
+        .send({ error: { code: 'deleting', message: 'instance is being deleted' } });
     }
 
     try {

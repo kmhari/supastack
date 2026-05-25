@@ -55,7 +55,10 @@ export const POSTGREST_CONFIG_MAP: Record<string, FieldMapping> = {
 // spotify, twitch, twitter, workos, x, zoom) are NOT in the template at all.
 // They fall through to `stored_only` so PATCH succeeds (preserves CLI compat)
 // but no env line is written. Issue #21 tracks adding the rest.
-const TEMPLATE_BOUND_OAUTH_PROVIDERS: Record<string, { enabled: string; clientId: string; secret: string }> = {
+const TEMPLATE_BOUND_OAUTH_PROVIDERS: Record<
+  string,
+  { enabled: string; clientId: string; secret: string }
+> = {
   google: { enabled: 'GOOGLE_ENABLED', clientId: 'GOOGLE_CLIENT_ID', secret: 'GOOGLE_SECRET' },
   github: { enabled: 'GITHUB_ENABLED', clientId: 'GITHUB_CLIENT_ID', secret: 'GITHUB_SECRET' },
   azure: { enabled: 'AZURE_ENABLED', clientId: 'AZURE_CLIENT_ID', secret: 'AZURE_SECRET' },

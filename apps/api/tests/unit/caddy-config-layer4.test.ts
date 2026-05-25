@@ -9,20 +9,30 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 const fixtures = {
   orgRow: null as { apexDomain: string | null } | null,
   certRows: [] as { apex: string }[],
-  instances: [] as { ref: string; portKong: number; portStudio: number; portPostgres: number; portDbDirect: number | null }[],
+  instances: [] as {
+    ref: string;
+    portKong: number;
+    portStudio: number;
+    portPostgres: number;
+    portDbDirect: number | null;
+  }[],
 };
 
 vi.mock('@selfbase/db', () => {
   let callIndex = 0;
   const chain = (rows: unknown[]) => {
     const obj: Record<string, unknown> = {
-      from: () => obj, where: () => obj, limit: () => Promise.resolve(rows),
+      from: () => obj,
+      where: () => obj,
+      limit: () => Promise.resolve(rows),
       then: (resolve: (v: unknown) => unknown) => Promise.resolve(rows).then(resolve),
     };
     return obj;
   };
   return {
-    __reset: () => { callIndex = 0; },
+    __reset: () => {
+      callIndex = 0;
+    },
     db: () => ({
       select: () => {
         const idx = callIndex++;
@@ -35,7 +45,14 @@ vi.mock('@selfbase/db', () => {
     schema: {
       org: { id: {}, name: {}, apexDomain: {} },
       wildcardCerts: { apex: {}, status: {} },
-      supabaseInstances: { ref: {}, portKong: {}, portStudio: {}, portPostgres: {}, portDbDirect: {}, status: {} },
+      supabaseInstances: {
+        ref: {},
+        portKong: {},
+        portStudio: {},
+        portPostgres: {},
+        portDbDirect: {},
+        status: {},
+      },
     },
   };
 });
@@ -66,8 +83,20 @@ describe('buildCaddyConfig — no layer4 emission (feature 005)', () => {
     fixtures.orgRow = { apexDomain: 'selfbase.example.com' };
     fixtures.certRows = [{ apex: 'selfbase.example.com' }];
     fixtures.instances = [
-      { ref: 'a'.repeat(20), portKong: 30000, portStudio: 30001, portPostgres: 30002, portDbDirect: 30005 },
-      { ref: 'b'.repeat(20), portKong: 30010, portStudio: 30011, portPostgres: 30012, portDbDirect: 30015 },
+      {
+        ref: 'a'.repeat(20),
+        portKong: 30000,
+        portStudio: 30001,
+        portPostgres: 30002,
+        portDbDirect: 30005,
+      },
+      {
+        ref: 'b'.repeat(20),
+        portKong: 30010,
+        portStudio: 30011,
+        portPostgres: 30012,
+        portDbDirect: 30015,
+      },
     ];
     const cfg = (await buildCaddyConfig()) as CaddyConfig;
     expect(cfg.apps.layer4).toBeUndefined();

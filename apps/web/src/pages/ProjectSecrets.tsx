@@ -52,7 +52,11 @@ export function ProjectSecretsPage(): React.ReactElement {
       qc.invalidateQueries({ queryKey: ['project-secrets', ref] });
     },
     onError: (err: unknown) => {
-      const e = err as { response?: { data?: { error?: { code: string; message: string; details?: { name?: string } } } } };
+      const e = err as {
+        response?: {
+          data?: { error?: { code: string; message: string; details?: { name?: string } } };
+        };
+      };
       const msg = e?.response?.data?.error?.message ?? 'Failed to save secrets';
       const name = e?.response?.data?.error?.details?.name;
       toast.error(name ? `${msg} (${name})` : msg);
@@ -264,7 +268,8 @@ export function ProjectSecretsPage(): React.ReactElement {
       <section>
         <h2 className="m-0 mb-3 text-lg font-medium text-foreground">Default secrets</h2>
         <p className="mb-3 text-sm text-muted-foreground">
-          Managed by selfbase. Always available inside edge functions; you cannot set or replace them.
+          Managed by selfbase. Always available inside edge functions; you cannot set or replace
+          them.
         </p>
         <Card className="overflow-hidden p-0">
           {RESERVED_SECRETS.map((r, i) => (
@@ -286,8 +291,9 @@ export function ProjectSecretsPage(): React.ReactElement {
             <DialogTitle>Delete secret</DialogTitle>
             <DialogDescription>
               Permanently remove <code className="font-mono">{pendingDelete}</code> from this
-              project? Edge functions that read <code className="font-mono">{`Deno.env.get('${pendingDelete}')`}</code> will
-              receive <code className="font-mono">undefined</code> within ~5 seconds.
+              project? Edge functions that read{' '}
+              <code className="font-mono">{`Deno.env.get('${pendingDelete}')`}</code> will receive{' '}
+              <code className="font-mono">undefined</code> within ~5 seconds.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -73,9 +73,7 @@ export function SettingsMembersPage(): React.ReactElement {
   const [filter, setFilter] = useState('');
   const filtered = useMemo(
     () =>
-      members.filter((m) =>
-        filter ? m.email.toLowerCase().includes(filter.toLowerCase()) : true,
-      ),
+      members.filter((m) => (filter ? m.email.toLowerCase().includes(filter.toLowerCase()) : true)),
     [members, filter],
   );
 
@@ -102,104 +100,100 @@ export function SettingsMembersPage(): React.ReactElement {
       <SettingsLayout>
         <PageHeader title="Members" />
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative w-72">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter members"
-            className="h-8 pl-8 text-sm"
-          />
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative w-72">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter members"
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            {isAdmin && (
+              <Button size="sm" onClick={() => setInviteOpen(true)}>
+                <UserPlus className="size-3.5" />
+                Invite members
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          {isAdmin && (
-            <Button size="sm" onClick={() => setInviteOpen(true)}>
-              <UserPlus className="size-3.5" />
-              Invite members
-            </Button>
+
+        <div className="overflow-hidden rounded-lg border border-border-soft bg-card">
+          <div className="grid grid-cols-[1fr_180px_180px_120px] gap-4 border-b border-border-soft px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <div>Member</div>
+            <div>Role</div>
+            <div>Joined</div>
+            <div />
+          </div>
+
+          {isLoading ? (
+            <p className="px-6 py-5 text-muted-foreground">Loading…</p>
+          ) : filtered.length === 0 ? (
+            <p className="px-6 py-5 text-muted-foreground">
+              {filter ? 'No members match your filter.' : 'No members yet.'}
+            </p>
+          ) : (
+            filtered.map((m, i) => (
+              <MemberRow
+                key={m.userId}
+                member={m}
+                isYou={m.userId === user?.userId}
+                first={i === 0}
+                canRemove={isAdmin && m.userId !== user?.userId}
+                onRemove={() => {
+                  if (confirm(`Remove ${m.email}? Tokens and sessions will be invalidated.`))
+                    removeMember.mutate(m.userId);
+                }}
+              />
+            ))
           )}
         </div>
-      </div>
 
-      <div className="overflow-hidden rounded-lg border border-border-soft bg-card">
-        <div className="grid grid-cols-[1fr_180px_180px_120px] gap-4 border-b border-border-soft px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          <div>Member</div>
-          <div>Role</div>
-          <div>Joined</div>
-          <div />
-        </div>
-
-        {isLoading ? (
-          <p className="px-6 py-5 text-muted-foreground">Loading…</p>
-        ) : filtered.length === 0 ? (
-          <p className="px-6 py-5 text-muted-foreground">
-            {filter ? 'No members match your filter.' : 'No members yet.'}
-          </p>
-        ) : (
-          filtered.map((m, i) => (
-            <MemberRow
-              key={m.userId}
-              member={m}
-              isYou={m.userId === user?.userId}
-              first={i === 0}
-              canRemove={isAdmin && m.userId !== user?.userId}
-              onRemove={() => {
-                if (confirm(`Remove ${m.email}? Tokens and sessions will be invalidated.`))
-                  removeMember.mutate(m.userId);
-              }}
-            />
-          ))
-        )}
-      </div>
-
-      {isAdmin && invites.length > 0 && (
-        <>
-          <h2 className="mt-10 mb-3 text-base font-medium text-foreground">
-            Pending invites ({invites.length})
-          </h2>
-          <div className="overflow-hidden rounded-lg border border-border-soft bg-card">
-            <div className="grid grid-cols-[1fr_180px_180px_120px] gap-4 border-b border-border-soft px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              <div>Email</div>
-              <div>Role</div>
-              <div>Expires</div>
-              <div />
-            </div>
-            {invites.map((i, idx) => (
-              <div
-                key={i.id}
-                className={`grid grid-cols-[1fr_180px_180px_120px] items-center gap-4 px-6 py-4 ${idx > 0 ? 'border-t border-border-soft' : ''}`}
-              >
-                <div className="flex items-center gap-3 text-sm text-foreground">
-                  <span className="flex size-7 items-center justify-center rounded-full border border-border bg-secondary/60">
-                    <Clock className="size-3.5 text-muted-foreground" />
-                  </span>
-                  {i.email}
-                </div>
-                <div className="text-sm text-foreground">{i.role}</div>
-                <div className="text-sm text-muted-foreground">
-                  {new Date(i.expiresAt).toLocaleDateString()}
-                </div>
-                <div className="text-right">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => revokeInvite.mutate(i.id)}
-                  >
-                    Revoke
-                  </Button>
-                </div>
+        {isAdmin && invites.length > 0 && (
+          <>
+            <h2 className="mt-10 mb-3 text-base font-medium text-foreground">
+              Pending invites ({invites.length})
+            </h2>
+            <div className="overflow-hidden rounded-lg border border-border-soft bg-card">
+              <div className="grid grid-cols-[1fr_180px_180px_120px] gap-4 border-b border-border-soft px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                <div>Email</div>
+                <div>Role</div>
+                <div>Expires</div>
+                <div />
               </div>
-            ))}
-          </div>
-        </>
-      )}
+              {invites.map((i, idx) => (
+                <div
+                  key={i.id}
+                  className={`grid grid-cols-[1fr_180px_180px_120px] items-center gap-4 px-6 py-4 ${idx > 0 ? 'border-t border-border-soft' : ''}`}
+                >
+                  <div className="flex items-center gap-3 text-sm text-foreground">
+                    <span className="flex size-7 items-center justify-center rounded-full border border-border bg-secondary/60">
+                      <Clock className="size-3.5 text-muted-foreground" />
+                    </span>
+                    {i.email}
+                  </div>
+                  <div className="text-sm text-foreground">{i.role}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {new Date(i.expiresAt).toLocaleDateString()}
+                  </div>
+                  <div className="text-right">
+                    <Button variant="outline" size="sm" onClick={() => revokeInvite.mutate(i.id)}>
+                      Revoke
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
-      <InviteDialog
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
-        onSuccess={() => qc.invalidateQueries({ queryKey: ['invites'] })}
-      />
+        <InviteDialog
+          open={inviteOpen}
+          onOpenChange={setInviteOpen}
+          onSuccess={() => qc.invalidateQueries({ queryKey: ['invites'] })}
+        />
       </SettingsLayout>
     </Shell>
   );
@@ -229,9 +223,7 @@ function MemberRow({
         <span className="text-sm text-foreground">{member.email}</span>
         {isYou && <Badge variant="outline">You</Badge>}
       </div>
-      <div className="text-sm text-foreground">
-        {member.role === 'admin' ? 'Admin' : 'Member'}
-      </div>
+      <div className="text-sm text-foreground">{member.role === 'admin' ? 'Admin' : 'Member'}</div>
       <div className="text-sm text-muted-foreground">
         {new Date(member.createdAt).toLocaleDateString()}
       </div>
@@ -313,9 +305,7 @@ function InviteDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Invite a member</DialogTitle>
-          <DialogDescription>
-            Send a one-time invite link. Valid for 24 hours.
-          </DialogDescription>
+          <DialogDescription>Send a one-time invite link. Valid for 24 hours.</DialogDescription>
         </DialogHeader>
 
         {!newLink ? (

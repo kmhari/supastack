@@ -53,10 +53,25 @@ describe('REDACTED_SECRET sentinel', () => {
 describe('SECRET_FIELDS membership', () => {
   it('includes every OAuth provider secret', () => {
     for (const p of [
-      'apple', 'azure', 'bitbucket', 'discord', 'facebook', 'figma',
-      'github', 'gitlab', 'google', 'kakao', 'keycloak',
-      'notion', 'slack', 'spotify', 'twitch', 'twitter',
-      'workos', 'x', 'zoom',
+      'apple',
+      'azure',
+      'bitbucket',
+      'discord',
+      'facebook',
+      'figma',
+      'github',
+      'gitlab',
+      'google',
+      'kakao',
+      'keycloak',
+      'notion',
+      'slack',
+      'spotify',
+      'twitch',
+      'twitter',
+      'workos',
+      'x',
+      'zoom',
     ]) {
       expect(SECRET_FIELDS.has(`external_${p}_secret`), `missing external_${p}_secret`).toBe(true);
     }
@@ -74,8 +89,6 @@ describe('SECRET_FIELDS membership', () => {
     // false-positive guard from the OpenAPI scan
     expect(SECRET_FIELDS.has('password_min_length')).toBe(false);
     expect(SECRET_FIELDS.has('mailer_notifications_password_changed_enabled')).toBe(false);
-    expect(
-      SECRET_FIELDS.has('security_update_password_require_reauthentication'),
-    ).toBe(false);
+    expect(SECRET_FIELDS.has('security_update_password_require_reauthentication')).toBe(false);
   });
 });

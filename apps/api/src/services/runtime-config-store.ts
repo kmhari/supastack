@@ -83,10 +83,7 @@ const AUTH_CONFIG_DEFAULTS: ConfigJson = {
 // ─── Public API ────────────────────────────────────────────────────────────
 
 /** GET handler entry-point. Returns the redacted post-merge config. */
-export async function getConfig(
-  ref: string,
-  surface: ConfigSurface,
-): Promise<ConfigJson> {
+export async function getConfig(ref: string, surface: ConfigSurface): Promise<ConfigJson> {
   const plaintext = await loadCurrentPlaintext(ref, surface);
   return redactSecrets(plaintext);
 }
@@ -117,8 +114,7 @@ export async function patchConfig(
       const details: Record<string, string> = {};
       for (const issue of err.issues) {
         const key = issue.path.join('.') || '_root';
-        details[key] =
-          issue.code === 'unrecognized_keys' ? 'unknown_field' : issue.message;
+        details[key] = issue.code === 'unrecognized_keys' ? 'unknown_field' : issue.message;
       }
       // unrecognized_keys reports the keys in `issue.keys` rather than `path`.
       for (const issue of err.issues) {
@@ -126,12 +122,7 @@ export async function patchConfig(
           for (const k of issue.keys) details[k] = 'unknown_field';
         }
       }
-      throw new ManagementApiError(
-        400,
-        'Validation failed',
-        'validation_failed',
-        details,
-      );
+      throw new ManagementApiError(400, 'Validation failed', 'validation_failed', details);
     }
     throw err;
   }
@@ -169,9 +160,7 @@ export async function patchConfig(
 // ─── Internals ─────────────────────────────────────────────────────────────
 
 export function containerNameFor(ref: string, surface: ConfigSurface): string {
-  return surface === 'postgrest'
-    ? `selfbase-${ref}-rest-1`
-    : `selfbase-${ref}-auth-1`;
+  return surface === 'postgrest' ? `selfbase-${ref}-rest-1` : `selfbase-${ref}-auth-1`;
 }
 
 export function envPathFor(ref: string): string {
@@ -179,15 +168,10 @@ export function envPathFor(ref: string): string {
 }
 
 export function defaultsFor(surface: ConfigSurface): ConfigJson {
-  return surface === 'postgrest'
-    ? { ...POSTGREST_CONFIG_DEFAULTS }
-    : { ...AUTH_CONFIG_DEFAULTS };
+  return surface === 'postgrest' ? { ...POSTGREST_CONFIG_DEFAULTS } : { ...AUTH_CONFIG_DEFAULTS };
 }
 
-async function loadCurrentPlaintext(
-  ref: string,
-  surface: ConfigSurface,
-): Promise<ConfigJson> {
+async function loadCurrentPlaintext(ref: string, surface: ConfigSurface): Promise<ConfigJson> {
   const row = await db()
     .select({ payload: schema.projectConfigSnapshots.encryptedPayload })
     .from(schema.projectConfigSnapshots)
@@ -221,10 +205,7 @@ function redactSecrets(plain: ConfigJson): ConfigJson {
  * equals REDACTED_SECRET and whose name is in SECRET_FIELDS, the merge
  * preserves `current`'s value (Q5 round-trip rule).
  */
-function mergeWithSentinelResolution(
-  current: ConfigJson,
-  body: ConfigJson,
-): ConfigJson {
+function mergeWithSentinelResolution(current: ConfigJson, body: ConfigJson): ConfigJson {
   const out: ConfigJson = { ...current };
   for (const [k, v] of Object.entries(body)) {
     if (v === undefined) continue;
@@ -266,10 +247,7 @@ function crossFieldValidate(surface: ConfigSurface, merged: ConfigJson): void {
   }
 }
 
-function computeChangedFields(
-  current: ConfigJson,
-  merged: ConfigJson,
-): string[] {
+function computeChangedFields(current: ConfigJson, merged: ConfigJson): string[] {
   const out: string[] = [];
   const keys = new Set([...Object.keys(current), ...Object.keys(merged)]);
   for (const k of keys) {
@@ -289,12 +267,9 @@ async function applyEnvAndRestart(
   const beforeEnv = await readFile(envPath, 'utf8').catch(() => '');
   let newEnv = beforeEnv;
 
-  const lookup =
-    surface === 'postgrest' ? lookupPostgrestFieldMapping : lookupAuthFieldMapping;
+  const lookup = surface === 'postgrest' ? lookupPostgrestFieldMapping : lookupAuthFieldMapping;
   const allKeys =
-    surface === 'postgrest'
-      ? Object.keys(POSTGREST_CONFIG_MAP)
-      : Object.keys(AUTH_CONFIG_HONORED);
+    surface === 'postgrest' ? Object.keys(POSTGREST_CONFIG_MAP) : Object.keys(AUTH_CONFIG_HONORED);
 
   for (const k of allKeys) {
     if (!(k in merged)) continue;
@@ -372,13 +347,15 @@ async function emitAudit(
       diff[k] = { old: before[k] ?? null, new: after[k] ?? null };
     }
   }
-  await db().insert(schema.auditLog).values({
-    actorUserId: userId,
-    action: surface === 'postgrest' ? 'mgmt_api.postgrest.update' : 'mgmt_api.auth_config.update',
-    targetKind: 'instance',
-    targetId: ref,
-    payload: { ref, surface, changed_fields: changedFields, diff },
-  });
+  await db()
+    .insert(schema.auditLog)
+    .values({
+      actorUserId: userId,
+      action: surface === 'postgrest' ? 'mgmt_api.postgrest.update' : 'mgmt_api.auth_config.update',
+      targetKind: 'instance',
+      targetId: ref,
+      payload: { ref, surface, changed_fields: changedFields, diff },
+    });
 }
 
 // ─── Lock + file I/O helpers ────────────────────────────────────────────────

@@ -98,10 +98,7 @@ export function InstanceBackupsPage(): React.ReactElement {
           <CardContent>
             <div className="flex flex-wrap items-center gap-6">
               <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-foreground">
-                <Checkbox
-                  checked={effectiveAuto}
-                  onCheckedChange={(v) => setAutoOn(v === true)}
-                />
+                <Checkbox checked={effectiveAuto} onCheckedChange={(v) => setAutoOn(v === true)} />
                 Daily auto-backup
               </label>
               <div className="inline-flex items-center gap-2 text-sm text-foreground">
@@ -157,9 +154,7 @@ export function InstanceBackupsPage(): React.ReactElement {
                   <TableCell>{b.kind}</TableCell>
                   <TableCell>
                     <StatusPill status={b.status} />
-                    {b.error && (
-                      <div className="mt-1 text-xs text-destructive">{b.error}</div>
-                    )}
+                    {b.error && <div className="mt-1 text-xs text-destructive">{b.error}</div>}
                   </TableCell>
                   <TableCell>{b.sizeBytes ? formatBytes(b.sizeBytes) : '—'}</TableCell>
                   <TableCell>{b.storeKind}</TableCell>

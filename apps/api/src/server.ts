@@ -101,10 +101,8 @@ export async function buildApp(): Promise<FastifyInstance> {
     { parseAs: 'buffer' },
     (_req, body, done) => done(null, body),
   );
-  app.addContentTypeParser(
-    'application/octet-stream',
-    { parseAs: 'buffer' },
-    (_req, body, done) => done(null, body),
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (_req, body, done) =>
+    done(null, body),
   );
 
   // Uniform error formatter. Dashboard surface (everything except /v1) uses
@@ -249,14 +247,9 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => void shutdown('SIGINT'));
 }
 
-async function maybeStartPgEdgeProxy(
-  app: FastifyInstance,
-): Promise<PgEdgeProxy | null> {
+async function maybeStartPgEdgeProxy(app: FastifyInstance): Promise<PgEdgeProxy | null> {
   try {
-    const [orgRow] = await db()
-      .select({ apex: schema.org.apexDomain })
-      .from(schema.org)
-      .limit(1);
+    const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
     const apex = orgRow?.apex;
     if (!apex) {
       app.log.info('pg-edge: skipped (no apex configured)');

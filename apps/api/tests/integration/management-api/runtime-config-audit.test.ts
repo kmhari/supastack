@@ -103,9 +103,7 @@ describe.skipIf(!hasTestEnv)('audit log emission for runtime config PATCHes', ()
       old: REDACTED_SECRET,
       new: REDACTED_SECRET,
     });
-    expect(JSON.stringify(payload)).not.toContain(
-      'plaintext-should-NOT-appear-in-audit',
-    );
+    expect(JSON.stringify(payload)).not.toContain('plaintext-should-NOT-appear-in-audit');
   });
 
   it('postgrest-config: PATCH max_rows → 1 audit row with diff', async () => {

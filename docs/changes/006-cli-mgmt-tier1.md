@@ -9,14 +9,15 @@
 Before: every `/v1/*` Supabase Management API endpoint outside the P0 subset (login, link, functions, secrets) returned `501 not_implemented`. So `supabase gen types typescript`, `supabase migration list`, etc. failed.
 
 After: two more CLI command groups work fully against selfbase:
+
 - `supabase gen types typescript --project-id <ref>` — generates byte-compatible TS types via per-instance pg-meta
 - `supabase migration list/repair/fetch` — round-trip migration history management with lazy `supabase_migrations` schema bootstrap (`migration up` already worked via feature 005's pooler)
 
 ## Architecture
 
-| Story | Endpoint | Backend |
-|---|---|---|
-| **US1** gen types | `GET /v1/projects/<ref>/types/typescript` | Forwards to per-instance Kong's `/pg/*` proxy (which routes to `pg-meta:8080`) with the project's service_role key. No new port mapping needed — Kong is already host-port-exposed. |
+| Story              | Endpoint                                                                      | Backend                                                                                                                                                                                                         |
+| ------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **US1** gen types  | `GET /v1/projects/<ref>/types/typescript`                                     | Forwards to per-instance Kong's `/pg/*` proxy (which routes to `pg-meta:8080`) with the project's service_role key. No new port mapping needed — Kong is already host-port-exposed.                             |
 | **US2** migrations | `GET/POST/DELETE /v1/projects/<ref>/database/migrations[/upsert\|/<version>]` | Connects to per-instance Postgres via shared `per-instance-pg.ts` helper (ephemeral `pg.Client`); lazy bootstrap of `supabase_migrations.schema_migrations` on every call; idempotent upsert via `ON CONFLICT`. |
 
 ## CLI commands now working
@@ -43,18 +44,18 @@ supabase migration fetch            # NEW — pulls remote history to local file
 
 ## Deferred (split into low-priority issues)
 
-| US | Issue | Why deferred |
-|---|---|---|
-| **US3** snippets | #13 | Selfbase Studio stores snippets in browser localStorage, not in `user_content.content` on the per-project PG. The Cloud `/v1/snippets` endpoint is backed by Supabase's proprietary platform DB. Needs either a control-plane snippet store + Studio integration, or wait for upstream OSS Studio to add server-side support. |
-| **US4** backups list/restore | #14 | Heaviest piece of the original spec — new `restore_jobs` entity, async BullMQ restore worker (stop → swap data dir → restart → verify), filesystem-snapshot rollback, GC, RBAC gate, dynamic timeout. ~11 tasks. Warrants its own implementation session. |
+| US                           | Issue | Why deferred                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **US3** snippets             | #13   | Selfbase Studio stores snippets in browser localStorage, not in `user_content.content` on the per-project PG. The Cloud `/v1/snippets` endpoint is backed by Supabase's proprietary platform DB. Needs either a control-plane snippet store + Studio integration, or wait for upstream OSS Studio to add server-side support. |
+| **US4** backups list/restore | #14   | Heaviest piece of the original spec — new `restore_jobs` entity, async BullMQ restore worker (stop → swap data dir → restart → verify), filesystem-snapshot rollback, GC, RBAC gate, dynamic timeout. ~11 tasks. Warrants its own implementation session.                                                                     |
 
 ## Tier 1 siblings (low-priority follow-ups, NOT in this PR)
 
-| Issue | What |
-|---|---|
-| #10 | `supabase domains` — bring-your-own-domain per project |
-| #11 | `supabase postgres-config` + `auth-config` — runtime tunables |
-| #12 | `supabase ssl-enforcement` — toggle hostssl on per-instance PG |
+| Issue | What                                                           |
+| ----- | -------------------------------------------------------------- |
+| #10   | `supabase domains` — bring-your-own-domain per project         |
+| #11   | `supabase postgres-config` + `auth-config` — runtime tunables  |
+| #12   | `supabase ssl-enforcement` — toggle hostssl on per-instance PG |
 
 ## Key files
 

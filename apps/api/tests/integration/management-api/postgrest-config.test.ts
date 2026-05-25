@@ -26,11 +26,7 @@ async function seedEnv(ref: string): Promise<string> {
   const instancesDir = process.env.INSTANCES_DIR ?? '/tmp/selfbase-test-instances';
   const envPath = path.join(instancesDir, ref, '.env');
   await mkdir(path.dirname(envPath), { recursive: true });
-  await writeFile(
-    envPath,
-    'PGRST_DB_SCHEMAS=public\nPGRST_DB_MAX_ROWS=1000\n',
-    { mode: 0o600 },
-  );
+  await writeFile(envPath, 'PGRST_DB_SCHEMAS=public\nPGRST_DB_MAX_ROWS=1000\n', { mode: 0o600 });
   return envPath;
 }
 
@@ -89,10 +85,12 @@ describe.skipIf(!hasTestEnv)('PATCH /v1/projects/:ref/postgrest', () => {
     await withMockInstance(ref);
     const envPath = await seedEnv(ref);
     const envBefore = await readFile(envPath, 'utf8');
-    const auditCountBefore = (await db()
-      .select({ id: schema.auditLog.id })
-      .from(schema.auditLog)
-      .where(eq(schema.auditLog.action, 'mgmt_api.postgrest.update'))).length;
+    const auditCountBefore = (
+      await db()
+        .select({ id: schema.auditLog.id })
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'mgmt_api.postgrest.update'))
+    ).length;
 
     const res = await app.inject({
       method: 'PATCH',
@@ -104,10 +102,12 @@ describe.skipIf(!hasTestEnv)('PATCH /v1/projects/:ref/postgrest', () => {
     expect((res.json() as { details?: Record<string, unknown> }).details).toBeDefined();
 
     expect(await readFile(envPath, 'utf8')).toBe(envBefore);
-    const auditCountAfter = (await db()
-      .select({ id: schema.auditLog.id })
-      .from(schema.auditLog)
-      .where(eq(schema.auditLog.action, 'mgmt_api.postgrest.update'))).length;
+    const auditCountAfter = (
+      await db()
+        .select({ id: schema.auditLog.id })
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'mgmt_api.postgrest.update'))
+    ).length;
     expect(auditCountAfter).toBe(auditCountBefore);
     expect(fakeDocker.restartCalls).toEqual([]);
   });
@@ -182,13 +182,9 @@ describe.skipIf(!hasTestEnv)('PATCH /v1/projects/:ref/postgrest', () => {
       const loserIsPg = pgRes.statusCode === 409;
       const retryRes = await app.inject({
         method: 'PATCH',
-        url: loserIsPg
-          ? `/v1/projects/${ref}/postgrest`
-          : `/v1/projects/${ref}/config/auth`,
+        url: loserIsPg ? `/v1/projects/${ref}/postgrest` : `/v1/projects/${ref}/config/auth`,
         headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-        payload: loserIsPg
-          ? JSON.stringify({ max_rows: 2000 })
-          : JSON.stringify({ jwt_exp: 7200 }),
+        payload: loserIsPg ? JSON.stringify({ max_rows: 2000 }) : JSON.stringify({ jwt_exp: 7200 }),
       });
       expect(retryRes.statusCode).toBe(200);
     } finally {
