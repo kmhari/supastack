@@ -243,6 +243,27 @@ export interface ResetPgPasswordResponse {
   reconciler_run_id?: string;
 }
 
+// ─── feature 010 — secrets management ───────────────────────────────────────
+export interface SecretListEntry {
+  name: string;
+  value: string; // sha256 hex digest of the plaintext (never plaintext)
+}
+
+export const secretsApi = {
+  list: (ref: string) => unwrap<SecretListEntry[]>(client.get(`/projects/${ref}/secrets`)),
+  upsert: (ref: string, secrets: Array<{ name: string; value: string }>) =>
+    unwrap<{ message: string }>(client.post(`/projects/${ref}/secrets`, secrets)),
+  delete: (ref: string, names: string[]) =>
+    unwrap<{ message: string }>(client.delete(`/projects/${ref}/secrets`, { data: names })),
+};
+
+export const vaultApi = {
+  enable: (ref: string) =>
+    unwrap<{ jobId: string; queued: boolean; ref: string }>(
+      client.post(`/projects/${ref}/vault/enable`),
+    ),
+};
+
 export const poolerApi = {
   status: () => unwrap<PoolerStatusResponse>(client.get('/pooler/status')),
   reregister: (ref: string) =>

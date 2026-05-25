@@ -37,6 +37,10 @@ export const ACTIONS = [
   'pooler.reregister',
   'pooler.reconciler.run',
   'instance.pg-password.reset',
+  // feature 010 — secrets management (vault-backed)
+  'instance.secrets.read',
+  'instance.secrets.write',
+  'instance.vault.enable',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -72,6 +76,9 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'pooler.reregister': true,
     'pooler.reconciler.run': true,
     'instance.pg-password.reset': true,
+    'instance.secrets.read': true,
+    'instance.secrets.write': true,
+    'instance.vault.enable': true,
   },
   member: {
     'setup.run': false, // setup only runs unauthenticated, before any user exists
@@ -102,6 +109,9 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'pooler.reregister': false,
     'pooler.reconciler.run': false,
     'instance.pg-password.reset': false,
+    'instance.secrets.read': true, // members can view digests (no plaintext) — read-only dashboard view
+    'instance.secrets.write': false,
+    'instance.vault.enable': false,
   },
 };
 

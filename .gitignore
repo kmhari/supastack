@@ -61,3 +61,7 @@ infra/supabase-template/.local/
 # from the repo root by accident
 /supabase/
 .claude/worktrees/
+
+
+# Deno (used only by infra/.../main.test.ts; URL imports are pinned)
+deno.lock

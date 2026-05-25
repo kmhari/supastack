@@ -1,0 +1,12 @@
+-- 0011_drop_project_secrets.sql
+--
+-- Feature 010 follow-up — drop the deprecated control-plane secrets table.
+--
+-- Status: DRAFT. Do NOT apply until at least one deploy of feature 010 has
+-- been live for the deprecation window (operators may need to inspect
+-- pre-cutover rows during early ops). Decision to actually run this lives
+-- with the operator in a separate PR.
+--
+-- Idempotent (matches selfbase migration convention).
+
+-- DROP TABLE IF EXISTS project_secrets CASCADE;

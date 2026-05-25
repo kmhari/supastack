@@ -9,6 +9,7 @@ import { InstancesNewPage } from './pages/InstancesNew.js';
 import { ProjectGeneralPage } from './pages/ProjectGeneral.js';
 import { ProjectApiKeysPage } from './pages/ProjectApiKeys.js';
 import { ProjectJwtKeysPage } from './pages/ProjectJwtKeys.js';
+import { ProjectSecretsPage } from './pages/ProjectSecrets.js';
 import { InstanceBackupsPage } from './pages/InstanceBackups.js';
 import { ProjectHealthPage } from './pages/ProjectHealth.js';
 import { SettingsOrgPage } from './pages/SettingsOrg.js';
@@ -80,6 +81,14 @@ export function App(): React.ReactElement {
           element={
             <RequireAuth>
               <ProjectJwtKeysPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/dashboard/project/:ref/secrets"
+          element={
+            <RequireAuth>
+              <ProjectSecretsPage />
             </RequireAuth>
           }
         />
