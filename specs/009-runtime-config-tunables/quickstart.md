@@ -62,27 +62,43 @@ Tracked centrally in **issue #21**. Per field:
 3. Flip the mapping from `{ kind: 'stored_only' }` to `{ kind: 'honored', envName: '<NAME>' }`.
 4. Existing snapshot rows already carry the value — first PATCH (or a re-PATCH with the existing value) will write it into `.env` and the container will pick it up on next restart.
 
-## Running the live CLI smoke test
+## Smoke test via curl
+
+The `supabase` CLI flags this feature originally targeted (`postgres-config update --max-rows N`, `config update --auth-jwt-expiry N`) were removed in CLI v2.72+. Full CLI compat via `supabase config push` is tracked as issue #26. Until that lands, validate the HTTP surface with curl:
 
 ```bash
-# From repo root. Targets the production VM by default; override SELFBASE_HOST for staging.
-SELFBASE_HOST=https://api.supaviser.dev \
-SELFBASE_PAT=<pat> \
-SELFBASE_REF=<ref> \
-  bash tests/cli-e2e/postgres-config-and-auth-config.sh
+export SELFBASE_HOST=https://api.supaviser.dev
+export SELFBASE_PAT=sbp_...
+export REF=<your-project-ref>
+
+# GET both surfaces
+curl -sS -H "Authorization: Bearer $SELFBASE_PAT" "$SELFBASE_HOST/v1/projects/$REF/postgrest" | jq .
+curl -sS -H "Authorization: Bearer $SELFBASE_PAT" "$SELFBASE_HOST/v1/projects/$REF/config/auth" | jq .
+
+# PATCH postgrest: expose a custom schema
+curl -sS -X PATCH \
+  -H "Authorization: Bearer $SELFBASE_PAT" \
+  -H "Content-Type: application/json" \
+  -d '{"db_schema": "public,app_v2"}' \
+  "$SELFBASE_HOST/v1/projects/$REF/postgrest" | jq .
+
+# PATCH auth: extend JWT expiry to 24h
+curl -sS -X PATCH \
+  -H "Authorization: Bearer $SELFBASE_PAT" \
+  -H "Content-Type: application/json" \
+  -d '{"jwt_exp": 86400}' \
+  "$SELFBASE_HOST/v1/projects/$REF/config/auth" | jq .
+
+# Validation rejection
+curl -sS -X PATCH \
+  -H "Authorization: Bearer $SELFBASE_PAT" \
+  -H "Content-Type: application/json" \
+  -d '{"jwt_exp": 700000}' \
+  "$SELFBASE_HOST/v1/projects/$REF/config/auth" -o /tmp/err.json -w "%{http_code}\n"
+# → 400; cat /tmp/err.json shows error.details.jwt_exp
 ```
 
-The script:
-1. Verifies `supabase` CLI version against the pin (warns on mismatch).
-2. `postgres-config get` → asserts default fields present.
-3. `postgres-config update --max-rows 5000` → re-`get` → asserts persisted.
-4. `postgres-config update --max-rows -1` → asserts exit non-zero + per-field error.
-5. `config get` (auth) → asserts default `jwt_exp`.
-6. `config update --auth-jwt-expiry 7200` → re-`get` → asserts persisted.
-7. `config update --auth-jwt-expiry 99999999` → asserts exit non-zero (bound violated).
-8. Restores both surfaces to pre-test values.
-
-Exit 0 means the contract is intact.
+Each PATCH triggers a per-instance container restart (~5s for PostgREST, ~5s for GoTrue) and emits one `audit_log` entry with the field-level diff (secrets redacted).
 
 ## Rollback scenario (FR-007 + SC-006)
 

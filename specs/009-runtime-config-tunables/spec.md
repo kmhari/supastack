@@ -102,10 +102,7 @@ A team has built their API surface in an `app_v2` schema and wants PostgREST to 
 - **FR-010**: Every successful PATCH MUST emit one audit log entry capturing actor (user_id), project ref, endpoint, the set of fields changed, and old + new value for each changed field. Unchanged fields MUST NOT appear in the audit entry. No audit entry is emitted for GET, no-op PATCH, or rejected PATCH.
 - **FR-011**: Each implemented endpoint MUST replace its current `501 not_implemented` response. No other `/v1/*` endpoint's behavior changes.
 
-#### CLI compatibility verification
-
-- **FR-012**: A `tests/cli-e2e/postgres-config-and-auth-config.sh` script MUST exercise the upstream `supabase` CLI binary against a live selfbase project covering: `postgres-config get`, `postgres-config update` (single-field and multi-field), `config get` (auth section), `config update --auth-*` (jwt expiry change), a rejected validation case, and a re-`get` that confirms the change persisted. Every invocation MUST exit 0 (or the expected non-zero for the validation case), and the script MUST assert the changed field appears in the post-update `get` output. Script follows the same shape as the existing `tests/cli-e2e/*.sh` scripts from features 003 and 006.
-- **FR-013**: The script in FR-012 MUST declare the upstream `supabase` CLI version it was validated against (pinned in a comment at the top), so a future CLI upgrade that changes flag names or response parsing is caught by the test rather than silently passing.
+> **CLI compatibility deferred to issue #26.** This spec originally included FR-012/FR-013 requiring a `supabase` CLI e2e script. During implementation, CLI v2.72+ was found to have removed the imperative `--auth-jwt-expiry` / `--max-rows` flags in favor of declarative `supabase config push` reading `config.toml`. `config push` requires three additional endpoints (`billing/addons`, `config/database/postgres`, `ssl-enforcement`) that this feature does not provide. Feature 009 ships the HTTP API surface; full CLI compat (via `config push`) is tracked as a separate effort. The HTTP endpoints in FR-001..FR-011 remain the stable contract — dashboard, curl, and a future CLI-compat shim all consume the same surface.
 
 ### Key Entities
 
@@ -123,9 +120,9 @@ A team has built their API surface in an `app_v2` schema and wants PostgREST to 
 - **SC-004**: 100% of successful PATCH requests produce exactly one audit log entry that records actor, project ref, endpoint, and the field-level old/new diff sufficient to reconstruct the change.
 - **SC-005**: For 100% of PATCH requests that trigger a container restart, every JWT issued before the PATCH remains accepted by the project's auth endpoint until its original `exp` (zero forced sign-outs).
 - **SC-006**: For 100% of PATCH requests where the per-instance container refuses to start on the new config, the system rolls back to the prior `.env`, the container comes back on the prior config within 60 seconds, and the GET endpoint reflects the prior (not the rejected) config.
-- **SC-007**: `supabase postgres-config get/update` and `supabase config get/update --auth-*` operate end-to-end against a fresh selfbase install with zero `not_implemented` errors.
+- **SC-007**: A `curl` smoke against `GET/PATCH /v1/projects/<ref>/postgrest` and `/config/auth` on a fresh selfbase install with a valid PAT returns 200 and the expected shape; PATCHing then re-`GET`ting reflects the change.
 - **SC-008**: Other Management API endpoints implemented in prior features (gen-types, secrets, functions, login/link) pass their existing integration tests unchanged.
-- **SC-009**: `tests/cli-e2e/postgres-config-and-auth-config.sh` runs green against a fresh selfbase install and against the production VM, exercising both endpoints through the real upstream `supabase` CLI binary (not raw HTTP), with explicit assertions on every CLI exit code and on the persisted post-update config.
+- ~~SC-009 (deferred to issue #26)~~ — `supabase config push` end-to-end validation requires three additional endpoints (billing/addons, postgres-db, ssl-enforcement) not in this feature's scope.
 
 ## Assumptions
 
@@ -134,6 +131,6 @@ A team has built their API surface in an `app_v2` schema and wants PostgREST to 
 - Container reload uses `docker-control` (`docker compose up -d <service>`) — the same mechanism already used by feature 003's secrets endpoint and feature 008's pooler reconciler. No new orchestration primitive is required.
 - PAT authentication, the `/v1/*` error envelope, RBAC checks via `app.authorize`, and audit log emission are all reused unchanged from features 003 and 006.
 - "Reload within 30 seconds" is the steady-state target on the production VM. On a fully busy host, container restart can take longer; the success criterion accepts that 30s is the typical observed time, not a hard SLA.
-- No dashboard UI surface is added for these settings in this feature. CLI compatibility is the only deliverable. A dashboard panel can be added in a follow-up if demand exists.
+- No dashboard UI surface is added for these settings in this feature. The HTTP API surface is the deliverable; a dashboard panel and the `supabase config push` CLI compat (issue #26) both consume the same endpoints and can ship later.
 - Existing sessions remain valid because GoTrue's JWT verification only requires the shared signing secret, which does not change across an `.env`-only edit. JWT-rotation scenarios (rotating the signing secret) are out of scope for this feature.
 - The `supabase config update --auth-*` CLI command in current stable upstream maps to `PATCH /v1/projects/<ref>/config/auth`. If a future CLI version splits these into multiple endpoints, that's a follow-up.

@@ -11,12 +11,14 @@ Replaced the catch-all `501 not_implemented` response for four Supabase Manageme
 
 | Method | Path | Powers |
 |---|---|---|
-| `GET` | `/v1/projects/<ref>/postgrest` | `supabase postgres-config get` |
-| `PATCH` | `/v1/projects/<ref>/postgrest` | `supabase postgres-config update` |
-| `GET` | `/v1/projects/<ref>/config/auth` | `supabase config get` (auth section) |
-| `PATCH` | `/v1/projects/<ref>/config/auth` | `supabase config update --auth-*` |
+| `GET` | `/v1/projects/<ref>/postgrest` | direct HTTP / future `supabase config push` (issue #26) |
+| `PATCH` | `/v1/projects/<ref>/postgrest` | direct HTTP / future `supabase config push` (issue #26) |
+| `GET` | `/v1/projects/<ref>/config/auth` | direct HTTP / future `supabase config push` (issue #26) |
+| `PATCH` | `/v1/projects/<ref>/config/auth` | direct HTTP / future `supabase config push` (issue #26) |
 
-Today operators who want to change `jwt_exp`, add a schema to PostgREST, toggle an OAuth provider, or change SMTP creds SSH into the host and edit the per-instance `.env` by hand. After this feature, the unmodified upstream `supabase` CLI does it for them.
+Today operators who want to change `jwt_exp`, add a schema to PostgREST, toggle an OAuth provider, or change SMTP creds SSH into the host and edit the per-instance `.env` by hand. After this feature, the HTTP API surface backs these knobs and the dashboard / curl / a future CLI shim can all consume it.
+
+**CLI compatibility note**: the original spec assumed `supabase postgres-config update --max-rows N` and `supabase config update --auth-*` worked. CLI v2.72+ removed those imperative flags in favor of declarative `supabase config push` reading `config.toml`. `config push` needs 3 additional endpoints selfbase doesn't yet provide (`billing/addons`, `config/database/postgres`, `ssl-enforcement`). That work is tracked as [issue #26](https://github.com/kmhari/selfbase/issues/26). The HTTP endpoints in this feature are the stable contract — they work today via curl and will work via `config push` once issue #26 lands.
 
 ## How it works
 
@@ -97,4 +99,4 @@ If GoTrue/PostgREST refuses the new env (e.g. a malformed `uri_allow_list` regex
 - Edit: `apps/api/src/services/secret-store.ts` — now delegates `restartOrRollback` to the extracted helper
 - Edit: `apps/api/src/server.ts` — register the 2 new route modules before the `notImplementedRoutes` catch-all
 - Tests: 3 unit (`apps/api/tests/unit/{env-field-mapper,mgmt-api-config-validation,runtime-config-store}.test.ts`) + 4 integration (`apps/api/tests/integration/management-api/{auth-config,postgrest-config,runtime-config-audit,runtime-config-not-501}.test.ts`)
-- CLI e2e: `tests/cli-e2e/postgres-config-and-auth-config.sh` (pinned to `supabase` CLI v2.41.0)
+- CLI e2e: **deferred** — see [issue #26](https://github.com/kmhari/selfbase/issues/26). The upstream `supabase` CLI evolved away from imperative flags between v2.41 and v2.72; full `supabase config push` compat requires 3 additional endpoints out of scope for this feature.
