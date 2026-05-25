@@ -100,6 +100,11 @@ export function Shell({
               active={isSettingsActive('/settings/tokens')}
             />
             <NavTab
+              to="/settings/database"
+              label="Database"
+              active={isSettingsActive('/settings/database')}
+            />
+            <NavTab
               to="/settings/audit"
               label="Audit"
               active={isSettingsActive('/settings/audit')}

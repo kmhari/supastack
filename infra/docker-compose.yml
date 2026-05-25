@@ -155,12 +155,19 @@ services:
       INSTANCES_DIR: /var/selfbase/instances
       BACKUPS_DIR: /var/selfbase/backups
       STUDIO_IMAGE: ${STUDIO_IMAGE:-selfbase/studio:latest}
+      # Feature 008 — worker pooler-reconciler needs to call supavisor admin API.
+      SUPAVISOR_URL: http://supavisor:4000
+      SUPAVISOR_API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET:-}
     volumes:
       - /var/selfbase/instances:/var/selfbase/instances
       - /var/selfbase/backups:/var/selfbase/backups
       - /var/run/docker.sock:/var/run/docker.sock
       - ../infra/supabase-template:/app/infra/supabase-template:ro
     networks: [internal]
+    # Feature 008 — pg-password probe (provision worker + pooler-reconciler)
+    # needs to reach per-instance Postgres via host.docker.internal:<port_db_direct>.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     depends_on:
       db:
         condition: service_healthy

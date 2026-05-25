@@ -14,6 +14,7 @@ import { ProjectHealthPage } from './pages/ProjectHealth.js';
 import { SettingsOrgPage } from './pages/SettingsOrg.js';
 import { SettingsMembersPage } from './pages/SettingsMembers.js';
 import { SettingsAuditPage } from './pages/SettingsAudit.js';
+import { SettingsDatabasePage } from './pages/SettingsDatabase.js';
 import { SettingsTokensPage } from './pages/SettingsTokens.js';
 import { ConnectCliPage } from './pages/ConnectCli.js';
 import { AcceptInvitePage } from './pages/AcceptInvite.js';
@@ -133,6 +134,14 @@ export function App(): React.ReactElement {
           element={
             <RequireAuth>
               <SettingsAuditPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/database"
+          element={
+            <RequireAuth>
+              <SettingsDatabasePage />
             </RequireAuth>
           }
         />

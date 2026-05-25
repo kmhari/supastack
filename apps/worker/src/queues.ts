@@ -8,6 +8,7 @@ import { handleBackup } from './jobs/backup.js';
 import { handleBackupSchedulerTick } from './jobs/backup-scheduler.js';
 import { handleHealthReconciler } from './jobs/health-reconciler.js';
 import { handlePgEdgeCertIssue } from './jobs/pg-edge-cert-issue.js';
+import { handlePoolerReconciler, type PoolerReconcilerJob } from './jobs/pooler-reconciler.js';
 
 const REDIS_URL = process.env.REDIS_URL!;
 
@@ -31,6 +32,7 @@ export const QUEUES = {
   caddyReload: 'selfbase.caddy-reload',
   healthReconciler: 'selfbase.health-reconciler',
   pgEdgeCertIssue: 'selfbase.pg-edge-cert-issue',
+  poolerReconciler: 'selfbase.pooler-reconciler',
 } as const;
 
 export interface Queues {
@@ -41,6 +43,7 @@ export interface Queues {
   caddyReload: Queue;
   healthReconciler: Queue;
   pgEdgeCertIssue: Queue;
+  poolerReconciler: Queue;
 }
 
 export function connectQueues(): Queues {
@@ -52,6 +55,7 @@ export function connectQueues(): Queues {
     caddyReload: new Queue(QUEUES.caddyReload, queueOpts()),
     healthReconciler: new Queue(QUEUES.healthReconciler, queueOpts()),
     pgEdgeCertIssue: new Queue(QUEUES.pgEdgeCertIssue, queueOpts()),
+    poolerReconciler: new Queue(QUEUES.poolerReconciler, queueOpts()),
   };
 }
 
@@ -93,6 +97,11 @@ export function startWorkers(): WorkersHandle {
       QUEUES.pgEdgeCertIssue,
       async (job) => handlePgEdgeCertIssue(job.data as { ref: string }),
       { ...workerOpts(), concurrency: 2 },
+    ),
+    new Worker(
+      QUEUES.poolerReconciler,
+      async (job) => handlePoolerReconciler(job.data as PoolerReconcilerJob),
+      workerOpts(),
     ),
   ];
   for (const w of workers) {
