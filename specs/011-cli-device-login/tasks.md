@@ -163,7 +163,7 @@
 
 ## Phase 6: User Story 4 — Revoke from dashboard (Priority: P3)
 
-**Goal**: CLI-minted tokens show with a `cli` badge in `/dashboard/settings/tokens` and revoke normally.
+**Goal**: CLI-minted tokens show with a `cli` badge in `/settings/tokens` and revoke normally.
 
 **Independent test**: see quickstart.md US4 section.
 

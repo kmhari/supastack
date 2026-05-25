@@ -62,7 +62,7 @@ Brief (<300ms typical). Shows a centered spinner or skeleton.
 - The 8 character cells are visually separated boxes (one char per box)
 - "Copy code" button uses `navigator.clipboard.writeText(code)`; flashes "Copied!" on success
 - "Signed in as" pulls email from existing auth context
-- "Access Tokens" link goes to `/dashboard/settings/tokens`
+- "Access Tokens" link goes to `/settings/tokens`
 
 ### State C — "error" (replay OR validation failure OR 5xx)
 

@@ -10,7 +10,7 @@
  *
  * On success:
  *   - 200 { device_code: <8 lowercase hex> }
- *   - A new api_tokens row with source='cli' (revocable from /dashboard/settings/tokens)
+ *   - A new api_tokens row with source='cli' (revocable from /settings/tokens)
  *   - A Redis bundle at selfbase:cli-login:<session_id> (TTL 300s)
  *
  * On replay (session_id reused): 409 session_in_use

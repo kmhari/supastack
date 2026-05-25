@@ -51,7 +51,7 @@ URL='https://supaviser.dev/dashboard/cli/login?session_id=…&token_name=…&pub
 
 # 2. Paste it in the browser again
 # Expected: "Unable to create CLI sign-in" error page (matches Cloud's screenshot)
-# Expected: /dashboard/settings/tokens shows ONLY the one cli-badged token from US1, not a second one
+# Expected: /settings/tokens shows ONLY the one cli-badged token from US1, not a second one
 ```
 
 ## US2 — Logged-out bounce
@@ -67,7 +67,7 @@ URL='https://supaviser.dev/dashboard/cli/login?session_id=…&token_name=…&pub
 ## US4 — Revoke from dashboard
 
 ```bash
-# 1. Open https://supaviser.dev/dashboard/settings/tokens
+# 1. Open https://supaviser.dev/settings/tokens
 # Expected: the CLI-minted token from US1 is listed with a small "cli" badge next to its label
 # 2. Click Revoke on that row, confirm
 # 3. Back in terminal:

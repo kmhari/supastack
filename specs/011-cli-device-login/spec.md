@@ -34,16 +34,16 @@ An operator on their laptop runs `supabase login` (with no flags). The CLI:
 7. The CLI prints "You are now logged in. Happy coding!" and saves the token to `~/.supabase/access-token`
 8. From then on, `supabase projects list`, `supabase functions deploy`, etc. all work without any `--token` flag
 
-**Why this priority**: This IS the feature. Without it, the only way to authenticate the CLI against selfbase is `supabase login --token sbp_…`, which means operators have to first navigate to `/dashboard/settings/tokens`, click Create, copy the token, paste into the terminal. The auto-flow eliminates that, exactly mirroring the Cloud experience.
+**Why this priority**: This IS the feature. Without it, the only way to authenticate the CLI against selfbase is `supabase login --token sbp_…`, which means operators have to first navigate to `/settings/tokens`, click Create, copy the token, paste into the terminal. The auto-flow eliminates that, exactly mirroring the Cloud experience.
 
-**Independent Test**: On a fresh laptop with no `~/.supabase/access-token`, configure the selfbase profile (see existing docs), then run `supabase login`. Without ever pasting a `sbp_…` token, complete the flow end-to-end. Verify `~/.supabase/access-token` now exists; `supabase projects list` returns the deployment's projects; the new token shows up in `https://<apex>/dashboard/settings/tokens` with a "cli" badge.
+**Independent Test**: On a fresh laptop with no `~/.supabase/access-token`, configure the selfbase profile (see existing docs), then run `supabase login`. Without ever pasting a `sbp_…` token, complete the flow end-to-end. Verify `~/.supabase/access-token` now exists; `supabase projects list` returns the deployment's projects; the new token shows up in `https://<apex>/settings/tokens` with a "cli" badge.
 
 **Acceptance Scenarios**:
 
 1. **Given** the operator is signed in to the dashboard in their browser, **When** the CLI opens the `/dashboard/cli/login?session_id=…&token_name=…&public_key=…` URL, **Then** within 2 seconds the dashboard renders the "Authorize selfbase CLI" page with an 8-character verification code in monospaced boxes.
 2. **Given** the dashboard has displayed the verification code, **When** the operator copies it and pastes it into the CLI's verification prompt, **Then** within 1 second the CLI prints "You are now logged in. Happy coding!" and exits 0.
 3. **Given** the CLI has just logged in, **When** the operator runs `supabase projects list`, **Then** the deployment's projects are listed (no `--token` flag, no env var needed).
-4. **Given** the operator has just logged in via the flow, **When** they open `/dashboard/settings/tokens` in the dashboard, **Then** the newly created token is in the list with the URL's `token_name` as its label AND a small "cli" badge next to the label.
+4. **Given** the operator has just logged in via the flow, **When** they open `/settings/tokens` in the dashboard, **Then** the newly created token is in the list with the URL's `token_name` as its label AND a small "cli" badge next to the label.
 5. **Given** the operator typed the verification code wrong, **When** the CLI polls with the wrong code, **Then** the CLI prints an error and re-prompts up to 2 retries; on 3rd failure the CLI exits non-zero with a clear message.
 
 ---
@@ -77,7 +77,7 @@ The CLI's `session_id` is single-use. If the operator (or anything else) opens t
 
 **Why this priority**: Security + correctness. Without single-use enforcement, refreshing the page would silently rotate to a new PAT, breaking the existing CLI session and leaving orphan tokens. Bounded at P2 because the failure mode is recoverable (operator re-runs `supabase login`).
 
-**Independent Test**: Open the dashboard CLI-login URL, get a verification code, finish the CLI flow. Then refresh the dashboard tab (or open the same URL in a new tab). Confirm the error page renders with the message and a "Back to dashboard" link. Confirm `/dashboard/settings/tokens` shows exactly one new token for that session, not two.
+**Independent Test**: Open the dashboard CLI-login URL, get a verification code, finish the CLI flow. Then refresh the dashboard tab (or open the same URL in a new tab). Confirm the error page renders with the message and a "Back to dashboard" link. Confirm `/settings/tokens` shows exactly one new token for that session, not two.
 
 **Acceptance Scenarios**:
 
@@ -89,15 +89,15 @@ The CLI's `session_id` is single-use. If the operator (or anything else) opens t
 
 ### User Story 4 — CLI-minted tokens are revocable from the dashboard (Priority: P3)
 
-An operator who's stopped using a particular laptop wants to invalidate the CLI session that ran from it. They open `/dashboard/settings/tokens`, find the row with the `cli` badge and the matching hostname in the label, click Revoke. The token is invalidated immediately; subsequent CLI calls from that laptop get a 401.
+An operator who's stopped using a particular laptop wants to invalidate the CLI session that ran from it. They open `/settings/tokens`, find the row with the `cli` badge and the matching hostname in the label, click Revoke. The token is invalidated immediately; subsequent CLI calls from that laptop get a 401.
 
 **Why this priority**: Hygiene. The token will work indefinitely once minted, so a revoke path is required. The existing token-revoke flow already covers this — we're confirming the cli-badged tokens follow the same path.
 
-**Independent Test**: After a successful CLI login, find the token in `/dashboard/settings/tokens` (cli-badged row), click Revoke, confirm. From the same laptop's CLI, run `supabase projects list` — expect a 401 "unauthenticated" response. Re-run `supabase login` to re-auth.
+**Independent Test**: After a successful CLI login, find the token in `/settings/tokens` (cli-badged row), click Revoke, confirm. From the same laptop's CLI, run `supabase projects list` — expect a 401 "unauthenticated" response. Re-run `supabase login` to re-auth.
 
 **Acceptance Scenarios**:
 
-1. **Given** a CLI-minted token exists for the current user, **When** the operator views `/dashboard/settings/tokens`, **Then** the row shows the URL's `token_name` as the label AND a small `cli` badge to the right.
+1. **Given** a CLI-minted token exists for the current user, **When** the operator views `/settings/tokens`, **Then** the row shows the URL's `token_name` as the label AND a small `cli` badge to the right.
 2. **Given** the operator clicks Revoke on a cli-badged token, **When** they confirm, **Then** the row's `revokedAt` is set and the row is hidden from the active list (same behavior as manually-minted tokens).
 3. **Given** a CLI token has been revoked, **When** the CLI uses it for any management API call, **Then** the api returns 401 unauthenticated.
 
@@ -139,7 +139,7 @@ An operator who's stopped using a particular laptop wants to invalidate the CLI 
   - The 8-character verification code in 8 separate large monospace boxes (one char per box)
   - A full-width "Copy code" button that copies the code to clipboard on click and visually confirms ("Copied!")
   - A "Signed in as <email>" card with the operator's avatar/initials
-  - Footer text: "After authorizing, you can close this tab or manage tokens like this one in <a href='/dashboard/settings/tokens'>Access Tokens</a>."
+  - Footer text: "After authorizing, you can close this tab or manage tokens like this one in <a href='/settings/tokens'>Access Tokens</a>."
 - **FR-005**: On load with a `session_id` that has already been used (i.e., a session bundle exists in the store OR existed and was deleted by a CLI poll), the page MUST render the error state:
   - Title: "Unable to create CLI sign-in"
   - Subtitle: "Retry the sign-in command from selfbase CLI"
@@ -198,7 +198,7 @@ An operator who's stopped using a particular laptop wants to invalidate the CLI 
 ## Assumptions
 
 - The upstream supabase CLI's PKCE-style login protocol (as implemented in `supabase/cli` at `apps/cli-go/internal/login/login.go` HEAD of `develop`) is stable: ECDH P-256 keypair on the client, hex-encoded uncompressed public key (130 chars, `04` prefix), AES-256-GCM with 12-byte nonces, response shape `{ id, created_at, access_token, public_key, nonce }` with hex values, polling endpoint at `/platform/cli/login/:session_id?device_code=…`, single-use via deletion on successful poll.
-- The dashboard's tokens page (`/dashboard/settings/tokens`) already exists with a Create/Revoke flow and can absorb a small badge addition next to the label without restructuring.
+- The dashboard's tokens page (`/settings/tokens`) already exists with a Create/Revoke flow and can absorb a small badge addition next to the label without restructuring.
 - The api Fastify process is reachable on the api host (`api.<apex>`) via the existing reverse-proxy; no proxy config changes needed to expose `/platform/*`.
 - The session store (used for the existing dashboard session cookies) has TTL semantics and can hold a few-hundred-byte JSON payload per session_id — same data shape, different key namespace.
 - 8 lowercase-hex characters (32 bits) for the verification code is enough entropy when combined with a UUID v4 session_id (122 bits) and a 5-minute TTL: brute-force on the polling endpoint would need on average ~2 billion attempts per session within 5 minutes against a single session_id the attacker has to also guess.

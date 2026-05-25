@@ -98,7 +98,7 @@ api process
   ├─ mints PAT row in api_tokens (source='cli', label=token_name, userId=session user)
   │     │
   │     ▼
-  │   api_tokens table  ────────────────►  /dashboard/settings/tokens (existing UI, +badge)
+  │   api_tokens table  ────────────────►  /settings/tokens (existing UI, +badge)
   │
   ├─ encrypts PAT plaintext with AES-256-GCM (shared secret, random nonce)
   └─ stores encrypted bundle in Redis at selfbase:cli-login:<session_id>, TTL 300s

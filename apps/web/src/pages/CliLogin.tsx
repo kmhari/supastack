@@ -188,7 +188,7 @@ function CodeDisplay({
 
       <p className="m-0 text-center text-xs text-muted-foreground">
         After authorizing, you can close this tab or manage tokens like this one in{' '}
-        <Link to="/dashboard/settings/tokens" className="underline">
+        <Link to="/settings/tokens" className="underline">
           Access Tokens
         </Link>
         .

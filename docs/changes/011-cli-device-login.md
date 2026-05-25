@@ -13,7 +13,7 @@
 4. Operator pastes the code into the terminal
 5. CLI polls `https://api.<apex>/platform/cli/login/<session>?device_code=<code>`, gets back the encrypted bundle, decrypts with its private key, saves to `~/.supabase/access-token`
 
-No more `sbp_…` token paste. No need to visit `/dashboard/settings/tokens` first.
+No more `sbp_…` token paste. No need to visit `/settings/tokens` first.
 
 ## Architecture
 
@@ -58,7 +58,7 @@ None. The TTL (5 min) and device_code length (8 hex) are constants; revisit only
 
 ### Revoking a CLI session
 
-CLI-minted tokens show in `/dashboard/settings/tokens` with a small `cli` badge next to the label. Click Revoke as you would for any token. The CLI on that laptop gets 401 on its next call; the operator re-runs `supabase login`.
+CLI-minted tokens show in `/settings/tokens` with a small `cli` badge next to the label. Click Revoke as you would for any token. The CLI on that laptop gets 401 on its next call; the operator re-runs `supabase login`.
 
 ### Troubleshooting
 
