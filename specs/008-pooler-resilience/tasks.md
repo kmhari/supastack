@@ -134,11 +134,11 @@ TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `apps/web/src/`, `pack
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T029 [P] Create `apps/api/src/services/__tests__/pooler-reconciler.test.ts` — vitest unit tests for the classification + remediation logic. Mock `db`, supavisor's pooler-client, the active probe. Cover all 7 classifications + per-instance failure isolation + GC of stale running runs.
-- [ ] T030 [P] Create `apps/api/src/services/__tests__/pg-password-probe.test.ts` — vitest tests: success first try, success after 2 retries, fail all 3 (auth-class), fail all 3 (network).
-- [ ] T031 [P] Create `apps/api/src/services/__tests__/pg-password-reset.test.ts` — vitest tests with docker socket mocked: happy path, container down (502), ALTER fails (502), SQL injection attempt in password (escaped correctly).
-- [ ] T032 [P] Add a docs page `docs/pooler-resilience.md` covering operator workflows: what the reconciler does, what `pg_password_drift` means, how to recover, how to manually trigger.
-- [ ] T033 Run full quickstart on the VM (all three USes); update issue threads #7 + #8 + #9 with results.
+- [~] T029 (DEFERRED &#x2192; #16) [P] Create `apps/api/src/services/__tests__/pooler-reconciler.test.ts` — vitest unit tests for the classification + remediation logic. Mock `db`, supavisor's pooler-client, the active probe. Cover all 7 classifications + per-instance failure isolation + GC of stale running runs.
+- [X] T030 [P] Create `apps/api/src/services/__tests__/pg-password-probe.test.ts` — vitest tests: success first try, success after 2 retries, fail all 3 (auth-class), fail all 3 (network).
+- [X] T031 [P] Create `apps/api/src/services/__tests__/pg-password-reset.test.ts` — vitest tests with docker socket mocked: happy path, container down (502), ALTER fails (502), SQL injection attempt in password (escaped correctly).
+- [X] T032 [P] Add a docs page `docs/pooler-resilience.md` covering operator workflows: what the reconciler does, what `pg_password_drift` means, how to recover, how to manually trigger.
+- [X] T033 Run full quickstart on the VM (all three USes); update issue threads #7 + #8 + #9 with results.
 
 ---
 

@@ -58,15 +58,18 @@ export async function resetPgPasswordForInstance(ref: string): Promise<void> {
   }
 
   const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as InstanceSecrets;
-  const password = secrets.postgresPassword;
-
-  // PG password escape: ' → ''. Keep simple — generated passwords are
-  // alphanumeric per generatePassword() but we escape defensively.
-  const pgEscaped = password.replace(/'/g, "''");
-  const sql = `BEGIN; ALTER USER postgres WITH PASSWORD '${pgEscaped}'; ALTER USER supabase_admin WITH PASSWORD '${pgEscaped}'; COMMIT;`;
-
+  const sql = buildResetSql(secrets.postgresPassword);
   const containerName = `selfbase-${ref}-db-1`;
   await dockerExecPsql(containerName, sql);
+}
+
+/**
+ * Build the ALTER USER statements as a single PG transaction. Exported for
+ * unit-testing the password escape (PG '' → '''').
+ */
+export function buildResetSql(password: string): string {
+  const escaped = password.replace(/'/g, "''");
+  return `BEGIN; ALTER USER postgres WITH PASSWORD '${escaped}'; ALTER USER supabase_admin WITH PASSWORD '${escaped}'; COMMIT;`;
 }
 
 /**
