@@ -37,6 +37,11 @@ export const ACTIONS = [
   'pooler.reregister',
   'pooler.reconciler.run',
   'instance.pg-password.reset',
+  // feature 009 — runtime config tunables (postgres-config + auth-config)
+  'data_api_config.read',
+  'data_api_config.write',
+  'auth_config.read',
+  'auth_config.write',
   // feature 010 — secrets management (vault-backed)
   'instance.secrets.read',
   'instance.secrets.write',
@@ -76,6 +81,10 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'pooler.reregister': true,
     'pooler.reconciler.run': true,
     'instance.pg-password.reset': true,
+    'data_api_config.read': true,
+    'data_api_config.write': true,
+    'auth_config.read': true,
+    'auth_config.write': true,
     'instance.secrets.read': true,
     'instance.secrets.write': true,
     'instance.vault.enable': true,
@@ -109,6 +118,10 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'pooler.reregister': false,
     'pooler.reconciler.run': false,
     'instance.pg-password.reset': false,
+    'data_api_config.read': true,
+    'data_api_config.write': false,
+    'auth_config.read': true,
+    'auth_config.write': false,
     'instance.secrets.read': true, // members can view digests (no plaintext) — read-only dashboard view
     'instance.secrets.write': false,
     'instance.vault.enable': false,

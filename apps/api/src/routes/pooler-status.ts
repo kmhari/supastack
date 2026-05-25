@@ -98,9 +98,7 @@ export const poolerStatusRoutes: FastifyPluginAsync = async (app) => {
       instances.map(async (inst) => {
         const tenant = tenantByRef.get(inst.ref);
         const supavisorPresent =
-          inst.status === 'running' && health.reachable
-            ? await supavisorHasTenant(inst.ref)
-            : null;
+          inst.status === 'running' && health.reachable ? await supavisorHasTenant(inst.ref) : null;
         return {
           ref: inst.ref,
           name: inst.name,

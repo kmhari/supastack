@@ -36,10 +36,9 @@ const STATUS_MAP: Record<string, Project['status']> = {
   deleting: 'REMOVED',
 };
 
-export function instanceToProject(row: Pick<
-  InstanceRow,
-  'ref' | 'name' | 'orgId' | 'status' | 'createdAt'
->): Project {
+export function instanceToProject(
+  row: Pick<InstanceRow, 'ref' | 'name' | 'orgId' | 'status' | 'createdAt'>,
+): Project {
   return {
     id: row.ref, // cloud uses uuid `id` distinct from short `ref`; selfbase has only `ref`, reuse
     ref: row.ref,

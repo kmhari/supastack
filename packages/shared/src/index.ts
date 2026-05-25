@@ -5,3 +5,5 @@ export * from './state-machine.js';
 export * as schemas from './schemas.js';
 export * from './mgmt-api-schemas.js';
 export * from './reserved-secrets.js';
+export * from './schemas/mgmt-api-postgrest-config.js';
+export * from './schemas/mgmt-api-auth-config.js';

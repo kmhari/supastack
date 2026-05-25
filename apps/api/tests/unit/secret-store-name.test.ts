@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  RESERVED_SECRET_NAMES,
-  validateSecretName,
-} from '../../src/services/secret-store.js';
+import { RESERVED_SECRET_NAMES, validateSecretName } from '../../src/services/secret-store.js';
 
 /**
  * T003a (b): name-validation guard for project secrets.
@@ -14,12 +11,10 @@ import {
  */
 describe('validateSecretName', () => {
   describe('accepts well-formed names', () => {
-    it.each(['FOO', 'STRIPE_KEY', 'A', 'A1', 'A_B_C', 'X'.repeat(64)])(
-      '%s passes',
-      (name) => {
-        expect(validateSecretName(name)).toEqual({ ok: true });
-      },
-    );
+    const wellFormed = ['FOO', 'STRIPE_KEY', 'A', 'A1', 'A_B_C', 'X'.repeat(64)];
+    it.each(wellFormed)('%s passes', (name) => {
+      expect(validateSecretName(name)).toEqual({ ok: true });
+    });
   });
 
   describe('rejects format violations', () => {

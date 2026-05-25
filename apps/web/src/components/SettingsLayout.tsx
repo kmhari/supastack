@@ -18,10 +18,20 @@ interface SettingsTab {
 }
 
 const TABS: SettingsTab[] = [
-  { to: '/settings/org', label: 'Overview', icon: LayoutDashboard, matchPrefixes: ['/settings/org', '/settings/overview'] },
+  {
+    to: '/settings/org',
+    label: 'Overview',
+    icon: LayoutDashboard,
+    matchPrefixes: ['/settings/org', '/settings/overview'],
+  },
   { to: '/settings/members', label: 'Members', icon: Users, matchPrefixes: ['/settings/members'] },
   { to: '/settings/tokens', label: 'Tokens', icon: KeyRound, matchPrefixes: ['/settings/tokens'] },
-  { to: '/settings/database', label: 'Database', icon: Database, matchPrefixes: ['/settings/database'] },
+  {
+    to: '/settings/database',
+    label: 'Database',
+    icon: Database,
+    matchPrefixes: ['/settings/database'],
+  },
   { to: '/settings/audit', label: 'Audit', icon: FileClock, matchPrefixes: ['/settings/audit'] },
 ];
 

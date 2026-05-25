@@ -85,9 +85,7 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/functions/deploy (multipart
     expect(onDisk).toBe(source);
 
     // meta.json sidecar present and points at index.ts.
-    const meta = JSON.parse(
-      await readFile(path.join(volumePath, 'hello', 'meta.json'), 'utf8'),
-    );
+    const meta = JSON.parse(await readFile(path.join(volumePath, 'hello', 'meta.json'), 'utf8'));
     expect(meta.source_path).toBe('index.ts');
     expect(meta.entrypoint_path).toBe('supabase/functions/hello/index.ts');
     expect(meta.verify_jwt).toBe(true);

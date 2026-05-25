@@ -33,7 +33,7 @@ Compose silently mangles. Selfbase ships the regression tests for both.
 - **Supabase CLI compatibility** — the unmodified upstream `supabase` CLI
   (≥ 2.72.7) drives selfbase end-to-end: login with a personal access
   token, link a local project, `supabase functions deploy`, `supabase
-  secrets set`, etc. No fork, no patch, no shim. See
+secrets set`, etc. No fork, no patch, no shim. See
   [`docs/supabase-cli.md`](docs/supabase-cli.md) for the connect-and-go
   guide.
 
@@ -110,6 +110,16 @@ The full step-by-step walkthrough lives in
        │  caddy-reload  health-recon  │
        └──────────────────────────────┘
 ```
+
+## Management API compatibility
+
+Selfbase implements a subset of Supabase's Management API at `/v1/*` so the upstream `supabase` CLI works against a self-hosted instance for the workflows we back. The canonical source of truth for endpoint shapes, validation bounds, and field lists is the upstream OpenAPI spec:
+
+**[https://api.supabase.com/api/v1-json](https://api.supabase.com/api/v1-json)**
+
+When implementing or modifying a `/v1/*` endpoint, match upstream's request and response shapes byte-for-byte where reasonable. A pinned snapshot lives alongside the feature that introduces each endpoint (e.g. `specs/009-runtime-config-tunables/upstream-openapi-snapshot.json`) so validation bounds don't drift silently.
+
+Endpoints we haven't implemented return a structured `501 not_implemented` envelope identifying the missing feature — see `apps/api/src/routes/management/not-implemented.ts`.
 
 ## Repo layout
 

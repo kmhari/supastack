@@ -44,7 +44,10 @@ export async function composeRestart(ctx: ComposeContext): Promise<void> {
  * secret-set hot paths to bounce only the per-instance `functions` container
  * — avoids pulling Postgres + Kong + Realtime down on every code change.
  */
-export async function restartContainer(name: string, opts: { timeoutSec?: number } = {}): Promise<void> {
+export async function restartContainer(
+  name: string,
+  opts: { timeoutSec?: number } = {},
+): Promise<void> {
   await docker.getContainer(name).restart({ t: opts.timeoutSec ?? 5 });
 }
 
@@ -56,10 +59,7 @@ export async function restartContainer(name: string, opts: { timeoutSec?: number
  * depending on supabase-template version) determines which arm of the
  * condition wins. Either is acceptable for "ready to accept requests".
  */
-export async function waitContainerHealthy(
-  name: string,
-  timeoutMs: number = 5000,
-): Promise<void> {
+export async function waitContainerHealthy(name: string, timeoutMs: number = 5000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {

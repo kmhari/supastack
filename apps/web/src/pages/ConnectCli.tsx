@@ -84,7 +84,8 @@ export function ConnectCliPage(): React.ReactElement {
           <code className="mx-1 rounded bg-secondary px-1 py-0.5 font-mono text-xs">
             ~/.supabase/profiles/selfbase.toml
           </code>
-          ). The CLI selects it later with <code className="mx-1 font-mono text-xs">--profile</code>.
+          ). The CLI selects it later with <code className="mx-1 font-mono text-xs">--profile</code>
+          .
         </p>
         <div className="mb-3 rounded-md border border-border-soft bg-card">
           <pre className="m-0 overflow-x-auto p-4 font-mono text-xs text-foreground">
@@ -106,9 +107,9 @@ export function ConnectCliPage(): React.ReactElement {
           Step 2 &mdash; Mint a personal access token
         </h2>
         <p className="mb-3 text-sm text-muted-foreground">
-          Click below to create a new token bound to your account. The plaintext
-          is shown <span className="font-medium text-foreground">once</span> &mdash;
-          copy it immediately. You can revoke it any time from the{' '}
+          Click below to create a new token bound to your account. The plaintext is shown{' '}
+          <span className="font-medium text-foreground">once</span> &mdash; copy it immediately. You
+          can revoke it any time from the{' '}
           <a href="/settings/tokens" className="underline">
             Tokens
           </a>{' '}
@@ -122,12 +123,11 @@ export function ConnectCliPage(): React.ReactElement {
 
       {/* Step 3 */}
       <section className="mb-10">
-        <h2 className="m-0 mb-3 text-lg font-medium text-foreground">
-          Step 3 &mdash; Use the CLI
-        </h2>
+        <h2 className="m-0 mb-3 text-lg font-medium text-foreground">Step 3 &mdash; Use the CLI</h2>
         <p className="mb-3 text-sm text-muted-foreground">
-          Run these three commands. After step 1 your <code className="mx-1 font-mono text-xs">supabase login</code>{' '}
-          remembers the profile, so subsequent commands need no flags.
+          Run these three commands. After step 1 your{' '}
+          <code className="mx-1 font-mono text-xs">supabase login</code> remembers the profile, so
+          subsequent commands need no flags.
         </p>
         <div className="flex flex-col gap-3">
           <CliCommandBlock
@@ -138,8 +138,11 @@ export function ConnectCliPage(): React.ReactElement {
             command={`supabase link --project-ref ${exampleRef}`}
             caption={
               <>
-                Replace <code className="font-mono">{exampleRef}</code> with the
-                short ref from your <a href="/dashboard" className="underline">Projects</a> list.
+                Replace <code className="font-mono">{exampleRef}</code> with the short ref from your{' '}
+                <a href="/dashboard" className="underline">
+                  Projects
+                </a>{' '}
+                list.
               </>
             }
           />
@@ -154,8 +157,8 @@ export function ConnectCliPage(): React.ReactElement {
           <AlertDescription>
             Append <code className="mx-1 font-mono text-xs">--use-api</code> to
             <code className="mx-1 font-mono text-xs">functions deploy</code> and
-            <code className="mx-1 font-mono text-xs">functions download</code>. Selfbase
-            supports both paths.
+            <code className="mx-1 font-mono text-xs">functions download</code>. Selfbase supports
+            both paths.
           </AlertDescription>
         </Alert>
       </section>
@@ -172,8 +175,8 @@ export function ConnectCliPage(): React.ReactElement {
           <DialogHeader>
             <DialogTitle>Your CLI token</DialogTitle>
             <DialogDescription>
-              This is the only time you will see this token. Copy it now and store
-              it somewhere safe.
+              This is the only time you will see this token. Copy it now and store it somewhere
+              safe.
             </DialogDescription>
           </DialogHeader>
           {revealedToken && (

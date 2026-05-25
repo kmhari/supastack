@@ -25,9 +25,7 @@ export function CardRow({
     <div className="grid grid-cols-[1fr_minmax(0,1fr)] items-start gap-6 px-6 py-4">
       <div className={cn('pt-1', labelClassName)}>
         <Label className="text-sm font-normal text-foreground">{label}</Label>
-        {hint && (
-          <div className="mt-1 text-xs leading-snug text-muted-foreground">{hint}</div>
-        )}
+        {hint && <div className="mt-1 text-xs leading-snug text-muted-foreground">{hint}</div>}
       </div>
       <div className="min-w-0">{children}</div>
     </div>

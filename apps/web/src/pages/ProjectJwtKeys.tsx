@@ -48,17 +48,15 @@ export function ProjectJwtKeysPage(): React.ReactElement {
                   Legacy JWT secret is the active signing key
                 </div>
                 <p className="m-0 text-sm leading-relaxed text-muted-foreground">
-                  Used to <span className="text-foreground">sign and verify</span> JSON Web
-                  Tokens for this project. This includes the{' '}
-                  <code className="rounded bg-secondary px-1 py-0.5 font-mono text-xs">
-                    anon
-                  </code>{' '}
+                  Used to <span className="text-foreground">sign and verify</span> JSON Web Tokens
+                  for this project. This includes the{' '}
+                  <code className="rounded bg-secondary px-1 py-0.5 font-mono text-xs">anon</code>{' '}
                   and{' '}
                   <code className="rounded bg-secondary px-1 py-0.5 font-mono text-xs">
                     service_role
                   </code>{' '}
-                  JWT-based API keys. Treat it like a password — if leaked, every JWT issued
-                  by this project must be considered compromised.
+                  JWT-based API keys. Treat it like a password — if leaked, every JWT issued by this
+                  project must be considered compromised.
                 </p>
                 <Button
                   variant="outline"
@@ -74,10 +72,7 @@ export function ProjectJwtKeysPage(): React.ReactElement {
           </div>
 
           <CardRow label="Legacy JWT secret (still used)" hint="Used to verify JWTs.">
-            <JwtSecretInput
-              value={reveal.creds?.jwtSecret ?? null}
-              onReveal={reveal.openDialog}
-            />
+            <JwtSecretInput value={reveal.creds?.jwtSecret ?? null} onReveal={reveal.openDialog} />
           </CardRow>
 
           <CardRow
@@ -101,8 +96,7 @@ export function ProjectJwtKeysPage(): React.ReactElement {
               </span>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              Set at project creation. Changing this currently requires re-provisioning the
-              project.
+              Set at project creation. Changing this currently requires re-provisioning the project.
             </p>
           </CardRow>
         </Card>

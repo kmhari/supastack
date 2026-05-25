@@ -30,13 +30,15 @@ export async function runCertCheck(): Promise<void> {
       .set({ renewalDue: true, updatedAt: new Date() })
       .where(eq(schema.wildcardCerts.id, row.id));
 
-    await db().insert(schema.auditLog).values({
-      actorUserId: null,
-      action: 'tls.renewal_due',
-      targetKind: 'wildcard_cert',
-      targetId: row.id,
-      payload: { apex: row.apex, notAfter: row.notAfter?.toISOString() ?? null },
-    });
+    await db()
+      .insert(schema.auditLog)
+      .values({
+        actorUserId: null,
+        action: 'tls.renewal_due',
+        targetKind: 'wildcard_cert',
+        targetId: row.id,
+        payload: { apex: row.apex, notAfter: row.notAfter?.toISOString() ?? null },
+      });
   }
 
   // Per-project pg-edge certs (feature 005 Option B). Enqueue re-issuance for
@@ -49,12 +51,7 @@ export async function runCertCheck(): Promise<void> {
       notAfter: schema.pgEdgeCerts.notAfter,
     })
     .from(schema.pgEdgeCerts)
-    .where(
-      and(
-        eq(schema.pgEdgeCerts.status, 'issued'),
-        lt(schema.pgEdgeCerts.notAfter, cutoff),
-      ),
-    );
+    .where(and(eq(schema.pgEdgeCerts.status, 'issued'), lt(schema.pgEdgeCerts.notAfter, cutoff)));
 
   if (edgeRows.length > 0) {
     const redisUrl = process.env.REDIS_URL;
@@ -73,13 +70,15 @@ export async function runCertCheck(): Promise<void> {
             removeOnFail: 50,
           },
         );
-        await db().insert(schema.auditLog).values({
-          actorUserId: null,
-          action: 'tls.pg_edge.renewal_enqueued',
-          targetKind: 'pg_edge_cert',
-          targetId: row.id,
-          payload: { hostname: row.hostname, notAfter: row.notAfter?.toISOString() ?? null },
-        });
+        await db()
+          .insert(schema.auditLog)
+          .values({
+            actorUserId: null,
+            action: 'tls.pg_edge.renewal_enqueued',
+            targetKind: 'pg_edge_cert',
+            targetId: row.id,
+            payload: { hostname: row.hostname, notAfter: row.notAfter?.toISOString() ?? null },
+          });
       }
       await queue.close();
     }
@@ -97,7 +96,9 @@ export function createCertCheckQueue(redisUrl: string): Queue {
 export function createCertCheckWorker(redisUrl: string): Worker {
   return new Worker(
     'cert-check',
-    async () => { await runCertCheck(); },
+    async () => {
+      await runCertCheck();
+    },
     { connection: makeConnection(redisUrl) },
   );
 }

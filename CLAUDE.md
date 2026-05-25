@@ -72,6 +72,7 @@ docs/           Operator runbooks + per-feature change docs
 - **One BullMQ job per concern**, in `apps/worker/src/jobs/`. Repeatable jobs are added once at boot in `apps/worker/src/main.ts` with `repeat: { every: <ms> }` or `repeat: { pattern: '<cron>', tz: 'UTC' }`.
 - **Per-instance state changes go through the worker**, never directly from the api (except synchronous admin actions like `reset-pg-password` that need immediate operator feedback).
 - **Dashboard endpoints** under `/api/v1/*`. **Supabase Management API compatibility** under `/v1/*` (a separate Fastify mount with its own error envelope plugin).
+- **Management API source of truth**: the upstream OpenAPI at **<https://api.supabase.com/api/v1-json>** is canonical for `/v1/*` endpoint paths, request/response shapes, and validation bounds. Pin a snapshot under the feature dir (`specs/<NNN>/upstream-openapi-snapshot.json`) so drift is caught by a contract test, not silently. Note also: the upstream `supabase` CLI surface evolves independently of the HTTP API — newer CLI versions (≥ v2.72) moved most config knobs from imperative flags (`config update --auth-jwt-expiry`) to declarative `supabase config push` reading `config.toml`. The HTTP endpoints remain the stable contract; the CLI is one client among several.
 - **Tests** prefer pure functions where possible. Live VM E2E (shell scripts in `tests/cli-e2e/`) covers integration paths. Vitest unit tests cover security-sensitive bits (PAT generation, password escape).
 
 ## VM deployment
@@ -83,11 +84,11 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-Active feature plan: [specs/010-secrets-management/plan.md](specs/010-secrets-management/plan.md) — single-track secrets via supabase_vault (closes #5, dashboard CRUD UI, vault-backed `Deno.env` via patched per-project `main/index.ts` with 5s TTL cache).
-Open spec branches:
-- `010-secrets-management` — Spec + plan + research + data-model + contracts + quickstart complete. Ready for `/speckit-tasks`.
-- `009-runtime-config-tunables` — postgres-config + auth-config tunables (issue #11; drafted in worktree, not yet committed).
-- `007-auto-cert-renewal` — Cloudflare DNS API auto-renewal (issue #6, not yet implemented).
+**Most recently merged**: feature 010 — vault-backed secrets with dashboard CRUD + no-restart runtime injection (closes #5, PR #22). See [specs/010-secrets-management/plan.md](specs/010-secrets-management/plan.md).
+
+**In flight (this branch)**: feature 009 — runtime config tunables (`postgres-config` + `config --auth-*`) — issue #11. Plan: `specs/009-runtime-config-tunables/plan.md`. Spec clarified through Q5; shape-vs-behavioral parity gap tracked separately as issue #21. Implementation complete; locally tested (101 unit + 16 integration tests pass); not yet deployed.
+
+**Other open spec branches**: `007-auto-cert-renewal` (Cloudflare DNS API auto-renewal — issue #6, not yet implemented).
 <!-- SPECKIT END -->
 
 ## userEmail

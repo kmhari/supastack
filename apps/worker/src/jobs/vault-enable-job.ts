@@ -77,13 +77,15 @@ export async function handleVaultEnable(data: VaultEnableJobData): Promise<Vault
     .set({ vaultEnabledAt: enabledAt, updatedAt: enabledAt })
     .where(eq(schema.supabaseInstances.ref, ref));
 
-  await db().insert(schema.auditLog).values({
-    actorUserId: null,
-    action: 'instance.vault.enabled',
-    targetKind: 'supabase_instance',
-    targetId: ref,
-    payload: { ref, source, enabledAt: enabledAt.toISOString() },
-  });
+  await db()
+    .insert(schema.auditLog)
+    .values({
+      actorUserId: null,
+      action: 'instance.vault.enabled',
+      targetKind: 'supabase_instance',
+      targetId: ref,
+      payload: { ref, source, enabledAt: enabledAt.toISOString() },
+    });
 
   const durationMs = Date.now() - start;
   log.info({ durationMs }, 'vault-enable: ✓');

@@ -1,4 +1,8 @@
-import { callPerInstanceMeta, PerInstanceMetaError, type InstanceRow } from './per-instance-meta.js';
+import {
+  callPerInstanceMeta,
+  PerInstanceMetaError,
+  type InstanceRow,
+} from './per-instance-meta.js';
 
 /**
  * Service powering `GET /v1/projects/:ref/types/typescript` (feature 006 US1).
@@ -27,10 +31,7 @@ export class GenTypesError extends Error {
  * Generate TypeScript types for the given instance + schema set.
  * Returns the raw TypeScript source string.
  */
-export async function generateTypes(
-  inst: InstanceRow,
-  schemas: string[],
-): Promise<string> {
+export async function generateTypes(inst: InstanceRow, schemas: string[]): Promise<string> {
   // Validate schemas exist via a cheap query through pg-meta. pg-meta
   // exposes /query for arbitrary SQL but we prefer /schemas for safety.
   const schemasResp = await callPerInstanceMetaSafe(inst, '/schemas');
@@ -43,11 +44,11 @@ export async function generateTypes(
   }
   const missing = schemas.filter((s) => !availableSchemas.includes(s));
   if (missing.length > 0) {
-    throw new GenTypesError(
-      'schema_not_found',
-      `Schema(s) not found: ${missing.join(', ')}`,
-      { schemas_requested: schemas, schemas_available: availableSchemas, schemas_missing: missing },
-    );
+    throw new GenTypesError('schema_not_found', `Schema(s) not found: ${missing.join(', ')}`, {
+      schemas_requested: schemas,
+      schemas_available: availableSchemas,
+      schemas_missing: missing,
+    });
   }
 
   // pg-meta's /generators/typescript expects `included_schemas` as a single

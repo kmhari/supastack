@@ -8,29 +8,35 @@ import { wildcardCertApi } from '@/lib/api';
 function RenewalBanner(): React.ReactElement | null {
   const navigate = useNavigate();
   const [info, setInfo] = useState<{ notAfter: string } | null>(null);
-  const [dismissed, setDismissed] = useState(() =>
-    sessionStorage.getItem('cert-renewal-dismissed') === '1',
+  const [dismissed, setDismissed] = useState(
+    () => sessionStorage.getItem('cert-renewal-dismissed') === '1',
   );
 
   useEffect(() => {
     if (dismissed) return;
-    wildcardCertApi.status().then((res) => {
-      if (res.cert?.renewalDue && res.cert.notAfter) {
-        setInfo({ notAfter: res.cert.notAfter });
-      }
-    }).catch(() => undefined);
+    wildcardCertApi
+      .status()
+      .then((res) => {
+        if (res.cert?.renewalDue && res.cert.notAfter) {
+          setInfo({ notAfter: res.cert.notAfter });
+        }
+      })
+      .catch(() => undefined);
   }, [dismissed]);
 
   if (dismissed || !info) return null;
 
   const expires = new Date(info.notAfter).toLocaleDateString(undefined, {
-    year: 'numeric', month: 'long', day: 'numeric',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
   });
 
   return (
     <div className="flex items-center justify-between border-b border-amber-600/30 bg-amber-950/40 px-8 py-2 text-sm text-amber-300">
       <span>
-        Your wildcard certificate expires on <strong>{expires}</strong>. Renew it to avoid disruption.
+        Your wildcard certificate expires on <strong>{expires}</strong>. Renew it to avoid
+        disruption.
       </span>
       <div className="flex items-center gap-3">
         <button
@@ -90,11 +96,7 @@ export function Shell({
             <NavTab to="/dashboard" label="Projects" active={isProjectsActive} />
             {/* Settings groups (Overview, Members, Tokens, Database, Audit)
                 live on a sidebar inside the settings pages themselves. */}
-            <NavTab
-              to="/settings/org"
-              label="Settings"
-              active={isSettingsActive('/settings')}
-            />
+            <NavTab to="/settings/org" label="Settings" active={isSettingsActive('/settings')} />
           </div>
         </div>
         <div className="flex items-center gap-3.5 text-sm">

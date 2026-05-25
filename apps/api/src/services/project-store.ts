@@ -19,10 +19,7 @@ export async function listProjectsForUser(userId: string): Promise<InstanceRow[]
   const rows = await db()
     .select()
     .from(schema.supabaseInstances)
-    .innerJoin(
-      schema.orgMembers,
-      eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId),
-    )
+    .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
     .where(eq(schema.orgMembers.userId, userId));
   // Drizzle's join shape is `{ supabase_instances: {...}, org_members: {...} }`;
   // extract the instance row.
@@ -34,17 +31,11 @@ export async function listProjectsForUser(userId: string): Promise<InstanceRow[]
  * for both "ref doesn't exist" and "ref exists but user can't see it"
  * so the route can emit a uniform 404 (FR-007: avoid leaking enumeration).
  */
-export async function getProjectByRef(
-  userId: string,
-  ref: string,
-): Promise<InstanceRow | null> {
+export async function getProjectByRef(userId: string, ref: string): Promise<InstanceRow | null> {
   const rows = await db()
     .select()
     .from(schema.supabaseInstances)
-    .innerJoin(
-      schema.orgMembers,
-      eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId),
-    )
+    .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
     .where(and(eq(schema.supabaseInstances.ref, ref), eq(schema.orgMembers.userId, userId)))
     .limit(1);
   return rows[0]?.supabase_instances ?? null;

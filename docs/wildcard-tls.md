@@ -15,6 +15,7 @@ pressure at scale.
 5. Caddy loads the cert via `tls.certificates.load_files` and serves all subdomains from it.
 
 The certificate covers:
+
 - `<apex>` — your dashboard domain
 - `*.<apex>` — every project data plane, Studio, and management API subdomain
 
@@ -62,6 +63,7 @@ The wildcard certificate is valid for 90 days. Selfbase alerts you 30 days befor
 dashboard banner.
 
 To renew:
+
 1. Click **Renew now →** in the banner (or go to Settings → TLS).
 2. The wizard generates new TXT challenge values.
 3. Update the `_acme-challenge.<apex>` TXT records at your registrar with the new values.
@@ -86,6 +88,7 @@ via their individual certs until those expire, then renew on-demand.
 **TXT records not propagating**
 
 DNS can take 1-10 minutes. Factors:
+
 - Old TTL values (if you lowered TTL after the fact, wait for the old TTL to expire first)
 - Registrar-specific propagation lag (some are slower than others)
 - The wizard uses public resolvers (1.1.1.1, 8.8.8.8) — check there if your local resolver shows the record but the wizard doesn't

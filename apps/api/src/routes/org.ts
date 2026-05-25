@@ -22,12 +22,7 @@ export const orgRoutes: FastifyPluginAsync = async (app) => {
     const certRows = await db()
       .select({ id: schema.wildcardCerts.id })
       .from(schema.wildcardCerts)
-      .where(
-        and(
-          eq(schema.wildcardCerts.orgId, row.id),
-          eq(schema.wildcardCerts.status, 'issued'),
-        ),
-      )
+      .where(and(eq(schema.wildcardCerts.orgId, row.id), eq(schema.wildcardCerts.status, 'issued')))
       .limit(1);
 
     return reply.send({ ...row, hasCert: certRows.length > 0 });

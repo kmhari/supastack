@@ -169,12 +169,9 @@ export async function setSecrets(
   for (const entry of entries) {
     const r = validateSecretName(entry.name);
     if (!r.ok) {
-      throw new ManagementApiError(
-        r.code === 'reserved_name' ? 409 : 422,
-        r.message,
-        r.code,
-        { name: entry.name },
-      );
+      throw new ManagementApiError(r.code === 'reserved_name' ? 409 : 422, r.message, r.code, {
+        name: entry.name,
+      });
     }
     if (entry.value === '') {
       throw new ManagementApiError(
@@ -258,10 +255,7 @@ function translateVaultError(err: unknown, ref: string): ManagementApiError {
     );
   }
   // Unexpected — propagate as 500. The Fastify error handler logs the stack.
-  return new ManagementApiError(
-    500,
-    err instanceof Error ? err.message : String(err),
-    'internal',
-    { ref },
-  );
+  return new ManagementApiError(500, err instanceof Error ? err.message : String(err), 'internal', {
+    ref,
+  });
 }

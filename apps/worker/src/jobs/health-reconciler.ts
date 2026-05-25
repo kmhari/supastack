@@ -35,11 +35,17 @@ export async function handleHealthReconciler(): Promise<void> {
   for (const row of rows) {
     // Skip provisioning rows that haven't been stuck long enough — the
     // provision worker still owns them.
-    if (row.status === 'provisioning' && now - row.updatedAt.getTime() < PROVISION_STUCK_THRESHOLD_MS) {
+    if (
+      row.status === 'provisioning' &&
+      now - row.updatedAt.getTime() < PROVISION_STUCK_THRESHOLD_MS
+    ) {
       continue;
     }
     try {
-      await reconcile(row.ref, row.status as 'running' | 'paused' | 'stopped' | 'failed' | 'provisioning');
+      await reconcile(
+        row.ref,
+        row.status as 'running' | 'paused' | 'stopped' | 'failed' | 'provisioning',
+      );
     } catch (err) {
       logger.warn(
         { ref: row.ref, err: (err as Error).message },
@@ -96,9 +102,10 @@ async function reconcile(
       .filter((c) => c.state !== 'running' || c.health === 'unhealthy')
       .map((c) => `${c.service}=${c.state}/${c.health}`)
       .join(', ');
-    const msg = current === 'provisioning'
-      ? `provision stuck — partial outage detected: ${bad}`
-      : `partial outage: ${bad}`;
+    const msg =
+      current === 'provisioning'
+        ? `provision stuck — partial outage detected: ${bad}`
+        : `partial outage: ${bad}`;
     await setStatus(ref, 'failed', msg);
     logger.warn({ ref, bad, from: current }, 'reconciler: partial outage; marking failed');
   }

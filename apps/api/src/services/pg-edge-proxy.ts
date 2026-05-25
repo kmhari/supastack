@@ -92,7 +92,10 @@ export function startPgEdgeProxy(opts: ProxyOptions): PgEdgeProxy {
       perProjectCache.set(ref, { ctx, expiresAt: now + PER_PROJECT_TTL_MS });
       return ctx;
     } catch (err) {
-      logger.warn({ err: (err as Error).message, ref }, 'pg-edge: per-project cert decode failed, falling back to wildcard');
+      logger.warn(
+        { err: (err as Error).message, ref },
+        'pg-edge: per-project cert decode failed, falling back to wildcard',
+      );
       return null;
     }
   }
@@ -122,7 +125,11 @@ export function startPgEdgeProxy(opts: ProxyOptions): PgEdgeProxy {
       backendCache.set(ref, { host: '', port: 0, expiresAt: now + BACKEND_TTL_MS });
       return null;
     }
-    const info = { host: 'host.docker.internal', port: portDbDirect, expiresAt: now + BACKEND_TTL_MS };
+    const info = {
+      host: 'host.docker.internal',
+      port: portDbDirect,
+      expiresAt: now + BACKEND_TTL_MS,
+    };
     backendCache.set(ref, info);
     return { host: info.host, port: info.port };
   }
@@ -232,12 +239,14 @@ export function startPgEdgeProxy(opts: ProxyOptions): PgEdgeProxy {
   let redis: Redis | null = null;
   if (opts.redisUrl) {
     redis = new Redis(opts.redisUrl, { maxRetriesPerRequest: null });
-    redis.subscribe(
-      'selfbase:wildcard-cert:reloaded',
-      'selfbase:apex:changed',
-      'selfbase:instance:deleted',
-      'selfbase:pg-edge-cert:issued',
-    ).catch((err) => logger.warn({ err: err.message }, 'pg-edge: redis subscribe failed'));
+    redis
+      .subscribe(
+        'selfbase:wildcard-cert:reloaded',
+        'selfbase:apex:changed',
+        'selfbase:instance:deleted',
+        'selfbase:pg-edge-cert:issued',
+      )
+      .catch((err) => logger.warn({ err: err.message }, 'pg-edge: redis subscribe failed'));
     redis.on('message', (channel, raw) => {
       try {
         if (channel === 'selfbase:wildcard-cert:reloaded') {

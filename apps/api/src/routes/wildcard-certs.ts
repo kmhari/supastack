@@ -11,7 +11,10 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
     app.authorize(req, 'org.update');
     const user = app.requireAuth(req);
 
-    const [orgRow] = await db().select({ id: schema.org.id, apex: schema.org.apexDomain }).from(schema.org).limit(1);
+    const [orgRow] = await db()
+      .select({ id: schema.org.id, apex: schema.org.apexDomain })
+      .from(schema.org)
+      .limit(1);
     if (!orgRow?.apex) {
       throw errors.conflict('Apex domain must be set before requesting a wildcard certificate');
     }
@@ -60,7 +63,10 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
   app.get('/wildcard-certs/status', async (req, reply) => {
     app.authorize(req, 'org.read');
 
-    const [orgRow] = await db().select({ id: schema.org.id, apex: schema.org.apexDomain }).from(schema.org).limit(1);
+    const [orgRow] = await db()
+      .select({ id: schema.org.id, apex: schema.org.apexDomain })
+      .from(schema.org)
+      .limit(1);
     if (!orgRow?.apex) return reply.send({ cert: null });
 
     const row = await loadRow(orgRow.apex);
@@ -111,7 +117,10 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
     app.authorize(req, 'org.update');
     const user = app.requireAuth(req);
 
-    const [orgRow] = await db().select({ id: schema.org.id, apex: schema.org.apexDomain }).from(schema.org).limit(1);
+    const [orgRow] = await db()
+      .select({ id: schema.org.id, apex: schema.org.apexDomain })
+      .from(schema.org)
+      .limit(1);
     if (!orgRow?.apex) return reply.status(204).send();
 
     const row = await loadRow(orgRow.apex);
@@ -122,13 +131,15 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
       .set({ status: 'disabled', updatedAt: new Date(), updatedBy: user.id })
       .where(eq(schema.wildcardCerts.apex, orgRow.apex));
 
-    await db().insert(schema.auditLog).values({
-      actorUserId: user.id,
-      action: 'tls.disabled',
-      targetKind: 'wildcard_cert',
-      targetId: row.id,
-      payload: { apex: orgRow.apex },
-    });
+    await db()
+      .insert(schema.auditLog)
+      .values({
+        actorUserId: user.id,
+        action: 'tls.disabled',
+        targetKind: 'wildcard_cert',
+        targetId: row.id,
+        payload: { apex: orgRow.apex },
+      });
 
     try {
       await reloadCaddy();

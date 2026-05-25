@@ -85,7 +85,10 @@ describe('handleVaultEnable', () => {
   });
 
   it('happy path: connects, bootstraps, updates marker, emits audit', async () => {
-    const res = await handleVaultEnable({ ref: 'r0000000000000000001', source: 'dashboard-button' });
+    const res = await handleVaultEnable({
+      ref: 'r0000000000000000001',
+      source: 'dashboard-button',
+    });
     expect(res.ref).toBe('r0000000000000000001');
     expect(typeof res.durationMs).toBe('number');
 

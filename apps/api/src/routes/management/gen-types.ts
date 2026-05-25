@@ -16,13 +16,9 @@ import { generateTypes, GenTypesError } from '../../services/gen-types-service.j
 const QuerySchema = z.object({
   // Single string OR array (Fastify hands repeated query params as array).
   // Also accept comma-separated for forgiveness.
-  included_schemas: z
-    .union([z.string(), z.array(z.string())])
-    .optional(),
+  included_schemas: z.union([z.string(), z.array(z.string())]).optional(),
   // Older CLI versions use `schemas` plural — accept both.
-  schemas: z
-    .union([z.string(), z.array(z.string())])
-    .optional(),
+  schemas: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
 function normalizeSchemas(q: z.infer<typeof QuerySchema>): string[] {
@@ -34,36 +30,33 @@ function normalizeSchemas(q: z.infer<typeof QuerySchema>): string[] {
 }
 
 export const genTypesRoutes: FastifyPluginAsync = async (app) => {
-  app.get<{ Params: { ref: string } }>(
-    '/projects/:ref/types/typescript',
-    async (req) => {
-      const user = app.requireAuth(req);
-      const inst = await getProjectByRef(user.id, req.params.ref);
-      if (!inst) {
-        throw new ManagementApiError(404, 'Project not found', 'not_found', {
-          ref: req.params.ref,
-        });
-      }
-      const q = QuerySchema.parse(req.query ?? {});
-      const schemas = normalizeSchemas(q);
+  app.get<{ Params: { ref: string } }>('/projects/:ref/types/typescript', async (req) => {
+    const user = app.requireAuth(req);
+    const inst = await getProjectByRef(user.id, req.params.ref);
+    if (!inst) {
+      throw new ManagementApiError(404, 'Project not found', 'not_found', {
+        ref: req.params.ref,
+      });
+    }
+    const q = QuerySchema.parse(req.query ?? {});
+    const schemas = normalizeSchemas(q);
 
-      try {
-        const types = await generateTypes(inst, schemas);
-        return { types };
-      } catch (err) {
-        if (err instanceof GenTypesError) {
-          switch (err.code) {
-            case 'schema_not_found':
-              throw new ManagementApiError(400, err.message, err.code, err.details);
-            case 'instance_not_running':
-              throw new ManagementApiError(409, err.message, 'project_not_running');
-            case 'meta_upstream_error':
-            case 'meta_unreachable':
-              throw new ManagementApiError(502, err.message, 'pg_meta_unreachable');
-          }
+    try {
+      const types = await generateTypes(inst, schemas);
+      return { types };
+    } catch (err) {
+      if (err instanceof GenTypesError) {
+        switch (err.code) {
+          case 'schema_not_found':
+            throw new ManagementApiError(400, err.message, err.code, err.details);
+          case 'instance_not_running':
+            throw new ManagementApiError(409, err.message, 'project_not_running');
+          case 'meta_upstream_error':
+          case 'meta_unreachable':
+            throw new ManagementApiError(502, err.message, 'pg_meta_unreachable');
         }
-        throw err;
       }
-    },
-  );
+      throw err;
+    }
+  });
 };

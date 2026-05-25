@@ -9,6 +9,7 @@
 Before: the `supabase` CLI's `db push/pull/diff/migration` commands required `--db-url postgresql://...` explicitly because each per-instance Postgres was reachable only on a dynamically-allocated host port (`host.docker.internal:30005` or similar). No DNS, no TLS.
 
 After: every project exposes Postgres at two public endpoints:
+
 - `db.<ref>.<apex>:5432` — direct connection (one TLS context per project; bypass the pooler)
 - `pooler.<apex>:6543` — top-level Supavisor (multi-tenant, transaction mode); clients use username `postgres.<ref>` per Supabase Cloud convention
 
@@ -18,22 +19,22 @@ The `supabase` CLI now works against `--linked` projects with no `--db-url` flag
 
 The current shape is **Option B** from research.md, chosen after caddy-l4 SNI routing and per-instance supavisor both failed:
 
-| Component | Role |
-|---|---|
-| **Custom STARTTLS+SNI proxy** in api container | Owns port 5432 on the host. Reads SNI from the incoming TLS, looks up project by hostname, terminates TLS with the appropriate cert (per-project if present, else wildcard), forwards plain Postgres traffic to `host.docker.internal:<port_db_direct>`. |
-| **Top-level Supavisor** (`supabase/supavisor:2.7.4`) | Multi-tenant pooler at `pooler.<apex>:6543`. Each project registered as a tenant via supavisor's admin HTTP API. TLS termination via the wildcard cert (`GLOBAL_DOWNSTREAM_CERT_PATH`). |
-| **`pooler_tenants` table** (control plane) | Selfbase's view of tenant registration state. Separate from supavisor's own `_supavisor.tenants` because we need lifecycle tracking + error reporting; reconciled by feature 008's reconciler. |
-| **Per-project ACME cert** (Phase 7) | Strict-TLS clients (`rustls`, `sqlx`, `supabase db diff`) reject the wildcard cert for `db.<ref>.<apex>` because RFC 6125 wildcards match only one DNS label. The api auto-issues a per-project HTTP-01 cert for `db.<ref>.<apex>` ~30s after provision. Stored in `pg_edge_certs` table. |
+| Component                                            | Role                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Custom STARTTLS+SNI proxy** in api container       | Owns port 5432 on the host. Reads SNI from the incoming TLS, looks up project by hostname, terminates TLS with the appropriate cert (per-project if present, else wildcard), forwards plain Postgres traffic to `host.docker.internal:<port_db_direct>`.                                  |
+| **Top-level Supavisor** (`supabase/supavisor:2.7.4`) | Multi-tenant pooler at `pooler.<apex>:6543`. Each project registered as a tenant via supavisor's admin HTTP API. TLS termination via the wildcard cert (`GLOBAL_DOWNSTREAM_CERT_PATH`).                                                                                                   |
+| **`pooler_tenants` table** (control plane)           | Selfbase's view of tenant registration state. Separate from supavisor's own `_supavisor.tenants` because we need lifecycle tracking + error reporting; reconciled by feature 008's reconciler.                                                                                            |
+| **Per-project ACME cert** (Phase 7)                  | Strict-TLS clients (`rustls`, `sqlx`, `supabase db diff`) reject the wildcard cert for `db.<ref>.<apex>` because RFC 6125 wildcards match only one DNS label. The api auto-issues a per-project HTTP-01 cert for `db.<ref>.<apex>` ~30s after provision. Stored in `pg_edge_certs` table. |
 
 ## Endpoints / surfaces
 
-| Endpoint | What it does |
-|---|---|
-| `POST /internal/pooler/tenants` (worker → api) | Register a project as a tenant in supavisor; called from `provision.ts` after instance reaches `running` |
-| `DELETE /internal/pooler/tenants/:ref` (worker → api) | Unregister tenant on project delete |
-| `POST /internal/pg-edge-cert/issue` (worker → api) | Trigger per-project HTTP-01 cert issuance |
-| `POST /.well-known/acme-challenge/:token` | HTTP-01 challenge response endpoint (proxied through caddy at the apex) |
-| `apps/api/src/services/pg-edge-proxy.ts` | The TCP proxy (Node.js `net` + `tls`); SNICallback per cert |
+| Endpoint                                              | What it does                                                                                             |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `POST /internal/pooler/tenants` (worker → api)        | Register a project as a tenant in supavisor; called from `provision.ts` after instance reaches `running` |
+| `DELETE /internal/pooler/tenants/:ref` (worker → api) | Unregister tenant on project delete                                                                      |
+| `POST /internal/pg-edge-cert/issue` (worker → api)    | Trigger per-project HTTP-01 cert issuance                                                                |
+| `POST /.well-known/acme-challenge/:token`             | HTTP-01 challenge response endpoint (proxied through caddy at the apex)                                  |
+| `apps/api/src/services/pg-edge-proxy.ts`              | The TCP proxy (Node.js `net` + `tls`); SNICallback per cert                                              |
 
 ## CLI workflow that this unblocks
 
@@ -57,11 +58,11 @@ postgresql://postgres.<ref>:<pwd>@pooler.<apex>:6543/postgres?sslmode=require
 
 ## Lifecycle
 
-| Trigger | Worker action | Resulting state |
-|---|---|---|
-| Provision: instance reaches `running` | Best-effort call `POST /internal/pooler/tenants` + enqueue HTTP-01 cert job | `pooler_tenants` row `active`, `pg_edge_certs` row populated within 30s |
-| Delete: instance status flips to `deleting` | Call `DELETE /internal/pooler/tenants/:ref`; worker's lifecycle job removes the row | Supavisor's tenant table cleaned, `pooler_tenants` row deleted |
-| Per-project cert nearing expiry | Cert-check BullMQ job notices `notAfter - now < 30 days`, enqueues a fresh HTTP-01 issuance | New cert in `pg_edge_certs`, Redis pub/sub `selfbase:pg-edge-cert:issued` triggers pg-edge-proxy to hot-reload SNI map |
+| Trigger                                     | Worker action                                                                               | Resulting state                                                                                                        |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Provision: instance reaches `running`       | Best-effort call `POST /internal/pooler/tenants` + enqueue HTTP-01 cert job                 | `pooler_tenants` row `active`, `pg_edge_certs` row populated within 30s                                                |
+| Delete: instance status flips to `deleting` | Call `DELETE /internal/pooler/tenants/:ref`; worker's lifecycle job removes the row         | Supavisor's tenant table cleaned, `pooler_tenants` row deleted                                                         |
+| Per-project cert nearing expiry             | Cert-check BullMQ job notices `notAfter - now < 30 days`, enqueues a fresh HTTP-01 issuance | New cert in `pg_edge_certs`, Redis pub/sub `selfbase:pg-edge-cert:issued` triggers pg-edge-proxy to hot-reload SNI map |
 
 ## Cross-feature touch points
 

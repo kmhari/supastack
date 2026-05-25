@@ -19,11 +19,9 @@ export const PatFormat = z.string().regex(/^sbp_(oauth_)?[a-f0-9]{40}$/, {
 });
 
 // ─── Function slug ─────────────────────────────────────────────────────────
-export const FunctionSlug = z
-  .string()
-  .regex(/^[a-z0-9][a-z0-9-]{0,47}$/, {
-    message: 'Slug must be DNS-label-ish, lowercase, ≤48 chars',
-  });
+export const FunctionSlug = z.string().regex(/^[a-z0-9][a-z0-9-]{0,47}$/, {
+  message: 'Slug must be DNS-label-ish, lowercase, ≤48 chars',
+});
 
 // ─── Project ref ───────────────────────────────────────────────────────────
 // Looser than the existing 20-char Ref in schemas.ts to accommodate the
@@ -130,7 +128,10 @@ export const EszipDeployQuerySchema = z
       .optional(),
     import_map_path: z.string().optional(),
     entrypoint_path: z.string().optional(),
-    ezbr_sha256: z.string().regex(/^[a-f0-9]{64}$/i, 'sha256 hex').optional(),
+    ezbr_sha256: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/i, 'sha256 hex')
+      .optional(),
   })
   .passthrough();
 export type EszipDeployQuery = z.infer<typeof EszipDeployQuerySchema>;
