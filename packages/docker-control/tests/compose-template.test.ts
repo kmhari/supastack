@@ -22,7 +22,14 @@ const baseInputs = (overrides: Partial<ComposeTemplateInputs> = {}): ComposeTemp
   ref: 'abcdefghij0123456789',
   name: 'test',
   apex: 'selfbase.example.com',
-  ports: { kong: 30000, studio: 30001, postgres: 30002, pooler: 30003, analytics: 30004, dbDirect: 30005 },
+  ports: {
+    kong: 30000,
+    studio: 30001,
+    postgres: 30002,
+    pooler: 30003,
+    analytics: 30004,
+    dbDirect: 30005,
+  },
   secrets: {
     jwtSecret: 'AAAA1111BBBB2222CCCC3333DDDD4444',
     anonKey: 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.x',

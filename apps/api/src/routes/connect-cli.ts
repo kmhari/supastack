@@ -27,10 +27,7 @@ export const connectCliRoutes: FastifyPluginAsync = async (app) => {
   // ─── GET /cli/profile.toml ────────────────────────────────────────────
   app.get('/cli/profile.toml', async (req, reply) => {
     app.requireAuth(req);
-    const rows = await db()
-      .select({ apex: schema.org.apexDomain })
-      .from(schema.org)
-      .limit(1);
+    const rows = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
     const apex = rows[0]?.apex;
     if (!apex) {
       throw errors.invalidInput(
@@ -54,7 +51,10 @@ export const connectCliRoutes: FastifyPluginAsync = async (app) => {
   app.post('/cli/mint-token', async (req, reply) => {
     const user = app.requireAuth(req);
     const body = (req.body ?? {}) as MintBody;
-    const label = (body.label?.trim() || `cli-${new Date().toISOString().slice(0, 10)}`).slice(0, 80);
+    const label = (body.label?.trim() || `cli-${new Date().toISOString().slice(0, 10)}`).slice(
+      0,
+      80,
+    );
     const { raw, id, prefix } = await mintApiToken(db(), user.id, label);
     reply.status(201).send({ token: raw, label, prefix, id });
   });

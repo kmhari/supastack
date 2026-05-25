@@ -17,7 +17,10 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { db, schema } from '@selfbase/db';
-import { encryptInstanceSecrets, generateInstanceSecrets } from '../../src/services/instance-secrets.js';
+import {
+  encryptInstanceSecrets,
+  generateInstanceSecrets,
+} from '../../src/services/instance-secrets.js';
 
 /**
  * Skip the whole `describe(...)` block if the test environment isn't ready.
@@ -80,10 +83,12 @@ export async function mintTestToken(
  * The auth plugin's bearer-token path joins users + org_members; without
  * an org membership the user isn't visible to authenticated routes.
  */
-export async function seedTestUser(opts: {
-  email?: string;
-  role?: 'admin' | 'member';
-} = {}) {
+export async function seedTestUser(
+  opts: {
+    email?: string;
+    role?: 'admin' | 'member';
+  } = {},
+) {
   const email = opts.email ?? `test-${randomBytes(4).toString('hex')}@selfbase.test`;
   const [user] = await db()
     .insert(schema.users)
@@ -93,11 +98,11 @@ export async function seedTestUser(opts: {
 
   // Org may already exist (singleton). Insert if missing.
   const existingOrgs = await db().select({ id: schema.org.id }).from(schema.org).limit(1);
-  const orgId = existingOrgs[0]?.id
-    ?? (await db()
-      .insert(schema.org)
-      .values({ name: 'Test Org' })
-      .returning({ id: schema.org.id }))[0]!.id;
+  const orgId =
+    existingOrgs[0]?.id ??
+    (
+      await db().insert(schema.org).values({ name: 'Test Org' }).returning({ id: schema.org.id })
+    )[0]!.id;
 
   await db()
     .insert(schema.orgMembers)
@@ -112,21 +117,42 @@ export async function seedTestUser(opts: {
  * on disk under `${INSTANCES_DIR}/<ref>/volumes/functions/`. Returns the row
  * and the path so the test can drop files into the volume directly.
  */
-export async function withMockInstance(ref: string) {
+export async function withMockInstance(ref: string, opts: { orgId?: string } = {}) {
   const secrets = generateInstanceSecrets({ jwtExpirySec: 3600 });
   const encryptedSecrets = encryptInstanceSecrets(secrets);
   const instancesDir = process.env.INSTANCES_DIR ?? '/tmp/selfbase-test-instances';
   const volume = path.join(instancesDir, ref, 'volumes', 'functions');
   await mkdir(volume, { recursive: true });
 
+  // org_id is NOT NULL. If caller didn't pass one, pick up the first existing
+  // org (created by an earlier seedTestUser call) or insert a fresh singleton.
+  let orgId = opts.orgId;
+  if (!orgId) {
+    const existing = await db().select({ id: schema.org.id }).from(schema.org).limit(1);
+    orgId =
+      existing[0]?.id ??
+      (
+        await db().insert(schema.org).values({ name: 'Test Org' }).returning({ id: schema.org.id })
+      )[0]!.id;
+  }
+
+  // Allocate unique ports across concurrent test runs; the port_* columns are
+  // .unique() so colliding refs in the same test DB would fail.
+  const portBase = 30000 + Math.floor(Math.random() * 30000);
   const [row] = await db()
     .insert(schema.supabaseInstances)
     .values({
       ref,
+      orgId,
       name: `Test ${ref}`,
       status: 'running',
+      supabaseVersion: 'test',
       encryptedSecrets,
-      // Other required columns get default values from the schema.
+      portKong: portBase,
+      portStudio: portBase + 1,
+      portPostgres: portBase + 2,
+      portPooler: portBase + 3,
+      portAnalytics: portBase + 4,
     } as any)
     .returning();
 

@@ -31,10 +31,7 @@ interface ApexStatus {
 const WILDCARD_PROBE_LABEL = '_selfbase-wildcard-probe';
 
 async function buildStatus(): Promise<ApexStatus> {
-  const [orgRow] = await db()
-    .select({ apex: schema.org.apexDomain })
-    .from(schema.org)
-    .limit(1);
+  const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
   const apex = orgRow?.apex ?? null;
 
   const expectedIp = await getPlatformIp();
@@ -56,8 +53,7 @@ async function buildStatus(): Promise<ApexStatus> {
     resolveA(`${WILDCARD_PROBE_LABEL}.${apex}`),
   ]);
   const apexOk = expectedIp !== null && observedIps.includes(expectedIp);
-  const wildcardOk =
-    expectedIp !== null && wildcardObservedIps.includes(expectedIp);
+  const wildcardOk = expectedIp !== null && wildcardObservedIps.includes(expectedIp);
   const dnsResolved = apexOk && wildcardOk;
 
   // Only probe TLS once BOTH apex and wildcard DNS land on us — otherwise

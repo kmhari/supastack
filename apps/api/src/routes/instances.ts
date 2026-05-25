@@ -113,9 +113,7 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
     // network. Only meaningful when the instance is running AND apex
     // is configured.
     const cert =
-      apex && row.status === 'running'
-        ? await probeHttpsCert(`${row.ref}.${apex}`)
-        : null;
+      apex && row.status === 'running' ? await probeHttpsCert(`${row.ref}.${apex}`) : null;
     return reply.send({ ...projected, cert });
   });
 

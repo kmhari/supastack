@@ -28,6 +28,8 @@ import { functionsRoutes } from './routes/management/functions.js';
 import { secretsRoutes } from './routes/management/secrets.js';
 import { genTypesRoutes } from './routes/management/gen-types.js';
 import { migrationsRoutes } from './routes/management/migrations.js';
+import { authConfigRoutes } from './routes/management/auth-config.js';
+import { postgrestConfigRoutes } from './routes/management/postgrest-config.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 import { wildcardCertRoutes } from './routes/wildcard-certs.js';
 import { acmeChallengeRoutes } from './routes/acme-challenge.js';
@@ -99,10 +101,8 @@ export async function buildApp(): Promise<FastifyInstance> {
     { parseAs: 'buffer' },
     (_req, body, done) => done(null, body),
   );
-  app.addContentTypeParser(
-    'application/octet-stream',
-    { parseAs: 'buffer' },
-    (_req, body, done) => done(null, body),
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (_req, body, done) =>
+    done(null, body),
   );
 
   // Uniform error formatter. Dashboard surface (everything except /v1) uses
@@ -204,6 +204,9 @@ export async function buildApp(): Promise<FastifyInstance> {
       await mgmt.register(genTypesRoutes);
       // Feature 006 US2 — migrations list/upsert/delete:
       await mgmt.register(migrationsRoutes);
+      // Feature 009 — runtime config tunables (postgres-config + auth-config):
+      await mgmt.register(postgrestConfigRoutes);
+      await mgmt.register(authConfigRoutes);
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },
@@ -244,14 +247,9 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => void shutdown('SIGINT'));
 }
 
-async function maybeStartPgEdgeProxy(
-  app: FastifyInstance,
-): Promise<PgEdgeProxy | null> {
+async function maybeStartPgEdgeProxy(app: FastifyInstance): Promise<PgEdgeProxy | null> {
   try {
-    const [orgRow] = await db()
-      .select({ apex: schema.org.apexDomain })
-      .from(schema.org)
-      .limit(1);
+    const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
     const apex = orgRow?.apex;
     if (!apex) {
       app.log.info('pg-edge: skipped (no apex configured)');

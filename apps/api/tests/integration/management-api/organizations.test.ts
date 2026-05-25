@@ -37,9 +37,7 @@ describe.skipIf(!hasTestEnv)('GET /v1/organizations', () => {
     const body = res.json();
     // Array of Organization.
     expect(() => z.array(OrganizationSchema).parse(body)).not.toThrow();
-    expect(body).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: orgId })]),
-    );
+    expect(body).toEqual(expect.arrayContaining([expect.objectContaining({ id: orgId })]));
   });
 
   it('returns 401 without a token', async () => {

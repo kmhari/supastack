@@ -59,8 +59,8 @@ export function InstancesNewPage(): React.ReactElement {
           <div className="px-4 py-5 sm:px-10 sm:py-8">
             <h1 className="m-0 text-[22px] font-medium text-foreground">Create a new project</h1>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Your project will have its own dedicated instance and full Postgres database.
-              An API will be set up so you can easily interact with your new database.
+              Your project will have its own dedicated instance and full Postgres database. An API
+              will be set up so you can easily interact with your new database.
             </p>
           </div>
 
@@ -158,9 +158,7 @@ function FormRow({
       <Label className="text-sm font-normal text-foreground sm:pt-2">{label}</Label>
       <div className="flex min-w-0 flex-col gap-3">
         {children}
-        {hint && (
-          <div className="text-sm leading-relaxed text-muted-foreground">{hint}</div>
-        )}
+        {hint && <div className="text-sm leading-relaxed text-muted-foreground">{hint}</div>}
       </div>
     </div>
   );

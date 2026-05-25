@@ -181,8 +181,8 @@ export function ProjectGeneralPage(): React.ReactElement {
                 <div>
                   <div className="text-foreground">Waiting for HTTPS certificate…</div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    Caddy is requesting a Let&apos;s Encrypt cert via HTTP-01. Usually completes
-                    in 5–15s once DNS for the apex resolves.
+                    Caddy is requesting a Let&apos;s Encrypt cert via HTTP-01. Usually completes in
+                    5–15s once DNS for the apex resolves.
                   </div>
                 </div>
               </div>
@@ -436,9 +436,7 @@ function SplitButton({
             >
               <span className="text-sm font-medium text-foreground">{it.label}</span>
               {it.description && (
-                <span className="text-xs leading-snug text-muted-foreground">
-                  {it.description}
-                </span>
+                <span className="text-xs leading-snug text-muted-foreground">{it.description}</span>
               )}
             </DropdownMenuItem>
           ))}
@@ -469,9 +467,7 @@ function Section({
       <h2 className={cn('m-0 mb-3 text-lg font-medium text-foreground', titleClassName)}>
         {title}
       </h2>
-      {description && (
-        <p className="m-0 mb-4 text-sm text-muted-foreground">{description}</p>
-      )}
+      {description && <p className="m-0 mb-4 text-sm text-muted-foreground">{description}</p>}
       {children}
     </div>
   );
@@ -496,4 +492,3 @@ function Field({
     </div>
   );
 }
-

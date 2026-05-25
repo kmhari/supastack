@@ -62,27 +62,28 @@ function mapPgError(err: unknown): never {
 }
 
 export const migrationsRoutes: FastifyPluginAsync = async (app) => {
-  app.get<{ Params: { ref: string } }>(
-    '/projects/:ref/database/migrations',
-    async (req) => {
-      const user = app.requireAuth(req);
-      const proj = await getProjectByRef(user.id, req.params.ref);
-      if (!proj) throw new ManagementApiError(404, 'Project not found', 'not_found', { ref: req.params.ref });
-      try {
-        const migrations = await listMigrations(req.params.ref);
-        return { migrations };
-      } catch (err) {
-        mapPgError(err);
-      }
-    },
-  );
+  app.get<{ Params: { ref: string } }>('/projects/:ref/database/migrations', async (req) => {
+    const user = app.requireAuth(req);
+    const proj = await getProjectByRef(user.id, req.params.ref);
+    if (!proj)
+      throw new ManagementApiError(404, 'Project not found', 'not_found', { ref: req.params.ref });
+    try {
+      const migrations = await listMigrations(req.params.ref);
+      return { migrations };
+    } catch (err) {
+      mapPgError(err);
+    }
+  });
 
   app.post<{ Params: { ref: string }; Body: unknown }>(
     '/projects/:ref/database/migrations/upsert',
     async (req, reply) => {
       const user = app.requireAuth(req);
       const proj = await getProjectByRef(user.id, req.params.ref);
-      if (!proj) throw new ManagementApiError(404, 'Project not found', 'not_found', { ref: req.params.ref });
+      if (!proj)
+        throw new ManagementApiError(404, 'Project not found', 'not_found', {
+          ref: req.params.ref,
+        });
       const parsed = UpsertBody.safeParse(req.body);
       if (!parsed.success) {
         const versionIssue = parsed.error.issues.find((i) => i.path[0] === 'version');
@@ -107,12 +108,20 @@ export const migrationsRoutes: FastifyPluginAsync = async (app) => {
     async (req) => {
       const user = app.requireAuth(req);
       const proj = await getProjectByRef(user.id, req.params.ref);
-      if (!proj) throw new ManagementApiError(404, 'Project not found', 'not_found', { ref: req.params.ref });
+      if (!proj)
+        throw new ManagementApiError(404, 'Project not found', 'not_found', {
+          ref: req.params.ref,
+        });
       const versionParse = VersionSchema.safeParse(req.params.version);
       if (!versionParse.success) {
-        throw new ManagementApiError(400, versionParse.error.issues[0]!.message, 'invalid_version_format', {
-          received: req.params.version,
-        });
+        throw new ManagementApiError(
+          400,
+          versionParse.error.issues[0]!.message,
+          'invalid_version_format',
+          {
+            received: req.params.version,
+          },
+        );
       }
       try {
         return await deleteMigration(req.params.ref, versionParse.data);

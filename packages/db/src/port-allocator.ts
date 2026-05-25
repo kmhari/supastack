@@ -2,7 +2,14 @@ import { sql } from 'drizzle-orm';
 import { portAllocations } from './schema/instances.js';
 import type { SelfbaseDb } from './client.js';
 
-export const PORT_KINDS = ['kong', 'studio', 'postgres', 'pooler', 'analytics', 'dbDirect'] as const;
+export const PORT_KINDS = [
+  'kong',
+  'studio',
+  'postgres',
+  'pooler',
+  'analytics',
+  'dbDirect',
+] as const;
 export type PortKind = (typeof PORT_KINDS)[number];
 
 export interface PortAllocation {

@@ -149,11 +149,13 @@ async function getCurrentTenantStatus(ref: string): Promise<string | null> {
 }
 
 async function emitAuditEvent(userId: string, ref: string): Promise<void> {
-  await db().insert(schema.auditLog).values({
-    actorUserId: userId,
-    action: 'instances.pg_password.reset',
-    targetKind: 'instance',
-    targetId: ref,
-    payload: { ref, severity: 'high' },
-  });
+  await db()
+    .insert(schema.auditLog)
+    .values({
+      actorUserId: userId,
+      action: 'instances.pg_password.reset',
+      targetKind: 'instance',
+      targetId: ref,
+      payload: { ref, severity: 'high' },
+    });
 }

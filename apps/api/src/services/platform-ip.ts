@@ -66,4 +66,3 @@ export async function resolveA(host: string): Promise<string[]> {
     });
   });
 }
-

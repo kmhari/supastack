@@ -24,7 +24,9 @@ export const reconcilerRuns = pgTable(
     completedAt: timestamp('completed_at', { withTimezone: true }),
     status: text('status').notNull().default('running'),
     instancesSeen: integer('instances_seen').notNull().default(0),
-    actionsTaken: jsonb('actions_taken').notNull().default(sql`'{}'::jsonb`),
+    actionsTaken: jsonb('actions_taken')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     errorMessage: text('error_message'),
     triggerSource: text('trigger_source').notNull().default('cron'),
     actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
@@ -34,11 +36,7 @@ export const reconcilerRuns = pgTable(
   }),
 );
 
-export type ReconcilerRunStatus =
-  | 'running'
-  | 'success'
-  | 'partial_failure'
-  | 'failed';
+export type ReconcilerRunStatus = 'running' | 'success' | 'partial_failure' | 'failed';
 
 export type ReconcilerActionsTaken = {
   registered_missing?: number;

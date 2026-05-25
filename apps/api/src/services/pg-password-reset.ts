@@ -123,7 +123,9 @@ function dockerCreateExec(container: string, cmd: string[]): Promise<string> {
         res.on('data', (c) => (buf += c));
         res.on('end', () => {
           if (res.statusCode !== 201) {
-            reject(new PerInstanceDbUnreachableError(`docker exec create ${res.statusCode}: ${buf}`));
+            reject(
+              new PerInstanceDbUnreachableError(`docker exec create ${res.statusCode}: ${buf}`),
+            );
             return;
           }
           try {
@@ -134,7 +136,11 @@ function dockerCreateExec(container: string, cmd: string[]): Promise<string> {
             }
             resolve(parsed.Id);
           } catch (err) {
-            reject(new PerInstanceDbUnreachableError(`docker exec create parse: ${(err as Error).message}`));
+            reject(
+              new PerInstanceDbUnreachableError(
+                `docker exec create parse: ${(err as Error).message}`,
+              ),
+            );
           }
         });
       },
@@ -180,7 +186,11 @@ function dockerInspectExec(execId: string): Promise<number> {
             const parsed = JSON.parse(buf) as { ExitCode?: number };
             resolve(parsed.ExitCode ?? -1);
           } catch (err) {
-            reject(new PerInstanceDbUnreachableError(`docker exec inspect parse: ${(err as Error).message}`));
+            reject(
+              new PerInstanceDbUnreachableError(
+                `docker exec inspect parse: ${(err as Error).message}`,
+              ),
+            );
           }
         });
       },

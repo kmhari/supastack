@@ -4,26 +4,26 @@ shadcn-style primitives copied into this directory via `pnpm dlx shadcn@latest a
 
 ## Primitives
 
-| File | Purpose |
-|------|---------|
-| `alert.tsx` | Inline message banners. Variants: `default`, `destructive`, `warn`, `info`. |
-| `badge.tsx` | Small uppercase pills (status / labels). Variants: `default`, `secondary`, `outline`, `destructive`, `success`, `warn`, `info`, `ghost`, `link`. Used by `<StatusPill>`. |
-| `button.tsx` | All interactive buttons. Variants: `default` (brand green), `secondary`, `outline`, `ghost`, `link`, `destructive`. Sizes: `default` (h-9), `sm` (h-8), `xs` (h-6), `lg` (h-10), `icon`, `icon-sm`, `icon-xs`, `icon-lg`. |
-| `card.tsx` | Panel container. Use `<Card>` / `<CardHeader>` / `<CardTitle>` / `<CardDescription>` / `<CardContent>` / `<CardFooter>`. |
-| `checkbox.tsx` | Radix-based checkbox with the same focus ring as `<Input>`. |
-| `dialog.tsx` | Modal dialog. Focus-trap, ESC, click-outside, scroll-lock from Radix. Use `<Dialog>` + `<DialogTrigger>` + `<DialogContent>` (`Header`, `Title`, `Description`, `Footer`, `Close`). |
-| `dropdown-menu.tsx` | Action menu (e.g. row-level ⋮). Use on triggers like Button icon. |
-| `input.tsx` | Text-style inputs. Defaults to `h-9 bg-input border-border focus-visible:ring-ring`. |
-| `label.tsx` | Form label (associates via `htmlFor`). |
-| `radio-group.tsx` | Radio set. Use `<RadioGroup>` + `<RadioGroupItem>`. |
-| `scroll-area.tsx` | Custom scroll container with themed scrollbars. |
-| `select.tsx` | Dropdown picker. Use `<Select>` + `<SelectTrigger>` + `<SelectContent>` + `<SelectItem>`. Pass `className="border-dashed"` on the trigger for filter-chip look. |
-| `separator.tsx` | Horizontal divider. |
-| `sonner.tsx` | Toast (`<Toaster />` global) — call `toast(...)` from `sonner`. |
-| `table.tsx` | Table primitives. Use `<Table>` + `<TableHeader>` + `<TableBody>` + `<TableRow>` + `<TableHead>` + `<TableCell>`. |
-| `tabs.tsx` | Tab navigation primitives (currently unused — reserved). |
-| `textarea.tsx` | Multi-line input. |
-| `tooltip.tsx` | Hover/focus tooltip. Wrap with `<TooltipProvider>` at app root. |
+| File                | Purpose                                                                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `alert.tsx`         | Inline message banners. Variants: `default`, `destructive`, `warn`, `info`.                                                                                                                                               |
+| `badge.tsx`         | Small uppercase pills (status / labels). Variants: `default`, `secondary`, `outline`, `destructive`, `success`, `warn`, `info`, `ghost`, `link`. Used by `<StatusPill>`.                                                  |
+| `button.tsx`        | All interactive buttons. Variants: `default` (brand green), `secondary`, `outline`, `ghost`, `link`, `destructive`. Sizes: `default` (h-9), `sm` (h-8), `xs` (h-6), `lg` (h-10), `icon`, `icon-sm`, `icon-xs`, `icon-lg`. |
+| `card.tsx`          | Panel container. Use `<Card>` / `<CardHeader>` / `<CardTitle>` / `<CardDescription>` / `<CardContent>` / `<CardFooter>`.                                                                                                  |
+| `checkbox.tsx`      | Radix-based checkbox with the same focus ring as `<Input>`.                                                                                                                                                               |
+| `dialog.tsx`        | Modal dialog. Focus-trap, ESC, click-outside, scroll-lock from Radix. Use `<Dialog>` + `<DialogTrigger>` + `<DialogContent>` (`Header`, `Title`, `Description`, `Footer`, `Close`).                                       |
+| `dropdown-menu.tsx` | Action menu (e.g. row-level ⋮). Use on triggers like Button icon.                                                                                                                                                         |
+| `input.tsx`         | Text-style inputs. Defaults to `h-9 bg-input border-border focus-visible:ring-ring`.                                                                                                                                      |
+| `label.tsx`         | Form label (associates via `htmlFor`).                                                                                                                                                                                    |
+| `radio-group.tsx`   | Radio set. Use `<RadioGroup>` + `<RadioGroupItem>`.                                                                                                                                                                       |
+| `scroll-area.tsx`   | Custom scroll container with themed scrollbars.                                                                                                                                                                           |
+| `select.tsx`        | Dropdown picker. Use `<Select>` + `<SelectTrigger>` + `<SelectContent>` + `<SelectItem>`. Pass `className="border-dashed"` on the trigger for filter-chip look.                                                           |
+| `separator.tsx`     | Horizontal divider.                                                                                                                                                                                                       |
+| `sonner.tsx`        | Toast (`<Toaster />` global) — call `toast(...)` from `sonner`.                                                                                                                                                           |
+| `table.tsx`         | Table primitives. Use `<Table>` + `<TableHeader>` + `<TableBody>` + `<TableRow>` + `<TableHead>` + `<TableCell>`.                                                                                                         |
+| `tabs.tsx`          | Tab navigation primitives (currently unused — reserved).                                                                                                                                                                  |
+| `textarea.tsx`      | Multi-line input.                                                                                                                                                                                                         |
+| `tooltip.tsx`       | Hover/focus tooltip. Wrap with `<TooltipProvider>` at app root.                                                                                                                                                           |
 
 ## Conventions
 

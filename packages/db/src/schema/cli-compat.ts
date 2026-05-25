@@ -134,9 +134,6 @@ export const projectSecrets = pgTable(
   },
   (t) => ({
     instanceNameUq: uniqueIndex('project_secrets_instance_name').on(t.instanceRef, t.name),
-    nameFormat: check(
-      'project_secrets_name_format',
-      sql`${t.name} ~ '^[A-Z][A-Z0-9_]{0,63}$'`,
-    ),
+    nameFormat: check('project_secrets_name_format', sql`${t.name} ~ '^[A-Z][A-Z0-9_]{0,63}$'`),
   }),
 );

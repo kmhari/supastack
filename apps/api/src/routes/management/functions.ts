@@ -22,17 +22,10 @@ import {
   deployFromMultipart,
   readFunctionBundle,
 } from '../../services/function-deploy.js';
-import {
-  deleteFunction,
-  getFunction,
-  listFunctions,
-} from '../../services/function-store.js';
+import { deleteFunction, getFunction, listFunctions } from '../../services/function-store.js';
 import { functionRowToFunction } from '../../services/mgmt-api-mapping.js';
 
-const ESZIP_CONTENT_TYPES = new Set([
-  'application/vnd.denoland.eszip',
-  'application/octet-stream',
-]);
+const ESZIP_CONTENT_TYPES = new Set(['application/vnd.denoland.eszip', 'application/octet-stream']);
 
 export const functionsRoutes: FastifyPluginAsync = async (app) => {
   // Bump body limit for this scope so raw eszip bodies up to 50 MB get through.
@@ -40,7 +33,10 @@ export const functionsRoutes: FastifyPluginAsync = async (app) => {
   //  bodies obey Fastify's bodyLimit instead.)
 
   // ─── Helpers ────────────────────────────────────────────────────────────
-  async function ensureProject(req: Parameters<NonNullable<typeof app.requireAuth>>[0], ref: string): Promise<void> {
+  async function ensureProject(
+    req: Parameters<NonNullable<typeof app.requireAuth>>[0],
+    ref: string,
+  ): Promise<void> {
     const user = app.requireAuth(req);
     const row = await getProjectByRef(user.id, ref);
     if (!row) {

@@ -181,7 +181,9 @@ async function probeAuthForInstance(
     .where(eq(SUPABASE_INSTANCES.ref, ref))
     .limit(1);
   if (!inst) return { ok: false, isAuthClass: false, error: 'instance_not_found' };
-  const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as { postgresPassword: string };
+  const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as {
+    postgresPassword: string;
+  };
   const port = inst.portDbDirect ?? inst.portPostgres;
   const client = new pg.Client({
     host: 'host.docker.internal',
@@ -225,7 +227,9 @@ async function registerTenantForInstance(ref: string): Promise<void> {
   const apex = orgRow.apex;
 
   const dbHostPort = inst.portDbDirect ?? inst.portPostgres;
-  const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as { postgresPassword: string };
+  const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as {
+    postgresPassword: string;
+  };
   const sniHostname = `pooler.${apex}`;
 
   await db()
@@ -271,7 +275,10 @@ async function unregisterTenantForInstance(ref: string): Promise<void> {
 
 export class ReconcilerInFlightError extends Error {
   code = 'previous_run_still_active' as const;
-  constructor(public readonly inFlightRunId: string, public readonly inFlightStartedAt: Date) {
+  constructor(
+    public readonly inFlightRunId: string,
+    public readonly inFlightStartedAt: Date,
+  ) {
     super(
       `Reconciler run ${inFlightRunId} is already in progress (started ${inFlightStartedAt.toISOString()})`,
     );
@@ -462,9 +469,7 @@ export async function runSingleInstanceReconcile(
 
 function classifyInstance(
   inst: { ref: string; status: string },
-  poolerRow:
-    | { ref: string; externalId: string; status: string; updatedAt: Date }
-    | undefined,
+  poolerRow: { ref: string; externalId: string; status: string; updatedAt: Date } | undefined,
   svTenant: SupavisorTenant | undefined,
   forceRetry = false,
 ): Classification {

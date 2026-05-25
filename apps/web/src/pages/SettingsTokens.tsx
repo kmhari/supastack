@@ -44,9 +44,7 @@ export function SettingsTokensPage(): React.ReactElement {
   const [filter, setFilter] = useState('');
   const filtered = useMemo(
     () =>
-      tokens.filter((t) =>
-        filter ? t.label.toLowerCase().includes(filter.toLowerCase()) : true,
-      ),
+      tokens.filter((t) => (filter ? t.label.toLowerCase().includes(filter.toLowerCase()) : true)),
     [tokens, filter],
   );
 
@@ -65,101 +63,104 @@ export function SettingsTokensPage(): React.ReactElement {
       <SettingsLayout>
         <PageHeader title="Tokens" />
 
-      <Alert className="mb-4">
-        <KeyRound className="size-4" />
-        <AlertDescription>
-          Tokens use the <code className="font-mono">sbp_…</code> format and work
-          with the upstream Supabase CLI.
-          {' '}
-          <a href="/connect-cli" className="underline">Connect a CLI →</a>
-        </AlertDescription>
-      </Alert>
+        <Alert className="mb-4">
+          <KeyRound className="size-4" />
+          <AlertDescription>
+            Tokens use the <code className="font-mono">sbp_…</code> format and work with the
+            upstream Supabase CLI.{' '}
+            <a href="/connect-cli" className="underline">
+              Connect a CLI →
+            </a>
+          </AlertDescription>
+        </Alert>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative w-72">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter tokens"
-            className="h-8 pl-8 text-sm"
-          />
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative w-72">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter tokens"
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
+          <div className="ml-auto">
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="size-3.5" />
+              Create token
+            </Button>
+          </div>
         </div>
-        <div className="ml-auto">
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="size-3.5" />
-            Create token
-          </Button>
-        </div>
-      </div>
 
-      <div className="overflow-hidden rounded-lg border border-border-soft bg-card">
-        <div className="grid grid-cols-[1fr_180px_220px_60px] gap-4 border-b border-border-soft px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          <div>Label</div>
-          <div>Created</div>
-          <div>Last used</div>
-          <div />
-        </div>
-        {isLoading ? (
-          <p className="px-6 py-5 text-muted-foreground">Loading…</p>
-        ) : filtered.length === 0 ? (
-          <p className="px-6 py-5 text-muted-foreground">
-            {filter ? 'No tokens match your filter.' : 'No tokens yet — create one to use the API.'}
-          </p>
-        ) : (
-          filtered.map((t, i) => (
-            <div
-              key={t.id}
-              className={`grid grid-cols-[1fr_180px_220px_60px] items-center gap-4 px-6 py-4 ${i > 0 ? 'border-t border-border-soft' : ''}`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="flex size-7 items-center justify-center rounded-full border border-border bg-secondary/60">
-                  <KeyRound className="size-3.5 text-muted-foreground" />
-                </span>
-                <div className="flex flex-col">
-                  <span className="text-sm text-foreground">{t.label}</span>
-                  <code className="font-mono text-xs text-muted-foreground">
-                    {t.prefix ? `${t.prefix}…` : '(legacy)'}
-                  </code>
+        <div className="overflow-hidden rounded-lg border border-border-soft bg-card">
+          <div className="grid grid-cols-[1fr_180px_220px_60px] gap-4 border-b border-border-soft px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <div>Label</div>
+            <div>Created</div>
+            <div>Last used</div>
+            <div />
+          </div>
+          {isLoading ? (
+            <p className="px-6 py-5 text-muted-foreground">Loading…</p>
+          ) : filtered.length === 0 ? (
+            <p className="px-6 py-5 text-muted-foreground">
+              {filter
+                ? 'No tokens match your filter.'
+                : 'No tokens yet — create one to use the API.'}
+            </p>
+          ) : (
+            filtered.map((t, i) => (
+              <div
+                key={t.id}
+                className={`grid grid-cols-[1fr_180px_220px_60px] items-center gap-4 px-6 py-4 ${i > 0 ? 'border-t border-border-soft' : ''}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex size-7 items-center justify-center rounded-full border border-border bg-secondary/60">
+                    <KeyRound className="size-3.5 text-muted-foreground" />
+                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-sm text-foreground">{t.label}</span>
+                    <code className="font-mono text-xs text-muted-foreground">
+                      {t.prefix ? `${t.prefix}…` : '(legacy)'}
+                    </code>
+                  </div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {new Date(t.createdAt).toLocaleDateString()}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleString() : 'never'}
+                </div>
+                <div className="flex justify-end">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon-sm" aria-label="token actions">
+                        <MoreVertical className="size-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          if (confirm(`Revoke "${t.label}"? Cannot be undone.`))
+                            revoke.mutate(t.id);
+                        }}
+                      >
+                        Revoke token
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
-              <div className="text-sm text-muted-foreground">
-                {new Date(t.createdAt).toLocaleDateString()}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleString() : 'never'}
-              </div>
-              <div className="flex justify-end">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon-sm" aria-label="token actions">
-                      <MoreVertical className="size-3.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        if (confirm(`Revoke "${t.label}"? Cannot be undone.`))
-                          revoke.mutate(t.id);
-                      }}
-                    >
-                      Revoke token
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+            ))
+          )}
+        </div>
 
-      <CreateTokenDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onSuccess={() => qc.invalidateQueries({ queryKey: ['tokens'] })}
-      />
+        <CreateTokenDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          onSuccess={() => qc.invalidateQueries({ queryKey: ['tokens'] })}
+        />
       </SettingsLayout>
     </Shell>
   );
@@ -217,7 +218,7 @@ function CreateTokenDialog({
           <DialogTitle>{token ? 'Save your token' : 'Create token'}</DialogTitle>
           <DialogDescription>
             {token
-              ? "Shown once and never again — save it now."
+              ? 'Shown once and never again — save it now.'
               : 'Personal bearer token for CLI / scripts. Treat like a password.'}
           </DialogDescription>
         </DialogHeader>

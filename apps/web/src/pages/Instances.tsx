@@ -1,15 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import {
-  ArrowDownUp,
-  LayoutGrid,
-  List,
-  Package,
-  Plus,
-  Search,
-  Settings,
-} from 'lucide-react';
+import { ArrowDownUp, LayoutGrid, List, Package, Plus, Search, Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { instancesApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -234,13 +226,7 @@ function ProjectList({ rows }: { rows: InstanceRow[] }): React.ReactElement {
   );
 }
 
-function EmptyState({
-  role,
-  onNew,
-}: {
-  role: string;
-  onNew: () => void;
-}): React.ReactElement {
+function EmptyState({ role, onNew }: { role: string; onNew: () => void }): React.ReactElement {
   return (
     <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-6 py-16">
       <Package className="size-8 text-foreground-light" />

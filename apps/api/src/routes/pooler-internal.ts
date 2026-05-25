@@ -1,7 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@selfbase/db';
-import { registerTenantForInstance, unregisterTenantForInstance } from '../services/pooler-tenants.js';
+import {
+  registerTenantForInstance,
+  unregisterTenantForInstance,
+} from '../services/pooler-tenants.js';
 
 /**
  * Internal endpoints for supavisor tenant lifecycle (feature 005 Phase 5).

@@ -45,20 +45,17 @@ describe.skipIf(!API)('POST /api/v1/projects/:ref/vault/enable', () => {
     expect(body.error.code).toBe('instance_not_found');
   });
 
-  test.skipIf(!TOKEN_ADMIN || !TEST_REF)(
-    '202 happy path with admin token',
-    async () => {
-      const res = await fetch(`${API}/api/v1/projects/${TEST_REF}/vault/enable`, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${TOKEN_ADMIN}` },
-      });
-      expect(res.status).toBe(202);
-      const body = (await res.json()) as { jobId: string; queued: boolean; ref: string };
-      expect(body.ref).toBe(TEST_REF);
-      expect(typeof body.jobId).toBe('string');
-      expect(body.jobId.length).toBeGreaterThan(0);
-    },
-  );
+  test.skipIf(!TOKEN_ADMIN || !TEST_REF)('202 happy path with admin token', async () => {
+    const res = await fetch(`${API}/api/v1/projects/${TEST_REF}/vault/enable`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${TOKEN_ADMIN}` },
+    });
+    expect(res.status).toBe(202);
+    const body = (await res.json()) as { jobId: string; queued: boolean; ref: string };
+    expect(body.ref).toBe(TEST_REF);
+    expect(typeof body.jobId).toBe('string');
+    expect(body.jobId.length).toBeGreaterThan(0);
+  });
 
   test.skipIf(!TOKEN_ADMIN || !TEST_REF)(
     '202 idempotent — rapid double-POST returns same jobId, queued=false on second',

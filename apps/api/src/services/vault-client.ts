@@ -68,9 +68,7 @@ export async function withVaultClient<T>(
   try {
     await client.connect();
   } catch (err) {
-    throw new VaultUnreachableError(
-      `vault-client connect ${ref}: ${(err as Error).message}`,
-    );
+    throw new VaultUnreachableError(`vault-client connect ${ref}: ${(err as Error).message}`);
   }
 
   try {

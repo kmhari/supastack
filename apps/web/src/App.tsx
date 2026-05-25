@@ -201,8 +201,7 @@ function RequireAuth({ children }: { children: React.ReactElement }): React.Reac
       .catch(() => setApexIncomplete(false)); // fail-open: don't trap user if /apex is sick
   }, [loading, setupOpen, user]);
 
-  const waitingForApex =
-    setupOpen === false && !!user && apexIncomplete === null;
+  const waitingForApex = setupOpen === false && !!user && apexIncomplete === null;
 
   if (loading || setupOpen === null || waitingForApex) {
     return (
