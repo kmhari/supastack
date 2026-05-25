@@ -437,7 +437,7 @@ services:
       CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
 
   functions:
-    image: supabase/edge-runtime:v1.71.2
+    image: supabase/edge-runtime:v1.74.0
     restart: unless-stopped
     volumes:
       - ./volumes/functions:/home/deno/functions:Z
