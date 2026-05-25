@@ -5,6 +5,7 @@ import {
   KeyRound,
   Database,
   FileClock,
+  Terminal,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,7 @@ const TABS: SettingsTab[] = [
   },
   { to: '/settings/members', label: 'Members', icon: Users, matchPrefixes: ['/settings/members'] },
   { to: '/settings/tokens', label: 'Tokens', icon: KeyRound, matchPrefixes: ['/settings/tokens'] },
+  { to: '/settings/cli', label: 'CLI integration', icon: Terminal, matchPrefixes: ['/settings/cli'] },
   {
     to: '/settings/database',
     label: 'Database',
