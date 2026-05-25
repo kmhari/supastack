@@ -81,7 +81,7 @@ export function SettingsOrgPage(): React.ReactElement {
   if (!isAdmin && user) return <Navigate to="/dashboard" replace />;
 
   return (
-    <Shell>
+    <Shell bare>
       <SettingsLayout>
         <PageHeader title="Overview" subtitle="Organization identity and backup destination." />
 

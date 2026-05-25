@@ -69,7 +69,7 @@ export function SettingsAuditPage(): React.ReactElement {
   if (user && user.role !== 'admin') return <Navigate to="/dashboard" replace />;
 
   return (
-    <Shell wide>
+    <Shell bare>
       <SettingsLayout>
         <PageHeader
         title="Audit"

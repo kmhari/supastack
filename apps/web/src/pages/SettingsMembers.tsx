@@ -98,7 +98,7 @@ export function SettingsMembersPage(): React.ReactElement {
   });
 
   return (
-    <Shell wide>
+    <Shell bare>
       <SettingsLayout>
         <PageHeader title="Members" />
 
