@@ -82,8 +82,10 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-No feature in flight right now. Last merged: feature 008 (PR #17, pooler resilience).
-Open spec branches: `007-auto-cert-renewal` (Cloudflare DNS API auto-renewal — issue #6).
+Active feature spec: [specs/009-secrets-management/spec.md](specs/009-secrets-management/spec.md)
+Open spec branches:
+- `009-secrets-management` — Secrets UI + supabase_vault enablement (closes #5)
+- `007-auto-cert-renewal` — Cloudflare DNS API auto-renewal (issue #6, not yet implemented)
 <!-- SPECKIT END -->
 
 ## userEmail
