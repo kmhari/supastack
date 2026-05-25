@@ -18,6 +18,7 @@ import { SettingsMembersPage } from './pages/SettingsMembers.js';
 import { SettingsAuditPage } from './pages/SettingsAudit.js';
 import { SettingsDatabasePage } from './pages/SettingsDatabase.js';
 import { SettingsTokensPage } from './pages/SettingsTokens.js';
+import { SettingsCliPage } from './pages/SettingsCli.js';
 import { ConnectCliPage } from './pages/ConnectCli.js';
 import { AcceptInvitePage } from './pages/AcceptInvite.js';
 import { SetupGate } from './components/SetupGate.js';
@@ -144,6 +145,14 @@ export function App(): React.ReactElement {
           element={
             <RequireAuth>
               <SettingsTokensPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/cli"
+          element={
+            <RequireAuth>
+              <SettingsCliPage />
             </RequireAuth>
           }
         />
