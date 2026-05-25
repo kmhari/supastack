@@ -56,6 +56,16 @@ None. The TTL (5 min) and device_code length (8 hex) are constants; revisit only
 
 ## Operator runbook
 
+### Per-project auto-routing (optional)
+
+If you work across multiple deployments (Cloud + selfbase, or multiple selfbase installs), the global `~/.supabase/profile` default is awkward. Selfbase's `/settings/cli` page (Section 6 + 7) walks through a `.selfbase`-file convention + zsh wrapper:
+
+1. Drop a one-line `.selfbase` at the project's git root containing just the apex (e.g., `supaviser.dev`). Safe to commit.
+2. Install the wrapper into `~/.zshrc` (shown on `/settings/cli`). It walks up to git root looking for `.selfbase`, auto-generates `~/.config/selfbase/<apex>.toml` on first use, and passes `--profile` to the CLI on every invocation.
+3. `cd` into the project → `supabase` Just Works. `cd` out → it falls back to whatever global default you have (Cloud, typically).
+
+The same wrapper also handles the existing `.supabase_token` per-project token injection; both are independent.
+
 ### Revoking a CLI session
 
 CLI-minted tokens show in `/settings/tokens` with a small `cli` badge next to the label. Click Revoke as you would for any token. The CLI on that laptop gets 401 on its next call; the operator re-runs `supabase login`.
