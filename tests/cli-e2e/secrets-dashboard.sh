@@ -25,7 +25,7 @@ set -euo pipefail
 : "${SELFBASE_PAT:?SELFBASE_PAT required}"
 : "${SELFBASE_PROJECT_REF:?SELFBASE_PROJECT_REF required}"
 
-API="https://${SELFBASE_APEX}"
+API="${SELFBASE_API_URL:-https://api.${SELFBASE_APEX}}"
 REF="${SELFBASE_PROJECT_REF}"
 H_AUTH="Authorization: Bearer ${SELFBASE_PAT}"
 H_JSON="Content-Type: application/json"
@@ -40,7 +40,7 @@ done
 BATCH+=']'
 
 START_NS=$(date +%s%N)
-RES=$(curl -s -w '\n%{http_code}' -X POST "${API}/v1/projects/${REF}/secrets" \
+RES=$(curl -sk -w '\n%{http_code}' -X POST "${API}/v1/projects/${REF}/secrets" \
   -H "${H_AUTH}" -H "${H_JSON}" --data "${BATCH}")
 END_NS=$(date +%s%N)
 CODE=$(echo "$RES" | tail -1)
@@ -51,7 +51,7 @@ echo "    POST elapsed: ${ELAPSED_MS}ms (status ${CODE})"
 [ "$ELAPSED_MS" -lt 5000 ] || { echo "FAIL: SC-003 budget exceeded (${ELAPSED_MS}ms > 5000ms)"; exit 1; }
 
 # Round-trip GET to confirm all 10 visible
-GOT=$(curl -s -H "${H_AUTH}" "${API}/v1/projects/${REF}/secrets" \
+GOT=$(curl -sk -H "${H_AUTH}" "${API}/v1/projects/${REF}/secrets" \
   | jq -r '[.[] | select(.name | startswith("SELFBASE_010_E2E_"))] | length')
 [ "$GOT" -ge 10 ] || { echo "FAIL: only $GOT/10 secrets visible after save"; exit 1; }
 echo "    GET sees all $GOT/10"
@@ -68,7 +68,7 @@ fi
 
 if [ -n "${TEST_FUNCTION_SLUG:-}" ] && [ -n "${SELFBASE_ANON_KEY:-}" ]; then
   EXPECTED="propagation-$(date +%s%N)"
-  curl -s -X POST "${API}/v1/projects/${REF}/secrets" \
+  curl -sk -X POST "${API}/v1/projects/${REF}/secrets" \
     -H "${H_AUTH}" -H "${H_JSON}" \
     --data "[{\"name\":\"SELFBASE_010_E2E\",\"value\":\"${EXPECTED}\"}]" > /dev/null
 
@@ -76,7 +76,7 @@ if [ -n "${TEST_FUNCTION_SLUG:-}" ] && [ -n "${SELFBASE_ANON_KEY:-}" ]; then
   SEEN=""
   for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
     sleep 1
-    SEEN=$(curl -s "https://${REF}.${SELFBASE_APEX}/functions/v1/${TEST_FUNCTION_SLUG}" \
+    SEEN=$(curl -sk "https://${REF}.${SELFBASE_APEX}/functions/v1/${TEST_FUNCTION_SLUG}" \
       -H "Authorization: Bearer ${SELFBASE_ANON_KEY}" -H "apikey: ${SELFBASE_ANON_KEY}" || true)
     if echo "$SEEN" | grep -qF "${EXPECTED}"; then
       echo "    propagation observed at t=${i}s"
@@ -103,7 +103,7 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
   NAMES=$(echo "$NAMES" | jq ". + [\"SELFBASE_010_E2E_$i\"]")
 done
 NAMES=$(echo "$NAMES" | jq ". + [\"SELFBASE_010_E2E\"]")
-curl -s -X DELETE "${API}/v1/projects/${REF}/secrets" \
+curl -sk -X DELETE "${API}/v1/projects/${REF}/secrets" \
   -H "${H_AUTH}" -H "${H_JSON}" --data "${NAMES}" > /dev/null
 echo "    deleted ${REF} test secrets"
 

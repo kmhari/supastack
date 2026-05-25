@@ -49,7 +49,7 @@ describe('vault-client SQL helpers', () => {
     expect(rows[0]).toEqual({ name: 'A', decryptedSecret: 'a-val', updatedAt: new Date('2026-01-01') });
     const queryCall = (client as unknown as { calls: { sql: string }[] }).calls[0]!;
     expect(queryCall.sql).toContain('FROM vault.decrypted_secrets');
-    expect(queryCall.sql).toContain('WHERE key_id IS NOT NULL');
+    expect(queryCall.sql).toContain('WHERE name IS NOT NULL');
     expect(queryCall.sql).toContain('ORDER BY name');
   });
 

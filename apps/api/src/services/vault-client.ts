@@ -100,9 +100,12 @@ export async function vaultListAll(client: Client): Promise<VaultSecretRow[]> {
     decrypted_secret: string;
     updated_at: Date;
   }>(
+    // NOTE: vault.create_secret() leaves key_id NULL by design (uses pgsodium's
+    // default key + per-row nonce internally). Earlier drafts of this spec
+    // filtered WHERE key_id IS NOT NULL — wrong, excludes everything.
     `SELECT name, decrypted_secret, updated_at
        FROM vault.decrypted_secrets
-      WHERE key_id IS NOT NULL
+      WHERE name IS NOT NULL
       ORDER BY name`,
   );
   return res.rows.map((r) => ({
