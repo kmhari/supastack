@@ -1,12 +1,21 @@
 /**
- * Platform-managed env vars that selfbase injects into per-instance containers
- * at start time. Operators cannot set these via the secrets API/dashboard.
+ * Env vars selfbase injects into the per-project **functions** container at
+ * start time. These are the names visible to edge functions via
+ * `Deno.env.get(...)` that are managed by the platform — operators cannot
+ * set them via the secrets API/dashboard (api would 409, runtime would
+ * filter them at injection time as defense in depth).
  *
- * Single source of truth for the *name list* is reserved-secrets.json (also
- * copied into the per-instance functions volume at build time so the Deno
- * runtime can read it without crossing back to the api).
+ * Source of truth: the `functions` service env in
+ * infra/supabase-template/docker-compose.yml. ANY env var defined there
+ * is reserved. Env vars set by OTHER per-project containers (db, studio,
+ * realtime, analytics, meta, etc.) are NOT visible to edge functions and
+ * MUST NOT appear here — reserving them needlessly would block legitimate
+ * user secret names like `POSTGRES_PASSWORD` (which an operator might want
+ * to point at a different DB from an edge function).
  *
- * Descriptions are TS-only (presentation concern; the runtime doesn't need them).
+ * Materialized into infra/supabase-template/volumes/functions/main/
+ * reserved-secrets.json at build time so the per-project runtime
+ * (`main/index.ts`) can read it without crossing back to the api.
  *
  * Spec: 010-secrets-management — FR-026, research.md Decision 4.
  */
@@ -19,31 +28,17 @@ export type ReservedSecret = {
 };
 
 const DESCRIPTIONS: Record<string, string> = {
-  ANON_KEY: 'Anonymous API key (legacy alias) — managed by selfbase',
-  SERVICE_ROLE_KEY: 'Service-role API key (legacy alias) — managed by selfbase',
   JWT_SECRET: 'HS256 signing secret for legacy JWTs — managed by selfbase',
-  SUPABASE_URL: 'Project API base URL — injected by selfbase',
-  SUPABASE_PUBLIC_URL: 'Public-facing project URL — injected by selfbase',
+  SUPABASE_URL: 'Project API base URL (Kong, internal) — managed by selfbase',
+  SUPABASE_PUBLIC_URL: 'Public-facing project URL — managed by selfbase',
   SUPABASE_ANON_KEY: 'Anonymous API key — managed by selfbase',
   SUPABASE_SERVICE_ROLE_KEY: 'Service-role API key — managed by selfbase',
-  SUPABASE_DB_URL: 'Per-project Postgres connection string — managed by selfbase',
-  SUPABASE_PUBLISHABLE_KEY: 'Publishable API key — managed by selfbase',
-  SUPABASE_SECRET_KEY: 'Secret API key — managed by selfbase',
   SUPABASE_PUBLISHABLE_KEYS: 'Publishable API key set — managed by selfbase',
   SUPABASE_SECRET_KEYS: 'Secret API key set — managed by selfbase',
-  POSTGRES_PASSWORD: 'Per-project Postgres password — managed by selfbase',
-  POSTGRES_HOST: 'Per-project Postgres host — managed by selfbase',
-  POSTGRES_PORT: 'Per-project Postgres port — managed by selfbase',
-  POSTGRES_DB: 'Per-project Postgres database name — managed by selfbase',
+  SUPABASE_DB_URL: 'Per-project Postgres connection string — managed by selfbase',
   VERIFY_JWT: 'Toggle for JWT verification at the functions edge — managed by selfbase',
-  FUNCTIONS_VERIFY_JWT: 'Per-function JWT-verify toggle — managed by selfbase',
-  DASHBOARD_USERNAME: 'Studio dashboard basic-auth username — managed by selfbase',
-  DASHBOARD_PASSWORD: 'Studio dashboard basic-auth password — managed by selfbase',
-  SECRET_KEY_BASE: 'Realtime/Analytics signing secret — managed by selfbase',
-  VAULT_ENC_KEY: 'Per-project vault encryption key — managed by selfbase',
-  LOGFLARE_PUBLIC_ACCESS_TOKEN: 'Analytics ingest token — managed by selfbase',
-  LOGFLARE_PRIVATE_ACCESS_TOKEN: 'Analytics admin token — managed by selfbase',
-  PG_META_CRYPTO_KEY: 'pg-meta encryption key — managed by selfbase',
+  SB_REF: 'Project ref (selfbase metadata) — managed by selfbase',
+  SELFBASE_VAULT_TTL_MS: 'Vault cache TTL in milliseconds — managed by selfbase',
 };
 
 export const RESERVED_SECRETS: ReservedSecret[] = (data.reserved as string[]).map((name) => ({
