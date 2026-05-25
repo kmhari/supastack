@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { orgApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Shell } from '@/components/Shell';
+import { SettingsLayout } from '@/components/SettingsLayout';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,7 +81,8 @@ export function SettingsOrgPage(): React.ReactElement {
 
   return (
     <Shell>
-      <PageHeader title="Settings" subtitle="Organization identity and backup destination." />
+      <SettingsLayout>
+        <PageHeader title="Overview" subtitle="Organization identity and backup destination." />
 
       {isLoading && <p className="text-muted-foreground">Loading…</p>}
 
@@ -190,6 +192,7 @@ export function SettingsOrgPage(): React.ReactElement {
           </Card>
         </>
       )}
+      </SettingsLayout>
     </Shell>
   );
 }

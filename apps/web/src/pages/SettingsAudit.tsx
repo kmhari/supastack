@@ -5,6 +5,7 @@ import { Search } from 'lucide-react';
 import { auditApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Shell } from '@/components/Shell';
+import { SettingsLayout } from '@/components/SettingsLayout';
 import { PageHeader } from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -69,7 +70,8 @@ export function SettingsAuditPage(): React.ReactElement {
 
   return (
     <Shell wide>
-      <PageHeader
+      <SettingsLayout>
+        <PageHeader
         title="Audit"
         subtitle="Destructive and security-sensitive actions across the org. Newest first."
       />
@@ -151,6 +153,7 @@ export function SettingsAuditPage(): React.ReactElement {
           ))
         )}
       </div>
+      </SettingsLayout>
     </Shell>
   );
 }

@@ -88,26 +88,12 @@ export function Shell({
           </Link>
           <div className="flex items-center gap-1">
             <NavTab to="/dashboard" label="Projects" active={isProjectsActive} />
-            <NavTab to="/settings/org" label="Settings" active={isSettingsActive('/settings/org')} />
+            {/* Settings groups (Overview, Members, Tokens, Database, Audit)
+                live on a sidebar inside the settings pages themselves. */}
             <NavTab
-              to="/settings/members"
-              label="Members"
-              active={isSettingsActive('/settings/members')}
-            />
-            <NavTab
-              to="/settings/tokens"
-              label="Tokens"
-              active={isSettingsActive('/settings/tokens')}
-            />
-            <NavTab
-              to="/settings/database"
-              label="Database"
-              active={isSettingsActive('/settings/database')}
-            />
-            <NavTab
-              to="/settings/audit"
-              label="Audit"
-              active={isSettingsActive('/settings/audit')}
+              to="/settings/org"
+              label="Settings"
+              active={isSettingsActive('/settings')}
             />
           </div>
         </div>
