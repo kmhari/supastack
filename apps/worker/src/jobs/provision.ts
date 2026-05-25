@@ -9,6 +9,7 @@ import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { QUEUES } from '../queues.js';
 import { probeAuthWithStoredPassword } from '../services/pg-password-probe.js';
+import { handleVaultEnable } from './vault-enable-job.js';
 import {
   composeUp,
   composeAllHealthy,
@@ -177,6 +178,14 @@ export async function handleProvision(payload: { ref: string }): Promise<void> {
       );
     }
     log.info({ attempts: probe.attempts }, 'auth probe ok — stored password matches');
+
+    // 6c. Feature 010 — enable supabase_vault before marking running (FR-001
+    //     + FR-005). Synchronous because dashboard saves require vault from
+    //     the very first request. If this fails, the instance must NOT
+    //     reach 'running'.
+    log.info('enabling supabase_vault');
+    await handleVaultEnable({ ref, source: 'provision' });
+    log.info('vault enabled');
 
     // 7. Mark running
     await db()

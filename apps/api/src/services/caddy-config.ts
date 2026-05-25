@@ -116,6 +116,37 @@ export async function buildCaddyConfig(): Promise<unknown> {
     terminal: true,
   });
 
+  /**
+   * Feature 010 — Studio's bundled `/project/default/functions/secrets` page
+   * is a documentation-only stub (no CRUD). Redirect to the working selfbase
+   * dashboard page at /dashboard/project/<ref>/secrets, preserving any
+   * query string. Path-precise so other /functions/* pages pass through.
+   * Must be inserted BEFORE instanceStudioRoute for the same hostname so
+   * Caddy matches the path filter first.
+   *
+   * Spec: 010-secrets-management — FR-019..022, contracts/caddy-redirect.md.
+   */
+  const studioSecretsRedirectRoute = (ref: string, hostname: string) => ({
+    match: [
+      {
+        host: [hostname],
+        path: ['/project/default/functions/secrets', '/project/default/functions/secrets/*'],
+      },
+    ],
+    handle: [
+      {
+        handler: 'static_response',
+        status_code: 302,
+        headers: {
+          Location: apex
+            ? [`https://${apex}/dashboard/project/${ref}/secrets{http.request.uri.query_string_with_question_mark}`]
+            : [`/dashboard/project/${ref}/secrets`],
+        },
+      },
+    ],
+    terminal: true,
+  });
+
   const dashboardFallback = {
     handle: [{ handler: 'subroute', routes: dashboardSubroutes }],
     terminal: true,
@@ -152,6 +183,9 @@ export async function buildCaddyConfig(): Promise<unknown> {
 
   const httpsRoutes = [
     ...instances.map((i) => instanceRoute(i.ref, i.portKong, dataHost(i.ref))),
+    // Feature 010 — redirect Studio's broken /functions/secrets URL to selfbase.
+    // MUST appear before instanceStudioRoute (path-precise match evaluated first).
+    ...instances.map((i) => studioSecretsRedirectRoute(i.ref, studioHost(i.ref))),
     ...instances.map((i) => instanceStudioRoute(i.ref, i.portStudio, studioHost(i.ref))),
     ...apiHostRoute,
     dashboardFallback,
@@ -160,6 +194,9 @@ export async function buildCaddyConfig(): Promise<unknown> {
   const httpRoutes = [
     // Plain HTTP carries the same per-instance routes (for dev/testing without DNS).
     ...instances.map((i) => instanceRoute(i.ref, i.portKong, dataHost(i.ref))),
+    // Feature 010 — redirect Studio's broken /functions/secrets URL to selfbase.
+    // MUST appear before instanceStudioRoute (path-precise match evaluated first).
+    ...instances.map((i) => studioSecretsRedirectRoute(i.ref, studioHost(i.ref))),
     ...instances.map((i) => instanceStudioRoute(i.ref, i.portStudio, studioHost(i.ref))),
     ...apiHostRoute,
     dashboardFallback,

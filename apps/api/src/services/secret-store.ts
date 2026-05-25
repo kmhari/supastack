@@ -1,48 +1,53 @@
 /**
- * Per-instance secret store.
+ * Per-instance secret store — vault-backed (feature 010).
  *
- * Spec: specs/003-supabase-cli-compat-p0/research.md R-004, R-005
+ * Single source of truth is per-project Postgres `vault.secrets` (pgsodium
+ * encrypted). This service is a thin facade: validate names against the
+ * reserved list, then proxy reads/writes through `vault-client`.
  *
- * Phase-2 stub. Pure helpers (RESERVED_SECRET_NAMES, validateSecretName,
- * upsertEnvEntry, removeEnvEntry) get their real implementations in T045 /
- * Phase 6. The signatures here are the contract the unit tests in T003a
- * exercise. Storage + I/O functions throw `not_implemented` until Phase 6.
+ * Wire contract preserved verbatim from feature 003 US4 (SC-008):
+ *   - GET   → [{ name, value: sha256 }]                (bare array)
+ *   - POST  ← [{ name, value }]                        (bare array)
+ *   - DELETE ← [name, ...]                              (bare array of names)
+ *
+ * Error codes preserved: `reserved_name` (409), `validation` (422).
+ *
+ * Changes from previous implementation:
+ *   - No `.env` writes
+ *   - No functions-container restart on save
+ *   - Saves propagate via the runtime's 5s TTL vault cache (≤10s, SC-002)
+ *   - Existing `project_secrets` table is NOT read or written
+ *     (deprecated; will be dropped in a follow-up migration per spec)
+ *
+ * Pure name-validation helpers (`validateSecretName`, `RESERVED_SECRET_NAMES`)
+ * are preserved for backwards compatibility with existing unit tests in
+ * `secret-store-name.test.ts`. The list now sources from `@selfbase/shared`.
  */
 
+import { createHash } from 'node:crypto';
+import type { SecretListEntry } from '@selfbase/shared';
+import { RESERVED_SECRET_NAMES as SHARED_RESERVED } from '@selfbase/shared';
+import { ManagementApiError } from '../plugins/mgmt-api-errors.js';
+import {
+  withVaultClient,
+  vaultListAll,
+  vaultFindIdByName,
+  vaultCreate,
+  vaultUpdate,
+  vaultDeleteByNames,
+  InstanceNotFoundForVaultError,
+  VaultUnreachableError,
+} from './vault-client.js';
+
+export type SecretWriteSource = { userId: string };
+
 /**
- * Names selfbase already writes into the per-instance .env via its own
- * provisioning code. Setting any of these via the secrets API would
- * silently shadow a runtime-critical variable; we reject at API boundary
- * with `code: reserved_name`. Sourced from infra/supabase-template/
- * docker-compose.yml; see specs/.../research.md R-005.
+ * Re-export the canonical reserved list so the existing
+ * `secret-store-name.test.ts` keeps passing without churn (it imports from
+ * this module). The TS const matches the JSON list materialized for the
+ * runtime guard at injection time (FR-014 defense in depth).
  */
-export const RESERVED_SECRET_NAMES = [
-  'ANON_KEY',
-  'SERVICE_ROLE_KEY',
-  'JWT_SECRET',
-  'SUPABASE_URL',
-  'SUPABASE_PUBLIC_URL',
-  'SUPABASE_ANON_KEY',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'SUPABASE_DB_URL',
-  'SUPABASE_PUBLISHABLE_KEY',
-  'SUPABASE_SECRET_KEY',
-  'SUPABASE_PUBLISHABLE_KEYS',
-  'SUPABASE_SECRET_KEYS',
-  'POSTGRES_PASSWORD',
-  'POSTGRES_HOST',
-  'POSTGRES_PORT',
-  'POSTGRES_DB',
-  'VERIFY_JWT',
-  'FUNCTIONS_VERIFY_JWT',
-  'DASHBOARD_USERNAME',
-  'DASHBOARD_PASSWORD',
-  'SECRET_KEY_BASE',
-  'VAULT_ENC_KEY',
-  'LOGFLARE_PUBLIC_ACCESS_TOKEN',
-  'LOGFLARE_PRIVATE_ACCESS_TOKEN',
-  'PG_META_CRYPTO_KEY',
-] as const;
+export const RESERVED_SECRET_NAMES: readonly string[] = Array.from(SHARED_RESERVED);
 
 const SECRET_NAME_REGEX = /^[A-Z][A-Z0-9_]{0,63}$/;
 
@@ -50,29 +55,11 @@ export type ValidationResult =
   | { ok: true }
   | { ok: false; code: 'validation' | 'reserved_name'; message: string };
 
-/** Pure validator — regex + reserved-name check. No I/O. */
-export function validateSecretName(name: string): ValidationResult {
-  if (!SECRET_NAME_REGEX.test(name)) {
-    return {
-      ok: false,
-      code: 'validation',
-      message: `Secret name '${name}' is invalid. Must match ${SECRET_NAME_REGEX}.`,
-    };
-  }
-  if ((RESERVED_SECRET_NAMES as readonly string[]).includes(name)) {
-    return {
-      ok: false,
-      code: 'reserved_name',
-      message: `Cannot set reserved secret: ${name}. This name is managed by the platform.`,
-    };
-  }
-  return { ok: true };
-}
-
 /**
- * Pure .env editor — replaces or appends `name=value`, preserving
- * comments and unrelated lines. Quotes values that contain whitespace,
- * '#', or quotes so docker-compose env-file parsing doesn't truncate.
+ * Pure .env editor — DEPRECATED (no longer called by setSecrets/deleteSecrets
+ * since feature 010 cut over to vault). Kept exported to preserve the unit
+ * test suite at `tests/unit/env-editor.test.ts`; will be removed alongside
+ * the `project_secrets` table drop in the follow-up migration.
  */
 export function upsertEnvEntry(existing: string, name: string, value: string): string {
   const formatted = formatEnvValue(value);
@@ -90,7 +77,6 @@ export function upsertEnvEntry(existing: string, name: string, value: string): s
     }
   }
   if (!replaced) {
-    // Append before any trailing blank.
     if (out.length > 0 && out[out.length - 1] === '') {
       out.splice(out.length - 1, 0, line);
     } else {
@@ -98,13 +84,12 @@ export function upsertEnvEntry(existing: string, name: string, value: string): s
       out.push('');
     }
   }
-  // Ensure the file ends with exactly one newline.
   let result = out.join('\n');
   if (!result.endsWith('\n')) result += '\n';
   return result;
 }
 
-/** Pure .env editor — deletes the line for `name`, no-op if absent. */
+/** Pure .env editor — DEPRECATED. See upsertEnvEntry. */
 export function removeEnvEntry(existing: string, name: string): string {
   const keyMatcher = new RegExp(`^${escapeRegex(name)}=`);
   const lines = existing.split('\n');
@@ -115,10 +100,8 @@ export function removeEnvEntry(existing: string, name: string): string {
 }
 
 function formatEnvValue(value: string): string {
-  // Quote if the value would otherwise be ambiguous to a shell-style parser.
   const needsQuoting = /[\s#"']/.test(value) || value === '';
   if (!needsQuoting) return value;
-  // Escape only inner double-quotes — the wrapping pair is added below.
   const escaped = value.replace(/"/g, '\\"');
   return `"${escaped}"`;
 }
@@ -127,65 +110,62 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// ─── I/O surface ────────────────────────────────────────────────────────────
-
-import { createHash } from 'node:crypto';
-import { readFile, rename, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import { and, eq, inArray } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { encryptJson, loadMasterKey } from '@selfbase/crypto';
-import type { SecretListEntry } from '@selfbase/shared';
-import { ManagementApiError } from '../plugins/mgmt-api-errors.js';
-import { getDockerControl } from './docker-control-adapter.js';
-
-export type SecretWriteSource = { userId: string };
-
-const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
-
-function envPathFor(ref: string): string {
-  return path.join(INSTANCES_DIR, ref, '.env');
+/** Pure validator — regex + reserved-name check. No I/O. */
+export function validateSecretName(name: string): ValidationResult {
+  if (!SECRET_NAME_REGEX.test(name)) {
+    return {
+      ok: false,
+      code: 'validation',
+      message: `Secret name '${name}' is invalid. Must match ${SECRET_NAME_REGEX}.`,
+    };
+  }
+  if (SHARED_RESERVED.has(name)) {
+    return {
+      ok: false,
+      code: 'reserved_name',
+      message: `Cannot set reserved secret: ${name}. This name is managed by the platform.`,
+    };
+  }
+  return { ok: true };
 }
 
+// ─── Wire-facing operations (preserved contract, vault-backed body) ──────────
+
 /**
- * Listing returns name + value_sha256. Plaintext NEVER appears (FR-015).
- * The sha256 is computed at write-time and stored alongside the encrypted
- * blob so we can render the redacted indicator without decrypting per-call.
+ * List custom secrets for a project. Filters out reserved names defensively
+ * (impossible by write-time guard, but cheap insurance against drift).
+ * Returns `[{ name, value: sha256 }]` per the existing contract.
  */
 export async function listSecrets(ref: string): Promise<SecretListEntry[]> {
-  const rows = await db()
-    .select({
-      name: schema.projectSecrets.name,
-      valueSha256: schema.projectSecrets.valueSha256,
-    })
-    .from(schema.projectSecrets)
-    .where(eq(schema.projectSecrets.instanceRef, ref));
-  return rows.map((r) => ({ name: r.name, value: r.valueSha256 }));
+  try {
+    return await withVaultClient(ref, async (client) => {
+      const rows = await vaultListAll(client);
+      return rows
+        .filter((r) => !SHARED_RESERVED.has(r.name))
+        .map((r) => ({
+          name: r.name,
+          value: createHash('sha256').update(r.decryptedSecret, 'utf8').digest('hex'),
+        }));
+    });
+  } catch (err) {
+    throw translateVaultError(err, ref);
+  }
 }
 
 /**
- * Create-or-replace one or more secrets. The whole batch is atomic from the
- * caller's perspective:
- *   1. Validate every name (regex + reserved guard). One bad name = reject all.
- *   2. Read + back up the current .env.
- *   3. For each entry: encrypt value, compute sha256, upsert the DB row,
- *      apply upsertEnvEntry to the in-memory .env string.
- *   4. Atomic-write the new .env (tmp + rename).
- *   5. Restart the functions container.
- *   6. On any I/O failure after step 2: restore .env from the backup and
- *      rollback the DB changes for this batch.
+ * Atomic batch upsert. Validates every name up front (any failure rejects
+ * the whole batch with the offending name in `details`). Persists in a
+ * single Postgres transaction so partial-batch failures roll back cleanly.
  *
- * No concurrency lock here yet — single-deployer assumption holds for P0.
- * If we see concurrent writes corrupting .env in practice, wrap in a
- * Redis SETNX lock per instance.
+ * No container restart on success — propagation happens via the runtime's
+ * 5s TTL vault cache (FR-014/015, SC-002).
  */
 export async function setSecrets(
   ref: string,
   entries: Array<{ name: string; value: string }>,
-  source: SecretWriteSource,
+  _source: SecretWriteSource,
 ): Promise<void> {
-  // 1. Validate every name upfront. ManagementApiError with the right code
-  //    bubbles to the cloud-shape envelope.
+  // 1. Up-front validation: one bad name rejects the whole batch.
   for (const entry of entries) {
     const r = validateSecretName(entry.name);
     if (!r.ok) {
@@ -196,80 +176,47 @@ export async function setSecrets(
         { name: entry.name },
       );
     }
+    if (entry.value === '') {
+      throw new ManagementApiError(
+        422,
+        `Secret '${entry.name}' has empty value. Use DELETE to remove a secret.`,
+        'validation',
+        { name: entry.name },
+      );
+    }
   }
 
-  const envPath = envPathFor(ref);
-  const beforeEnv = await readFile(envPath, 'utf8').catch(() => '');
+  if (entries.length === 0) return;
 
-  // 2-3. Apply each entry to the env-string + persist DB row.
-  const masterKey = loadMasterKey();
-  let newEnv = beforeEnv;
-  const insertedIds: string[] = [];
   try {
-    for (const entry of entries) {
-      const sha = createHash('sha256').update(entry.value, 'utf8').digest('hex');
-      const encryptedValue = encryptJson({ value: entry.value }, masterKey);
-      // Upsert: try INSERT, on conflict (instanceRef, name) update.
-      const existing = await db()
-        .select({ id: schema.projectSecrets.id })
-        .from(schema.projectSecrets)
-        .where(
-          and(
-            eq(schema.projectSecrets.instanceRef, ref),
-            eq(schema.projectSecrets.name, entry.name),
-          ),
-        )
-        .limit(1);
-      if (existing[0]) {
-        await db()
-          .update(schema.projectSecrets)
-          .set({
-            encryptedValue,
-            valueSha256: sha,
-            updatedAt: new Date(),
-            updatedBy: source.userId,
-          })
-          .where(eq(schema.projectSecrets.id, existing[0].id));
-      } else {
-        const [row] = await db()
-          .insert(schema.projectSecrets)
-          .values({
-            instanceRef: ref,
-            name: entry.name,
-            encryptedValue,
-            valueSha256: sha,
-            createdBy: source.userId,
-            updatedBy: source.userId,
-          })
-          .returning({ id: schema.projectSecrets.id });
-        if (row) insertedIds.push(row.id);
+    await withVaultClient(ref, async (client) => {
+      await client.query('BEGIN');
+      try {
+        for (const entry of entries) {
+          const existingId = await vaultFindIdByName(client, entry.name);
+          if (existingId) {
+            await vaultUpdate(client, existingId, entry.value);
+          } else {
+            await vaultCreate(client, entry.name, entry.value);
+          }
+        }
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
       }
-      newEnv = upsertEnvEntry(newEnv, entry.name, entry.value);
-    }
+    });
   } catch (err) {
-    // Roll back any new INSERTs from this batch. UPDATEs are harder to
-    // undo cleanly without a snapshot; for P0 we accept that a partial
-    // failure may leave DB and .env briefly inconsistent — the .env
-    // file write hasn't happened yet at this point.
-    if (insertedIds.length > 0) {
-      await db()
-        .delete(schema.projectSecrets)
-        .where(inArray(schema.projectSecrets.id, insertedIds));
-    }
-    throw err;
+    if (err instanceof ManagementApiError) throw err;
+    throw translateVaultError(err, ref);
   }
-
-  // 4. Atomic write.
-  await atomicWrite(envPath, newEnv);
-
-  // 5. Restart with rollback on failure.
-  await restartOrRollback(ref, envPath, beforeEnv);
 }
 
 /**
- * Delete one or more secrets by name. Idempotent: deleting a non-existent
- * name is success. Wraps a single .env write + single container restart
- * over the whole batch.
+ * Batch delete. Names not present in vault are silently skipped (matches
+ * prior behavior). Reserved names in the request → 409 (refuse the whole
+ * batch for symmetry with POST), though by construction reserved names
+ * shouldn't be in vault.
  */
 export async function deleteSecrets(
   ref: string,
@@ -277,62 +224,44 @@ export async function deleteSecrets(
   _source: SecretWriteSource,
 ): Promise<void> {
   if (names.length === 0) return;
-  const envPath = envPathFor(ref);
-  const beforeEnv = await readFile(envPath, 'utf8').catch(() => '');
 
-  // 1. DB delete (idempotent).
-  await db()
-    .delete(schema.projectSecrets)
-    .where(
-      and(
-        eq(schema.projectSecrets.instanceRef, ref),
-        inArray(schema.projectSecrets.name, names),
-      ),
-    );
-
-  // 2. Strip each name from the .env string.
-  let newEnv = beforeEnv;
   for (const name of names) {
-    newEnv = removeEnvEntry(newEnv, name);
+    if (SHARED_RESERVED.has(name)) {
+      throw new ManagementApiError(
+        409,
+        `Cannot delete reserved secret: ${name}. This name is managed by the platform.`,
+        'reserved_name',
+        { name },
+      );
+    }
   }
 
-  // 3. Atomic write + restart.
-  await atomicWrite(envPath, newEnv);
-  await restartOrRollback(ref, envPath, beforeEnv);
-}
-
-/**
- * Write `content` to `target` via a `<target>.tmp-<pid>` temp file +
- * rename. Keeps the destination consistent even if the process crashes
- * mid-write.
- */
-async function atomicWrite(target: string, content: string): Promise<void> {
-  const tmp = `${target}.tmp-${process.pid}`;
-  await writeFile(tmp, content, { mode: 0o600 });
-  await rename(tmp, target);
-}
-
-async function restartOrRollback(
-  ref: string,
-  envPath: string,
-  backup: string,
-): Promise<void> {
-  const containerName = `selfbase-${ref}-functions-1`;
-  const docker = getDockerControl();
   try {
-    await docker.restart(containerName);
-    await docker.waitHealthy(containerName, 5000);
+    await withVaultClient(ref, async (client) => {
+      await vaultDeleteByNames(client, names);
+    });
   } catch (err) {
-    // Restart failed — restore the .env from the backup snapshot. DB
-    // rows are NOT rolled back here (the caller may have intended
-    // changes that survive; restart-failure is an env-injection issue,
-    // not a logical-data issue). Surface a deploy_rolled_back-equivalent.
-    await atomicWrite(envPath, backup).catch(() => {});
-    throw new ManagementApiError(
-      500,
-      `Secret update for ${ref} was rolled back: the functions container failed to restart. The previous environment is restored.`,
-      'restart_failed',
-      { ref, cause: (err as Error).message },
+    throw translateVaultError(err, ref);
+  }
+}
+
+function translateVaultError(err: unknown, ref: string): ManagementApiError {
+  if (err instanceof InstanceNotFoundForVaultError) {
+    return new ManagementApiError(404, err.message, 'not_found', { ref });
+  }
+  if (err instanceof VaultUnreachableError) {
+    return new ManagementApiError(
+      503,
+      `vault unreachable for ${ref}: ${err.message}`,
+      'vault_unreachable',
+      { ref },
     );
   }
+  // Unexpected — propagate as 500. The Fastify error handler logs the stack.
+  return new ManagementApiError(
+    500,
+    err instanceof Error ? err.message : String(err),
+    'internal',
+    { ref },
+  );
 }

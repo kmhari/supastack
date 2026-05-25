@@ -10,7 +10,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:reserved-secrets": "node scripts/materialize-reserved-secrets.mjs",
+    "build": "npm run build:reserved-secrets"
   },
   "dependencies": {
     "pino": "^9.4.0",

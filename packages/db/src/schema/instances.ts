@@ -45,6 +45,10 @@ export const supabaseInstances = pgTable(
     backupRetain: integer('backup_retain').notNull().default(7),
     lastBackupAt: timestamp('last_backup_at', { withTimezone: true }),
     provisionError: text('provision_error'),
+    // Feature 010 — set by the vault-enable worker job after successful
+    // CREATE EXTENSION pgsodium + supabase_vault + smoke test. Boot-time
+    // backfill scan queries WHERE vault_enabled_at IS NULL.
+    vaultEnabledAt: timestamp('vault_enabled_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

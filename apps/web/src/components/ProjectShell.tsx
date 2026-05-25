@@ -29,6 +29,7 @@ export function ProjectShell({
         { to: base, label: 'General' },
         { to: `${base}/api-keys`, label: 'API Keys' },
         { to: `${base}/jwt-keys`, label: 'JWT Keys' },
+        { to: `${base}/secrets`, label: 'Secrets' },
         { to: `${base}/backups`, label: 'Backups' },
       ],
     },

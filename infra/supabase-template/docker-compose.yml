@@ -459,6 +459,14 @@ services:
       SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       # TODO: Allow configuring VERIFY_JWT per function.
       VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"
+      # selfbase feature 010 — vault-backed envVars injection (main/index.ts v3).
+      # SB_REF identifies the project in runtime log lines; SELFBASE_VAULT_TTL_MS
+      # gates the in-process cache (5s default = ~12 refreshes/min/project under
+      # load; tunable for diagnosis). Vault reads use SUPABASE_DB_URL above —
+      # the `postgres` role is SUPERUSER in the supabase/postgres image so it
+      # can SELECT from vault.decrypted_secrets without a separate connection.
+      SB_REF: ${PROJECT_REF}
+      SELFBASE_VAULT_TTL_MS: ${SELFBASE_VAULT_TTL_MS:-5000}
     command:
       [
         "start",
