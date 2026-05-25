@@ -55,9 +55,10 @@ EOF`;
           subtitle="Connect the upstream supabase CLI to this selfbase deployment."
         />
 
-        <Section
-          number={1}
-          title="Install the supabase CLI"
+        <div className="mt-8 flex flex-col gap-10">
+          <Section
+            number={1}
+            title="Install the supabase CLI"
           body={
             <>
               If you haven't yet, install it via your package manager — see{' '}
@@ -126,15 +127,16 @@ EOF`;
           note="Expected output: a table listing the projects on this deployment (not Supabase Cloud's)."
         />
 
-        <Card className="bg-secondary/20 p-5">
-          <h3 className="m-0 mb-2 text-sm font-medium">Switching back to Supabase Cloud</h3>
-          <p className="m-0 text-sm text-muted-foreground">
-            Either pass <Code inline>--profile supabase</Code> on a one-off command, or wipe the
-            default with <Code inline>rm ~/.supabase/profile</Code> and re-run{' '}
-            <Code inline>supabase login</Code> (with no <Code inline>--profile</Code>) to go back to
-            cloud.
-          </p>
-        </Card>
+          <Card className="bg-secondary/20 p-5">
+            <h3 className="m-0 mb-2 text-sm font-medium">Switching back to Supabase Cloud</h3>
+            <p className="m-0 text-sm text-muted-foreground">
+              Either pass <Code inline>--profile supabase</Code> on a one-off command, or wipe the
+              default with <Code inline>rm ~/.supabase/profile</Code> and re-run{' '}
+              <Code inline>supabase login</Code> (with no <Code inline>--profile</Code>) to go back
+              to cloud.
+            </p>
+          </Card>
+        </div>
       </SettingsLayout>
     </Shell>
   );
