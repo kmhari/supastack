@@ -61,7 +61,7 @@ export function SettingsTokensPage(): React.ReactElement {
   });
 
   return (
-    <Shell wide>
+    <Shell bare>
       <SettingsLayout>
         <PageHeader title="Tokens" />
 

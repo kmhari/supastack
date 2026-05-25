@@ -58,7 +58,7 @@ export function SettingsDatabasePage(): React.ReactElement {
 
   if (isLoading) {
     return (
-      <Shell>
+      <Shell bare>
         <SettingsLayout>
           <PageHeader title="Database" subtitle="Connection pooler health" />
           <p className="text-sm text-muted-foreground">Loading…</p>
@@ -69,7 +69,7 @@ export function SettingsDatabasePage(): React.ReactElement {
 
   if (error || !data) {
     return (
-      <Shell>
+      <Shell bare>
         <SettingsLayout>
           <PageHeader title="Database" subtitle="Connection pooler health" />
           <p className="text-sm text-destructive">Failed to load: {error?.message ?? 'unknown'}</p>
@@ -79,7 +79,7 @@ export function SettingsDatabasePage(): React.ReactElement {
   }
 
   return (
-    <Shell>
+    <Shell bare>
       <SettingsLayout>
         <PageHeader
           title="Database"

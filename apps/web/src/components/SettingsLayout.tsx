@@ -26,25 +26,30 @@ const TABS: SettingsTab[] = [
 ];
 
 /**
- * Two-column layout for Settings pages: vertical tab sidebar on the left,
- * page content on the right. Mobile collapses to a horizontal scroller of
- * tabs above the content.
+ * Settings layout — sidebar pinned to the far left edge of the viewport,
+ * content area takes the remaining width with a fixed max-width and is
+ * centered inside that area.
+ *
+ * Designed to be used with `<Shell bare>` so this component owns the
+ * full-bleed left rail.
+ *
+ * Mobile (< md): sidebar collapses to a horizontal scroller above content.
  */
 export function SettingsLayout({
   children,
   active,
 }: {
   children: React.ReactNode;
-  /** Active route prefix, e.g. '/settings/database'. Falls back to URL match if omitted. */
+  /** Active route prefix override (falls back to NavLink URL match if omitted). */
   active?: string;
 }): React.ReactElement {
   return (
-    <div className="grid gap-6 md:grid-cols-[200px_minmax(0,1fr)]">
-      <aside className="md:sticky md:top-4 md:self-start">
-        {/* Desktop: vertical list. Mobile: horizontal scroller. */}
+    <div className="flex flex-col md:flex-row md:min-h-[calc(100vh-3rem)]">
+      {/* Sidebar — pinned to viewport left edge, full-height column */}
+      <aside className="shrink-0 md:w-60 md:border-r md:border-border-soft md:sticky md:top-12 md:self-start md:h-[calc(100vh-3rem)] md:overflow-y-auto">
         <nav
           aria-label="Settings sections"
-          className="flex md:flex-col gap-0.5 overflow-x-auto md:overflow-visible -mx-4 px-4 md:mx-0 md:px-0 pb-1 md:pb-0 border-b md:border-0 border-border-soft"
+          className="flex md:flex-col gap-0.5 overflow-x-auto md:overflow-visible px-4 sm:px-6 py-3 md:py-6 border-b md:border-b-0 border-border-soft"
         >
           {TABS.map((t) => {
             const Icon = t.icon;
@@ -73,7 +78,11 @@ export function SettingsLayout({
           })}
         </nav>
       </aside>
-      <div>{children}</div>
+
+      {/* Content area — flex-1, with content inside centered + max-width */}
+      <main className="flex-1 min-w-0 px-4 sm:px-8 pt-6 pb-12 sm:pt-10 sm:pb-20">
+        <div className="mx-auto w-full max-w-[800px]">{children}</div>
+      </main>
     </div>
   );
 }
