@@ -72,6 +72,7 @@ docs/           Operator runbooks + per-feature change docs
 - **One BullMQ job per concern**, in `apps/worker/src/jobs/`. Repeatable jobs are added once at boot in `apps/worker/src/main.ts` with `repeat: { every: <ms> }` or `repeat: { pattern: '<cron>', tz: 'UTC' }`.
 - **Per-instance state changes go through the worker**, never directly from the api (except synchronous admin actions like `reset-pg-password` that need immediate operator feedback).
 - **Dashboard endpoints** under `/api/v1/*`. **Supabase Management API compatibility** under `/v1/*` (a separate Fastify mount with its own error envelope plugin).
+- **Management API source of truth**: the upstream OpenAPI at **<https://api.supabase.com/api/v1-json>** is canonical for `/v1/*` endpoint paths, request/response shapes, and validation bounds. Pin a snapshot under the feature dir (`specs/<NNN>/upstream-openapi-snapshot.json`) so drift is caught by a contract test, not silently. Note also: the upstream `supabase` CLI surface evolves independently of the HTTP API — newer CLI versions (≥ v2.72) moved most config knobs from imperative flags (`config update --auth-jwt-expiry`) to declarative `supabase config push` reading `config.toml`. The HTTP endpoints remain the stable contract; the CLI is one client among several.
 - **Tests** prefer pure functions where possible. Live VM E2E (shell scripts in `tests/cli-e2e/`) covers integration paths. Vitest unit tests cover security-sensitive bits (PAT generation, password escape).
 
 ## VM deployment
