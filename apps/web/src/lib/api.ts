@@ -264,6 +264,12 @@ export const vaultApi = {
     ),
 };
 
+// ─── feature 011 — CLI device-code login ────────────────────────────────────
+export const cliLoginApi = {
+  mint: (body: { session_id: string; token_name: string; public_key: string }) =>
+    unwrap<{ device_code: string }>(client.post('/cli/login', body)),
+};
+
 export const poolerApi = {
   status: () => unwrap<PoolerStatusResponse>(client.get('/pooler/status')),
   reregister: (ref: string) =>

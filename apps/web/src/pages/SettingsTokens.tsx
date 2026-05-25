@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,8 @@ interface Token {
   prefix: string | null;
   lastUsedAt: string | null;
   createdAt: string;
+  // Feature 011 — 'cli' if minted via the device-code login flow; 'manual' otherwise.
+  source?: 'manual' | 'cli';
 }
 
 export function SettingsTokensPage(): React.ReactElement {
@@ -118,7 +121,14 @@ export function SettingsTokensPage(): React.ReactElement {
                     <KeyRound className="size-3.5 text-muted-foreground" />
                   </span>
                   <div className="flex flex-col">
-                    <span className="text-sm text-foreground">{t.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-foreground">{t.label}</span>
+                      {t.source === 'cli' && (
+                        <Badge variant="outline" className="h-4 px-1.5 text-[10px] font-medium uppercase tracking-wider">
+                          cli
+                        </Badge>
+                      )}
+                    </div>
                     <code className="font-mono text-xs text-muted-foreground">
                       {t.prefix ? `${t.prefix}…` : '(legacy)'}
                     </code>

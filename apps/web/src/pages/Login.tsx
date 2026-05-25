@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { safeNext } from '@/lib/safe-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,12 +11,16 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 export function LoginPage(): React.ReactElement {
   const { user, login } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  // Feature 011 — honor ?next= for CLI device-code login + general redirect-after-auth.
+  // safeNext rejects external URLs and protocol-relative paths.
+  const next = safeNext(params.get('next'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) return <Navigate to={next} replace />;
 
   const onSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
@@ -23,7 +28,7 @@ export function LoginPage(): React.ReactElement {
     setError(null);
     try {
       await login(email, password);
-      navigate('/dashboard');
+      navigate(next);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
       setError(e.response?.data?.error?.message ?? 'invalid credentials');
