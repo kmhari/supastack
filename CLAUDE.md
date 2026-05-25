@@ -41,6 +41,7 @@ docs/           Operator runbooks + per-feature change docs
 | **#4** — Tier 1 Management API expansion (closed as parent) | [docs/changes/006-cli-mgmt-tier1.md](docs/changes/006-cli-mgmt-tier1.md) | Split into #10/#11/#12/#13/#14. US1 + US2 shipped. |
 | **#15 (PR)** — `supabase gen types typescript` + `supabase migration list/repair/fetch` (feature 006 US1+US2) | [docs/changes/006-cli-mgmt-tier1.md](docs/changes/006-cli-mgmt-tier1.md) | `GET /v1/projects/<ref>/types/typescript` (forwards to per-instance pg-meta via kong); 3 migration endpoints with lazy `supabase_migrations` schema bootstrap |
 | **#7 + #8 + #9** — Pooler resilience (feature 008) | [docs/pooler-resilience.md](docs/pooler-resilience.md) + [docs/changes/008-pooler-resilience.md](docs/changes/008-pooler-resilience.md) | Daily reconciler cron + 7-class drift classification + dashboard panel + PG password drift prevention/detection/recovery via reset endpoint + active probe |
+| **#5** — Secrets management single-track via vault (feature 010) | [docs/changes/010-secrets-management.md](docs/changes/010-secrets-management.md) | All user secrets in per-project `vault.secrets`; dashboard CRUD at `/dashboard/project/<ref>/secrets`; Deno runtime patched to inject vault as `envVars` with 5s TTL cache → no functions-container restart on save; Studio `/functions/secrets` 302 → selfbase; auto-enabled in provision pipeline (dashboard re-enable button for backup-restore recovery). **Breaking change**: pre-existing `project_secrets` rows not migrated — re-enter post-deploy. |
 
 ## What's in flight / spec'd but not yet shipped
 
@@ -82,8 +83,11 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-No feature in flight right now. Last merged: feature 008 (PR #17, pooler resilience).
-Open spec branches: `007-auto-cert-renewal` (Cloudflare DNS API auto-renewal — issue #6).
+Active feature plan: [specs/010-secrets-management/plan.md](specs/010-secrets-management/plan.md) — single-track secrets via supabase_vault (closes #5, dashboard CRUD UI, vault-backed `Deno.env` via patched per-project `main/index.ts` with 5s TTL cache).
+Open spec branches:
+- `010-secrets-management` — Spec + plan + research + data-model + contracts + quickstart complete. Ready for `/speckit-tasks`.
+- `009-runtime-config-tunables` — postgres-config + auth-config tunables (issue #11; drafted in worktree, not yet committed).
+- `007-auto-cert-renewal` — Cloudflare DNS API auto-renewal (issue #6, not yet implemented).
 <!-- SPECKIT END -->
 
 ## userEmail

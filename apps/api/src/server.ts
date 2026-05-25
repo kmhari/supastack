@@ -37,6 +37,8 @@ import { poolerReconcilerRunRoutes } from './routes/pooler-reconciler-run.js';
 import { resetPgPasswordRoutes } from './routes/reset-pg-password.js';
 import { poolerStatusRoutes } from './routes/pooler-status.js';
 import { poolerReregisterRoutes } from './routes/pooler-reregister.js';
+import { vaultEnableRoutes } from './routes/vault-enable.js';
+import { secretsDashboardRoutes } from './routes/secrets-dashboard.js';
 import { createCertCheckQueue, createCertCheckWorker } from './services/cert-check.js';
 import { startPgEdgeProxy, type PgEdgeProxy } from './services/pg-edge-proxy.js';
 import { existsSync } from 'node:fs';
@@ -169,6 +171,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(resetPgPasswordRoutes); // /api/v1/instances/:ref/reset-pg-password (feature 008 US3)
   await app.register(poolerStatusRoutes); // /api/v1/pooler/status (feature 008 US2)
   await app.register(poolerReregisterRoutes); // /api/v1/pooler/tenants/:ref/re-register (feature 008 US2)
+  await app.register(vaultEnableRoutes); // /api/v1/projects/:ref/vault/enable (feature 010 FR-002)
+  await app.register(secretsDashboardRoutes); // /api/v1/projects/:ref/secrets (feature 010 FR-006/007)
 
   // ─── /v1/* — Supabase Management API compatibility surface ─────────────
   //

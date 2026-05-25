@@ -9,6 +9,7 @@ import { handleBackupSchedulerTick } from './jobs/backup-scheduler.js';
 import { handleHealthReconciler } from './jobs/health-reconciler.js';
 import { handlePgEdgeCertIssue } from './jobs/pg-edge-cert-issue.js';
 import { handlePoolerReconciler, type PoolerReconcilerJob } from './jobs/pooler-reconciler.js';
+import { handleVaultEnable, type VaultEnableJobData } from './jobs/vault-enable-job.js';
 
 const REDIS_URL = process.env.REDIS_URL!;
 
@@ -33,6 +34,7 @@ export const QUEUES = {
   healthReconciler: 'selfbase.health-reconciler',
   pgEdgeCertIssue: 'selfbase.pg-edge-cert-issue',
   poolerReconciler: 'selfbase.pooler-reconciler',
+  vaultEnable: 'selfbase.vault-enable',
 } as const;
 
 export interface Queues {
@@ -44,6 +46,7 @@ export interface Queues {
   healthReconciler: Queue;
   pgEdgeCertIssue: Queue;
   poolerReconciler: Queue;
+  vaultEnable: Queue;
 }
 
 export function connectQueues(): Queues {
@@ -56,6 +59,7 @@ export function connectQueues(): Queues {
     healthReconciler: new Queue(QUEUES.healthReconciler, queueOpts()),
     pgEdgeCertIssue: new Queue(QUEUES.pgEdgeCertIssue, queueOpts()),
     poolerReconciler: new Queue(QUEUES.poolerReconciler, queueOpts()),
+    vaultEnable: new Queue(QUEUES.vaultEnable, queueOpts()),
   };
 }
 
@@ -102,6 +106,11 @@ export function startWorkers(): WorkersHandle {
       QUEUES.poolerReconciler,
       async (job) => handlePoolerReconciler(job.data as PoolerReconcilerJob),
       workerOpts(),
+    ),
+    new Worker(
+      QUEUES.vaultEnable,
+      async (job) => handleVaultEnable(job.data as VaultEnableJobData),
+      { ...workerOpts(), concurrency: 5 },
     ),
   ];
   for (const w of workers) {
