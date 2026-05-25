@@ -11,7 +11,8 @@ import { RESERVED_SECRET_NAMES, validateSecretName } from '../../src/services/se
  */
 describe('validateSecretName', () => {
   describe('accepts well-formed names', () => {
-    it.each(['FOO', 'STRIPE_KEY', 'A', 'A1', 'A_B_C', 'X'.repeat(64)])('%s passes', (name) => {
+    const wellFormed = ['FOO', 'STRIPE_KEY', 'A', 'A1', 'A_B_C', 'X'.repeat(64)];
+    it.each(wellFormed)('%s passes', (name) => {
       expect(validateSecretName(name)).toEqual({ ok: true });
     });
   });
