@@ -60,3 +60,4 @@ infra/supabase-template/.local/
 # Stray supabase CLI working dir (e.g. /supabase/.temp/) when commands are run
 # from the repo root by accident
 /supabase/
+.claude/worktrees/
