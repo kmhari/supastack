@@ -158,7 +158,7 @@ export function InstancesPage(): React.ReactElement {
 function ProjectCard({ row }: { row: InstanceRow }): React.ReactElement {
   const href = row.urls.studio ?? `/dashboard/project/${row.ref}`;
   const cardClasses =
-    'group relative flex min-h-[200px] flex-col gap-1.5 rounded-lg border border-border-soft bg-card p-6 transition-colors hover:border-border';
+    'group relative flex flex-col gap-1.5 rounded-lg border border-border-soft bg-card p-5 transition-colors hover:border-border';
   return (
     <a href={href} className={cn(cardClasses, 'no-underline')}>
       <div className="text-base font-medium text-foreground break-words pr-8">{row.name}</div>
