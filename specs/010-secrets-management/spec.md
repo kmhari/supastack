@@ -1,6 +1,6 @@
 # Feature Specification: Secrets management — UI for edge function env + vault enablement
 
-**Feature Branch**: `009-secrets-management`
+**Feature Branch**: `010-secrets-management`
 
 **Created**: 2026-05-25
 
