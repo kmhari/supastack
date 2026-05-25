@@ -55,13 +55,14 @@ export async function mintApiToken(
   tx: Inserter,
   userId: string,
   label: string,
+  source: 'manual' | 'cli' = 'manual',
 ): Promise<{ raw: string; id: string; prefix: string }> {
   const raw = generateRawToken();
   const prefix = formatTokenPrefix(raw);
   const sha256 = createHash('sha256').update(raw, 'utf8').digest();
   const [row] = await tx
     .insert(schema.apiTokens)
-    .values({ userId, tokenSha256: sha256, label, prefix })
+    .values({ userId, tokenSha256: sha256, label, prefix, source })
     .returning({ id: schema.apiTokens.id });
   return { raw, id: row!.id, prefix };
 }

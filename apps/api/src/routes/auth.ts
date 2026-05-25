@@ -65,6 +65,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         id: schema.apiTokens.id,
         label: schema.apiTokens.label,
         prefix: schema.apiTokens.prefix,
+        source: schema.apiTokens.source, // feature 011 — distinguishes 'cli' from 'manual'
         lastUsedAt: schema.apiTokens.lastUsedAt,
         createdAt: schema.apiTokens.createdAt,
       })

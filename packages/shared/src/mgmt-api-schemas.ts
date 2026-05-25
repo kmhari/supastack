@@ -169,3 +169,37 @@ export const SecretListEntrySchema = z.object({
 export type SecretListEntry = z.infer<typeof SecretListEntrySchema>;
 
 export const SecretDeleteBodySchema = z.array(SecretNameFormat);
+
+// ─── CLI device-code login (feature 011) ────────────────────────────────────
+// Wire shape is upstream-supabase-CLI-dictated. The CLI's Go struct
+// AccessTokenResponse in apps/cli-go/internal/login/login.go expects exactly
+// these field names + hex encoding. ANY drift breaks `supabase login`.
+
+export const UuidV4 = z
+  .string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+
+export const CliLoginMintRequestSchema = z.object({
+  session_id: UuidV4,
+  token_name: z.string().min(1).max(200),
+  // 130 lowercase-hex chars beginning '04' = uncompressed SEC1 P-256 point
+  public_key: z.string().length(130).regex(/^04[0-9a-f]{128}$/),
+});
+export type CliLoginMintRequest = z.infer<typeof CliLoginMintRequestSchema>;
+
+export const CliLoginMintResponseSchema = z.object({
+  device_code: z.string().length(8).regex(/^[0-9a-f]{8}$/),
+});
+export type CliLoginMintResponse = z.infer<typeof CliLoginMintResponseSchema>;
+
+export const CliLoginResponseSchema = z.object({
+  id: UuidV4,
+  created_at: z.string().datetime(),
+  // hex-encoded AES-256-GCM ciphertext concatenated with 16-byte auth tag
+  access_token: z.string().regex(/^[0-9a-f]+$/),
+  // hex-encoded uncompressed P-256 public key (server side)
+  public_key: z.string().length(130).regex(/^04[0-9a-f]{128}$/),
+  // hex-encoded 12-byte GCM nonce
+  nonce: z.string().length(24).regex(/^[0-9a-f]{24}$/),
+});
+export type CliLoginResponse = z.infer<typeof CliLoginResponseSchema>;
