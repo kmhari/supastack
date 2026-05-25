@@ -41,6 +41,8 @@ import { poolerStatusRoutes } from './routes/pooler-status.js';
 import { poolerReregisterRoutes } from './routes/pooler-reregister.js';
 import { vaultEnableRoutes } from './routes/vault-enable.js';
 import { secretsDashboardRoutes } from './routes/secrets-dashboard.js';
+import { cliLoginRoutes } from './routes/cli-login.js';
+import { platformCliLoginRoutes } from './routes/platform-cli-login.js';
 import { createCertCheckQueue, createCertCheckWorker } from './services/cert-check.js';
 import { startPgEdgeProxy, type PgEdgeProxy } from './services/pg-edge-proxy.js';
 import { existsSync } from 'node:fs';
@@ -173,6 +175,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(poolerReregisterRoutes); // /api/v1/pooler/tenants/:ref/re-register (feature 008 US2)
   await app.register(vaultEnableRoutes); // /api/v1/projects/:ref/vault/enable (feature 010 FR-002)
   await app.register(secretsDashboardRoutes); // /api/v1/projects/:ref/secrets (feature 010 FR-006/007)
+  await app.register(cliLoginRoutes); // /api/v1/cli/login (feature 011 — dashboard mint)
+  await app.register(platformCliLoginRoutes); // /platform/cli/login/:session_id (feature 011 — CLI poll)
 
   // ─── /v1/* — Supabase Management API compatibility surface ─────────────
   //

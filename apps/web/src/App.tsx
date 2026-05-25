@@ -10,6 +10,7 @@ import { ProjectGeneralPage } from './pages/ProjectGeneral.js';
 import { ProjectApiKeysPage } from './pages/ProjectApiKeys.js';
 import { ProjectJwtKeysPage } from './pages/ProjectJwtKeys.js';
 import { ProjectSecretsPage } from './pages/ProjectSecrets.js';
+import { CliLoginPage } from './pages/CliLogin.js';
 import { InstanceBackupsPage } from './pages/InstanceBackups.js';
 import { ProjectHealthPage } from './pages/ProjectHealth.js';
 import { SettingsOrgPage } from './pages/SettingsOrg.js';
@@ -49,6 +50,14 @@ export function App(): React.ReactElement {
           element={
             <RequireAuth>
               <InstancesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/dashboard/cli/login"
+          element={
+            <RequireAuth>
+              <CliLoginPage />
             </RequireAuth>
           }
         />
@@ -222,7 +231,13 @@ function RequireAuth({ children }: { children: React.ReactElement }): React.Reac
     if (pathname !== '/setup') navigate('/setup', { replace: true });
     return <></>;
   }
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    // Feature 011 — preserve original URL (path+search) as ?next= so the
+    // CLI device-code login flow can return here after sign-in. safeNext()
+    // on Login.tsx validates this before honoring it.
+    const next = encodeURIComponent(pathname + window.location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
   if (apexIncomplete) {
     if (pathname !== '/setup') navigate('/setup', { replace: true });
     return <></>;

@@ -101,6 +101,10 @@ export const apiTokens = pgTable('api_tokens', {
   tokenSha256: bytea('token_sha256').notNull().unique(),
   label: text('label').notNull(),
   prefix: text('prefix'),
+  // Feature 011 — 'manual' for tokens minted via the settings page;
+  // 'cli' for tokens minted via the CLI device-code login flow. Default
+  // 'manual' so existing callers + rows are unaffected.
+  source: text('source', { enum: ['manual', 'cli'] }).notNull().default('manual'),
   lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

@@ -42,6 +42,7 @@ docs/           Operator runbooks + per-feature change docs
 | **#15 (PR)** — `supabase gen types typescript` + `supabase migration list/repair/fetch` (feature 006 US1+US2) | [docs/changes/006-cli-mgmt-tier1.md](docs/changes/006-cli-mgmt-tier1.md) | `GET /v1/projects/<ref>/types/typescript` (forwards to per-instance pg-meta via kong); 3 migration endpoints with lazy `supabase_migrations` schema bootstrap |
 | **#7 + #8 + #9** — Pooler resilience (feature 008) | [docs/pooler-resilience.md](docs/pooler-resilience.md) + [docs/changes/008-pooler-resilience.md](docs/changes/008-pooler-resilience.md) | Daily reconciler cron + 7-class drift classification + dashboard panel + PG password drift prevention/detection/recovery via reset endpoint + active probe |
 | **#5** — Secrets management single-track via vault (feature 010) | [docs/changes/010-secrets-management.md](docs/changes/010-secrets-management.md) | All user secrets in per-project `vault.secrets`; dashboard CRUD at `/dashboard/project/<ref>/secrets`; Deno runtime patched to inject vault as `envVars` with 5s TTL cache → no functions-container restart on save; Studio `/functions/secrets` 302 → selfbase; auto-enabled in provision pipeline (dashboard re-enable button for backup-restore recovery). **Breaking change**: pre-existing `project_secrets` rows not migrated — re-enter post-deploy. |
+| CLI device-code login (feature 011) | [docs/changes/011-cli-device-login.md](docs/changes/011-cli-device-login.md) | `supabase login` (no `--token`) works against selfbase via Cloud-style PKCE flow: new `/dashboard/cli/login` page auto-mints a PAT + AES-256-GCM-encrypts it with ECDH-P256 against the CLI's client pubkey + shows an 8-hex verification code; new unauthenticated `GET /platform/cli/login/:session_id?device_code=…` serves the encrypted bundle to the CLI for single-use retrieval. CLI-minted tokens tagged `source='cli'` in `api_tokens`; shown with a `cli` badge on `/dashboard/settings/tokens`. ECDH + AES via Node 20 stdlib (no new deps). |
 
 ## What's in flight / spec'd but not yet shipped
 
@@ -84,9 +85,11 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
+**Active feature plan**: feature 011 — CLI device-code login (implement upstream `supabase login` browser-PKCE flow against selfbase). New `/dashboard/cli/login` page + `/platform/cli/login/:session_id` polling endpoint; ECDH-P256 + AES-256-GCM via Node stdlib; CLI-minted PATs tagged `source='cli'` with a small dashboard badge. Spec + plan + research + data-model + contracts + quickstart complete. Plan: [specs/011-cli-device-login/plan.md](specs/011-cli-device-login/plan.md).
+
 **Most recently merged**: feature 010 — vault-backed secrets with dashboard CRUD + no-restart runtime injection (closes #5, PR #22). See [specs/010-secrets-management/plan.md](specs/010-secrets-management/plan.md).
 
-**In flight (this branch)**: feature 009 — runtime config tunables (`postgres-config` + `config --auth-*`) — issue #11. Plan: `specs/009-runtime-config-tunables/plan.md`. Spec clarified through Q5; shape-vs-behavioral parity gap tracked separately as issue #21. Implementation complete; locally tested (101 unit + 16 integration tests pass); not yet deployed.
+**Other in-flight work**: feature 009 — runtime config tunables (`postgres-config` + `config --auth-*`) — issue #11. Plan: `specs/009-runtime-config-tunables/plan.md`. Spec clarified through Q5; shape-vs-behavioral parity gap tracked separately as issue #21. Implementation complete; locally tested (101 unit + 16 integration tests pass); not yet deployed.
 
 **Other open spec branches**: `007-auto-cert-renewal` (Cloudflare DNS API auto-renewal — issue #6, not yet implemented).
 <!-- SPECKIT END -->
