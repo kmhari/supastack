@@ -112,21 +112,42 @@ export async function seedTestUser(opts: {
  * on disk under `${INSTANCES_DIR}/<ref>/volumes/functions/`. Returns the row
  * and the path so the test can drop files into the volume directly.
  */
-export async function withMockInstance(ref: string) {
+export async function withMockInstance(ref: string, opts: { orgId?: string } = {}) {
   const secrets = generateInstanceSecrets({ jwtExpirySec: 3600 });
   const encryptedSecrets = encryptInstanceSecrets(secrets);
   const instancesDir = process.env.INSTANCES_DIR ?? '/tmp/selfbase-test-instances';
   const volume = path.join(instancesDir, ref, 'volumes', 'functions');
   await mkdir(volume, { recursive: true });
 
+  // org_id is NOT NULL. If caller didn't pass one, pick up the first existing
+  // org (created by an earlier seedTestUser call) or insert a fresh singleton.
+  let orgId = opts.orgId;
+  if (!orgId) {
+    const existing = await db().select({ id: schema.org.id }).from(schema.org).limit(1);
+    orgId = existing[0]?.id
+      ?? (await db()
+        .insert(schema.org)
+        .values({ name: 'Test Org' })
+        .returning({ id: schema.org.id }))[0]!.id;
+  }
+
+  // Allocate unique ports across concurrent test runs; the port_* columns are
+  // .unique() so colliding refs in the same test DB would fail.
+  const portBase = 30000 + Math.floor(Math.random() * 30000);
   const [row] = await db()
     .insert(schema.supabaseInstances)
     .values({
       ref,
+      orgId,
       name: `Test ${ref}`,
       status: 'running',
+      supabaseVersion: 'test',
       encryptedSecrets,
-      // Other required columns get default values from the schema.
+      portKong: portBase,
+      portStudio: portBase + 1,
+      portPostgres: portBase + 2,
+      portPooler: portBase + 3,
+      portAnalytics: portBase + 4,
     } as any)
     .returning();
 

@@ -28,6 +28,8 @@ import { functionsRoutes } from './routes/management/functions.js';
 import { secretsRoutes } from './routes/management/secrets.js';
 import { genTypesRoutes } from './routes/management/gen-types.js';
 import { migrationsRoutes } from './routes/management/migrations.js';
+import { authConfigRoutes } from './routes/management/auth-config.js';
+import { postgrestConfigRoutes } from './routes/management/postgrest-config.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 import { wildcardCertRoutes } from './routes/wildcard-certs.js';
 import { acmeChallengeRoutes } from './routes/acme-challenge.js';
@@ -204,6 +206,9 @@ export async function buildApp(): Promise<FastifyInstance> {
       await mgmt.register(genTypesRoutes);
       // Feature 006 US2 — migrations list/upsert/delete:
       await mgmt.register(migrationsRoutes);
+      // Feature 009 — runtime config tunables (postgres-config + auth-config):
+      await mgmt.register(postgrestConfigRoutes);
+      await mgmt.register(authConfigRoutes);
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },

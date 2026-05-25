@@ -83,11 +83,11 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-Active feature plan: [specs/010-secrets-management/plan.md](specs/010-secrets-management/plan.md) — single-track secrets via supabase_vault (closes #5, dashboard CRUD UI, vault-backed `Deno.env` via patched per-project `main/index.ts` with 5s TTL cache).
-Open spec branches:
-- `010-secrets-management` — Spec + plan + research + data-model + contracts + quickstart complete. Ready for `/speckit-tasks`.
-- `009-runtime-config-tunables` — postgres-config + auth-config tunables (issue #11; drafted in worktree, not yet committed).
-- `007-auto-cert-renewal` — Cloudflare DNS API auto-renewal (issue #6, not yet implemented).
+**Most recently merged**: feature 010 — vault-backed secrets with dashboard CRUD + no-restart runtime injection (closes #5, PR #22). See [specs/010-secrets-management/plan.md](specs/010-secrets-management/plan.md).
+
+**In flight (this branch)**: feature 009 — runtime config tunables (`postgres-config` + `config --auth-*`) — issue #11. Plan: `specs/009-runtime-config-tunables/plan.md`. Spec clarified through Q5; shape-vs-behavioral parity gap tracked separately as issue #21. Implementation complete; locally tested (101 unit + 16 integration tests pass); not yet deployed.
+
+**Other open spec branches**: `007-auto-cert-renewal` (Cloudflare DNS API auto-renewal — issue #6, not yet implemented).
 <!-- SPECKIT END -->
 
 ## userEmail
