@@ -37,6 +37,7 @@ interface InstanceRow {
 }
 
 type StatusFilter = 'all' | InstanceRow['status'];
+type SortMode = 'name' | 'created_desc' | 'created_asc' | 'status';
 type ViewMode = 'grid' | 'list';
 
 export function InstancesPage(): React.ReactElement {
@@ -44,6 +45,7 @@ export function InstancesPage(): React.ReactElement {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sort, setSort] = useState<SortMode>('name');
   const [view, setView] = useState<ViewMode>('grid');
 
   const { data, isLoading, error } = useQuery<InstanceRow[]>({
@@ -58,11 +60,17 @@ export function InstancesPage(): React.ReactElement {
 
   const rows = useMemo(() => {
     const all = data ?? [];
-    return all
+    const filtered = all
       .filter((r) => (statusFilter === 'all' ? true : r.status === statusFilter))
-      .filter((r) => (query ? r.name.toLowerCase().includes(query.toLowerCase()) : true))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [data, statusFilter, query]);
+      .filter((r) => (query ? r.name.toLowerCase().includes(query.toLowerCase()) : true));
+    const cmp: Record<SortMode, (a: InstanceRow, b: InstanceRow) => number> = {
+      name: (a, b) => a.name.localeCompare(b.name),
+      created_desc: (a, b) => b.createdAt.localeCompare(a.createdAt),
+      created_asc: (a, b) => a.createdAt.localeCompare(b.createdAt),
+      status: (a, b) => a.status.localeCompare(b.status) || a.name.localeCompare(b.name),
+    };
+    return [...filtered].sort(cmp[sort]);
+  }, [data, statusFilter, query, sort]);
 
   const showNew = user?.role === 'admin';
 
@@ -72,17 +80,17 @@ export function InstancesPage(): React.ReactElement {
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <div className="relative w-72">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search for a project"
-            className="h-8 pl-8 text-sm"
+            className="pl-9"
           />
         </div>
 
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <SelectTrigger className="h-8 border-dashed text-sm">
+          <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -96,33 +104,41 @@ export function InstancesPage(): React.ReactElement {
           </SelectContent>
         </Select>
 
-        <span className="inline-flex h-8 items-center gap-1.5 px-3 text-sm text-foreground">
-          <ArrowDownUp className="size-3 text-muted-foreground" />
-          Sorted by name
-        </span>
+        <Select value={sort} onValueChange={(v) => setSort(v as SortMode)}>
+          <SelectTrigger className="w-[180px]">
+            <ArrowDownUp className="size-3.5 text-muted-foreground" />
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">Name (A → Z)</SelectItem>
+            <SelectItem value="created_desc">Newest first</SelectItem>
+            <SelectItem value="created_asc">Oldest first</SelectItem>
+            <SelectItem value="status">Status</SelectItem>
+          </SelectContent>
+        </Select>
 
         <div className="ml-auto flex items-center gap-2">
           <div className="inline-flex gap-0.5">
             <Button
               variant={view === 'grid' ? 'secondary' : 'ghost'}
-              size="icon-sm"
+              size="icon"
               onClick={() => setView('grid')}
               aria-label="grid view"
             >
-              <LayoutGrid className="size-3.5" />
+              <LayoutGrid className="size-4" />
             </Button>
             <Button
               variant={view === 'list' ? 'secondary' : 'ghost'}
-              size="icon-sm"
+              size="icon"
               onClick={() => setView('list')}
               aria-label="list view"
             >
-              <List className="size-3.5" />
+              <List className="size-4" />
             </Button>
           </div>
           {showNew && (
-            <Button size="sm" onClick={() => navigate('/dashboard/new')}>
-              <Plus className="size-3" />
+            <Button onClick={() => navigate('/dashboard/new')}>
+              <Plus className="size-4" />
               New project
             </Button>
           )}
