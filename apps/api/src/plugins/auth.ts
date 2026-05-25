@@ -24,13 +24,24 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
 
   await app.register(fastifyCookie);
   const redis = new Redis(redisUrl);
-  // COOKIE_SECURE controls the `Secure` attribute on the session cookie.
-  // It MUST be false while the dashboard is being driven over plain HTTP
-  // (fresh install, bare-IP access before DNS/cert are set up) — otherwise
-  // the browser stores the cookie but never sends it back and every
-  // authenticated request 401s. Once an apex + HTTPS cert are in place,
-  // the operator flips this to 1 and restarts the api.
-  const cookieSecure = process.env.COOKIE_SECURE === '1' || process.env.COOKIE_SECURE === 'true';
+  // Cookie `Secure` is set per-request based on the inbound protocol
+  // (`X-Forwarded-Proto` from Caddy → Fastify `req.protocol`; `trustProxy: true`
+  // in server.ts honors the header). HTTP requests get a non-secure cookie
+  // (covers the fresh-install setup wizard before HTTPS is wired); HTTPS
+  // requests get `Secure`. Eliminates the chicken-and-egg with COOKIE_SECURE=1
+  // during initial setup, no operator env flip needed.
+  //
+  // `COOKIE_SECURE` env is still honored as an override: if set to '1' it
+  // forces Secure unconditionally (useful behind a TLS-terminating proxy
+  // that doesn't set X-Forwarded-Proto). If set to '0' it forces non-secure
+  // (escape hatch for dev). Unset → 'auto'.
+  const cookieSecureEnv = process.env.COOKIE_SECURE;
+  const cookieSecure: boolean | 'auto' =
+    cookieSecureEnv === '1' || cookieSecureEnv === 'true'
+      ? true
+      : cookieSecureEnv === '0' || cookieSecureEnv === 'false'
+        ? false
+        : 'auto';
   await app.register(fastifySession, {
     secret: sessionSecret,
     cookieName: 'sb_sid',
