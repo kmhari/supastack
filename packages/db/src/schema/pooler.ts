@@ -28,6 +28,9 @@ export const poolerTenants = pgTable(
     lastHealthAt: timestamp('last_health_at', { withTimezone: true }),
     status: text('status').notNull().default('registering'),
     lastError: text('last_error'),
+    // Feature 008 — set by reconciler on every classification pass (including
+    // consistent no-op). Surfaced in the dashboard panel.
+    lastReconciledAt: timestamp('last_reconciled_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

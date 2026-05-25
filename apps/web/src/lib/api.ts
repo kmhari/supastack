@@ -187,3 +187,70 @@ export const wildcardCertApi = {
   status: () => unwrap<WildcardCertStatus>(client.get('/wildcard-certs/status')),
   disable: () => client.delete('/wildcard-certs'),
 };
+
+// ─── Pooler health (feature 008) ────────────────────────────────────────────
+
+export interface PoolerStatusProject {
+  ref: string;
+  name: string;
+  instance_status: string;
+  tenant_status: string | null;
+  last_error: string | null;
+  last_reconciled_at: string | null;
+  registered_at: string | null;
+  supavisor_present: boolean | null;
+}
+
+export interface PoolerStatusEvent {
+  id: string;
+  ref: string;
+  event: string;
+  detail: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface PoolerStatusRun {
+  id: string;
+  started_at: string;
+  completed_at: string | null;
+  status: 'running' | 'success' | 'partial_failure' | 'failed';
+  instances_seen: number;
+  actions_taken: Record<string, number>;
+  trigger_source: 'cron' | 'manual';
+}
+
+export interface PoolerStatusResponse {
+  supavisor: { reachable: boolean; healthcheck_status: number | null };
+  endpoint: string | null;
+  projects: PoolerStatusProject[];
+  recent_events: PoolerStatusEvent[];
+  recent_runs: PoolerStatusRun[];
+}
+
+export interface ReregisterResponse {
+  ref: string;
+  tenant_status: string | null;
+  last_error: string | null;
+  reconciler_run_id: string;
+  completed_within_window: boolean;
+}
+
+export interface ResetPgPasswordResponse {
+  ref: string;
+  reset_at: string;
+  message: string;
+  pooler_tenant_status: string | null;
+  reconciler_run_id?: string;
+}
+
+export const poolerApi = {
+  status: () => unwrap<PoolerStatusResponse>(client.get('/pooler/status')),
+  reregister: (ref: string) =>
+    unwrap<ReregisterResponse>(client.post(`/pooler/tenants/${ref}/re-register`)),
+  runReconciler: () =>
+    unwrap<{ run_id: string; status: string; started_at: string; message: string }>(
+      client.post('/pooler/reconciler/run'),
+    ),
+  resetPgPassword: (ref: string) =>
+    unwrap<ResetPgPasswordResponse>(client.post(`/instances/${ref}/reset-pg-password`)),
+};

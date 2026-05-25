@@ -32,6 +32,11 @@ export const ACTIONS = [
   'backup.download',
   // audit
   'audit.read',
+  // feature 008 — pooler resilience
+  'pooler.read',
+  'pooler.reregister',
+  'pooler.reconciler.run',
+  'instance.pg-password.reset',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -63,6 +68,10 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'backup.list': true,
     'backup.download': true,
     'audit.read': true,
+    'pooler.read': true,
+    'pooler.reregister': true,
+    'pooler.reconciler.run': true,
+    'instance.pg-password.reset': true,
   },
   member: {
     'setup.run': false, // setup only runs unauthenticated, before any user exists
@@ -89,6 +98,10 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'backup.list': true,
     'backup.download': true,
     'audit.read': false,
+    'pooler.read': true, // dashboard read for members is fine
+    'pooler.reregister': false,
+    'pooler.reconciler.run': false,
+    'instance.pg-password.reset': false,
   },
 };
 
