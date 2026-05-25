@@ -4,6 +4,7 @@ import { AlertTriangle, KeyRound, MoreVertical, Plus, Search } from 'lucide-reac
 import { toast } from 'sonner';
 import { authApi } from '@/lib/api';
 import { Shell } from '@/components/Shell';
+import { SettingsLayout } from '@/components/SettingsLayout';
 import { PageHeader } from '@/components/PageHeader';
 import { CopyButton } from '@/components/CopyButton';
 import { Button } from '@/components/ui/button';
@@ -61,7 +62,8 @@ export function SettingsTokensPage(): React.ReactElement {
 
   return (
     <Shell wide>
-      <PageHeader title="Tokens" />
+      <SettingsLayout>
+        <PageHeader title="Tokens" />
 
       <Alert className="mb-4">
         <KeyRound className="size-4" />
@@ -158,6 +160,7 @@ export function SettingsTokensPage(): React.ReactElement {
         onOpenChange={setCreateOpen}
         onSuccess={() => qc.invalidateQueries({ queryKey: ['tokens'] })}
       />
+      </SettingsLayout>
     </Shell>
   );
 }

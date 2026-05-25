@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { membersApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Shell } from '@/components/Shell';
+import { SettingsLayout } from '@/components/SettingsLayout';
 import { PageHeader } from '@/components/PageHeader';
 import { CopyButton } from '@/components/CopyButton';
 import { Button } from '@/components/ui/button';
@@ -98,7 +99,8 @@ export function SettingsMembersPage(): React.ReactElement {
 
   return (
     <Shell wide>
-      <PageHeader title="Members" />
+      <SettingsLayout>
+        <PageHeader title="Members" />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative w-72">
@@ -198,6 +200,7 @@ export function SettingsMembersPage(): React.ReactElement {
         onOpenChange={setInviteOpen}
         onSuccess={() => qc.invalidateQueries({ queryKey: ['invites'] })}
       />
+      </SettingsLayout>
     </Shell>
   );
 }

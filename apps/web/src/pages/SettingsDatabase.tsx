@@ -23,6 +23,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Shell } from '@/components/Shell';
+import { SettingsLayout } from '@/components/SettingsLayout';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,8 +59,10 @@ export function SettingsDatabasePage(): React.ReactElement {
   if (isLoading) {
     return (
       <Shell>
-        <PageHeader title="Database" subtitle="Connection pooler health" />
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <SettingsLayout>
+          <PageHeader title="Database" subtitle="Connection pooler health" />
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </SettingsLayout>
       </Shell>
     );
   }
@@ -67,36 +70,40 @@ export function SettingsDatabasePage(): React.ReactElement {
   if (error || !data) {
     return (
       <Shell>
-        <PageHeader title="Database" subtitle="Connection pooler health" />
-        <p className="text-sm text-destructive">Failed to load: {error?.message ?? 'unknown'}</p>
+        <SettingsLayout>
+          <PageHeader title="Database" subtitle="Connection pooler health" />
+          <p className="text-sm text-destructive">Failed to load: {error?.message ?? 'unknown'}</p>
+        </SettingsLayout>
       </Shell>
     );
   }
 
   return (
     <Shell>
-      <PageHeader
-        title="Database"
-        subtitle="Connection pooler health and per-project tenant status."
-        right={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => runReconciler.mutate()}
-            disabled={runReconciler.isPending}
-          >
-            <RefreshCw className="size-4" />
-            Run reconciler now
-          </Button>
-        }
-      />
+      <SettingsLayout>
+        <PageHeader
+          title="Database"
+          subtitle="Connection pooler health and per-project tenant status."
+          right={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => runReconciler.mutate()}
+              disabled={runReconciler.isPending}
+            >
+              <RefreshCw className="size-4" />
+              Run reconciler now
+            </Button>
+          }
+        />
 
-      <div className="space-y-6">
-        <PoolerOverviewCard data={data} />
-        <ProjectsTableCard projects={data.projects} onAction={() => void refetch()} />
-        <ReconcilerRunsCard runs={data.recent_runs} />
-        <PoolerEventsCard events={data.recent_events} />
-      </div>
+        <div className="space-y-6">
+          <PoolerOverviewCard data={data} />
+          <ProjectsTableCard projects={data.projects} onAction={() => void refetch()} />
+          <ReconcilerRunsCard runs={data.recent_runs} />
+          <PoolerEventsCard events={data.recent_events} />
+        </div>
+      </SettingsLayout>
     </Shell>
   );
 }
