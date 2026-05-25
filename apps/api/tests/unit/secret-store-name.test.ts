@@ -42,7 +42,7 @@ describe('validateSecretName', () => {
     });
   });
 
-  it.each(['JWT_SECRET', 'ANON_KEY', 'SERVICE_ROLE_KEY', 'POSTGRES_PASSWORD'])(
+  it.each(['JWT_SECRET', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_URL'])(
     'reserved name %s fails with code: reserved_name',
     (name) => {
       const result = validateSecretName(name);
@@ -53,12 +53,26 @@ describe('validateSecretName', () => {
     },
   );
 
-  it('RESERVED_SECRET_NAMES includes every platform-managed env var', () => {
-    // Spot-check the critical ones from R-005:
+  // Feature 010 follow-up: names that USED to be reserved but are not
+  // injected into the functions container env — they're only visible to
+  // other per-project containers (db, studio, realtime, analytics, meta).
+  // Operators may legitimately want these as user secrets (e.g.,
+  // POSTGRES_PASSWORD pointing at a DIFFERENT db from an edge function).
+  it.each(['ANON_KEY', 'SERVICE_ROLE_KEY', 'POSTGRES_PASSWORD', 'POSTGRES_HOST', 'VAULT_ENC_KEY', 'DASHBOARD_PASSWORD', 'PG_META_CRYPTO_KEY', 'LOGFLARE_PUBLIC_ACCESS_TOKEN', 'SECRET_KEY_BASE'])(
+    'name %s is NOT reserved (not in functions container env)',
+    (name) => {
+      const result = validateSecretName(name);
+      expect(result.ok).toBe(true);
+    },
+  );
+
+  it('RESERVED_SECRET_NAMES includes every functions-container-injected env var', () => {
     expect(RESERVED_SECRET_NAMES).toContain('JWT_SECRET');
     expect(RESERVED_SECRET_NAMES).toContain('SUPABASE_URL');
     expect(RESERVED_SECRET_NAMES).toContain('SUPABASE_ANON_KEY');
     expect(RESERVED_SECRET_NAMES).toContain('SUPABASE_SERVICE_ROLE_KEY');
     expect(RESERVED_SECRET_NAMES).toContain('SUPABASE_DB_URL');
+    expect(RESERVED_SECRET_NAMES).toContain('SB_REF');
+    expect(RESERVED_SECRET_NAMES).toContain('SELFBASE_VAULT_TTL_MS');
   });
 });
