@@ -8,7 +8,9 @@ import {
   Package,
   Plus,
   Search,
+  Settings,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { instancesApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Shell } from '@/components/Shell';
@@ -159,13 +161,23 @@ function ProjectCard({ row }: { row: InstanceRow }): React.ReactElement {
     'group relative flex min-h-[200px] flex-col gap-1.5 rounded-lg border border-border-soft bg-card p-6 transition-colors hover:border-border';
   return (
     <a href={href} className={cn(cardClasses, 'no-underline')}>
-      <div className="text-base font-medium text-foreground break-words">{row.name}</div>
+      <div className="text-base font-medium text-foreground break-words pr-8">{row.name}</div>
       <div className="text-sm text-muted-foreground">
         Self-hosted {row.supabaseVersion ? `· ${row.supabaseVersion}` : ''}
       </div>
       <div className="mt-3">
         <StatusPill status={row.status} />
       </div>
+      {/* Settings icon — opens the selfbase per-project settings page.
+          stopPropagation prevents the outer card's Studio nav from firing. */}
+      <Link
+        to={`/dashboard/project/${row.ref}`}
+        aria-label={`${row.name} settings`}
+        onClick={(e) => e.stopPropagation()}
+        className="absolute right-3 top-3 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <Settings className="size-4" />
+      </Link>
     </a>
   );
 }
@@ -180,7 +192,7 @@ function ProjectList({ rows }: { rows: InstanceRow[] }): React.ReactElement {
             key={r.ref}
             href={href}
             className={cn(
-              'grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-3.5 text-foreground no-underline',
+              'grid grid-cols-[1fr_auto_auto] items-center gap-4 px-5 py-3.5 text-foreground no-underline',
               i > 0 && 'border-t border-border-soft',
             )}
           >
@@ -191,6 +203,14 @@ function ProjectList({ rows }: { rows: InstanceRow[] }): React.ReactElement {
               </div>
             </div>
             <StatusPill status={r.status} />
+            <Link
+              to={`/dashboard/project/${r.ref}`}
+              aria-label={`${r.name} settings`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Settings className="size-4" />
+            </Link>
           </a>
         );
       })}
