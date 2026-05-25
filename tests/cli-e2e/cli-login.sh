@@ -108,8 +108,13 @@ echo "    ✓ PAT authenticates against /v1/projects"
 
 if [ -n "${SELFBASE_VM_HOST:-}" ]; then
   echo "==> 7. SC-008: log-leak check (no plaintext PATs in container logs)"
-  LEAK=$(ssh "${SELFBASE_VM_HOST}" "sudo docker logs --since 2m selfbase-api-1 selfbase-web-1 2>&1 | grep -cE 'sbp_[0-9a-f]{40}' || echo 0")
-  [ "$LEAK" = "0" ] || { echo "FAIL: ${LEAK} sbp_ pattern matches in logs"; exit 1; }
+  set +o pipefail
+  LEAK=$(ssh "${SELFBASE_VM_HOST}" "sudo docker logs --since 2m selfbase-api-1 selfbase-web-1 2>&1 | grep -cE 'sbp_[0-9a-f]{40}' || true" 2>/dev/null | tr -d '[:space:]')
+  set -o pipefail
+  if [ "$LEAK" != "0" ]; then
+    echo "FAIL: ${LEAK} sbp_ pattern matches in logs"
+    exit 1
+  fi
   echo "    ✓ zero plaintext PATs in logs"
 fi
 
