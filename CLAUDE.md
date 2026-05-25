@@ -82,9 +82,10 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-Active feature spec: [specs/009-secrets-management/spec.md](specs/009-secrets-management/spec.md)
+Active feature spec: [specs/010-secrets-management/spec.md](specs/010-secrets-management/spec.md)
 Open spec branches:
-- `009-secrets-management` — Secrets UI + supabase_vault enablement (closes #5)
+- `010-secrets-management` — Secrets UI + supabase_vault enablement (closes #5); needs revision for vault-via-main/index.ts architecture
+- `009-runtime-config-tunables` — postgres-config + auth-config tunables (issue #11; drafted in worktree, not yet committed)
 - `007-auto-cert-renewal` — Cloudflare DNS API auto-renewal (issue #6, not yet implemented)
 <!-- SPECKIT END -->
 
