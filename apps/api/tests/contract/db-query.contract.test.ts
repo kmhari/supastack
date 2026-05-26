@@ -15,11 +15,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { DbQueryBodySchema, DbQueryResponseSchema } from '@selfbase/shared';
 
-const SNAPSHOT_PATH = resolve(
-  __dirname,
-  '__snapshots__',
-  'v1-run-query-body.json',
-);
+const SNAPSHOT_PATH = resolve(__dirname, '__snapshots__', 'v1-run-query-body.json');
 
 interface UpstreamSchema {
   type: 'object';
@@ -33,11 +29,7 @@ describe('V1RunQueryBody wire compatibility', () => {
   it('snapshot has not silently drifted', () => {
     expect(upstream.type).toBe('object');
     expect(upstream.required).toEqual(['query']);
-    expect(Object.keys(upstream.properties).sort()).toEqual([
-      'parameters',
-      'query',
-      'read_only',
-    ]);
+    expect(Object.keys(upstream.properties).sort()).toEqual(['parameters', 'query', 'read_only']);
     expect(upstream.properties.query?.type).toBe('string');
     expect(upstream.properties.query?.minLength).toBe(1);
     expect(upstream.properties.parameters?.type).toBe('array');

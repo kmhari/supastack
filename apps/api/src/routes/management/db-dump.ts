@@ -213,11 +213,13 @@ interface DumpAuditPayload {
 }
 
 async function emitDumpAudit(userId: string, ref: string, p: DumpAuditPayload): Promise<void> {
-  await db().insert(schema.auditLog).values({
-    actorUserId: userId,
-    action: 'instance.db.dump',
-    targetKind: 'instance',
-    targetId: ref,
-    payload: { ref, ...p },
-  });
+  await db()
+    .insert(schema.auditLog)
+    .values({
+      actorUserId: userId,
+      action: 'instance.db.dump',
+      targetKind: 'instance',
+      targetId: ref,
+      payload: { ref, ...p },
+    });
 }

@@ -34,11 +34,7 @@ describe('buildPgDumpArgs', () => {
       .map((a, i) => ({ a, i }))
       .filter(({ a }) => a.startsWith('--schema='))
       .map(({ a }) => a);
-    expect(schemaIdxs).toEqual([
-      '--schema=public',
-      '--schema=auth',
-      '--schema=storage',
-    ]);
+    expect(schemaIdxs).toEqual(['--schema=public', '--schema=auth', '--schema=storage']);
   });
 
   it('combines all flags coherently', () => {

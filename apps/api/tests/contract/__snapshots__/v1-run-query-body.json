@@ -13,9 +13,7 @@
       "type": "boolean"
     }
   },
-  "required": [
-    "query"
-  ],
+  "required": ["query"],
   "example": {
     "query": "select * from pg_stat_activity limit 1;",
     "read_only": true

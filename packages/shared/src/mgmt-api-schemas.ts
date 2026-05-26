@@ -281,10 +281,9 @@ export const DbDumpBodySchema = z
     schemas: z.array(z.string().min(1)).optional(),
   })
   .strict()
-  .refine(
-    (b) => !(b.data_only === true && b.schema_only === true),
-    { message: 'data_only and schema_only are mutually exclusive' },
-  );
+  .refine((b) => !(b.data_only === true && b.schema_only === true), {
+    message: 'data_only and schema_only are mutually exclusive',
+  });
 export type DbDumpBody = z.infer<typeof DbDumpBodySchema>;
 
 // dry_run response shape (Content-Type: application/json)

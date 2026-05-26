@@ -37,11 +37,11 @@ supabase db dump --linked --dry-run
 
 Every query (success or failure) inserts a row:
 
-| Action | Payload |
-|---|---|
-| `instance.db.query.executed` | `{ ref, query, parameters?, read_only?, row_count, duration_ms }` |
-| `instance.db.query.failed` | `{ ref, query, parameters?, read_only?, error_code, error_message, duration_ms }` |
-| `instance.db.dump` | `{ ref, data_only?, schema_only?, schemas, dry_run, bytes_streamed }` |
+| Action                       | Payload                                                                           |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| `instance.db.query.executed` | `{ ref, query, parameters?, read_only?, row_count, duration_ms }`                 |
+| `instance.db.query.failed`   | `{ ref, query, parameters?, read_only?, error_code, error_message, duration_ms }` |
+| `instance.db.dump`           | `{ ref, data_only?, schema_only?, schemas, dry_run, bytes_streamed }`             |
 
 **The full SQL text is logged by default** (clarification Q3 — auditability beats PII risk for a single-operator deployment). Parameters > 256 bytes are replaced with `{ truncated: true, original_size: <n> }` in the payload to bound row size. Result-set rows are NOT logged (could be unbounded; would leak PII via columns).
 
@@ -75,14 +75,14 @@ psql "postgresql://postgres:${NEW_PW}@db.${NEW_REF}.<apex>:5432/postgres" -f /tm
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `400 multi_statement_not_supported` | SQL contains `SELECT 1; SELECT 2;` | Submit one statement at a time, or wrap in `CREATE FUNCTION` |
-| `400 read_only_violation` (SQLSTATE 25006) | `read_only: true` set + write attempted | Drop `read_only` if write is intentional |
-| `400 pg_error` SQLSTATE 57014 (`statement timeout`) | Query exceeded `statement_timeout` GUC | Optimize the query, OR raise the GUC via `supabase postgres-config update --statement-timeout=…` |
-| `409 project_not_runnable` | Project is paused / provisioning / failed | Wait for status `running` (visible on dashboard) |
-| `502 pg_dump_failed` | pg_dump exited non-zero — see `error.details.stderr` | Usually a transient container issue; retry. If persistent, ssh and `docker logs selfbase-<ref>-db-1` |
-| `503 pg_connect_failed` | Couldn't reach per-project Postgres | Check project status; check api container can reach `host.docker.internal:<port>` |
+| Symptom                                             | Likely cause                                         | Fix                                                                                                  |
+| --------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `400 multi_statement_not_supported`                 | SQL contains `SELECT 1; SELECT 2;`                   | Submit one statement at a time, or wrap in `CREATE FUNCTION`                                         |
+| `400 read_only_violation` (SQLSTATE 25006)          | `read_only: true` set + write attempted              | Drop `read_only` if write is intentional                                                             |
+| `400 pg_error` SQLSTATE 57014 (`statement timeout`) | Query exceeded `statement_timeout` GUC               | Optimize the query, OR raise the GUC via `supabase postgres-config update --statement-timeout=…`     |
+| `409 project_not_runnable`                          | Project is paused / provisioning / failed            | Wait for status `running` (visible on dashboard)                                                     |
+| `502 pg_dump_failed`                                | pg_dump exited non-zero — see `error.details.stderr` | Usually a transient container issue; retry. If persistent, ssh and `docker logs selfbase-<ref>-db-1` |
+| `503 pg_connect_failed`                             | Couldn't reach per-project Postgres                  | Check project status; check api container can reach `host.docker.internal:<port>`                    |
 
 ## Implementation notes
 
