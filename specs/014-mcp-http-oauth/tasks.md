@@ -302,8 +302,8 @@
 
 **Independent test**: see quickstart.md US6 section + `contracts/pause-restore-endpoints.md` test obligations.
 
-- [ ] T065 [US6] Create `apps/api/src/routes/management/pause-restore.ts` — `POST /v1/projects/:ref/pause` + `POST /v1/projects/:ref/restore`. Auth + RBAC (`instance.pause` / `instance.resume`). Idempotent state checks per contract. Enqueue lifecycle-pause / lifecycle-resume worker jobs via existing `enqueueLifecycleJob` helper (or whatever the existing pattern is — inspect `apps/worker/src/jobs/lifecycle.ts`). UPDATE `supabase_instances.status`. Return project JSON with status mapped via `mapSelfbaseStatusToCloud`.
-- [ ] T066 [P] [US6] [TDD] Unit test `apps/api/tests/unit/pause-restore.test.ts`:
+- [X] T065 [US6] Create `apps/api/src/routes/management/pause-restore.ts` — `POST /v1/projects/:ref/pause` + `POST /v1/projects/:ref/restore`. Auth + RBAC (`instance.pause` / `instance.resume`). Idempotent state checks per contract. Enqueue lifecycle-pause / lifecycle-resume worker jobs via existing `enqueueLifecycleJob` helper (or whatever the existing pattern is — inspect `apps/worker/src/jobs/lifecycle.ts`). UPDATE `supabase_instances.status`. Return project JSON with status mapped via `mapSelfbaseStatusToCloud`.
+- [X] T066 [P] [US6] [TDD] Unit test `apps/api/tests/unit/pause-restore.test.ts`:
   - Pause running project → 200 + status `INACTIVE`; worker enqueue called
   - Pause paused project → 200 + status `INACTIVE`; worker NOT called (idempotent)
   - Restore paused project → 200 + status `COMING_UP`; worker enqueue called
@@ -312,17 +312,17 @@
   - Unknown ref → 404
   - Audit `instance.pause` / `instance.resume` emitted
   - **Per remediation C3**: pause-during-backup → mock a `backup_jobs` row with status `running` for the target ref → assert 409 `backup_in_progress` returned + worker NOT enqueued + status row unchanged
-- [ ] T067 [US6] Apply `mapSelfbaseStatusToCloud` to the existing `GET /v1/projects` + `GET /v1/projects/:ref` handlers in `apps/api/src/routes/management/projects.ts` (per FR-036 + Decision 8). Update existing tests for `projects.ts` to expect the Cloud-shape enum values.
-- [ ] T068 [P] [US6] [TDD] Extend `apps/api/tests/contract/instances-list-get.test.ts` or `apps/api/tests/unit/mgmt-api-mapping.test.ts` to assert every project response (list + single get) uses Cloud-enum status values.
-- [ ] T069 [US6] Register `pause-restore` routes in `apps/api/src/server.ts`.
-- [ ] T070 [P] [US6] Extend `tests/cli-e2e/mcp-roundtrip.sh` with pause + restore round-trip via MCP: pause → wait → status=INACTIVE; restore → poll until status=ACTIVE_HEALTHY; assert SC-013 timings.
+- [X] T067 [US6] Apply `mapSelfbaseStatusToCloud` to the existing `GET /v1/projects` + `GET /v1/projects/:ref` handlers in `apps/api/src/routes/management/projects.ts` (per FR-036 + Decision 8). Update existing tests for `projects.ts` to expect the Cloud-shape enum values.
+- [X] T068 [P] [US6] [TDD] Extend `apps/api/tests/contract/instances-list-get.test.ts` or `apps/api/tests/unit/mgmt-api-mapping.test.ts` to assert every project response (list + single get) uses Cloud-enum status values.
+- [X] T069 [US6] Register `pause-restore` routes in `apps/api/src/server.ts`.
+- [X] T070 [P] [US6] Extend `tests/cli-e2e/mcp-roundtrip.sh` with pause + restore round-trip via MCP: pause → wait → status=INACTIVE; restore → poll until status=ACTIVE_HEALTHY; assert SC-013 timings.
 
 ---
 
 ## Phase 9: Polish
 
-- [ ] T071 [P] Create operator runbook `docs/changes/014-mcp-http-oauth.md`: what changed (OAuth login + hosted MCP), how operators configure their MCP client, the OAuth dance walkthrough with screenshots, the revoke workflow, the new in-scope tools (get_logs, list_storage_buckets, pause/restore), deferred tools and where to track them (features 016/017/018 + issue #41), troubleshooting (DCR rate-limit, JWT verification failures, Redis revocation propagation).
-- [ ] T072 [P] Update `CLAUDE.md` "What's shipped" table with a row for feature 014 once merged. Update the "Active feature plan" pointer.
+- [X] T071 [P] Create operator runbook `docs/changes/014-mcp-http-oauth.md`: what changed (OAuth login + hosted MCP), how operators configure their MCP client, the OAuth dance walkthrough with screenshots, the revoke workflow, the new in-scope tools (get_logs, list_storage_buckets, pause/restore), deferred tools and where to track them (features 016/017/018 + issue #41), troubleshooting (DCR rate-limit, JWT verification failures, Redis revocation propagation).
+- [X] T072 [P] Update `CLAUDE.md` "What's shipped" table with a row for feature 014 once merged. Update the "Active feature plan" pointer.
 - [ ] T073 [P] **POST-DEPLOY** — Multi-MCP-client smoke (SC-005): authorize Claude Code + Cursor + Windsurf simultaneously against the deployed VM; verify each gets a unique client_id via DCR; verify each can run `execute_sql` concurrently without cross-talk. Capture screenshots for the PR.
 - [ ] T074 [P] **POST-DEPLOY** — Memory ceiling check (SC-009): drive 20 concurrent OAuth sessions via the smoke script in a loop; `docker stats selfbase-mcp-1` peak RSS MUST stay <150 MiB.
 - [ ] T075 [P] **POST-DEPLOY** — Log-leak grep (SC-008): after the full quickstart, `docker logs --since 10m selfbase-api-1 selfbase-mcp-1 | grep -cE 'sbp_[0-9a-f]{40}|eyJ[A-Za-z0-9_-]{60,}'` → 0.
