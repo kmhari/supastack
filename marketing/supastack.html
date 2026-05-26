@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Supastack — self-hosted, multi-project Supabase</title>
+<meta name="description" content="Provision N isolated Supabase projects on a single Linux VM. Same dashboard. Same CLI. One docker compose." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:           #0b0d10;
+  --bg-2:         #0f1216;
+  --surface:      #13171c;
+  --surface-2:    #181d23;
+  --hairline:     #1f242b;
+  --hairline-hi:  #2a3038;
+  --text:         #e8eaed;
+  --text-2:       #c4c8cf;
+  --mid:          #8b929b;
+  --low:          #5a6068;
+  --dim:          #3a3f47;
+  --accent:       #5dd6a5;
+  --accent-dim:   #2a8a66;
+  --accent-soft:  rgba(93, 214, 165, 0.08);
+  --warn:         #e8b04a;
+  --danger:       #e87a5d;
+
+  --sans: 'Geist', ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --pad:  clamp(20px, 4vw, 40px);
+  --col:  920px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+html, body { background: var(--bg); color: var(--text); }
+body {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01", "cv11";
+}
+
+a { color: inherit; text-decoration: none; }
+
+::selection { background: var(--accent); color: var(--bg); }
+
+/* ─── shell ────────────────────────────────────────────── */
+
+.wrap {
+  max-width: var(--col);
+  margin: 0 auto;
+  padding: 0 var(--pad);
+}
+
+.muted { color: var(--mid); }
+.dim   { color: var(--low); }
+
+hr.rule {
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  margin: 0;
+}
+
+/* ─── header ───────────────────────────────────────────── */
+
+header.nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(11, 13, 16, 0.85);
+  backdrop-filter: saturate(140%) blur(8px);
+  border-bottom: 1px solid var(--hairline);
+}
+.nav-inner {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 14px 0;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+.brand .mark {
+  width: 16px; height: 16px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+  border-radius: 3px;
+  position: relative;
+}
+.brand .mark::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  background: var(--bg);
+  border-radius: 1px;
+}
+.nav-links {
+  display: flex;
+  gap: 22px;
+  font-size: 14px;
+  color: var(--mid);
+  margin-left: auto;
+}
+.nav-links a {
+  transition: color 120ms;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-links .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--hairline-hi);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--mid);
+}
+.nav-links .pill .star { color: var(--warn); }
+
+/* ─── hero ─────────────────────────────────────────────── */
+
+.hero {
+  padding: clamp(72px, 12vh, 140px) 0 clamp(56px, 10vh, 96px);
+}
+.tagline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--mid);
+  padding: 5px 10px;
+  border: 1px solid var(--hairline-hi);
+  border-radius: 999px;
+  margin-bottom: 28px;
+}
+.tagline::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.hero h1 {
+  font-size: clamp(36px, 5.5vw, 56px);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  margin-bottom: 24px;
+  max-width: 18ch;
+}
+.hero h1 .accent { color: var(--accent); }
+.hero h1 .muted  { color: var(--mid); font-weight: 400; }
+
+.hero .lede {
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--text-2);
+  max-width: 56ch;
+  margin-bottom: 36px;
+  font-weight: 300;
+}
+
+.hero-install {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  font-family: var(--mono);
+  font-size: 14px;
+  background: var(--surface);
+  border: 1px solid var(--hairline-hi);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  max-width: 620px;
+  position: relative;
+  overflow: hidden;
+}
+.hero-install .prompt { color: var(--accent); margin-right: 14px; user-select: none; }
+.hero-install .cmd    { color: var(--text); flex: 1; overflow-x: auto; white-space: nowrap; }
+.hero-install .copy {
+  margin-left: 14px;
+  padding: 4px 10px;
+  border: 1px solid var(--hairline-hi);
+  border-radius: 5px;
+  color: var(--mid);
+  font-size: 11.5px;
+  font-family: var(--mono);
+  cursor: pointer;
+  background: transparent;
+  transition: all 120ms;
+  white-space: nowrap;
+}
+.hero-install .copy:hover { color: var(--text); border-color: var(--mid); }
+.hero-install .copy.copied { color: var(--accent); border-color: var(--accent-dim); }
+
+.cta-row {
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 7px;
+  border: 1px solid var(--hairline-hi);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 120ms;
+}
+.btn:hover { border-color: var(--mid); background: var(--surface); }
+.btn-primary {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+.btn-primary:hover {
+  background: #fff;
+  border-color: #fff;
+}
+.btn .arrow { transition: transform 120ms; }
+.btn:hover .arrow { transform: translateX(2px); }
+
+/* ─── sections ─────────────────────────────────────────── */
+
+section.s {
+  padding: clamp(56px, 8vh, 80px) 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.s-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.s h2 {
+  font-size: clamp(24px, 3vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: 14px;
+  max-width: 24ch;
+}
+.s .s-lede {
+  font-size: 16px;
+  color: var(--text-2);
+  max-width: 64ch;
+  margin-bottom: 36px;
+  line-height: 1.55;
+}
+
+/* ─── feature grid ─────────────────────────────────────── */
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+.feature {
+  padding: 22px 22px 24px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 9px;
+  transition: border-color 160ms;
+}
+.feature:hover { border-color: var(--hairline-hi); }
+.feature .ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-dim);
+  border-radius: 6px;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.feature h3 {
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+.feature p {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--mid);
+}
+.feature code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text-2);
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--hairline);
+}
+
+/* ─── terminal block ───────────────────────────────────── */
+
+.terminal {
+  background: var(--bg-2);
+  border: 1px solid var(--hairline-hi);
+  border-radius: 9px;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.terminal-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 12px;
+  color: var(--mid);
+}
+.terminal-head .dots { display: flex; gap: 6px; }
+.terminal-head .dots span {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--dim);
+}
+.terminal-body {
+  padding: 18px 20px;
+  color: var(--text-2);
+  overflow-x: auto;
+}
+.terminal-body .line { white-space: pre; }
+.terminal-body .p     { color: var(--accent); }
+.terminal-body .flag  { color: var(--warn); }
+.terminal-body .c     { color: var(--low); }
+.terminal-body .ok    { color: var(--accent); }
+.terminal-body .out   { color: var(--mid); }
+.terminal-body .v     { color: var(--text); }
+
+/* ─── architecture text block ──────────────────────────── */
+
+.arch-block {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 9px;
+  padding: 28px 32px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--text-2);
+  overflow-x: auto;
+}
+.arch-block .layer {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 24px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--hairline);
+}
+.arch-block .layer:last-child { border-bottom: 0; }
+.arch-block .layer .tag {
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.arch-block .layer .tag small {
+  display: block;
+  color: var(--low);
+  font-weight: 400;
+  font-size: 11.5px;
+  letter-spacing: 0;
+  margin-top: 2px;
+}
+.arch-block .layer .desc {
+  color: var(--text);
+}
+.arch-block .layer .desc em {
+  display: block;
+  color: var(--mid);
+  font-style: normal;
+  font-size: 12.5px;
+  margin-top: 4px;
+}
+.arch-block .layer .desc code {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  margin: 2px 4px 2px 0;
+  font-size: 12px;
+  color: var(--text);
+}
+
+/* ─── component list ───────────────────────────────────── */
+
+.components {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--mono);
+  font-size: 13.5px;
+}
+.components .row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.components .row:nth-child(odd) {
+  padding-right: 28px;
+  border-right: 1px solid var(--hairline);
+}
+.components .row:nth-child(even) {
+  padding-left: 28px;
+}
+.components .row .name {
+  color: var(--text);
+  font-weight: 500;
+}
+.components .row .name .desc {
+  display: block;
+  color: var(--mid);
+  font-weight: 400;
+  font-size: 12.5px;
+  font-family: var(--sans);
+  margin-top: 2px;
+}
+.components .row .ver {
+  color: var(--low);
+  font-size: 12px;
+  white-space: nowrap;
+  align-self: start;
+  padding-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .components { grid-template-columns: 1fr; }
+  .components .row:nth-child(odd) { padding-right: 0; border-right: 0; }
+  .components .row:nth-child(even) { padding-left: 0; }
+}
+
+/* ─── specs ────────────────────────────────────────────── */
+
+.specs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-top: 1px solid var(--hairline);
+  border-left: 1px solid var(--hairline);
+}
+.spec {
+  padding: 22px 24px;
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+.spec .label {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--mid);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.spec .val {
+  font-family: var(--sans);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.spec .val .accent { color: var(--accent); }
+.spec .val .unit {
+  font-size: 14px;
+  color: var(--mid);
+  font-weight: 400;
+  margin-left: 4px;
+}
+.spec .note {
+  font-size: 13px;
+  color: var(--mid);
+  line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+  .specs { grid-template-columns: 1fr; }
+}
+
+/* ─── footer ───────────────────────────────────────────── */
+
+footer.f {
+  border-top: 1px solid var(--hairline);
+  padding: 48px 0 36px;
+  font-size: 13.5px;
+  color: var(--mid);
+}
+.f-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 32px;
+  margin-bottom: 36px;
+}
+.f-grid h5 {
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--text);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+.f-grid a {
+  display: block;
+  padding: 5px 0;
+  color: var(--mid);
+  transition: color 120ms;
+}
+.f-grid a:hover { color: var(--text); }
+.f-grid p {
+  color: var(--mid);
+  font-size: 13.5px;
+  line-height: 1.5;
+  max-width: 38ch;
+}
+.f-grid .brand-foot {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.f-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 24px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--low);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .f-grid { grid-template-columns: 1fr 1fr; }
+  .f-grid > div:first-child { grid-column: 1 / -1; }
+}
+
+/* ─── inline code ──────────────────────────────────────── */
+
+p code, li code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-dim);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a href="/" class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      supastack
+    </a>
+    <div class="nav-links">
+      <a href="#why">Why</a>
+      <a href="#cli">CLI</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#stack">Stack</a>
+      <a href="#docs">Docs</a>
+      <a href="https://github.com/kmhari/supastack" class="pill">
+        <span class="star">★</span> github · 0
+      </a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ─── HERO ─────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="wrap">
+    <div class="tagline">v0.14 · self-hosted · open source</div>
+    <h1>
+      Self-hosted Supabase.
+      <span class="muted">N projects per VM.</span>
+    </h1>
+    <p class="lede">
+      Supastack runs a single docker compose stack that provisions
+      isolated Supabase projects on demand. Each project gets its own
+      Postgres, Auth, Storage, Realtime, Edge Functions, and Studio —
+      with full <code>supabase</code> CLI compatibility.
+    </p>
+
+    <div class="hero-install">
+      <span class="prompt">$</span>
+      <span class="cmd" id="install-cmd">git clone https://github.com/kmhari/supastack &amp;&amp; cd supastack &amp;&amp; ./up</span>
+      <button class="copy" id="copy-btn" type="button">copy</button>
+    </div>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#docs">
+        Read the docs <span class="arrow">→</span>
+      </a>
+      <a class="btn" href="https://github.com/kmhari/supastack">
+        View on GitHub
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ─── WHY ──────────────────────────────────────────────── -->
+<section class="s" id="why">
+  <div class="wrap">
+    <div class="s-label">Overview</div>
+    <h2>What you get</h2>
+    <p class="s-lede">
+      Supastack is a small control plane (Fastify API, BullMQ worker, React dashboard) plus an opinionated per-project Supabase template. Everything runs as containers under one docker compose graph on one machine you own.
+    </p>
+
+    <div class="features">
+
+      <div class="feature">
+        <div class="ico">N</div>
+        <h3>N isolated projects, one host</h3>
+        <p>Each project runs in its own network namespace with its own Postgres volume, secrets, and ports. ~30–50 projects fit on a 4 vCPU / 16 GB VM.</p>
+      </div>
+
+      <div class="feature">
+        <div class="ico">$</div>
+        <h3>Your <code>supabase</code> CLI just works</h3>
+        <p>Login via device-code, link a ref, push migrations, generate types, deploy functions. Same API surface as Cloud — pinned against <code>api.supabase.com/api/v1-json</code>.</p>
+      </div>
+
+      <div class="feature">
+        <div class="ico">⌬</div>
+        <h3>Direct Postgres on :5432</h3>
+        <p>Custom STARTTLS+SNI proxy gives every project a strict-TLS endpoint at <code>db.&lt;ref&gt;.&lt;apex&gt;:5432</code>. <code>psql</code>, <code>sqlx</code>, <code>rustls</code> — all happy.</p>
+      </div>
+
+      <div class="feature">
+        <div class="ico">≋</div>
+        <h3>Multi-tenant pooler</h3>
+        <p>Top-level Supavisor 2.7 at <code>pooler.&lt;apex&gt;:6543</code> serves all projects. A daily reconciler catches and self-heals seven classes of drift.</p>
+      </div>
+
+      <div class="feature">
+        <div class="ico">⧉</div>
+        <h3>MCP, hosted</h3>
+        <p>OAuth 2.1 server + multi-project MCP at <code>mcp.&lt;apex&gt;/mcp</code>. Paste into Claude / Cursor / Zed — full <code>execute_sql</code> tool surface.</p>
+      </div>
+
+      <div class="feature">
+        <div class="ico">⚿</div>
+        <h3>Secrets in vault, not env</h3>
+        <p>User secrets live in per-project <code>vault.secrets</code>. Functions read them with a 5s TTL cache — no container restart on save.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─── CLI ──────────────────────────────────────────────── -->
+<section class="s" id="cli">
+  <div class="wrap">
+    <div class="s-label">CLI Compatibility</div>
+    <h2>Same commands. Same flags. Different host.</h2>
+    <p class="s-lede">
+      The upstream <code>supabase</code> CLI talks to the <code>/v1</code> Management API. Supastack implements that same API verbatim. Point <code>SUPABASE_API_URL</code> at your VM, run <code>supabase login</code>, and the CLI doesn't know it left Cloud.
+    </p>
+
+    <div class="terminal">
+      <div class="terminal-head">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <span>~/projects/huntvox</span>
+      </div>
+      <div class="terminal-body">
+<span class="line"><span class="c"># authenticate via PKCE device flow — no PAT to copy/paste</span></span>
+<span class="line"><span class="p">$</span> supabase login</span>
+<span class="line"><span class="out">  open: https://&lt;apex&gt;/dashboard/cli/login?session_id=…</span></span>
+<span class="line"><span class="out">  verification code: </span><span class="v">8a3f-c910</span></span>
+<span class="line"><span class="ok">  ✓ token saved</span></span>
+<span class="line"></span>
+<span class="line"><span class="c"># link to a remote project — no password prompt, ever</span></span>
+<span class="line"><span class="p">$</span> supabase link <span class="flag">--project-ref</span> <span class="v">enzyxdtrbosu</span></span>
+<span class="line"><span class="ok">  ✓ linked</span><span class="out"> · login role rotated · ttl 5m</span></span>
+<span class="line"></span>
+<span class="line"><span class="c"># push migrations</span></span>
+<span class="line"><span class="p">$</span> supabase db push</span>
+<span class="line"><span class="out">  applying:</span></span>
+<span class="line"><span class="out">    20260512_add_rls_policies.sql        </span><span class="ok">✓</span></span>
+<span class="line"><span class="out">    20260514_user_billing_index.sql      </span><span class="ok">✓</span></span>
+<span class="line"></span>
+<span class="line"><span class="c"># generate types</span></span>
+<span class="line"><span class="p">$</span> supabase gen types typescript <span class="flag">--linked</span> &gt; types.ts</span>
+<span class="line"><span class="ok">  ✓ 47 tables · 12 enums</span></span>
+<span class="line"></span>
+<span class="line"><span class="c"># ad-hoc query — audited, statement timeout enforced</span></span>
+<span class="line"><span class="p">$</span> supabase db query <span class="flag">--linked</span> <span class="v">"select count(*) from auth.users"</span></span>
+<span class="line"><span class="out">   count</span></span>
+<span class="line"><span class="out">  ------</span></span>
+<span class="line"><span class="out">   12481</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── ARCHITECTURE ─────────────────────────────────────── -->
+<section class="s" id="architecture">
+  <div class="wrap">
+    <div class="s-label">Architecture</div>
+    <h2>Three layers, one docker compose.</h2>
+    <p class="s-lede">
+      Edge handles TLS and routing. The control plane handles provisioning, lifecycle, and the dashboard. The data plane is duplicated per project — fully isolated networks, volumes, and secrets.
+    </p>
+
+    <div class="arch-block">
+      <div class="layer">
+        <div class="tag">L0 · EDGE<small>tls + routing</small></div>
+        <div class="desc">
+          <code>caddy</code><code>wildcard *.&lt;apex&gt;</code><code>L4 STARTTLS+SNI proxy</code><code>HTTP-01 per-project certs</code>
+          <em>Routes <code>&lt;ref&gt;.&lt;apex&gt;</code> to kong, <code>db.&lt;ref&gt;.&lt;apex&gt;:5432</code> to per-project Postgres, <code>pooler.&lt;apex&gt;:6543</code> to Supavisor.</em>
+        </div>
+      </div>
+
+      <div class="layer">
+        <div class="tag">L1 · CONTROL<small>singleton · 1 of 1</small></div>
+        <div class="desc">
+          <code>fastify api</code><code>bullmq worker</code><code>react spa</code><code>postgres 16</code><code>redis 7</code><code>supavisor 2.7</code>
+          <em>Speaks <code>/api/v1</code> to the dashboard and <code>/v1</code> to the upstream CLI. Provisions, monitors, rotates, repairs.</em>
+        </div>
+      </div>
+
+      <div class="layer">
+        <div class="tag">L2 · PROJECT<small>n of n · isolated</small></div>
+        <div class="desc">
+          <code>db</code><code>auth</code><code>rest</code><code>realtime</code><code>storage</code><code>meta</code><code>functions</code><code>analytics</code><code>vector</code><code>imgproxy</code><code>studio</code><code>kong</code>
+          <em>One full stack per provisioned project. Namespaced <code>selfbase-&lt;ref&gt;-*</code>. Add or remove in ~38 seconds.</em>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── STACK ────────────────────────────────────────────── -->
+<section class="s" id="stack">
+  <div class="wrap">
+    <div class="s-label">Stack manifest</div>
+    <h2>What's in the box.</h2>
+    <p class="s-lede">
+      Every container is upstream Supabase OSS, pinned to the version Cloud is shipping. Patches are applied only where strict-TLS or multi-tenancy require them — and they're all in <code>infra/supabase-template/</code>, in plain sight.
+    </p>
+
+    <div class="components">
+      <div class="row"><div class="name">postgres<span class="desc">the database</span></div><div class="ver">v16.x</div></div>
+      <div class="row"><div class="name">gotrue<span class="desc">the auth server</span></div><div class="ver">v2.157</div></div>
+      <div class="row"><div class="name">postgrest<span class="desc">the rest api</span></div><div class="ver">v12.x</div></div>
+      <div class="row"><div class="name">realtime<span class="desc">the broadcaster</span></div><div class="ver">v2.x</div></div>
+      <div class="row"><div class="name">storage-api<span class="desc">the file server</span></div><div class="ver">v1.x</div></div>
+      <div class="row"><div class="name">edge-runtime<span class="desc">deno functions runtime</span></div><div class="ver">v1.59</div></div>
+      <div class="row"><div class="name">studio<span class="desc">the dashboard</span></div><div class="ver">v1.221</div></div>
+      <div class="row"><div class="name">kong<span class="desc">per-project gateway</span></div><div class="ver">v2.8.1</div></div>
+      <div class="row"><div class="name">supavisor<span class="desc">multi-tenant pooler</span></div><div class="ver">v2.7.4</div></div>
+      <div class="row"><div class="name">caddy<span class="desc">edge + wildcard tls</span></div><div class="ver">v2.8</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── SPECS ────────────────────────────────────────────── -->
+<section class="s" id="specs">
+  <div class="wrap">
+    <div class="s-label">Datasheet</div>
+    <h2>Numbers, measured.</h2>
+    <p class="s-lede">
+      The figures below come from a single <em>n2-standard-4</em>-class VM (4 vCPU · 16 GB RAM · 200 GB NVMe). Yours will differ — see the operator's manual for the math.
+    </p>
+
+    <div class="specs">
+      <div class="spec">
+        <div class="label">Projects per VM</div>
+        <div class="val"><span class="accent">30 – 50</span><span class="unit">tested ceiling</span></div>
+        <div class="note">~140 MB resident per project at idle. Past 50, the host kernel is the constraint.</div>
+      </div>
+      <div class="spec">
+        <div class="label">Provision time</div>
+        <div class="val">38<span class="unit">seconds</span></div>
+        <div class="note">From "create project" to a green Studio and a usable Postgres connection string.</div>
+      </div>
+      <div class="spec">
+        <div class="label">Cold start (all projects)</div>
+        <div class="val">~90<span class="unit">seconds</span></div>
+        <div class="note">Control plane comes back first, then each project in parallel batches of 8.</div>
+      </div>
+      <div class="spec">
+        <div class="label">Control plane idle</div>
+        <div class="val">820<span class="unit">MB RAM</span></div>
+        <div class="note">api · worker · web · redis · postgres-16 · supavisor · caddy.</div>
+      </div>
+      <div class="spec">
+        <div class="label">Backups</div>
+        <div class="val">pg_dump<span class="unit">· cron · S3</span></div>
+        <div class="note">Configurable retention. Async restore via the worker. Defaults to 30 days.</div>
+      </div>
+      <div class="spec">
+        <div class="label">License</div>
+        <div class="val">Apache 2.0</div>
+        <div class="note">Fork it, host it, charge for it. Upstream components carry their own permissive licenses.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── DEPLOY ───────────────────────────────────────────── -->
+<section class="s" id="docs">
+  <div class="wrap">
+    <div class="s-label">Get started</div>
+    <h2>One VM. Docker. A DNS record.</h2>
+    <p class="s-lede">
+      Any Linux host with Docker Engine ≥ 24 and a wildcard DNS record. The setup wizard does the TLS DNS-01 dance once. Everything after that is just provisioning more projects.
+    </p>
+
+    <div class="terminal">
+      <div class="terminal-head">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <span>ubuntu@your-vm</span>
+      </div>
+      <div class="terminal-body">
+<span class="line"><span class="c"># 1 — clone and configure</span></span>
+<span class="line"><span class="p">$</span> git clone https://github.com/kmhari/supastack /opt/supastack</span>
+<span class="line"><span class="p">$</span> cd /opt/supastack &amp;&amp; cp infra/.env.example infra/.env</span>
+<span class="line"><span class="p">$</span> $EDITOR infra/.env  <span class="c"># set APEX, MASTER_KEY, admin email</span></span>
+<span class="line"></span>
+<span class="line"><span class="c"># 2 — bring it up</span></span>
+<span class="line"><span class="p">$</span> sudo docker compose -f infra/docker-compose.yml up -d</span>
+<span class="line"></span>
+<span class="line"><span class="c"># 3 — finish the TLS DNS-01 dance in the setup wizard</span></span>
+<span class="line"><span class="p">$</span> open https://&lt;apex&gt;/setup</span>
+<span class="line"></span>
+<span class="line"><span class="c"># 4 — provision your first project</span></span>
+<span class="line"><span class="p">$</span> open https://&lt;apex&gt;/dashboard/new</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="f">
+  <div class="wrap">
+    <div class="f-grid">
+      <div>
+        <div class="brand-foot">
+          <span class="mark" style="width:14px;height:14px;background:linear-gradient(135deg,var(--accent),var(--accent-dim));border-radius:3px;"></span>
+          supastack
+        </div>
+        <p>Self-hosted, multi-project Supabase. Provision N isolated stacks on a single VM. Open source under Apache 2.0. Not affiliated with Supabase Inc.</p>
+      </div>
+      <div>
+        <h5>Product</h5>
+        <a href="#why">Overview</a>
+        <a href="#cli">CLI Compatibility</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#stack">Stack Manifest</a>
+        <a href="#specs">Datasheet</a>
+      </div>
+      <div>
+        <h5>Resources</h5>
+        <a href="#">Quickstart</a>
+        <a href="#">Operator's Manual</a>
+        <a href="#">Migrations from Cloud</a>
+        <a href="#">Backups &amp; Restore</a>
+        <a href="#">Changelog</a>
+      </div>
+      <div>
+        <h5>Community</h5>
+        <a href="https://github.com/kmhari/supastack">GitHub</a>
+        <a href="#">Discussions</a>
+        <a href="#">Issues</a>
+        <a href="#">Contribute</a>
+      </div>
+    </div>
+    <div class="f-bar">
+      <span>supastack · v0.14 · 2026·05·26</span>
+      <span>Apache 2.0 · self-hosted</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+const btn = document.getElementById('copy-btn');
+const cmd = document.getElementById('install-cmd');
+btn?.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(cmd.textContent.trim());
+    const prev = btn.textContent;
+    btn.textContent = 'copied';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = prev;
+      btn.classList.remove('copied');
+    }, 1400);
+  } catch {}
+});
+</script>
+
+</body>
+</html>
