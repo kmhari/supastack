@@ -114,6 +114,25 @@ export async function buildApp(): Promise<FastifyInstance> {
     done(null, body),
   );
 
+  // Feature 014 — OAuth 2.1 endpoints (authorize consent submit + RFC 6749
+  // token endpoint) accept application/x-www-form-urlencoded per RFC. Parse
+  // into an object so route handlers + Zod can consume it uniformly with
+  // JSON bodies.
+  app.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'string' },
+    (_req, body, done) => {
+      try {
+        const params = new URLSearchParams(body as string);
+        const obj: Record<string, string> = {};
+        for (const [k, v] of params) obj[k] = v;
+        done(null, obj);
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    },
+  );
+
   // Uniform error formatter. Dashboard surface (everything except /v1) uses
   // selfbase's envelope `{error: {code, message}}`; the CLI compat surface
   // (`/v1/*`) needs the cloud envelope `{message, code, details?}` so the
