@@ -154,7 +154,7 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/cli/login-role', () => {
     expect(body.ttl_seconds).toBe(300);
 
     // The service layer ran:
-    //   BEGIN → advisory lock → EXISTS check → CREATE ROLE → ALTER ROLE → COMMIT
+    //   BEGIN → advisory lock → EXISTS check → CREATE ROLE → ALTER ROLE (search_path) → ALTER ROLE (password) → COMMIT
     // (CREATE only fires when the role didn't exist yet; the mock client
     // returns rows:[] so .exists is undefined → the CREATE step runs.)
     const sqls = recordedQueries.map((q) => q.sql.trim().slice(0, 16));
@@ -163,6 +163,7 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/cli/login-role', () => {
       'SELECT pg_advisor',
       'SELECT EXISTS (S',
       'CREATE ROLE "cli',
+      'ALTER ROLE "cli_',
       'ALTER ROLE "cli_',
       'COMMIT',
     ]);
@@ -173,8 +174,13 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/cli/login-role', () => {
       'CREATE ROLE "cli_login_postgres" NOINHERIT LOGIN NOREPLICATION IN ROLE "postgres"',
     );
 
-    // ALTER statement: role identifier + password literal + VALID UNTIL.
-    const alterSql = recordedQueries[4]!.sql;
+    // search_path ALTER: mirrors supabase/postgres post-setup.sql treatment of `postgres`.
+    const searchPathSql = recordedQueries[4]!.sql;
+    expect(searchPathSql).toContain('"cli_login_postgres"');
+    expect(searchPathSql).toContain('SET search_path TO "$user", public, extensions');
+
+    // Password ALTER: role identifier + password literal + VALID UNTIL.
+    const alterSql = recordedQueries[5]!.sql;
     expect(alterSql).toContain('"cli_login_postgres"');
     expect(alterSql).toContain(`'${body.password}'`);
     expect(alterSql).toMatch(/VALID UNTIL '[0-9T:.Z-]+'/);
