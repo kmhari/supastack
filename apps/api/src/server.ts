@@ -31,6 +31,7 @@ import { migrationsRoutes } from './routes/management/migrations.js';
 import { cliLoginRoleRoutes } from './routes/management/cli-login-role.js';
 import { dbQueryRoutes } from './routes/management/db-query.js';
 import { dbDumpRoutes } from './routes/management/db-dump.js';
+import { logsRoutes } from './routes/management/logs.js';
 import { authConfigRoutes } from './routes/management/auth-config.js';
 import { postgrestConfigRoutes } from './routes/management/postgrest-config.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
@@ -249,6 +250,8 @@ export async function buildApp(): Promise<FastifyInstance> {
       await mgmt.register(oauthRegisterRoutes);
       await mgmt.register(oauthAuthorizeRoutes);
       await mgmt.register(oauthTokenRoutes);
+      // Feature 014 US4 — get_logs (Logflare forwarder):
+      await mgmt.register(logsRoutes);
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },
