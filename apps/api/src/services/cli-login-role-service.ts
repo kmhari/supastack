@@ -133,7 +133,25 @@ export async function rotateCliLoginRole(ref: string, opts: RotateOpts): Promise
         );
       }
 
-      // 2) Rotate password + refresh VALID UNTIL. `ALTER ROLE` is also a
+      // 2) Mirror the per-role search_path that supabase/postgres pins on the
+      //    target role (`postgres` / `supabase_read_only_user`). Upstream
+      //    sets it in `migrations/db/init-scripts/00000000000003-post-setup.sql`:
+      //      ALTER ROLE postgres SET search_path TO "$user",public,extensions;
+      //    Per-role GUCs are stored in pg_db_role_setting and applied at
+      //    *login* time only — the CLI's `SET SESSION ROLE <target>` swaps
+      //    privileges but never re-applies login-role GUCs. Since the session
+      //    connects as `cli_login_<target>`, that role's own pg_db_role_setting
+      //    is what governs search_path, so we mirror it. Without this, the
+      //    first migration that calls unqualified `uuid_generate_v4()` (the
+      //    extension lives in the `extensions` schema) fails with
+      //    "function does not exist" even though uuid-ossp is installed.
+      //    Idempotent and cheap; runs every rotation so roles created before
+      //    this change get patched on next call.
+      await client.query(
+        `ALTER ROLE ${client.escapeIdentifier(role)} SET search_path TO "$user", public, extensions`,
+      );
+
+      // 3) Rotate password + refresh VALID UNTIL. `ALTER ROLE` is also a
       //    utility statement, so role + password + VALID UNTIL are inlined
       //    via escapeIdentifier / escapeLiteral.
       await client.query(

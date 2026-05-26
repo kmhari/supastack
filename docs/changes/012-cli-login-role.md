@@ -53,6 +53,20 @@ $func$ LANGUAGE plpgsql;
 
 The **role is persistent** — created once, reused forever. Only the **password rotates**. Postgres itself refuses authentication after `VALID UNTIL` elapses (no background reaper needed; the `pg_authid` row carries the security boundary).
 
+### Per-role `search_path` parity with `postgres`
+
+Each rotation also emits, inside the same transaction:
+
+```sql
+ALTER ROLE "cli_login_postgres" SET search_path TO "$user", public, extensions;
+```
+
+This mirrors upstream `supabase/postgres` exactly — see [`migrations/db/init-scripts/00000000000003-post-setup.sql`](https://github.com/supabase/postgres/blob/develop/migrations/db/init-scripts/00000000000003-post-setup.sql), which pins the same per-role `search_path` GUC on the `postgres` role at image build time.
+
+Why it's required: per-role `search_path` is stored in `pg_db_role_setting` and is applied **at login time only** — the CLI's `SET SESSION ROLE postgres` (run in `AfterConnect`) swaps privileges but does **not** re-apply login-role GUCs. Since the session connects as `cli_login_postgres`, that role's own `pg_db_role_setting` governs `search_path`. Without this `ALTER ROLE`, the very first migration that calls unqualified `uuid_generate_v4()` (the `uuid-ossp` extension lives in the `extensions` schema in every Supabase project) fails with `function uuid_generate_v4() does not exist` even though the extension is installed.
+
+Statement is unconditional and idempotent — runs on every rotation so roles provisioned before this fix get patched on next `db push`.
+
 ### Read-only path — currently deferred
 
 POST with `{ "read_only": true }` returns **501 `not_implemented`** in this release. Two structural blockers prevent a clean implementation right now:
