@@ -218,14 +218,14 @@
 
 ### Dashboard API
 
-- [ ] T046 [US3] Create `apps/api/src/routes/oauth/clients-list.ts` — `GET /api/v1/oauth/clients` (dashboard route, NOT `/v1/oauth`). Returns the operator's authorized clients: `[{ client_id, client_name, authorized_at, last_used_at, scope }]` joined from `oauth_clients` + `oauth_refresh_tokens` (one row per active grant).
-- [ ] T047 [US3] Create `apps/api/src/routes/oauth/client-revoke.ts` — `DELETE /api/v1/oauth/clients/:client_id` (dashboard route). RBAC: only the operator who authorized this grant (no admin override needed for v1). Flow:
+- [X] T046 [US3] Create `apps/api/src/routes/oauth/clients-list.ts` — `GET /api/v1/oauth/clients` (dashboard route, NOT `/v1/oauth`). Returns the operator's authorized clients: `[{ client_id, client_name, authorized_at, last_used_at, scope }]` joined from `oauth_clients` + `oauth_refresh_tokens` (one row per active grant).
+- [X] T047 [US3] Create `apps/api/src/routes/oauth/client-revoke.ts` — `DELETE /api/v1/oauth/clients/:client_id` (dashboard route). RBAC: only the operator who authorized this grant (no admin override needed for v1). Flow:
   1. Delete all `oauth_refresh_tokens` for (user, client) — capture jtis of most-recent grants
   2. INSERT `oauth_revocations` audit rows for each captured jti
   3. Redis: `SET selfbase:oauth:revoked:<jti> "1" EX <remaining_seconds>` for each captured jti
   4. Audit `oauth.token.revoked` with reason `operator_action`
   5. Return 200 `{ revoked: <count> }`
-- [ ] T048 [P] [US3] [TDD] Unit test `apps/api/tests/unit/oauth-revocation.test.ts` (extends T020) — full revoke flow:
+- [X] T048 [P] [US3] [TDD] Unit test `apps/api/tests/unit/oauth-revocation.test.ts` (extends T020) — full revoke flow:
   - DELETE removes refresh rows
   - DELETE adds jti to Redis revocation
   - Subsequent token-endpoint refresh attempt → 400 `invalid_grant`
@@ -233,13 +233,13 @@
 
 ### Dashboard UI
 
-- [ ] T049 [US3] Create `apps/web/src/pages/SettingsMcpClients.tsx` — list view + Revoke button per client. Uses existing dashboard layout (look at `apps/web/src/pages/SettingsCli.tsx` for pattern). Shows: client_name, authorized_at (relative time), last_used_at, scope, Revoke button (with confirm dialog).
-- [ ] T050 [US3] Add route `/settings/mcp-clients` to the dashboard router (extend `apps/web/src/App.tsx` or equivalent). Add nav link in the settings sidebar matching the existing `/settings/cli` entry.
-- [ ] T051 [US3] Add a brief setup walkthrough at `/settings/mcp` (or extend `/settings/cli` with a Section 7) — copy-button-ready MCP client config for the major clients (Claude Code, Cursor, Windsurf), each pointing at `https://mcp.<apex>/mcp`. Update `docs/changes/014-mcp-http-oauth.md` (T065) to reference this page.
+- [X] T049 [US3] Create `apps/web/src/pages/SettingsMcpClients.tsx` — list view + Revoke button per client. Uses existing dashboard layout (look at `apps/web/src/pages/SettingsCli.tsx` for pattern). Shows: client_name, authorized_at (relative time), last_used_at, scope, Revoke button (with confirm dialog).
+- [X] T050 [US3] Add route `/settings/mcp-clients` to the dashboard router (extend `apps/web/src/App.tsx` or equivalent). Add nav link in the settings sidebar matching the existing `/settings/cli` entry.
+- [X] T051 [US3] Add a brief setup walkthrough at `/settings/mcp` (or extend `/settings/cli` with a Section 7) — copy-button-ready MCP client config for the major clients (Claude Code, Cursor, Windsurf), each pointing at `https://mcp.<apex>/mcp`. Update `docs/changes/014-mcp-http-oauth.md` (T065) to reference this page.
 
 ### Live-VM smoke
 
-- [ ] T052 [P] [US3] Extend `tests/cli-e2e/mcp-roundtrip.sh` with the revoke scenario: authorize → use token → click Revoke (via API) → assert next token use → 401 within 5s. Use `time` to measure propagation latency for SC-004.
+- [X] T052 [P] [US3] Extend `tests/cli-e2e/mcp-roundtrip.sh` with the revoke scenario: authorize → use token → click Revoke (via API) → assert next token use → 401 within 5s. Use `time` to measure propagation latency for SC-004.
 
 ---
 
@@ -249,24 +249,24 @@
 
 **Independent test**: see quickstart.md US4 section + `contracts/logs-endpoint.md` test obligations.
 
-- [ ] T053 [US4] Create `apps/api/src/services/logflare-client.ts` — `queryLogs(ref, { service, iso_timestamp_start, iso_timestamp_end, sql? }): Promise<Array<Record<string, unknown>>>`. Resolves analytics container address (`selfbase-<ref>-analytics-1:4000`); decrypts `logflareApiKey` via existing master-key helpers; constructs SQL from service+time-range OR forwards `sql` verbatim; HTTP POST to Logflare API; returns rows.
-- [ ] T054 [P] [US4] [TDD] Unit test `apps/api/tests/unit/logflare-client.test.ts` — mock fetch:
+- [X] T053 [US4] Create `apps/api/src/services/logflare-client.ts` — `queryLogs(ref, { service, iso_timestamp_start, iso_timestamp_end, sql? }): Promise<Array<Record<string, unknown>>>`. Resolves analytics container address (`selfbase-<ref>-analytics-1:4000`); decrypts `logflareApiKey` via existing master-key helpers; constructs SQL from service+time-range OR forwards `sql` verbatim; HTTP POST to Logflare API; returns rows.
+- [X] T054 [P] [US4] [TDD] Unit test `apps/api/tests/unit/logflare-client.test.ts` — mock fetch:
   - service=api → constructs SELECT from edge_logs with time-range
   - service=postgres → constructs SELECT from postgres_logs
   - verbatim sql passes through unmodified
   - Logflare 5xx → throws AnalyticsUnreachableError
   - Logflare malformed JSON → throws AnalyticsBadGatewayError
   - HTTP X-API-KEY header carries the decrypted key
-- [ ] T055 [US4] Create `apps/api/src/routes/management/logs.ts` — `GET /v1/projects/:ref/analytics/endpoints/logs.all` per `contracts/logs-endpoint.md`. Auth + RBAC (`audit.read`). Project status check (running). Calls `logflare-client.queryLogs()`. Returns `{ result: rows }`.
-- [ ] T056 [P] [US4] [TDD] Unit test `apps/api/tests/unit/logs.test.ts` route-level (in-process Fastify + mocked logflare-client):
+- [X] T055 [US4] Create `apps/api/src/routes/management/logs.ts` — `GET /v1/projects/:ref/analytics/endpoints/logs.all` per `contracts/logs-endpoint.md`. Auth + RBAC (`audit.read`). Project status check (running). Calls `logflare-client.queryLogs()`. Returns `{ result: rows }`.
+- [X] T056 [P] [US4] [TDD] Unit test `apps/api/tests/unit/logs.test.ts` route-level (in-process Fastify + mocked logflare-client):
   - Happy path → 200 + { result: [...] }
   - Invalid service → 400 invalid_params
   - Paused project → 409 project_not_runnable
   - logflare unreachable → 503 analytics_unreachable
   - No auth → 401
   - Member-role lacking `audit.read` → 403
-- [ ] T057 [US4] Register `logs` route in `apps/api/src/server.ts`. Also add to plan-time tests via the dual-auth plugin (verify with both PAT and OAuth bearer that the endpoint accepts both — likely already covered by T022 regression suite).
-- [ ] T058 [P] [US4] Extend `tests/cli-e2e/mcp-roundtrip.sh` with a `get_logs` round-trip via MCP: call tools/call get_logs → expect rows from a recent edge function invocation; assert SC-011 (<3s latency).
+- [X] T057 [US4] Register `logs` route in `apps/api/src/server.ts`. Also add to plan-time tests via the dual-auth plugin (verify with both PAT and OAuth bearer that the endpoint accepts both — likely already covered by T022 regression suite).
+- [X] T058 [P] [US4] Extend `tests/cli-e2e/mcp-roundtrip.sh` with a `get_logs` round-trip via MCP: call tools/call get_logs → expect rows from a recent edge function invocation; assert SC-011 (<3s latency).
 
 ---
 
@@ -276,15 +276,15 @@
 
 **Independent test**: see quickstart.md US5 section + `contracts/storage-buckets-endpoint.md` test obligations.
 
-- [ ] T059 [US5] Create `apps/api/src/services/service-role-jwt.ts` — `mintServiceRoleJwt(ref): Promise<string>` (HS256 with project's per-instance `jwtSecret`, 24h TTL, in-process LRU cache keyed by ref). If a similar helper already exists in credentials-reveal infra, factor it out instead of duplicating.
-- [ ] T060 [P] [US5] [TDD] Unit test `apps/api/tests/unit/service-role-jwt.test.ts`:
+- [X] T059 [US5] Create `apps/api/src/services/service-role-jwt.ts` — `mintServiceRoleJwt(ref): Promise<string>` (HS256 with project's per-instance `jwtSecret`, 24h TTL, in-process LRU cache keyed by ref). If a similar helper already exists in credentials-reveal infra, factor it out instead of duplicating.
+- [X] T060 [P] [US5] [TDD] Unit test `apps/api/tests/unit/service-role-jwt.test.ts`:
   - Returns valid HS256 JWT with `role: "service_role"`, exp = now+24h
   - Second call within 24h returns cached token (verify via secret-decrypt call count)
   - After 24h, fresh mint
   - Different ref → different JWT (no cache cross-contamination)
-- [ ] T061 [US5] Create `apps/api/src/services/storage-buckets-proxy.ts` — `listBuckets(ref): Promise<BucketRow[]>`. Mints service-role JWT, fetches `http://selfbase-<ref>-storage-1:5000/bucket` with that JWT as Bearer, returns the bare-array response.
-- [ ] T062 [US5] Create `apps/api/src/routes/management/storage-buckets.ts` — `GET /v1/projects/:ref/storage/buckets`. Auth + RBAC (`instance.read`). Project status check. Calls `storage-buckets-proxy.listBuckets()`. Returns bare-array per `contracts/storage-buckets-endpoint.md`.
-- [ ] T063 [P] [US5] [TDD] Unit test `apps/api/tests/unit/storage-buckets.test.ts`:
+- [X] T061 [US5] Create `apps/api/src/services/storage-buckets-proxy.ts` — `listBuckets(ref): Promise<BucketRow[]>`. Mints service-role JWT, fetches `http://selfbase-<ref>-storage-1:5000/bucket` with that JWT as Bearer, returns the bare-array response.
+- [X] T062 [US5] Create `apps/api/src/routes/management/storage-buckets.ts` — `GET /v1/projects/:ref/storage/buckets`. Auth + RBAC (`instance.read`). Project status check. Calls `storage-buckets-proxy.listBuckets()`. Returns bare-array per `contracts/storage-buckets-endpoint.md`.
+- [X] T063 [P] [US5] [TDD] Unit test `apps/api/tests/unit/storage-buckets.test.ts`:
   - Happy path → 200 + bare-array of buckets
   - Empty buckets → 200 + `[]`
   - Paused project → 409
@@ -292,7 +292,7 @@
   - storage 500 with malformed JSON → 502 storage_bad_gateway
   - No auth → 401
   - Member-role → 200 (read-only — `instance.read` allowed)
-- [ ] T064 [P] [US5] Extend `tests/cli-e2e/mcp-roundtrip.sh` with a `list_storage_buckets` round-trip via MCP — expects ≥1 bucket on the test project; assert SC-012 (<2s).
+- [X] T064 [P] [US5] Extend `tests/cli-e2e/mcp-roundtrip.sh` with a `list_storage_buckets` round-trip via MCP — expects ≥1 bucket on the test project; assert SC-012 (<2s).
 
 ---
 

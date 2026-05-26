@@ -31,6 +31,8 @@ import { migrationsRoutes } from './routes/management/migrations.js';
 import { cliLoginRoleRoutes } from './routes/management/cli-login-role.js';
 import { dbQueryRoutes } from './routes/management/db-query.js';
 import { dbDumpRoutes } from './routes/management/db-dump.js';
+import { logsRoutes } from './routes/management/logs.js';
+import { storageBucketsRoutes } from './routes/management/storage-buckets.js';
 import { authConfigRoutes } from './routes/management/auth-config.js';
 import { postgrestConfigRoutes } from './routes/management/postgrest-config.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
@@ -50,6 +52,7 @@ import { oauthDiscoveryRoutes } from './routes/oauth/discovery.js';
 import { oauthRegisterRoutes } from './routes/oauth/register.js';
 import { oauthAuthorizeRoutes } from './routes/oauth/authorize.js';
 import { oauthTokenRoutes } from './routes/oauth/token.js';
+import { oauthClientsDashboardRoutes } from './routes/oauth/clients-dashboard.js';
 import { createCertCheckQueue, createCertCheckWorker } from './services/cert-check.js';
 import { startPgEdgeProxy, type PgEdgeProxy } from './services/pg-edge-proxy.js';
 import { existsSync } from 'node:fs';
@@ -204,6 +207,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(cliLoginRoutes); // /api/v1/cli/login (feature 011 — dashboard mint)
   await app.register(platformCliLoginRoutes); // /platform/cli/login/:session_id (feature 011 — CLI poll)
   await app.register(oauthDiscoveryRoutes); // /.well-known/oauth-authorization-server (feature 014 FR-006)
+  await app.register(oauthClientsDashboardRoutes); // /api/v1/oauth/clients{,/:id} (feature 014 US3)
 
   // ─── /v1/* — Supabase Management API compatibility surface ─────────────
   //
@@ -247,6 +251,10 @@ export async function buildApp(): Promise<FastifyInstance> {
       await mgmt.register(oauthRegisterRoutes);
       await mgmt.register(oauthAuthorizeRoutes);
       await mgmt.register(oauthTokenRoutes);
+      // Feature 014 US4 — get_logs (Logflare forwarder):
+      await mgmt.register(logsRoutes);
+      // Feature 014 US5 — list_storage_buckets (storage reverse-proxy):
+      await mgmt.register(storageBucketsRoutes);
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },

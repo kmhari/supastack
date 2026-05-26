@@ -34,6 +34,22 @@ export const authApi = {
   revokeToken: (id: string) => unwrap(client.delete(`/auth/tokens/${id}`)),
 };
 
+// ─── OAuth MCP clients (feature 014 US3) ────────────────────────────────────
+export interface OAuthClientRow {
+  client_id: string;
+  client_name: string;
+  authorized_at: string;
+  last_used_at: string;
+  scope: string;
+}
+export const oauthApi = {
+  listClients: () => unwrap<OAuthClientRow[]>(client.get('/oauth/clients')),
+  revokeClient: (clientId: string) =>
+    unwrap<{ revoked: number; blacklisted_jtis: number }>(
+      client.delete(`/oauth/clients/${clientId}`),
+    ),
+};
+
 // ─── apex domain + TLS status (setup wizard step 2) ─────────────────────────
 export interface ApexCert {
   reachable: boolean;

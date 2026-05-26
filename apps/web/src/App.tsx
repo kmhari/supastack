@@ -19,6 +19,7 @@ import { SettingsAuditPage } from './pages/SettingsAudit.js';
 import { SettingsDatabasePage } from './pages/SettingsDatabase.js';
 import { SettingsTokensPage } from './pages/SettingsTokens.js';
 import { SettingsCliPage } from './pages/SettingsCli.js';
+import { SettingsMcpClientsPage } from './pages/SettingsMcpClients.js';
 import { ConnectCliPage } from './pages/ConnectCli.js';
 import { AcceptInvitePage } from './pages/AcceptInvite.js';
 import { SetupGate } from './components/SetupGate.js';
@@ -153,6 +154,14 @@ export function App(): React.ReactElement {
           element={
             <RequireAuth>
               <SettingsCliPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/mcp-clients"
+          element={
+            <RequireAuth>
+              <SettingsMcpClientsPage />
             </RequireAuth>
           }
         />
