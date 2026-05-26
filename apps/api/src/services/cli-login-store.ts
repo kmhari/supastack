@@ -14,12 +14,12 @@
 import { Redis } from 'ioredis';
 
 export type SessionPayload = {
-  device_code: string;     // 8 lowercase hex
-  access_token: string;    // hex AES-GCM ciphertext || tag
-  public_key: string;      // hex uncompressed server P-256 pubkey
-  nonce: string;           // hex 12 bytes
-  created_at: string;      // ISO8601
-  user_id: string;         // operator who initiated the mint
+  device_code: string; // 8 lowercase hex
+  access_token: string; // hex AES-GCM ciphertext || tag
+  public_key: string; // hex uncompressed server P-256 pubkey
+  nonce: string; // hex 12 bytes
+  created_at: string; // ISO8601
+  user_id: string; // operator who initiated the mint
 };
 
 const KEY_PREFIX = 'selfbase:cli-login:';
@@ -81,7 +81,9 @@ export async function getAndConsume(
   // Single-use: delete on match. Best-effort; if DEL fails (e.g., already
   // expired between GET and DEL), we still return the payload — the worst
   // case is a stale entry that auto-expires.
-  await getRedis().del(key(sessionId)).catch(() => {});
+  await getRedis()
+    .del(key(sessionId))
+    .catch(() => {});
 
   return parsed;
 }
