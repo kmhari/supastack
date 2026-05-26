@@ -21,6 +21,7 @@
     "@selfbase/crypto": "workspace:*",
     "@selfbase/db": "workspace:*",
     "@selfbase/docker-control": "workspace:*",
+    "@selfbase/oauth": "workspace:*",
     "@selfbase/shared": "workspace:*",
     "acme-client": "^5.4.0",
     "bullmq": "^5.12.0",
