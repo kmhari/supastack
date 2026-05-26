@@ -62,6 +62,9 @@ importers:
       '@selfbase/docker-control':
         specifier: workspace:*
         version: link:../../packages/docker-control
+      '@selfbase/oauth':
+        specifier: workspace:*
+        version: link:../../packages/oauth
       '@selfbase/shared':
         specifier: workspace:*
         version: link:../../packages/shared
