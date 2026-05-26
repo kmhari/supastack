@@ -63,11 +63,14 @@ const { dbDumpRoutes } = await import('../../src/routes/management/db-dump.js');
 const { mgmtApiErrorsPlugin } = await import('../../src/plugins/mgmt-api-errors.js');
 const { AppError } = await import('@selfbase/shared');
 
-async function buildApp(opts: {
-  user?: { id: string; email: string; role: 'admin' | 'member' } | null;
-  authorizeThrows?: boolean;
-} = {}): Promise<FastifyInstance> {
-  const user = opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'admin' as const } : opts.user;
+async function buildApp(
+  opts: {
+    user?: { id: string; email: string; role: 'admin' | 'member' } | null;
+    authorizeThrows?: boolean;
+  } = {},
+): Promise<FastifyInstance> {
+  const user =
+    opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'admin' as const } : opts.user;
   const app = Fastify();
   app.decorate('requireAuth', () => {
     if (!user) throw new AppError(401, 'unauthenticated', 'PAT required');
@@ -76,10 +79,13 @@ async function buildApp(opts: {
   app.decorate('authorize', () => {
     if (opts.authorizeThrows) throw new AppError(403, 'forbidden', 'admin role required');
   });
-  await app.register(async (mgmt) => {
-    await mgmt.register(mgmtApiErrorsPlugin);
-    await mgmt.register(dbDumpRoutes);
-  }, { prefix: '/v1' });
+  await app.register(
+    async (mgmt) => {
+      await mgmt.register(mgmtApiErrorsPlugin);
+      await mgmt.register(dbDumpRoutes);
+    },
+    { prefix: '/v1' },
+  );
   return app;
 }
 

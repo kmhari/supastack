@@ -56,10 +56,12 @@ interface FakeUser {
   tokenId?: string;
 }
 
-async function buildApp(opts: {
-  user: FakeUser | null;
-  authorizeThrows?: boolean;
-} = { user: { id: 'u1', email: 'a@b.c', role: 'admin' } }): Promise<FastifyInstance> {
+async function buildApp(
+  opts: {
+    user: FakeUser | null;
+    authorizeThrows?: boolean;
+  } = { user: { id: 'u1', email: 'a@b.c', role: 'admin' } },
+): Promise<FastifyInstance> {
   const app = Fastify();
   app.decorate('requireAuth', (_req: unknown) => {
     if (!opts.user) {
@@ -73,10 +75,13 @@ async function buildApp(opts: {
     }
   });
 
-  await app.register(async (mgmt) => {
-    await mgmt.register(mgmtApiErrorsPlugin);
-    await mgmt.register(dbQueryRoutes);
-  }, { prefix: '/v1' });
+  await app.register(
+    async (mgmt) => {
+      await mgmt.register(mgmtApiErrorsPlugin);
+      await mgmt.register(dbQueryRoutes);
+    },
+    { prefix: '/v1' },
+  );
 
   return app;
 }
@@ -143,7 +148,11 @@ describe('POST /v1/projects/:ref/database/query', () => {
     let receivedOpts: unknown = null;
     perInstancePgMock.withPerInstancePg.mockImplementation(async (_ref, fn, opts) => {
       receivedOpts = opts;
-      return fn({ async query() { return { rows: [] }; } });
+      return fn({
+        async query() {
+          return { rows: [] };
+        },
+      });
     });
     const app = await buildApp();
     await app.inject({
@@ -279,7 +288,11 @@ describe('POST /v1/projects/:ref/database/query', () => {
 
   it('truncates large parameters in audit log payload', async () => {
     perInstancePgMock.withPerInstancePg.mockImplementation(async (_ref, fn) => {
-      return fn({ async query() { return { rows: [] }; } });
+      return fn({
+        async query() {
+          return { rows: [] };
+        },
+      });
     });
     const bigParam = 'x'.repeat(500);
     const app = await buildApp();

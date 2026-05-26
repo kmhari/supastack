@@ -111,14 +111,20 @@ export async function streamPgDump(
   signal.addEventListener('abort', onAbort);
 
   try {
-    await dockerStartExecStream(execId, output, (chunk) => {
-      bytesWritten += chunk;
-    }, (stderrChunk) => {
-      if (stderrBuf.length < STDERR_BUFFER_CAP) {
-        stderrBuf += stderrChunk.toString('utf8');
-        if (stderrBuf.length > STDERR_BUFFER_CAP) stderrBuf = stderrBuf.slice(0, STDERR_BUFFER_CAP);
-      }
-    });
+    await dockerStartExecStream(
+      execId,
+      output,
+      (chunk) => {
+        bytesWritten += chunk;
+      },
+      (stderrChunk) => {
+        if (stderrBuf.length < STDERR_BUFFER_CAP) {
+          stderrBuf += stderrChunk.toString('utf8');
+          if (stderrBuf.length > STDERR_BUFFER_CAP)
+            stderrBuf = stderrBuf.slice(0, STDERR_BUFFER_CAP);
+        }
+      },
+    );
   } finally {
     signal.removeEventListener('abort', onAbort);
   }
@@ -169,7 +175,9 @@ function dockerCreateExec(container: string, cmd: string[]): Promise<string> {
             }
             resolve(parsed.Id);
           } catch (err) {
-            reject(new DockerExecFailedError(`docker exec create parse: ${(err as Error).message}`));
+            reject(
+              new DockerExecFailedError(`docker exec create parse: ${(err as Error).message}`),
+            );
           }
         });
       },
@@ -213,10 +221,7 @@ function dockerStartExecStream(
         };
 
         res.on('data', (chunk: Buffer) => {
-          pending =
-            pending.length === 0
-              ? Buffer.from(chunk)
-              : Buffer.concat([pending, chunk]);
+          pending = pending.length === 0 ? Buffer.from(chunk) : Buffer.concat([pending, chunk]);
           // Demux frames: 8-byte header then payload.
           while (pending.length >= 8) {
             const streamType = pending[0]!;
@@ -255,7 +260,9 @@ function dockerInspectExec(execId: string): Promise<number> {
             const parsed = JSON.parse(buf) as { ExitCode?: number; Running?: boolean };
             resolve(parsed.ExitCode ?? -1);
           } catch (err) {
-            reject(new DockerExecFailedError(`docker exec inspect parse: ${(err as Error).message}`));
+            reject(
+              new DockerExecFailedError(`docker exec inspect parse: ${(err as Error).message}`),
+            );
           }
         });
       },
@@ -280,12 +287,7 @@ async function dockerKillExec(execId: string, signal: string): Promise<void> {
   const containerId = await dockerInspectExecContainer(execId);
   if (!containerId) return;
   // pkill the pg_dump processes inside the container. `--full` matches argv.
-  await dockerExecOneShot(containerId, [
-    'pkill',
-    `--signal=${signal}`,
-    '--full',
-    '^pg_dump',
-  ]);
+  await dockerExecOneShot(containerId, ['pkill', `--signal=${signal}`, '--full', '^pg_dump']);
 }
 
 function dockerInspectExecContainer(execId: string): Promise<string | null> {
