@@ -202,11 +202,11 @@
 
 **Independent test**: see quickstart.md US2 section. Most of US2's surface is already covered by T027 + T028 in US1's foundation (the `register.ts` route is reusable). The US2-specific work is the end-to-end demonstration + rate-limit hardening.
 
-- [ ] T044 [P] [US2] [TDD] Extend `apps/api/tests/unit/oauth-register.test.ts` with additional cases:
+- [X] T044 [P] [US2] [TDD] Extend `apps/api/tests/unit/oauth-register.test.ts` with additional cases:
   - Multiple registrations from same IP within rate limit → all succeed with distinct client_ids
   - Concurrent registration attempts (race) → no duplicate inserts; both get unique ids
   - `metadata` extras (logo_uri, tos_uri) preserved in DB but NOT echoed in response (yet)
-- [ ] T045 [US2] Live-VM smoke section in `tests/cli-e2e/oauth-dance.sh`: register a bespoke client + complete full OAuth flow + use the issued token → all green. Add the bespoke client to a follow-up dashboard list check (US3).
+- [X] T045 [US2] Live-VM smoke section in `tests/cli-e2e/oauth-dance.sh`: register a bespoke client + complete full OAuth flow + use the issued token → all green. Add the bespoke client to a follow-up dashboard list check (US3).
 
 ---
 
