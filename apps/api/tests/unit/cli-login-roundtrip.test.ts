@@ -15,10 +15,19 @@ import { setRedisForTesting } from '../../src/services/cli-login-store.js';
 
 class FakeRedis {
   private store = new Map<string, string>();
-  async set(k: string, v: string, _ex: 'EX', _ttl: number) { this.store.set(k, v); return 'OK' as const; }
-  async get(k: string) { return this.store.get(k) ?? null; }
-  async exists(k: string) { return this.store.has(k) ? 1 : 0; }
-  async del(k: string) { return this.store.delete(k) ? 1 : 0; }
+  async set(k: string, v: string, _ex: 'EX', _ttl: number) {
+    this.store.set(k, v);
+    return 'OK' as const;
+  }
+  async get(k: string) {
+    return this.store.get(k) ?? null;
+  }
+  async exists(k: string) {
+    return this.store.has(k) ? 1 : 0;
+  }
+  async del(k: string) {
+    return this.store.delete(k) ? 1 : 0;
+  }
 }
 
 let mintedPlaintext = '';

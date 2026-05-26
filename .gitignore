@@ -70,3 +70,7 @@ infra/supabase-template/.local/
 
 # Deno (used only by infra/.../main.test.ts; URL imports are pinned)
 deno.lock
+
+# E2E test evidence outputs (regenerated on each run; attach to PR
+# descriptions, don't track).
+tests/cli-e2e/.evidence/

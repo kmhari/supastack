@@ -146,108 +146,109 @@ TOML
           <Section
             number={1}
             title="Install the supabase CLI"
-          body={
-            <>
-              If you haven't yet, install it via your package manager — see{' '}
-              <a
-                href="https://supabase.com/docs/guides/cli/getting-started"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 underline"
-              >
-                official install docs
-                <ExternalLink className="size-3" />
-              </a>
-              . On macOS: <Code inline>brew install supabase/tap/supabase</Code>.
-            </>
-          }
-        />
+            body={
+              <>
+                If you haven't yet, install it via your package manager — see{' '}
+                <a
+                  href="https://supabase.com/docs/guides/cli/getting-started"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 underline"
+                >
+                  official install docs
+                  <ExternalLink className="size-3" />
+                </a>
+                . On macOS: <Code inline>brew install supabase/tap/supabase</Code>.
+              </>
+            }
+          />
 
-        <Section
-          number={2}
-          title="Save the selfbase profile"
-          body={
-            <>
-              The supabase CLI is configured per-deployment via a small TOML profile that tells it
-              where this selfbase install lives. Run this once on each machine you'll use the CLI
-              from:
-            </>
-          }
-          code={writeTomlCmd}
-        />
+          <Section
+            number={2}
+            title="Save the selfbase profile"
+            body={
+              <>
+                The supabase CLI is configured per-deployment via a small TOML profile that tells it
+                where this selfbase install lives. Run this once on each machine you'll use the CLI
+                from:
+              </>
+            }
+            code={writeTomlCmd}
+          />
 
-        <Section
-          number={3}
-          title="Make it the global default profile"
-          body={
-            <>
-              So every <Code inline>supabase</Code> command uses this deployment automatically (no{' '}
-              <Code inline>--profile</Code> flag needed). This is the simplest path if you only
-              work against one selfbase deployment; see Section 6 for the per-project alternative
-              if you juggle Cloud + selfbase or multiple selfbase deployments.
-            </>
-          }
-          code={setDefaultCmd}
-        />
+          <Section
+            number={3}
+            title="Make it the global default profile"
+            body={
+              <>
+                So every <Code inline>supabase</Code> command uses this deployment automatically (no{' '}
+                <Code inline>--profile</Code> flag needed). This is the simplest path if you only
+                work against one selfbase deployment; see Section 6 for the per-project alternative
+                if you juggle Cloud + selfbase or multiple selfbase deployments.
+              </>
+            }
+            code={setDefaultCmd}
+          />
 
-        <Section
-          number={4}
-          title="Log in"
-          body={
-            <>
-              Run <Code inline>supabase login</Code> — the CLI will open your browser, you'll see a
-              short verification code, paste it back into the terminal, and you're done. The CLI
-              writes the access token to <Code inline>~/.supabase/access-token</Code>; tokens minted
-              this way show up in{' '}
-              <Link to="/settings/tokens" className="underline">
-                Access Tokens
-              </Link>{' '}
-              with a small "cli" badge so you can revoke them later.
-            </>
-          }
-          code={loginCmd}
-        />
+          <Section
+            number={4}
+            title="Log in"
+            body={
+              <>
+                Run <Code inline>supabase login</Code> — the CLI will open your browser, you'll see
+                a short verification code, paste it back into the terminal, and you're done. The CLI
+                writes the access token to <Code inline>~/.supabase/access-token</Code>; tokens
+                minted this way show up in{' '}
+                <Link to="/settings/tokens" className="underline">
+                  Access Tokens
+                </Link>{' '}
+                with a small "cli" badge so you can revoke them later.
+              </>
+            }
+            code={loginCmd}
+          />
 
-        <Section
-          number={5}
-          title="Verify"
-          body={<>Smoke-test that the CLI is now talking to this selfbase deployment:</>}
-          code={verifyCmd}
-          note="Expected output: a table listing the projects on this deployment (not Supabase Cloud's)."
-        />
+          <Section
+            number={5}
+            title="Verify"
+            body={<>Smoke-test that the CLI is now talking to this selfbase deployment:</>}
+            code={verifyCmd}
+            note="Expected output: a table listing the projects on this deployment (not Supabase Cloud's)."
+          />
 
-        <Section
-          number={6}
-          title="Optional: per-project auto-routing"
-          body={
-            <>
-              If you work across multiple deployments (Cloud + selfbase, or several selfbase
-              installs), the global default from Section 3 is awkward. Instead, drop a one-line{' '}
-              <Code inline>.selfbase</Code> file at your project's git root containing just the
-              apex domain. Then paste the zsh wrapper below into <Code inline>~/.zshrc</Code> — it
-              walks up to git root looking for <Code inline>.selfbase</Code> and{' '}
-              <Code inline>.supabase_token</Code>, auto-generates the per-apex profile under{' '}
-              <Code inline>~/.config/selfbase/&lt;apex&gt;.toml</Code>, and passes{' '}
-              <Code inline>--profile</Code> to the CLI automatically. The <Code inline>.selfbase</Code>{' '}
-              file is safe to commit — teammates pulling the repo get the right routing for free.
-            </>
-          }
-          code={selfbaseFileCmd}
-        />
+          <Section
+            number={6}
+            title="Optional: per-project auto-routing"
+            body={
+              <>
+                If you work across multiple deployments (Cloud + selfbase, or several selfbase
+                installs), the global default from Section 3 is awkward. Instead, drop a one-line{' '}
+                <Code inline>.selfbase</Code> file at your project's git root containing just the
+                apex domain. Then paste the zsh wrapper below into <Code inline>~/.zshrc</Code> — it
+                walks up to git root looking for <Code inline>.selfbase</Code> and{' '}
+                <Code inline>.supabase_token</Code>, auto-generates the per-apex profile under{' '}
+                <Code inline>~/.config/selfbase/&lt;apex&gt;.toml</Code>, and passes{' '}
+                <Code inline>--profile</Code> to the CLI automatically. The{' '}
+                <Code inline>.selfbase</Code> file is safe to commit — teammates pulling the repo
+                get the right routing for free.
+              </>
+            }
+            code={selfbaseFileCmd}
+          />
 
-        <Section
-          number={7}
-          title="The zsh wrapper"
-          body={
-            <>
-              Paste this into your <Code inline>~/.zshrc</Code> (replacing any existing{' '}
-              <Code inline>supabase()</Code> function); reload with{' '}
-              <Code inline>source ~/.zshrc</Code>.
-            </>
-          }
-          code={wrapperSnippet}
-          note="On first selfbase invocation, you'll see '✓ Generated selfbase profile (~/.config/selfbase/<apex>.toml)' once. Every subsequent call prints '✓ Using selfbase profile (...)' for visibility."
-        />
+          <Section
+            number={7}
+            title="The zsh wrapper"
+            body={
+              <>
+                Paste this into your <Code inline>~/.zshrc</Code> (replacing any existing{' '}
+                <Code inline>supabase()</Code> function); reload with{' '}
+                <Code inline>source ~/.zshrc</Code>.
+              </>
+            }
+            code={wrapperSnippet}
+            note="On first selfbase invocation, you'll see '✓ Generated selfbase profile (~/.config/selfbase/<apex>.toml)' once. Every subsequent call prints '✓ Using selfbase profile (...)' for visibility."
+          />
 
           <Card className="bg-secondary/20 p-5">
             <h3 className="m-0 mb-2 text-sm font-medium">Switching back to Supabase Cloud</h3>

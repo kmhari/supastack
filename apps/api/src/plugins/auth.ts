@@ -11,7 +11,18 @@ import { errors, type Role } from '@selfbase/shared';
 
 declare module 'fastify' {
   interface FastifyRequest {
-    user?: { id: string; email: string; role: Role };
+    user?: {
+      id: string;
+      email: string;
+      role: Role;
+      /**
+       * UUID of the `api_tokens` row that authenticated this request, IFF
+       * authentication came from a Bearer PAT. Undefined for session-cookie
+       * auth (no PAT involved). Currently used by feature 012 for per-PAT
+       * rate-limit keying + audit logging of `cli/login-role` rotations.
+       */
+      tokenId?: string;
+    };
   }
   interface Session {
     userId?: string;
@@ -58,6 +69,7 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
       const sha = sha256(raw);
       const rows = await db()
         .select({
+          tokenId: schema.apiTokens.id,
           userId: schema.apiTokens.userId,
           email: schema.users.email,
           role: schema.orgMembers.role,
@@ -68,7 +80,12 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
         .where(and(eq(schema.apiTokens.tokenSha256, sha), isNull(schema.apiTokens.revokedAt)))
         .limit(1);
       if (rows[0]) {
-        req.user = { id: rows[0].userId, email: rows[0].email, role: rows[0].role as Role };
+        req.user = {
+          id: rows[0].userId,
+          email: rows[0].email,
+          role: rows[0].role as Role,
+          tokenId: rows[0].tokenId,
+        };
         // Best-effort last_used_at update — fire-and-forget
         await db()
           .update(schema.apiTokens)

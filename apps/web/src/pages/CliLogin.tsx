@@ -50,7 +50,8 @@ export function CliLoginPage(): React.ReactElement {
     if (existingDeviceCode && !params.get('session_id')) {
       setState({
         kind: 'error',
-        message: 'This CLI sign-in session has already been started. Re-run `supabase login` in your terminal to get a fresh one.',
+        message:
+          'This CLI sign-in session has already been started. Re-run `supabase login` in your terminal to get a fresh one.',
       });
       return;
     }
@@ -60,15 +61,25 @@ export function CliLoginPage(): React.ReactElement {
     const public_key = params.get('public_key') ?? '';
 
     if (!UUID_RE.test(session_id)) {
-      setState({ kind: 'error', message: 'The CLI sign-in link is malformed (invalid session_id). Re-run `supabase login` to get a fresh one.' });
+      setState({
+        kind: 'error',
+        message:
+          'The CLI sign-in link is malformed (invalid session_id). Re-run `supabase login` to get a fresh one.',
+      });
       return;
     }
     if (token_name.length === 0 || token_name.length > 200) {
-      setState({ kind: 'error', message: 'The CLI sign-in link is malformed (invalid token_name).' });
+      setState({
+        kind: 'error',
+        message: 'The CLI sign-in link is malformed (invalid token_name).',
+      });
       return;
     }
     if (!PUBKEY_RE.test(public_key)) {
-      setState({ kind: 'error', message: 'The CLI sign-in link is malformed (invalid public_key).' });
+      setState({
+        kind: 'error',
+        message: 'The CLI sign-in link is malformed (invalid public_key).',
+      });
       return;
     }
 
@@ -85,7 +96,8 @@ export function CliLoginPage(): React.ReactElement {
         const message =
           code === 'session_in_use'
             ? 'selfbase could not create the CLI sign-in session. Error: Could not create CLI login session'
-            : (e.response?.data?.error?.message ?? 'selfbase could not create the CLI sign-in session.');
+            : (e.response?.data?.error?.message ??
+              'selfbase could not create the CLI sign-in session.');
         setState({ kind: 'error', message });
       });
   }, [params]);
@@ -97,7 +109,9 @@ export function CliLoginPage(): React.ReactElement {
           <span className="grid size-10 place-items-center rounded-md bg-secondary">
             <Terminal className="size-5" />
           </span>
-          <span aria-hidden className="text-muted-foreground">⇄</span>
+          <span aria-hidden className="text-muted-foreground">
+            ⇄
+          </span>
           <span className="grid size-10 place-items-center rounded-md bg-success/10">
             <span className="size-5 rounded bg-success" />
           </span>
@@ -149,11 +163,7 @@ function CodeDisplay({
         Enter this verification code in selfbase CLI to finish signing in
       </p>
 
-      <div
-        role="group"
-        aria-label="Verification code"
-        className="mb-4 flex justify-center gap-2"
-      >
+      <div role="group" aria-label="Verification code" className="mb-4 flex justify-center gap-2">
         {code.split('').map((char, i) => (
           <div
             key={i}

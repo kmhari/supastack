@@ -21,16 +21,13 @@ import { createECDH, createDecipheriv } from 'node:crypto';
 
 // Vectors produced by /tmp/gen-cli-login-vectors.go on 2026-05-25 with go1.24.1.
 const VECTOR = {
-  serverPrivHex:
-    '48dfb983722e59dddaa4f2c73dd0b0854ebab3d868426b1b5a62ea61a7dafd24',
+  serverPrivHex: '48dfb983722e59dddaa4f2c73dd0b0854ebab3d868426b1b5a62ea61a7dafd24',
   serverPubHex:
     '04ef3b0de478b72d105be50bba6612ea8bee84828f39f623a051024723882f12f8bcb5c878f43691c56053cc928312fd6e3b5e8b0ceb53e34d47198a2c242d6ab9',
-  clientPrivHex:
-    '75655d7b1596afac3bde6b9f00a31c60a809c032ee0a42040274d010c68f3218',
+  clientPrivHex: '75655d7b1596afac3bde6b9f00a31c60a809c032ee0a42040274d010c68f3218',
   clientPubHex:
     '047c1f0692dfd6206628f693b40f1ea4abfef4a258da44b818652650c1ae062f9a401a4bb5d47b10804f8ec103c35dd3af8693894c3fce3a44693d7d9d2637c352',
-  sharedSecretHex:
-    '170fea23ae2307e35c0189d10566eae5d0dcba7f6cf4fa4bd47dbce17eda4cbd',
+  sharedSecretHex: '170fea23ae2307e35c0189d10566eae5d0dcba7f6cf4fa4bd47dbce17eda4cbd',
   nonceHex: '70520d18784834b2723ca429',
   plaintext: 'sbp_0123456789abcdef0123456789abcdef01234567',
   ciphertextHex:
@@ -127,18 +124,24 @@ describe('validateClientPublicKey', () => {
   });
 
   it('rejects wrong length', () => {
-    expect(validateClientPublicKey('04abcd')).toMatchObject({ valid: false, reason: 'wrong_length' });
+    expect(validateClientPublicKey('04abcd')).toMatchObject({
+      valid: false,
+      reason: 'wrong_length',
+    });
   });
 
   it('rejects compressed-form prefixes (02, 03)', () => {
     const compressed = '02' + VECTOR.clientPubHex.slice(2, 66); // 32 bytes after prefix
-    expect(validateClientPublicKey(compressed + '0'.repeat(130 - compressed.length)))
-      .toMatchObject({ valid: false });
+    expect(validateClientPublicKey(compressed + '0'.repeat(130 - compressed.length))).toMatchObject(
+      { valid: false },
+    );
   });
 
   it('rejects uppercase hex', () => {
-    expect(validateClientPublicKey(VECTOR.clientPubHex.toUpperCase()))
-      .toMatchObject({ valid: false, reason: 'wrong_format' });
+    expect(validateClientPublicKey(VECTOR.clientPubHex.toUpperCase())).toMatchObject({
+      valid: false,
+      reason: 'wrong_format',
+    });
   });
 
   it('rejects 04-prefixed-but-not-on-curve hex', () => {
@@ -150,6 +153,9 @@ describe('validateClientPublicKey', () => {
 
   it('rejects non-string input', () => {
     // @ts-expect-error testing runtime guard
-    expect(validateClientPublicKey(undefined)).toMatchObject({ valid: false, reason: 'not_a_string' });
+    expect(validateClientPublicKey(undefined)).toMatchObject({
+      valid: false,
+      reason: 'not_a_string',
+    });
   });
 });
