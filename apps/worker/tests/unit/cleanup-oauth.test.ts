@@ -34,7 +34,7 @@ vi.mock('@selfbase/db', () => ({
             const thirty = now - 30 * 24 * 60 * 60 * 1000;
             for (let i = refreshStore.length - 1; i >= 0; i--) {
               const r = refreshStore[i]!;
-              if (r.lastUsedAt!.getTime() < thirty && r.revokedAt == null) {
+              if (r.lastUsedAt!.getTime() < thirty && r.revokedAt === null) {
                 refreshStore.splice(i, 1);
               }
             }
@@ -103,7 +103,11 @@ describe('runCleanupOauthRefresh', () => {
     refreshStore.push(
       { token: 'idle-1', lastUsedAt: new Date(now - 40 * day), revokedAt: null },
       { token: 'fresh-1', lastUsedAt: new Date(now - 5 * day), revokedAt: null },
-      { token: 'revoked-old', lastUsedAt: new Date(now - 100 * day), revokedAt: new Date(now - 50 * day) },
+      {
+        token: 'revoked-old',
+        lastUsedAt: new Date(now - 100 * day),
+        revokedAt: new Date(now - 50 * day),
+      },
     );
     const result = await runCleanupOauthRefresh();
     expect(result.deletedCount).toBe(1);

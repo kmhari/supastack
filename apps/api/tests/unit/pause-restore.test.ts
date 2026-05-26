@@ -60,10 +60,13 @@ vi.mock('../../src/services/mgmt-api-mapping.js', () => ({
     region: 'selfbase',
     created_at: '2026-01-01T00:00:00Z',
     status:
-      row.status === 'running' ? 'ACTIVE_HEALTHY'
-      : row.status === 'paused' ? 'INACTIVE'
-      : row.status === 'provisioning' ? 'COMING_UP'
-      : 'UNKNOWN',
+      row.status === 'running'
+        ? 'ACTIVE_HEALTHY'
+        : row.status === 'paused'
+          ? 'INACTIVE'
+          : row.status === 'provisioning'
+            ? 'COMING_UP'
+            : 'UNKNOWN',
   }),
 }));
 
@@ -84,10 +87,13 @@ async function buildApp(opts: { authorizeThrows?: boolean } = {}): Promise<Fasti
   app.decorate('authorize', () => {
     if (opts.authorizeThrows) throw new AppError(403, 'forbidden', 'admin required');
   });
-  await app.register(async (mgmt) => {
-    await mgmt.register(mgmtApiErrorsPlugin);
-    await mgmt.register(pauseRestoreRoutes);
-  }, { prefix: '/v1' });
+  await app.register(
+    async (mgmt) => {
+      await mgmt.register(mgmtApiErrorsPlugin);
+      await mgmt.register(pauseRestoreRoutes);
+    },
+    { prefix: '/v1' },
+  );
   return app;
 }
 

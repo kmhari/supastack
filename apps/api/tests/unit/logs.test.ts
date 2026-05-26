@@ -30,9 +30,13 @@ const { AppError } = await import('@selfbase/shared');
 const REF = 'aaaaaaaaaaaaaaaaaaaa';
 
 async function buildApp(
-  opts: { user?: { id: string; email: string; role: 'admin' | 'member' } | null; authorizeThrows?: boolean } = {},
+  opts: {
+    user?: { id: string; email: string; role: 'admin' | 'member' } | null;
+    authorizeThrows?: boolean;
+  } = {},
 ): Promise<FastifyInstance> {
-  const user = opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'admin' as const } : opts.user;
+  const user =
+    opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'admin' as const } : opts.user;
   const app = Fastify();
   app.decorate('requireAuth', () => {
     if (!user) throw new AppError(401, 'unauthenticated', 'PAT required');
@@ -41,10 +45,13 @@ async function buildApp(
   app.decorate('authorize', () => {
     if (opts.authorizeThrows) throw new AppError(403, 'forbidden', 'admin role required');
   });
-  await app.register(async (mgmt) => {
-    await mgmt.register(mgmtApiErrorsPlugin);
-    await mgmt.register(logsRoutes);
-  }, { prefix: '/v1' });
+  await app.register(
+    async (mgmt) => {
+      await mgmt.register(mgmtApiErrorsPlugin);
+      await mgmt.register(logsRoutes);
+    },
+    { prefix: '/v1' },
+  );
   return app;
 }
 
@@ -107,9 +114,7 @@ describe('GET /v1/projects/:ref/analytics/endpoints/logs.all', () => {
   });
 
   it('analytics bad gateway → 502', async () => {
-    logflareMock.queryLogs.mockRejectedValue(
-      new logflareMock.AnalyticsBadGatewayError('bad JSON'),
-    );
+    logflareMock.queryLogs.mockRejectedValue(new logflareMock.AnalyticsBadGatewayError('bad JSON'));
     const app = await buildApp();
     const res = await app.inject({
       method: 'GET',

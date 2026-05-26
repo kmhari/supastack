@@ -32,9 +32,9 @@ describe('OAuthAuthorizeQuerySchema', () => {
     expect(parsed.success && parsed.data.scope).toBe('platform');
   });
   it('rejects response_type != code', () => {
-    expect(
-      OAuthAuthorizeQuerySchema.safeParse({ ...valid, response_type: 'token' }).success,
-    ).toBe(false);
+    expect(OAuthAuthorizeQuerySchema.safeParse({ ...valid, response_type: 'token' }).success).toBe(
+      false,
+    );
   });
   it('rejects code_challenge_method=plain (OAuth 2.1 hardening)', () => {
     expect(
@@ -42,14 +42,14 @@ describe('OAuthAuthorizeQuerySchema', () => {
     ).toBe(false);
   });
   it('rejects non-UUID client_id', () => {
-    expect(
-      OAuthAuthorizeQuerySchema.safeParse({ ...valid, client_id: 'not-a-uuid' }).success,
-    ).toBe(false);
+    expect(OAuthAuthorizeQuerySchema.safeParse({ ...valid, client_id: 'not-a-uuid' }).success).toBe(
+      false,
+    );
   });
   it('rejects code_challenge too short (<43 chars)', () => {
-    expect(
-      OAuthAuthorizeQuerySchema.safeParse({ ...valid, code_challenge: 'short' }).success,
-    ).toBe(false);
+    expect(OAuthAuthorizeQuerySchema.safeParse({ ...valid, code_challenge: 'short' }).success).toBe(
+      false,
+    );
   });
   it('rejects code_challenge too long (>128 chars)', () => {
     expect(
@@ -87,9 +87,9 @@ describe('OAuthTokenRequestSchema (discriminated union)', () => {
     expect(OAuthTokenRequestSchema.safeParse(rest).success).toBe(false);
   });
   it('rejects code_verifier too short', () => {
-    expect(
-      OAuthTokenRequestSchema.safeParse({ ...codeReq, code_verifier: 'short' }).success,
-    ).toBe(false);
+    expect(OAuthTokenRequestSchema.safeParse({ ...codeReq, code_verifier: 'short' }).success).toBe(
+      false,
+    );
   });
   it('rejects refresh_token grant missing refresh_token', () => {
     const { refresh_token: _r, ...rest } = refreshReq;

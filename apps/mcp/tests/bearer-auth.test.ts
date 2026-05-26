@@ -138,7 +138,9 @@ describe('wwwAuthenticateHeader', () => {
   it('includes resource + authorization_uri + error code per RFC 6750', () => {
     const h = wwwAuthenticateHeader(APEX, 'invalid_token');
     expect(h).toContain(`resource="https://mcp.${APEX}/mcp"`);
-    expect(h).toContain(`authorization_uri="https://api.${APEX}/.well-known/oauth-authorization-server"`);
+    expect(h).toContain(
+      `authorization_uri="https://api.${APEX}/.well-known/oauth-authorization-server"`,
+    );
     expect(h).toContain('error="invalid_token"');
     expect(h).toContain('realm="selfbase"');
   });

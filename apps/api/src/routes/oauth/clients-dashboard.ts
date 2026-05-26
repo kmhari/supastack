@@ -98,108 +98,105 @@ export const oauthClientsDashboardRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // Revoke ALL grants for the operator's (self, client) pair.
-  app.delete<{ Params: { client_id: string } }>(
-    '/api/v1/oauth/clients/:client_id',
-    async (req) => {
-      const user = app.requireAuth(req);
-      const clientId = req.params.client_id;
+  app.delete<{ Params: { client_id: string } }>('/api/v1/oauth/clients/:client_id', async (req) => {
+    const user = app.requireAuth(req);
+    const clientId = req.params.client_id;
 
-      // Find live refresh tokens for this (operator, client). We don't have
-      // access tokens DB-side (they're JWTs); but we know their jtis from the
-      // most recent oauth.token.issued / oauth.token.refreshed audit entries.
-      // For v1: capture every audit-recorded jti for this (user, client) and
-      // blacklist them in Redis. Older tokens are likely expired anyway (1h
-      // TTL); the natural-expiry path handles the rest.
-      const refreshRows = await db()
-        .select({ token: schema.oauthRefreshTokens.token })
-        .from(schema.oauthRefreshTokens)
-        .where(
-          and(
-            eq(schema.oauthRefreshTokens.userId, user.id),
-            eq(schema.oauthRefreshTokens.clientId, clientId),
-          ),
-        );
+    // Find live refresh tokens for this (operator, client). We don't have
+    // access tokens DB-side (they're JWTs); but we know their jtis from the
+    // most recent oauth.token.issued / oauth.token.refreshed audit entries.
+    // For v1: capture every audit-recorded jti for this (user, client) and
+    // blacklist them in Redis. Older tokens are likely expired anyway (1h
+    // TTL); the natural-expiry path handles the rest.
+    const refreshRows = await db()
+      .select({ token: schema.oauthRefreshTokens.token })
+      .from(schema.oauthRefreshTokens)
+      .where(
+        and(
+          eq(schema.oauthRefreshTokens.userId, user.id),
+          eq(schema.oauthRefreshTokens.clientId, clientId),
+        ),
+      );
 
-      if (refreshRows.length === 0) {
-        // Nothing to revoke — either already revoked, or no grant exists.
-        // Still a clean success (idempotent).
-        return { revoked: 0 };
+    if (refreshRows.length === 0) {
+      // Nothing to revoke — either already revoked, or no grant exists.
+      // Still a clean success (idempotent).
+      return { revoked: 0 };
+    }
+
+    // Look up the most recent access-token jtis from audit for this
+    // (operator, client) pair so we can blacklist them in Redis with TTL
+    // matching their remaining lifetime (1h max).
+    const recentTokenAudit = await db()
+      .select({
+        payload: schema.auditLog.payload,
+        createdAt: schema.auditLog.createdAt,
+      })
+      .from(schema.auditLog)
+      .where(
+        and(
+          eq(schema.auditLog.actorUserId, user.id),
+          eq(schema.auditLog.targetId, clientId),
+          sql`${schema.auditLog.action} IN ('oauth.token.issued', 'oauth.token.refreshed')`,
+          sql`${schema.auditLog.createdAt} > now() - interval '1 hour'`,
+        ),
+      )
+      .orderBy(desc(schema.auditLog.createdAt))
+      .limit(50);
+
+    const redis = getRedis();
+    const now = Date.now();
+    const oneHourMs = 60 * 60 * 1000;
+    let blacklistedJtis = 0;
+    for (const row of recentTokenAudit) {
+      const payload = row.payload as Record<string, unknown> | null;
+      const jti = payload?.jti as string | undefined;
+      if (!jti) continue;
+      // TTL = remaining lifetime of the access token. Audit row's created_at
+      // is approximately the token's iat; access tokens live 1h. Compute
+      // remaining seconds; floor at 1 (revoke for at least 1s).
+      const ageMs = now - row.createdAt.getTime();
+      const remainingSec = Math.max(1, Math.floor((oneHourMs - ageMs) / 1000));
+      if (remainingSec > 0) {
+        await revokeJti(redis, jti, remainingSec);
+        blacklistedJtis++;
       }
+    }
 
-      // Look up the most recent access-token jtis from audit for this
-      // (operator, client) pair so we can blacklist them in Redis with TTL
-      // matching their remaining lifetime (1h max).
-      const recentTokenAudit = await db()
-        .select({
-          payload: schema.auditLog.payload,
-          createdAt: schema.auditLog.createdAt,
-        })
-        .from(schema.auditLog)
-        .where(
-          and(
-            eq(schema.auditLog.actorUserId, user.id),
-            eq(schema.auditLog.targetId, clientId),
-            sql`${schema.auditLog.action} IN ('oauth.token.issued', 'oauth.token.refreshed')`,
-            sql`${schema.auditLog.createdAt} > now() - interval '1 hour'`,
-          ),
-        )
-        .orderBy(desc(schema.auditLog.createdAt))
-        .limit(50);
+    // Delete all refresh tokens for this (operator, client). Captured count
+    // is the deleted-grants count returned to the dashboard.
+    const deleted = await db()
+      .delete(schema.oauthRefreshTokens)
+      .where(
+        and(
+          eq(schema.oauthRefreshTokens.userId, user.id),
+          eq(schema.oauthRefreshTokens.clientId, clientId),
+        ),
+      )
+      .returning({ token: schema.oauthRefreshTokens.token });
 
-      const redis = getRedis();
-      const now = Date.now();
-      const oneHourMs = 60 * 60 * 1000;
-      let blacklistedJtis = 0;
-      for (const row of recentTokenAudit) {
-        const payload = row.payload as Record<string, unknown> | null;
-        const jti = payload?.jti as string | undefined;
-        if (!jti) continue;
-        // TTL = remaining lifetime of the access token. Audit row's created_at
-        // is approximately the token's iat; access tokens live 1h. Compute
-        // remaining seconds; floor at 1 (revoke for at least 1s).
-        const ageMs = now - row.createdAt.getTime();
-        const remainingSec = Math.max(1, Math.floor((oneHourMs - ageMs) / 1000));
-        if (remainingSec > 0) {
-          await revokeJti(redis, jti, remainingSec);
-          blacklistedJtis++;
-        }
-      }
+    // Audit
+    try {
+      await db()
+        .insert(schema.auditLog)
+        .values({
+          actorUserId: user.id,
+          action: 'oauth.token.revoked',
+          targetKind: 'oauth_client',
+          targetId: clientId,
+          payload: {
+            client_id: clientId,
+            deleted_refresh_count: deleted.length,
+            blacklisted_jti_count: blacklistedJtis,
+            reason: 'operator_action',
+          },
+        });
+    } catch (err) {
+      logger.warn({ err }, 'oauth.token.revoked audit emit failed');
+    }
 
-      // Delete all refresh tokens for this (operator, client). Captured count
-      // is the deleted-grants count returned to the dashboard.
-      const deleted = await db()
-        .delete(schema.oauthRefreshTokens)
-        .where(
-          and(
-            eq(schema.oauthRefreshTokens.userId, user.id),
-            eq(schema.oauthRefreshTokens.clientId, clientId),
-          ),
-        )
-        .returning({ token: schema.oauthRefreshTokens.token });
-
-      // Audit
-      try {
-        await db()
-          .insert(schema.auditLog)
-          .values({
-            actorUserId: user.id,
-            action: 'oauth.token.revoked',
-            targetKind: 'oauth_client',
-            targetId: clientId,
-            payload: {
-              client_id: clientId,
-              deleted_refresh_count: deleted.length,
-              blacklisted_jti_count: blacklistedJtis,
-              reason: 'operator_action',
-            },
-          });
-      } catch (err) {
-        logger.warn({ err }, 'oauth.token.revoked audit emit failed');
-      }
-
-      return { revoked: deleted.length, blacklisted_jtis: blacklistedJtis };
-    },
-  );
+    return { revoked: deleted.length, blacklisted_jtis: blacklistedJtis };
+  });
 };
 
 // Suppress unused import for `errors` if it ever stops being referenced
