@@ -203,3 +203,38 @@ export const CliLoginResponseSchema = z.object({
   nonce: z.string().length(24).regex(/^[0-9a-f]{24}$/),
 });
 export type CliLoginResponse = z.infer<typeof CliLoginResponseSchema>;
+
+// ─── CLI login-role (feature 012) ───────────────────────────────────────────
+// Wire shape mirrors upstream `POST /v1/projects/{ref}/cli/login-role` and the
+// matching DELETE on the same path. Snapshot:
+//   specs/012-cli-login-role/contracts/upstream-openapi-snapshot.json
+// Implemented by `cli-login-role.ts` in apps/api. The CLI's resolution path
+// in `apps/cli-go/internal/utils/flags/db_url.go:123-180` calls this endpoint
+// when no `--password` / `SUPABASE_DB_PASSWORD` is supplied; the upstream
+// `AfterConnect` callback at `connect.go:215-220` runs `SET SESSION ROLE`
+// based on the username's `cli_login_` prefix.
+
+export const CreateLoginRoleBody = z
+  .object({
+    read_only: z.boolean(),
+  })
+  .strict(); // rejects extra fields with 400 + invalid_request
+export type CreateLoginRoleBody = z.infer<typeof CreateLoginRoleBody>;
+
+// Note: the `ttl_seconds` constraint `min(1)` mirrors upstream's OpenAPI
+// `minimum: 1`; selfbase's runtime value is always TTL_SECONDS = 300
+// (research.md Decision 2). Wire schema mirrors upstream's openapi minimum;
+// selfbase always returns 300 — see TTL_SECONDS in cli-login-role-service.ts
+// — so the looser-than-runtime constraint here isn't a sign that "TTL is
+// configurable".
+export const CreateLoginRoleResponse = z.object({
+  role: z.string().min(1),
+  password: z.string().min(1),
+  ttl_seconds: z.number().int().min(1),
+});
+export type CreateLoginRoleResponse = z.infer<typeof CreateLoginRoleResponse>;
+
+export const DeleteLoginRolesResponse = z.object({
+  message: z.literal('ok'),
+});
+export type DeleteLoginRolesResponse = z.infer<typeof DeleteLoginRolesResponse>;
