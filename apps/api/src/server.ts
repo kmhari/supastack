@@ -29,6 +29,8 @@ import { secretsRoutes } from './routes/management/secrets.js';
 import { genTypesRoutes } from './routes/management/gen-types.js';
 import { migrationsRoutes } from './routes/management/migrations.js';
 import { cliLoginRoleRoutes } from './routes/management/cli-login-role.js';
+import { dbQueryRoutes } from './routes/management/db-query.js';
+import { dbDumpRoutes } from './routes/management/db-dump.js';
 import { authConfigRoutes } from './routes/management/auth-config.js';
 import { postgrestConfigRoutes } from './routes/management/postgrest-config.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
@@ -214,6 +216,9 @@ export async function buildApp(): Promise<FastifyInstance> {
       await mgmt.register(authConfigRoutes);
       // Feature 012 — CLI login-role (passwordless `supabase db push`):
       await mgmt.register(cliLoginRoleRoutes);
+      // Feature 013 — db query + db dump (ad-hoc SQL + pg_dump streaming):
+      await mgmt.register(dbQueryRoutes);
+      await mgmt.register(dbDumpRoutes);
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },

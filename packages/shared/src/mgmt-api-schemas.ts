@@ -250,3 +250,47 @@ export const DeleteLoginRolesResponse = z.object({
   message: z.literal('ok'),
 });
 export type DeleteLoginRolesResponse = z.infer<typeof DeleteLoginRolesResponse>;
+
+// ─── db query (feature 013) ────────────────────────────────────────────────
+// Mirrors upstream `V1RunQueryBody` exactly. Verified against
+//   https://api.supabase.com/api/v1-json  (clarify phase, 2026-05-26).
+// `parameters` is `unknown[]` (upstream uses `any[]`); `read_only` is a flag
+// that — when true — sets default_transaction_read_only=on on the session,
+// causing PG to reject DML/DDL with SQLSTATE 25006.
+export const DbQueryBodySchema = z
+  .object({
+    query: z.string().min(1, 'query is required'),
+    parameters: z.array(z.unknown()).optional(),
+    read_only: z.boolean().optional(),
+  })
+  .strict();
+export type DbQueryBody = z.infer<typeof DbQueryBodySchema>;
+
+// Wire response: 201 Created with `{ result: Array<Record<string, unknown>> }`.
+export const DbQueryResponseSchema = z.object({
+  result: z.array(z.record(z.unknown())),
+});
+export type DbQueryResponse = z.infer<typeof DbQueryResponseSchema>;
+
+// ─── db dump (feature 013) ─────────────────────────────────────────────────
+export const DbDumpBodySchema = z
+  .object({
+    data_only: z.boolean().optional(),
+    schema_only: z.boolean().optional(),
+    dry_run: z.boolean().optional(),
+    schemas: z.array(z.string().min(1)).optional(),
+  })
+  .strict()
+  .refine((b) => !(b.data_only === true && b.schema_only === true), {
+    message: 'data_only and schema_only are mutually exclusive',
+  });
+export type DbDumpBody = z.infer<typeof DbDumpBodySchema>;
+
+// dry_run response shape (Content-Type: application/json)
+export const DbDumpDryRunResponseSchema = z.object({
+  dry_run: z.literal(true),
+  bytes_estimated: z.number().int().nonnegative(),
+  schemas_dumped: z.array(z.string()),
+  duration_ms: z.number().int().nonnegative(),
+});
+export type DbDumpDryRunResponse = z.infer<typeof DbDumpDryRunResponseSchema>;
