@@ -123,6 +123,37 @@ else
   echo "    SKIP: SELFBASE_PROJECT_REF not set"
 fi
 
+# Phase 8 US6 — pause + restore project via direct API
+echo "==> [5b] pause + restore project (US6 — SC-013)"
+if [[ -n "${SELFBASE_PROJECT_REF:-}" ]]; then
+  API="https://api.${SELFBASE_APEX}"
+  PAUSE_RES=$(curl -sk -X POST "${API}/v1/projects/${SELFBASE_PROJECT_REF}/pause" \
+    -H "Authorization: Bearer ${JWT}" -H 'Content-Type: application/json' -d '{}' -w '\n__HTTP:%{http_code}')
+  STATUS=$(echo "$PAUSE_RES" | grep -oE '__HTTP:[0-9]+' | grep -oE '[0-9]+')
+  if [[ "$STATUS" == "200" ]]; then
+    BODY_STATUS=$(echo "$PAUSE_RES" | sed '$d' | jq -r .status)
+    [[ "$BODY_STATUS" == "INACTIVE" ]] && echo "    pause: 200 + status=INACTIVE ✓" || echo "    pause: 200 but status=$BODY_STATUS (expected INACTIVE)"
+  elif [[ "$STATUS" == "409" ]]; then
+    REASON=$(echo "$PAUSE_RES" | sed '$d' | jq -r .code)
+    echo "    pause: 409 ${REASON} (acceptable — e.g., backup_in_progress)"
+  else
+    echo "    pause: WARN unexpected status $STATUS"
+  fi
+
+  # Immediately restore (we want to leave the project running for other tests)
+  RESTORE_RES=$(curl -sk -X POST "${API}/v1/projects/${SELFBASE_PROJECT_REF}/restore" \
+    -H "Authorization: Bearer ${JWT}" -H 'Content-Type: application/json' -d '{}' -w '\n__HTTP:%{http_code}')
+  STATUS=$(echo "$RESTORE_RES" | grep -oE '__HTTP:[0-9]+' | grep -oE '[0-9]+')
+  if [[ "$STATUS" == "200" ]]; then
+    BODY_STATUS=$(echo "$RESTORE_RES" | sed '$d' | jq -r .status)
+    [[ "$BODY_STATUS" =~ ^(COMING_UP|ACTIVE_HEALTHY)$ ]] && echo "    restore: 200 + status=$BODY_STATUS ✓" || echo "    restore: 200 but status=$BODY_STATUS"
+  else
+    echo "    restore: WARN status $STATUS"
+  fi
+else
+  echo "    SKIP: SELFBASE_PROJECT_REF not set"
+fi
+
 # Phase 5 US3 — revoke MCP client (verifies SC-004 <5s propagation)
 echo "==> [6] revoke MCP client (US3 + SC-004)"
 if [[ -n "${SELFBASE_SESSION_COOKIE:-}" ]]; then
