@@ -93,15 +93,27 @@ vi.mock('undici', () => ({
   }),
 }));
 
-const { probeMock, vaultMock } = vi.hoisted(() => ({
+const { probeMock, vaultMock, provisionDefaultsMock } = vi.hoisted(() => ({
   probeMock: vi.fn(async () => ({ ok: true, isAuthClass: false, attempts: 1 })),
   vaultMock: vi.fn(async () => ({ ref: '', durationMs: 0 })),
+  provisionDefaultsMock: vi.fn(async () => {}),
 }));
 vi.mock('../../../src/services/pg-password-probe.js', () => ({
   probeAuthWithStoredPassword: probeMock,
 }));
 vi.mock('../../../src/jobs/vault-enable-job.js', () => ({
   handleVaultEnable: vaultMock,
+}));
+vi.mock('../../../src/services/pg-provision-defaults.js', () => ({
+  applyProvisionDefaults: provisionDefaultsMock,
+}));
+vi.mock('pg', () => ({
+  default: {
+    Client: vi.fn().mockImplementation(() => ({
+      connect: vi.fn(async () => {}),
+      end: vi.fn(async () => {}),
+    })),
+  },
 }));
 
 vi.mock('bullmq', () => ({
@@ -157,6 +169,7 @@ describe('handleProvision', () => {
     probeMock.mockResolvedValue({ ok: true, isAuthClass: false, attempts: 1 });
     vaultMock.mockClear();
     vaultMock.mockResolvedValue({ ref: '', durationMs: 0 });
+    provisionDefaultsMock.mockClear();
     instanceRow = freshRow();
     orgRow = { apex: 'example.test', name: 'demo' };
   });
@@ -168,6 +181,7 @@ describe('handleProvision', () => {
     expect(dockerCalls).toContain('composeAllHealthy');
     expect(vaultMock).toHaveBeenCalled();
     expect(probeMock).toHaveBeenCalled();
+    expect(provisionDefaultsMock).toHaveBeenCalledOnce();
     // Last status update marks running
     const finalStatus = [...statusUpdates].reverse().find((u: Record<string, unknown>) => u.status);
     expect(finalStatus?.status).toBe('running');
@@ -179,6 +193,7 @@ describe('handleProvision', () => {
     expect(dockerCalls).toHaveLength(0);
     expect(statusUpdates).toHaveLength(0);
     expect(writeInstanceStackCalls).toHaveLength(0);
+    expect(provisionDefaultsMock).not.toHaveBeenCalled();
   });
 
   it('missing instance row → throws + no docker calls', async () => {
