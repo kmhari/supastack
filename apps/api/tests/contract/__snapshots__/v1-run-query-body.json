@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parameters": {
+      "type": "array",
+      "items": {}
+    },
+    "read_only": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "example": {
+    "query": "select * from pg_stat_activity limit 1;",
+    "read_only": true
+  }
+}

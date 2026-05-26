@@ -38,8 +38,21 @@ export class PerInstancePgConnectError extends Error {
 export interface PerInstancePgOpts {
   /** Override which DB to connect to (default 'postgres'). */
   database?: string;
-  /** Override timeout in ms (default 30000). */
-  timeoutMs?: number;
+  /**
+   * Client-side statement_timeout, in ms. Default 30000.
+   *
+   * Pass `null` to NOT set client-side statement_timeout — the per-project
+   * Postgres `statement_timeout` GUC (settable via `supabase postgres-config
+   * update --statement-timeout=…`, feature 009) becomes the source of truth.
+   * Used by the db-query endpoint per FR-007 (feature 013).
+   */
+  timeoutMs?: number | null;
+  /**
+   * When true, issues `SET default_transaction_read_only = on` after connect.
+   * Postgres rejects any write (DML/DDL) with SQLSTATE 25006 — surfaced as
+   * `read_only_violation` by the db-query route (feature 013).
+   */
+  readOnly?: boolean;
 }
 
 export async function withPerInstancePg<T>(
@@ -65,22 +78,29 @@ export async function withPerInstancePg<T>(
   const port = inst.portDbDirect ?? inst.portPostgres;
   const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as InstanceSecrets;
 
-  const client = new pg.Client({
+  const clientCfg: pg.ClientConfig = {
     host: 'host.docker.internal',
     port,
     user: 'postgres',
     password: secrets.postgresPassword,
     database: opts.database ?? 'postgres',
     ssl: false,
-    statement_timeout: opts.timeoutMs ?? 30_000,
     connectionTimeoutMillis: 10_000,
-  });
+  };
+  // `timeoutMs: null` → don't set; let the project's PG GUC decide (FR-007).
+  if (opts.timeoutMs !== null) {
+    clientCfg.statement_timeout = opts.timeoutMs ?? 30_000;
+  }
+  const client = new pg.Client(clientCfg);
 
   try {
     try {
       await client.connect();
     } catch (err) {
       throw new PerInstancePgConnectError((err as Error).message);
+    }
+    if (opts.readOnly) {
+      await client.query('SET default_transaction_read_only = on');
     }
     return await fn(client);
   } finally {
