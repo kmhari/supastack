@@ -47,8 +47,8 @@
   - Wrong `iss` → throws `InvalidIssuerError`
   - Wrong `aud` → throws `InvalidAudienceError`
   - Token includes required claims (sub, azp, scope, jti, iat, exp, iss, aud)
-- [ ] T009 [P] Create `apps/api/src/services/oauth-pkce.ts` per RFC 7636. Exports: `verifyChallenge(verifier: string, challenge: string): boolean` — computes `base64url(sha256(verifier))` and compares to challenge in constant time.
-- [ ] T010 [P] [TDD] Unit test `apps/api/tests/unit/oauth-pkce.test.ts` against the RFC 7636 §1.1 test vectors:
+- [X] T009 [P] Create `apps/api/src/services/oauth-pkce.ts` per RFC 7636. Exports: `verifyChallenge(verifier: string, challenge: string): boolean` — computes `base64url(sha256(verifier))` and compares to challenge in constant time.
+- [X] T010 [P] [TDD] Unit test `apps/api/tests/unit/oauth-pkce.test.ts` against the RFC 7636 §1.1 test vectors:
   - verifier `dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk` + challenge `E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM` → true
   - Mismatched pair → false
   - Empty verifier → false
@@ -56,26 +56,26 @@
 
 ### Zod schemas
 
-- [ ] T011 [P] Add OAuth wire-shape Zod schemas to `packages/shared/src/oauth-schemas.ts` (new file): `OAuthAuthorizeQuerySchema`, `OAuthTokenRequestSchema` (discriminated union: authorization_code | refresh_token), `OAuthRegisterRequestSchema` (RFC 7591), `OAuthDiscoveryMetadataSchema`. Export types. Re-export from `packages/shared/src/index.ts`.
-- [ ] T012 [P] [TDD] Unit test `apps/api/tests/unit/oauth-schemas.test.ts` covering happy paths + each documented validation failure case from contracts/oauth-*.md (response_type=code-only, S256-only PKCE, redirect_uri allow-list, scope=platform-only).
+- [X] T011 [P] Add OAuth wire-shape Zod schemas to `packages/shared/src/oauth-schemas.ts` (new file): `OAuthAuthorizeQuerySchema`, `OAuthTokenRequestSchema` (discriminated union: authorization_code | refresh_token), `OAuthRegisterRequestSchema` (RFC 7591), `OAuthDiscoveryMetadataSchema`. Export types. Re-export from `packages/shared/src/index.ts`.
+- [X] T012 [P] [TDD] Unit test `apps/api/tests/unit/oauth-schemas.test.ts` covering happy paths + each documented validation failure case from contracts/oauth-*.md (response_type=code-only, S256-only PKCE, redirect_uri allow-list, scope=platform-only).
 
 ### DB accessors
 
-- [ ] T013 [P] Create `apps/api/src/services/oauth-clients-store.ts` with: `registerClient(metadata, ip): Promise<OAuthClient>`, `getClientById(client_id): Promise<OAuthClient | null>`, `validateRedirectUri(client, uri): boolean` (exact match).
-- [ ] T014 [P] [TDD] Unit test `apps/api/tests/unit/oauth-clients-store.test.ts` — mock `db()` from `@selfbase/db`:
+- [X] T013 [P] Create `apps/api/src/services/oauth-clients-store.ts` with: `registerClient(metadata, ip): Promise<OAuthClient>`, `getClientById(client_id): Promise<OAuthClient | null>`, `validateRedirectUri(client, uri): boolean` (exact match).
+- [X] T014 [P] [TDD] Unit test `apps/api/tests/unit/oauth-clients-store.test.ts` — mock `db()` from `@selfbase/db`:
   - registerClient inserts row, returns full client
   - getClientById returns null on miss
   - validateRedirectUri: exact match → true; substring match → false; trailing-slash mismatch → false
-- [ ] T015 [P] Create `apps/api/src/services/oauth-codes-store.ts` with: `issueCode(input: { client_id, user_id, redirect_uri, code_challenge, scope }): Promise<{ code, expires_at }>`, `consumeCode(code, redirect_uri, client_id): Promise<{ user_id, scope, code_challenge } | { error: 'expired' | 'reused' | 'mismatch' | 'unknown' }>` (atomic UPDATE … RETURNING for single-use enforcement).
-- [ ] T016 [P] [TDD] Unit test `apps/api/tests/unit/oauth-codes-store.test.ts`:
+- [X] T015 [P] Create `apps/api/src/services/oauth-codes-store.ts` with: `issueCode(input: { client_id, user_id, redirect_uri, code_challenge, scope }): Promise<{ code, expires_at }>`, `consumeCode(code, redirect_uri, client_id): Promise<{ user_id, scope, code_challenge } | { error: 'expired' | 'reused' | 'mismatch' | 'unknown' }>` (atomic UPDATE … RETURNING for single-use enforcement).
+- [X] T016 [P] [TDD] Unit test `apps/api/tests/unit/oauth-codes-store.test.ts`:
   - issueCode returns 256-bit opaque code + expiry now+60s
   - consumeCode happy path returns user_id + scope + challenge AND marks used
   - Second consume of same code → `reused`
   - Expired code → `expired`
   - Wrong redirect_uri at consume → `mismatch`
   - Unknown code → `unknown`
-- [ ] T017 [P] Create `apps/api/src/services/oauth-refresh-store.ts` with: `issueRefresh(client_id, user_id, scope, previous_token?): Promise<string>`, `rotateRefresh(old_token, client_id): Promise<{ new_token, user_id, scope } | { error: 'unknown' | 'revoked' | 'reuse_detected' }>`, `revokeRefreshByClient(client_id, user_id): Promise<number>` (returns count deleted).
-- [ ] T018 [P] [TDD] Unit test `apps/api/tests/unit/oauth-refresh-store.test.ts`:
+- [X] T017 [P] Create `apps/api/src/services/oauth-refresh-store.ts` with: `issueRefresh(client_id, user_id, scope, previous_token?): Promise<string>`, `rotateRefresh(old_token, client_id): Promise<{ new_token, user_id, scope } | { error: 'unknown' | 'revoked' | 'reuse_detected' }>`, `revokeRefreshByClient(client_id, user_id): Promise<number>` (returns count deleted).
+- [X] T018 [P] [TDD] Unit test `apps/api/tests/unit/oauth-refresh-store.test.ts`:
   - issueRefresh returns 256-bit opaque token
   - rotateRefresh: happy path deletes old + inserts new with `previous_token=old`
   - rotateRefresh: presenting a `previous_token` that has already been replaced → `reuse_detected` + revokes the entire grant
@@ -94,8 +94,8 @@
 
 ### Auth plugin (dual-credential) + status mapper
 
-- [ ] T021 Modify `apps/api/src/plugins/auth.ts` to accept BOTH `sbp_…` PAT bearers AND OAuth JWT bearers (per FR-010). Detection: PAT prefix `sbp_` (existing path); else attempt JWT verify via `@selfbase/oauth` `verifyAccessToken` → fall through to PAT path on failure for backward compat. On JWT path, perform Redis revocation check via `@selfbase/oauth` `isRevoked` BEFORE returning the user. **Per remediation C1 (SC-007)**: after JWT verify + Redis check, re-fetch the `users` row by `sub` claim and reject (401 `user_inactive`) if the row is missing, `removed_at IS NOT NULL`, or any equivalent inactive marker. Resolved user_id is identical between credential types for downstream code.
-- [ ] T022 [P] [TDD] Unit test `apps/api/tests/unit/auth-plugin-dual.test.ts`:
+- [X] T021 Modify `apps/api/src/plugins/auth.ts` to accept BOTH `sbp_…` PAT bearers AND OAuth JWT bearers (per FR-010). Detection: PAT prefix `sbp_` (existing path); else attempt JWT verify via `@selfbase/oauth` `verifyAccessToken` → fall through to PAT path on failure for backward compat. On JWT path, perform Redis revocation check via `@selfbase/oauth` `isRevoked` BEFORE returning the user. **Per remediation C1 (SC-007)**: after JWT verify + Redis check, re-fetch the `users` row by `sub` claim and reject (401 `user_inactive`) if the row is missing, `removed_at IS NOT NULL`, or any equivalent inactive marker. Resolved user_id is identical between credential types for downstream code.
+- [X] T022 [P] [TDD] Unit test `apps/api/tests/unit/auth-plugin-dual.test.ts`:
   - Valid PAT → resolves to user (existing behavior)
   - Valid OAuth JWT → resolves to same user_id structure
   - Revoked JWT (jti in Redis) → 401
@@ -104,15 +104,15 @@
   - Missing bearer → 401
   - **Per remediation C1**: Valid OAuth JWT whose `sub` references a removed/inactive user → 401 `user_inactive`. (Covers SC-007 propagation < 60s — happens on the NEXT request after member removal.)
   - Existing PAT-only tests still pass (regression)
-- [ ] T023 [P] Create `apps/api/src/services/project-status-mapper.ts` per research.md Decision 8. Exports `mapSelfbaseStatusToCloud(s: string): string` with the documented mapping. Unit-test inline if simple enough.
-- [ ] T024 [P] [TDD] Unit test `apps/api/tests/unit/project-status-mapper.test.ts` — every selfbase status maps to the documented Cloud enum; unknown input → `UNKNOWN`.
+- [X] T023 [P] Create `apps/api/src/services/project-status-mapper.ts` per research.md Decision 8. Exports `mapSelfbaseStatusToCloud(s: string): string` with the documented mapping. Unit-test inline if simple enough.
+- [X] T024 [P] [TDD] Unit test `apps/api/tests/unit/project-status-mapper.test.ts` — every selfbase status maps to the documented Cloud enum; unknown input → `UNKNOWN`.
 
 ### Cleanup worker jobs (per remediation C2 + FR-024a)
 
-- [ ] T024a [P] Create `apps/worker/src/jobs/cleanup-oauth-codes.ts` — BullMQ repeatable job, 1-minute interval. Body: `DELETE FROM oauth_codes WHERE expires_at < now()`. Idempotent + safe to overlap. Logs count deleted.
-- [ ] T024b [P] Create `apps/worker/src/jobs/cleanup-oauth-refresh.ts` — BullMQ repeatable job, 1-hour interval. Body: `DELETE FROM oauth_refresh_tokens WHERE last_used_at < now() - interval '30 days' AND revoked_at IS NULL`. Logs count deleted.
-- [ ] T024c Register both repeatable jobs in `apps/worker/src/main.ts` boot: `queue.upsertJobScheduler('cleanup-oauth-codes', { every: 60_000 }, …)` and `queue.upsertJobScheduler('cleanup-oauth-refresh', { pattern: '0 * * * *', tz: 'UTC' }, …)`. Pattern matches the existing daily-cert-check pattern.
-- [ ] T024d [P] [TDD] Unit test `apps/worker/tests/unit/cleanup-oauth-codes.test.ts` + `apps/worker/tests/unit/cleanup-oauth-refresh.test.ts` — mock db(); seed 5 expired + 3 fresh rows; assert only expired deleted; assert idempotent (second invocation deletes 0).
+- [X] T024a [P] Create `apps/worker/src/jobs/cleanup-oauth-codes.ts` — BullMQ repeatable job, 1-minute interval. Body: `DELETE FROM oauth_codes WHERE expires_at < now()`. Idempotent + safe to overlap. Logs count deleted.
+- [X] T024b [P] Create `apps/worker/src/jobs/cleanup-oauth-refresh.ts` — BullMQ repeatable job, 1-hour interval. Body: `DELETE FROM oauth_refresh_tokens WHERE last_used_at < now() - interval '30 days' AND revoked_at IS NULL`. Logs count deleted.
+- [X] T024c Register both repeatable jobs in `apps/worker/src/main.ts` boot: `queue.upsertJobScheduler('cleanup-oauth-codes', { every: 60_000 }, …)` and `queue.upsertJobScheduler('cleanup-oauth-refresh', { pattern: '0 * * * *', tz: 'UTC' }, …)`. Pattern matches the existing daily-cert-check pattern.
+- [X] T024d [P] [TDD] Unit test `apps/worker/tests/unit/cleanup-oauth-codes.test.ts` + `apps/worker/tests/unit/cleanup-oauth-refresh.test.ts` — mock db(); seed 5 expired + 3 fresh rows; assert only expired deleted; assert idempotent (second invocation deletes 0).
 
 **Checkpoint**: All foundational primitives unit-tested. User-story phases can now run in parallel.
 
@@ -126,21 +126,21 @@
 
 ### OAuth server endpoints
 
-- [ ] T025 [US1] Create `apps/api/src/routes/oauth/discovery.ts` exposing `GET /.well-known/oauth-authorization-server` per RFC 8414. Read apex from org row at startup; emit the documented JSON shape per `contracts/oauth-discovery-endpoints.md`.
-- [ ] T026 [P] [US1] [TDD] Contract test `apps/api/tests/contract/oauth-discovery.contract.test.ts`:
+- [X] T025 [US1] Create `apps/api/src/routes/oauth/discovery.ts` exposing `GET /.well-known/oauth-authorization-server` per RFC 8414. Read apex from org row at startup; emit the documented JSON shape per `contracts/oauth-discovery-endpoints.md`.
+- [X] T026 [P] [US1] [TDD] Contract test `apps/api/tests/contract/oauth-discovery.contract.test.ts`:
   - Response shape matches RFC 8414 required fields
   - All endpoint URLs use `https://api.<configured-apex>`
   - `code_challenge_methods_supported` = `["S256"]` only (no `plain`)
   - `scopes_supported` = `["platform"]`
-- [ ] T027 [US1] Create `apps/api/src/routes/oauth/register.ts` exposing `POST /v1/oauth/register` per `contracts/oauth-register-endpoint.md`. Uses `oauth-clients-store.ts`. Rate-limit via `cli-login-role-bucket.ts` pattern (or generalize that bucket helper to a shared rate-limiter), keyed by IP, 10/hour.
-- [ ] T028 [P] [US1] [TDD] Unit test `apps/api/tests/unit/oauth-register.test.ts`:
+- [X] T027 [US1] Create `apps/api/src/routes/oauth/register.ts` exposing `POST /v1/oauth/register` per `contracts/oauth-register-endpoint.md`. Uses `oauth-clients-store.ts`. Rate-limit via `cli-login-role-bucket.ts` pattern (or generalize that bucket helper to a shared rate-limiter), keyed by IP, 10/hour.
+- [X] T028 [P] [US1] [TDD] Unit test `apps/api/tests/unit/oauth-register.test.ts`:
   - Valid minimal request → 201 + uuid client_id; row inserted; audit emitted
   - Missing `redirect_uris` → 400 `invalid_client_metadata`
   - `redirect_uri` with `javascript:` scheme → 400 `invalid_redirect_uri`
   - `client_name` >200 chars → 400 `invalid_client_metadata`
   - 11th request from same IP within 1h → 429 `rate_limited` + Retry-After header
-- [ ] T029 [US1] Create `apps/api/src/routes/oauth/authorize.ts` exposing `GET /v1/oauth/authorize` per `contracts/oauth-authorize-endpoint.md`. Renders consent UI (server-side HTML for v1 — simpler than React route, can be promoted later). On Authorize POST: insert oauth_codes row + 302 to redirect_uri with code. On Deny: 302 with `error=access_denied`. Session anchor: reuse existing dashboard session cookie validation (no new authn). **Per remediation A2 + FR-024b**: on missing session, 302 to `https://<apex>/dashboard/login?next=<urlencoded-path>` where the path is validated to start with `/v1/oauth/authorize` (same-origin guard against open-redirect); the encoded next param MUST be ≤4096 bytes. On successful login, the dashboard login flow uses the existing safe-next helper from feature 011 (`apps/web/src/lib/safe-next.ts`) to bounce back.
-- [ ] T030 [P] [US1] [TDD] Unit test `apps/api/tests/unit/oauth-authorize.test.ts`:
+- [X] T029 [US1] Create `apps/api/src/routes/oauth/authorize.ts` exposing `GET /v1/oauth/authorize` per `contracts/oauth-authorize-endpoint.md`. Renders consent UI (server-side HTML for v1 — simpler than React route, can be promoted later). On Authorize POST: insert oauth_codes row + 302 to redirect_uri with code. On Deny: 302 with `error=access_denied`. Session anchor: reuse existing dashboard session cookie validation (no new authn). **Per remediation A2 + FR-024b**: on missing session, 302 to `https://<apex>/dashboard/login?next=<urlencoded-path>` where the path is validated to start with `/v1/oauth/authorize` (same-origin guard against open-redirect); the encoded next param MUST be ≤4096 bytes. On successful login, the dashboard login flow uses the existing safe-next helper from feature 011 (`apps/web/src/lib/safe-next.ts`) to bounce back.
+- [X] T030 [P] [US1] [TDD] Unit test `apps/api/tests/unit/oauth-authorize.test.ts`:
   - Valid request + valid session cookie → 200 + HTML containing the client_name + scope label
   - Valid request, no session → 302 to `/dashboard/login?next=…`
   - Invalid client_id → 400 `invalid_client`
@@ -148,8 +148,8 @@
   - `code_challenge_method=plain` → 400 `invalid_request`
   - Authorize POST: row inserted in oauth_codes, 302 with code, audit emitted
   - Deny POST: no row, 302 with error=access_denied, audit emitted
-- [ ] T031 [US1] Create `apps/api/src/routes/oauth/token.ts` exposing `POST /v1/oauth/token` per `contracts/oauth-token-endpoint.md`. Handles both grant types. Issues JWT via `oauth-jwt.signAccessToken` + refresh token via `oauth-refresh-store.issueRefresh`. On reuse-detection: revoke grant + revoke active jti via `oauth-revocation.revoke`.
-- [ ] T032 [P] [US1] [TDD] Unit test `apps/api/tests/unit/oauth-token.test.ts`:
+- [X] T031 [US1] Create `apps/api/src/routes/oauth/token.ts` exposing `POST /v1/oauth/token` per `contracts/oauth-token-endpoint.md`. Handles both grant types. Issues JWT via `oauth-jwt.signAccessToken` + refresh token via `oauth-refresh-store.issueRefresh`. On reuse-detection: revoke grant + revoke active jti via `oauth-revocation.revoke`.
+- [X] T032 [P] [US1] [TDD] Unit test `apps/api/tests/unit/oauth-token.test.ts`:
   - authorization_code happy path: returns access_token (JWT) + refresh_token + expires_in=3600 + scope; code marked used; audit emitted
   - Code reuse → 400 `invalid_grant`
   - Wrong code_verifier → 400 `invalid_grant`
@@ -157,26 +157,26 @@
   - Wrong client_id → 400 `invalid_grant`
   - refresh_token happy path: new JWT + new refresh; old refresh row gone; audit `oauth.token.refreshed`
   - Refresh reuse → 400 `invalid_grant` + grant revoked + Redis revocation populated
-- [ ] T033 [US1] Register OAuth routes in `apps/api/src/server.ts` — discovery at `/.well-known/oauth-authorization-server`, the three `/v1/oauth/*` endpoints inside the existing `/v1` management mount (BEFORE the not-implemented catch-all).
+- [X] T033 [US1] Register OAuth routes in `apps/api/src/server.ts` — discovery at `/.well-known/oauth-authorization-server`, the three `/v1/oauth/*` endpoints inside the existing `/v1` management mount (BEFORE the not-implemented catch-all).
 
 ### MCP service skeleton + auth + multi-project surface
 
-- [ ] T034 [US1] Create `apps/mcp/src/server.ts` — Fastify app, mounts `POST /mcp` + `GET /.well-known/oauth-protected-resource` per `contracts/oauth-discovery-endpoints.md`. Listen on port 3002.
-- [ ] T035 [US1] Create `apps/mcp/src/bearer-auth.ts` — extracts `Authorization: Bearer <jwt>`, verifies via `@selfbase/api`'s `oauth-jwt.ts` helper (or duplicate the verify logic in mcp service if cross-package import is awkward — see plan.md for package boundary call). On invalid/expired/revoked: 401 + `WWW-Authenticate: Bearer ...` header per RFC 6750. Performs Redis `oauth-revocation.isRevoked` check.
-- [ ] T036 [P] [US1] [TDD] Unit test `apps/mcp/tests/unit/bearer-auth.test.ts`:
+- [X] T034 [US1] Create `apps/mcp/src/server.ts` — Fastify app, mounts `POST /mcp` + `GET /.well-known/oauth-protected-resource` per `contracts/oauth-discovery-endpoints.md`. Listen on port 3002.
+- [X] T035 [US1] Create `apps/mcp/src/bearer-auth.ts` — extracts `Authorization: Bearer <jwt>`, verifies via `@selfbase/api`'s `oauth-jwt.ts` helper (or duplicate the verify logic in mcp service if cross-package import is awkward — see plan.md for package boundary call). On invalid/expired/revoked: 401 + `WWW-Authenticate: Bearer ...` header per RFC 6750. Performs Redis `oauth-revocation.isRevoked` check.
+- [X] T036 [P] [US1] [TDD] Unit test `apps/mcp/tests/unit/bearer-auth.test.ts`:
   - Valid JWT → returns resolved user_id
   - Expired → 401 + WWW-Authenticate header includes `authorization_uri`
   - Revoked (jti in fake Redis) → 401 + invalid_token error in body
   - Missing bearer → 401
-- [ ] T037 [US1] Create `apps/mcp/src/platform-build.ts` — exports `buildPlatform(accessToken: string): SupabasePlatform`. Calls upstream `createSupabaseApiPlatform({ accessToken, apiUrl: process.env.SELFBASE_API_URL })`. Strips deferred operation groups: `delete platform.debugging?.getAdvisors; delete platform.storage?.getStorageConfig; delete platform.storage?.updateStorageConfig; delete platform.account?.createProject; delete platform.account?.getCost; delete platform.account?.confirmCost; delete platform.branching;` **Per remediation I3**: at the top of this file, add a TypeScript const block that imports the upstream operation-group types (`AccountOperations`, `DebuggingOperations`, `StorageOperations` from `@supabase/mcp-server-supabase/platform`) and references each property name being stripped (e.g. `const _typecheck: keyof AccountOperations = 'createProject'`). This compile-time-fails if upstream renames a property.
-- [ ] T038 [P] [US1] [TDD] Unit test `apps/mcp/tests/unit/platform-build.test.ts`:
+- [X] T037 [US1] Create `apps/mcp/src/platform-build.ts` — exports `buildPlatform(accessToken: string): SupabasePlatform`. Calls upstream `createSupabaseApiPlatform({ accessToken, apiUrl: process.env.SELFBASE_API_URL })`. Strips deferred operation groups: `delete platform.debugging?.getAdvisors; delete platform.storage?.getStorageConfig; delete platform.storage?.updateStorageConfig; delete platform.account?.createProject; delete platform.account?.getCost; delete platform.account?.confirmCost; delete platform.branching;` **Per remediation I3**: at the top of this file, add a TypeScript const block that imports the upstream operation-group types (`AccountOperations`, `DebuggingOperations`, `StorageOperations` from `@supabase/mcp-server-supabase/platform`) and references each property name being stripped (e.g. `const _typecheck: keyof AccountOperations = 'createProject'`). This compile-time-fails if upstream renames a property.
+- [X] T038 [P] [US1] [TDD] Unit test `apps/mcp/tests/unit/platform-build.test.ts`:
   - Returns a platform object
   - `platform.branching` is undefined
   - `platform.debugging?.getAdvisors` is undefined (but `getLogs` is preserved — US4)
   - `platform.storage?.getStorageConfig` is undefined (but `listBuckets` is preserved — US5)
   - `platform.account?.createProject` is undefined (but `listProjects`, `pauseProject`, `restoreProject` are preserved — US6)
-- [ ] T039 [US1] Wire the MCP handler in `apps/mcp/src/server.ts`: `POST /mcp` → bearer-auth → session lookup (in-memory Map, 30min idle TTL with background sweeper) → on cache-miss: `buildPlatform()` + `createSupabaseMcpServer({platform})` + `new StreamableHTTPServerTransport({sessionIdGenerator: () => randomUUID(), enableJsonResponse: true})` → `server.connect(transport)` → `transport.handleRequest(req.raw, reply.raw, req.body)`. Emit `mcp.session.opened` audit on new session, `mcp.tool.invoked` on tools/call.
-- [ ] T040 [P] [US1] [TDD] Integration test `apps/mcp/tests/unit/mcp-server.integration.test.ts`:
+- [X] T039 [US1] Wire the MCP handler in `apps/mcp/src/server.ts`: `POST /mcp` → bearer-auth → session lookup (in-memory Map, 30min idle TTL with background sweeper) → on cache-miss: `buildPlatform()` + `createSupabaseMcpServer({platform})` + `new StreamableHTTPServerTransport({sessionIdGenerator: () => randomUUID(), enableJsonResponse: true})` → `server.connect(transport)` → `transport.handleRequest(req.raw, reply.raw, req.body)`. Emit `mcp.session.opened` audit on new session, `mcp.tool.invoked` on tools/call.
+- [X] T040 [P] [US1] [TDD] Integration test `apps/mcp/tests/unit/mcp-server.integration.test.ts`:
   - In-process Fastify + stub platform (`listProjects` returns 2 projects)
   - JSON-RPC `tools/list` → returns tools including `list_projects`, `execute_sql`, …
   - JSON-RPC `tools/call` for `list_projects` → returns 2 projects in response.content
@@ -185,12 +185,12 @@
 
 ### Dashboard consent UI (server-rendered HTML for v1)
 
-- [ ] T041 [US1] In `apps/api/src/routes/oauth/authorize.ts`, embed a minimal inline HTML template for the consent page. Includes: client_name, requested scope label, operator identity (from session), Authorize + Deny form buttons (POST to same endpoint). CSP-safe (no inline JS); pure form submission. Use existing selfbase brand colors via inline style sheet.
+- [X] T041 [US1] In `apps/api/src/routes/oauth/authorize.ts`, embed a minimal inline HTML template for the consent page. Includes: client_name, requested scope label, operator identity (from session), Authorize + Deny form buttons (POST to same endpoint). CSP-safe (no inline JS); pure form submission. Use existing selfbase brand colors via inline style sheet.
 
 ### Live-VM end-to-end smoke
 
-- [ ] T042 [P] [US1] Create `tests/cli-e2e/oauth-dance.sh` — performs the wire-level OAuth flow without a browser: register a fresh client → fabricate a dashboard session cookie via the existing test-helper or use a headless browser → call authorize → simulate consent → exchange code → assert JWT shape → use JWT to call `GET /v1/oauth/authorize/test` (or any authed endpoint that exercises the dual-auth plugin).
-- [ ] T043 [P] [US1] Create `tests/cli-e2e/mcp-roundtrip.sh` — extends `/tmp/mcp-smoke.mjs` from the earlier deploy-verify work: use an OAuth-issued JWT (not a PAT) as Bearer; assert `tools/list` returns the in-scope tools and ONLY them; assert `tools/call list_projects` works; assert `tools/call execute_sql` works.
+- [X] T042 [P] [US1] Create `tests/cli-e2e/oauth-dance.sh` — performs the wire-level OAuth flow without a browser: register a fresh client → fabricate a dashboard session cookie via the existing test-helper or use a headless browser → call authorize → simulate consent → exchange code → assert JWT shape → use JWT to call `GET /v1/oauth/authorize/test` (or any authed endpoint that exercises the dual-auth plugin).
+- [X] T043 [P] [US1] Create `tests/cli-e2e/mcp-roundtrip.sh` — extends `/tmp/mcp-smoke.mjs` from the earlier deploy-verify work: use an OAuth-issued JWT (not a PAT) as Bearer; assert `tools/list` returns the in-scope tools and ONLY them; assert `tools/call list_projects` works; assert `tools/call execute_sql` works.
 
 **Checkpoint**: US1 ships. The full OAuth dance + MCP `list_projects` + MCP `execute_sql` work end-to-end against the deployed VM through an unmodified MCP client.
 
