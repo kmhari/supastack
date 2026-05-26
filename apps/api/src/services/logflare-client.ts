@@ -71,6 +71,7 @@ export async function queryLogs(ref: string, opts: QueryLogsOptions): Promise<Lo
   const [inst] = await db()
     .select({
       status: schema.supabaseInstances.status,
+      portKong: schema.supabaseInstances.portKong,
       encryptedSecrets: schema.supabaseInstances.encryptedSecrets,
     })
     .from(schema.supabaseInstances)
@@ -89,8 +90,14 @@ export async function queryLogs(ref: string, opts: QueryLogsOptions): Promise<Lo
     );
   }
 
+  // Per-project analytics container is on the isolated `selfbase-<ref>_default`
+  // Docker network — unreachable from the api container directly. Route through
+  // Kong using the host-mapped port_kong + the /analytics/v1/* path. NOTE:
+  // operators must uncomment the analytics routes in their per-project
+  // kong.yml — see docs/changes/014 for the one-time provisioning step
+  // required for existing projects.
   const sql = opts.sql ?? buildDefaultSql(opts);
-  const url = `http://selfbase-${ref}-analytics-1:4000/api/endpoints/query/logs.all?sql=${encodeURIComponent(sql)}`;
+  const url = `http://host.docker.internal:${inst.portKong}/analytics/v1/api/endpoints/query/logs.all?sql=${encodeURIComponent(sql)}`;
 
   let res: Response;
   try {
@@ -123,10 +130,27 @@ export async function queryLogs(ref: string, opts: QueryLogsOptions): Promise<Lo
 function buildDefaultSql(opts: QueryLogsOptions): string {
   const service = opts.service ?? 'api';
   const table = SERVICE_TABLE[service];
-  const start = opts.isoTimestampStart ?? new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const end = opts.isoTimestampEnd ?? new Date().toISOString();
-  // Logflare SQL expects timestamps as ISO strings inside single-quotes
-  return `SELECT id, timestamp, event_message FROM ${table} WHERE timestamp BETWEEN '${start}' AND '${end}' ORDER BY timestamp DESC LIMIT 100`;
+  // Logflare's BigQuery-style endpoints reject ISO-string BETWEEN comparisons
+  // on the timestamp column (column type is BIGINT microsecond epoch). Use
+  // explicit timestamp_micros() conversions when bounds are supplied; omit
+  // the filter entirely otherwise (the endpoint has an internal time window).
+  const parts = [`SELECT id, timestamp, event_message FROM ${table}`];
+  const conds: string[] = [];
+  if (opts.isoTimestampStart) {
+    const us = isoToMicros(opts.isoTimestampStart);
+    conds.push(`timestamp >= ${us}`);
+  }
+  if (opts.isoTimestampEnd) {
+    const us = isoToMicros(opts.isoTimestampEnd);
+    conds.push(`timestamp <= ${us}`);
+  }
+  if (conds.length > 0) parts.push(`WHERE ${conds.join(' AND ')}`);
+  parts.push('ORDER BY timestamp DESC LIMIT 100');
+  return parts.join(' ');
+}
+
+function isoToMicros(iso: string): number {
+  return new Date(iso).getTime() * 1000;
 }
 
 /** Exposed for unit tests. */

@@ -7,6 +7,8 @@
  *
  * Spec: 014-mcp-http-oauth — FR-029..032, contracts/storage-buckets-endpoint.md.
  */
+import { eq } from 'drizzle-orm';
+import { db, schema } from '@selfbase/db';
 import { mintServiceRoleJwt } from './service-role-jwt.js';
 
 export class StorageUnreachableError extends Error {
@@ -34,8 +36,20 @@ export interface BucketRow {
 }
 
 export async function listBuckets(ref: string): Promise<BucketRow[]> {
+  // Per-project storage container is on the project's isolated Docker network
+  // (selfbase-<ref>_default). The api container can't reach it directly. Kong
+  // (which IS host-mapped) routes `/storage/v1/*` → `storage:5000/*` on the
+  // per-project network. Round-trip via Kong using the host-mapped Kong port.
+  const [inst] = await db()
+    .select({ portKong: schema.supabaseInstances.portKong })
+    .from(schema.supabaseInstances)
+    .where(eq(schema.supabaseInstances.ref, ref))
+    .limit(1);
+  if (!inst) {
+    throw new StorageUnreachableError(`instance ${ref} not found in DB`);
+  }
   const jwt = await mintServiceRoleJwt(ref);
-  const url = `http://selfbase-${ref}-storage-1:5000/bucket`;
+  const url = `http://host.docker.internal:${inst.portKong}/storage/v1/bucket`;
   let res: Response;
   try {
     res = await fetch(url, {
