@@ -50,6 +50,7 @@ import { oauthDiscoveryRoutes } from './routes/oauth/discovery.js';
 import { oauthRegisterRoutes } from './routes/oauth/register.js';
 import { oauthAuthorizeRoutes } from './routes/oauth/authorize.js';
 import { oauthTokenRoutes } from './routes/oauth/token.js';
+import { oauthClientsDashboardRoutes } from './routes/oauth/clients-dashboard.js';
 import { createCertCheckQueue, createCertCheckWorker } from './services/cert-check.js';
 import { startPgEdgeProxy, type PgEdgeProxy } from './services/pg-edge-proxy.js';
 import { existsSync } from 'node:fs';
@@ -204,6 +205,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(cliLoginRoutes); // /api/v1/cli/login (feature 011 — dashboard mint)
   await app.register(platformCliLoginRoutes); // /platform/cli/login/:session_id (feature 011 — CLI poll)
   await app.register(oauthDiscoveryRoutes); // /.well-known/oauth-authorization-server (feature 014 FR-006)
+  await app.register(oauthClientsDashboardRoutes); // /api/v1/oauth/clients{,/:id} (feature 014 US3)
 
   // ─── /v1/* — Supabase Management API compatibility surface ─────────────
   //

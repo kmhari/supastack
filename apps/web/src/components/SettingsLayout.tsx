@@ -6,6 +6,7 @@ import {
   Database,
   FileClock,
   Terminal,
+  Plug,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -34,10 +35,10 @@ const TABS: SettingsTab[] = [
     matchPrefixes: ['/settings/cli'],
   },
   {
-    to: '/settings/cli',
-    label: 'CLI integration',
-    icon: Terminal,
-    matchPrefixes: ['/settings/cli'],
+    to: '/settings/mcp-clients',
+    label: 'MCP clients',
+    icon: Plug,
+    matchPrefixes: ['/settings/mcp-clients'],
   },
   {
     to: '/settings/database',
