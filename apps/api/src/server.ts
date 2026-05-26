@@ -46,6 +46,10 @@ import { vaultEnableRoutes } from './routes/vault-enable.js';
 import { secretsDashboardRoutes } from './routes/secrets-dashboard.js';
 import { cliLoginRoutes } from './routes/cli-login.js';
 import { platformCliLoginRoutes } from './routes/platform-cli-login.js';
+import { oauthDiscoveryRoutes } from './routes/oauth/discovery.js';
+import { oauthRegisterRoutes } from './routes/oauth/register.js';
+import { oauthAuthorizeRoutes } from './routes/oauth/authorize.js';
+import { oauthTokenRoutes } from './routes/oauth/token.js';
 import { createCertCheckQueue, createCertCheckWorker } from './services/cert-check.js';
 import { startPgEdgeProxy, type PgEdgeProxy } from './services/pg-edge-proxy.js';
 import { existsSync } from 'node:fs';
@@ -108,6 +112,25 @@ export async function buildApp(): Promise<FastifyInstance> {
   );
   app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (_req, body, done) =>
     done(null, body),
+  );
+
+  // Feature 014 — OAuth 2.1 endpoints (authorize consent submit + RFC 6749
+  // token endpoint) accept application/x-www-form-urlencoded per RFC. Parse
+  // into an object so route handlers + Zod can consume it uniformly with
+  // JSON bodies.
+  app.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'string' },
+    (_req, body, done) => {
+      try {
+        const params = new URLSearchParams(body as string);
+        const obj: Record<string, string> = {};
+        for (const [k, v] of params) obj[k] = v;
+        done(null, obj);
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    },
   );
 
   // Uniform error formatter. Dashboard surface (everything except /v1) uses
@@ -180,6 +203,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(secretsDashboardRoutes); // /api/v1/projects/:ref/secrets (feature 010 FR-006/007)
   await app.register(cliLoginRoutes); // /api/v1/cli/login (feature 011 — dashboard mint)
   await app.register(platformCliLoginRoutes); // /platform/cli/login/:session_id (feature 011 — CLI poll)
+  await app.register(oauthDiscoveryRoutes); // /.well-known/oauth-authorization-server (feature 014 FR-006)
 
   // ─── /v1/* — Supabase Management API compatibility surface ─────────────
   //
@@ -219,6 +243,10 @@ export async function buildApp(): Promise<FastifyInstance> {
       // Feature 013 — db query + db dump (ad-hoc SQL + pg_dump streaming):
       await mgmt.register(dbQueryRoutes);
       await mgmt.register(dbDumpRoutes);
+      // Feature 014 — OAuth 2.1 authorization server (register/authorize/token):
+      await mgmt.register(oauthRegisterRoutes);
+      await mgmt.register(oauthAuthorizeRoutes);
+      await mgmt.register(oauthTokenRoutes);
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },

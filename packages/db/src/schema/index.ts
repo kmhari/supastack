@@ -8,3 +8,4 @@ export * from './pooler.js';
 export * from './pg-edge-certs.js';
 export * from './reconciler-runs.js';
 export * from './project-config.js';
+export * from './oauth.js';
