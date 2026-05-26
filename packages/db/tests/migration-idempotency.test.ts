@@ -44,6 +44,66 @@ describe.skipIf(!TEST_DATABASE_URL)('migration idempotency', () => {
       await pool.end();
     }
   });
+
+  it('full migration sequence run twice produces zero schema diff (SC-005)', async () => {
+    // T050: end-to-end — apply EVERY migration in order, snapshot, apply them
+    // ALL again as a single sequence, snapshot. The two snapshots must match.
+    const files = (await readdir(MIGRATIONS_DIR)).filter((f) => f.endsWith('.sql')).sort();
+    expect(files.length).toBeGreaterThan(0);
+
+    const pool = new pg.Pool({ connectionString: TEST_DATABASE_URL, max: 1 });
+    const client = await pool.connect();
+    try {
+      await client.query('CREATE EXTENSION IF NOT EXISTS citext');
+      await client.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+
+      const apply = async () => {
+        for (const file of files) {
+          const sql = await readFile(path.join(MIGRATIONS_DIR, file), 'utf8');
+          await client.query(sql);
+        }
+      };
+
+      await apply();
+      const snapshotA = await snapshotSchema(client);
+      await apply();
+      const snapshotB = await snapshotSchema(client);
+      expect(snapshotB).toEqual(snapshotA);
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  });
+
+  it('migrate() runner is itself idempotent across two full invocations', async () => {
+    // Exercises packages/db/src/migrate.ts (real entrypoint used at API/worker
+    // startup) — second call must complete without errors and leave the same
+    // schema.
+    const { migrate } = await import('../src/migrate.js');
+    await migrate(TEST_DATABASE_URL!);
+
+    const pool = new pg.Pool({ connectionString: TEST_DATABASE_URL, max: 1 });
+    const client = await pool.connect();
+    let before: unknown;
+    try {
+      before = await snapshotSchema(client);
+    } finally {
+      client.release();
+      await pool.end();
+    }
+
+    await migrate(TEST_DATABASE_URL!);
+
+    const pool2 = new pg.Pool({ connectionString: TEST_DATABASE_URL, max: 1 });
+    const client2 = await pool2.connect();
+    try {
+      const after = await snapshotSchema(client2);
+      expect(after).toEqual(before);
+    } finally {
+      client2.release();
+      await pool2.end();
+    }
+  });
 });
 
 /**

@@ -89,7 +89,7 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-**Active feature plan**: none. Feature 014 Phases 1-7 merged; Phase 8 (pause/restore) + Phase 9 (polish) in PR review.
+**Active feature plan**: feature 015 — test coverage uplift per issue #45. Plan: [specs/015-test-coverage-uplift/plan.md](specs/015-test-coverage-uplift/plan.md). Raises per-package statement coverage to: `packages/shared` ≥80%, `apps/api` ≥70%, `apps/worker` ≥60%, `packages/db` ≥70%, `apps/web` ≥30%. Uses existing vitest + `pnpm test:coverage` runner; one scoped FR-009 exception (4 test-only devDeps to `apps/web`); no CI gating; no production `any` introduced.
 
 **Most recently merged**: feature 014 — hosted multi-project MCP + OAuth 2.1 authorization server (full spec at [specs/014-mcp-http-oauth/plan.md](specs/014-mcp-http-oauth/plan.md); operator runbook at [docs/changes/014-mcp-http-oauth.md](docs/changes/014-mcp-http-oauth.md)). Prior: feature 013 — `db query` + `db dump` Management API endpoints (closes #36, unblocks 3 MCP tools per #37).
 
