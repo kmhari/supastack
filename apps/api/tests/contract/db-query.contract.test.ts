@@ -63,12 +63,12 @@ describe('V1RunQueryBody wire compatibility', () => {
     expect(DbQueryBodySchema.safeParse({ parameters: [1] }).success).toBe(false);
   });
 
-  it('Zod response schema accepts the documented success shape', () => {
-    expect(
-      DbQueryResponseSchema.safeParse({
-        result: [{ id: 'abc', email: 'a@b.c' }],
-      }).success,
-    ).toBe(true);
-    expect(DbQueryResponseSchema.safeParse({ result: [] }).success).toBe(true);
+  it('Zod response schema accepts the bare-array success shape', () => {
+    // Upstream returns a bare array (NOT { result: [...] }). The upstream MCP
+    // server's `list_tables` tool calls `.map()` directly on the response.
+    expect(DbQueryResponseSchema.safeParse([{ id: 'abc', email: 'a@b.c' }]).success).toBe(true);
+    expect(DbQueryResponseSchema.safeParse([]).success).toBe(true);
+    // Envelope shape MUST be rejected.
+    expect(DbQueryResponseSchema.safeParse({ result: [{ id: 'abc' }] }).success).toBe(false);
   });
 });

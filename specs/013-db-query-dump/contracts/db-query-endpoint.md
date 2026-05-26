@@ -33,13 +33,13 @@ Content-Type: application/json
 ### `201 Created` (success)
 
 ```json
-{
-  "result": [
-    { "id": "a1b2c3…", "email": "alice@example.com" },
-    { "id": "d4e5f6…", "email": "bob@example.com" }
-  ]
-}
+[
+  { "id": "a1b2c3…", "email": "alice@example.com" },
+  { "id": "d4e5f6…", "email": "bob@example.com" }
+]
 ```
+
+**Note**: The response body is a **bare array** of row objects, NOT wrapped in an envelope like `{ result: [...] }`. Upstream Supabase's OpenAPI 201 response is undocumented, but the upstream MCP server's `list_tables` tool (`@supabase/mcp-server-supabase` ≥ 0.8) calls `.map()` directly on the response body — any envelope shape breaks it. Verified via live MCP smoke 2026-05-26.
 
 - Array of row objects, keyed by column name
 - Postgres types coerced to JSON-compatible scalars:

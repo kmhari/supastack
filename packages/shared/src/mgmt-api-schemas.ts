@@ -266,10 +266,11 @@ export const DbQueryBodySchema = z
   .strict();
 export type DbQueryBody = z.infer<typeof DbQueryBodySchema>;
 
-// Wire response: 201 Created with `{ result: Array<Record<string, unknown>> }`.
-export const DbQueryResponseSchema = z.object({
-  result: z.array(z.record(z.unknown())),
-});
+// Wire response: 201 Created with a **bare array** of row objects — matches
+// upstream Cloud. Upstream's OpenAPI 201 is undocumented; verified by
+// observation: the upstream MCP server's `list_tables` calls `.map()` directly
+// on the response body. An envelope (e.g. `{ result: [...] }`) breaks that path.
+export const DbQueryResponseSchema = z.array(z.record(z.unknown()));
 export type DbQueryResponse = z.infer<typeof DbQueryResponseSchema>;
 
 // ─── db dump (feature 013) ─────────────────────────────────────────────────

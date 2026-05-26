@@ -138,7 +138,12 @@ export const dbQueryRoutes: FastifyPluginAsync = async (app) => {
 
         const durationMs = Date.now() - startedAt;
         emit({ kind: 'success', rowCount: rows.length, durationMs });
-        return reply.status(201).send({ result: rows });
+        // Wire shape: bare array — matches upstream Supabase. The upstream
+        // OpenAPI's 201 response is undocumented, but the upstream MCP server's
+        // `list_tables` tool (chunk-IO3RHCXN.js) calls `.map()` directly on
+        // `c.data`, proving the cloud returns `[...rows]`, not `{ result: [...] }`.
+        // Discovered during SC-007 live MCP smoke (2026-05-26).
+        return reply.status(201).send(rows);
       } catch (err) {
         const durationMs = Date.now() - startedAt;
         // Map per-instance-pg errors first.
