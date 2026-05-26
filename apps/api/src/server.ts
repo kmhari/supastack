@@ -33,6 +33,7 @@ import { dbQueryRoutes } from './routes/management/db-query.js';
 import { dbDumpRoutes } from './routes/management/db-dump.js';
 import { logsRoutes } from './routes/management/logs.js';
 import { storageBucketsRoutes } from './routes/management/storage-buckets.js';
+import { pauseRestoreRoutes } from './routes/management/pause-restore.js';
 import { authConfigRoutes } from './routes/management/auth-config.js';
 import { postgrestConfigRoutes } from './routes/management/postgrest-config.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
@@ -255,6 +256,8 @@ export async function buildApp(): Promise<FastifyInstance> {
       await mgmt.register(logsRoutes);
       // Feature 014 US5 — list_storage_buckets (storage reverse-proxy):
       await mgmt.register(storageBucketsRoutes);
+      // Feature 014 US6 — pause_project + restore_project (async lifecycle):
+      await mgmt.register(pauseRestoreRoutes);
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },
