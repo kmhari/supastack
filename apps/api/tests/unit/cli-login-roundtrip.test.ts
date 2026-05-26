@@ -60,7 +60,6 @@ vi.mock('../../src/services/api-tokens.js', async () => {
 
 describe('CLI device-code login — end-to-end round-trip', () => {
   beforeEach(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setRedisForTesting(new FakeRedis() as any);
     mintedPlaintext = '';
   });

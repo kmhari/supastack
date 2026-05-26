@@ -15,7 +15,6 @@ describe('mintApiToken format', () => {
   });
 
   it('mintApiToken returns a string matching the regex', async () => {
-    const { mintApiToken } = await import('../../src/services/api-tokens.js');
     // Pure call — no DB. mintApiToken should expose a `generateRawToken` helper
     // OR we can extract by calling and parsing the .raw return. We test the
     // pure generator here, not the DB insert.

@@ -15,7 +15,6 @@
  */
 import type { FastifyPluginAsync } from 'fastify';
 import { db, schema } from '@selfbase/db';
-import { eq } from 'drizzle-orm';
 import { errors } from '@selfbase/shared';
 import { mintApiToken } from '../services/api-tokens.js';
 

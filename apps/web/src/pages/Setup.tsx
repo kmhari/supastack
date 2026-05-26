@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Circle, Loader2, AlertTriangle, AlertCircle } from 'lucide-react';
 import {
   apexApi,
@@ -321,7 +321,6 @@ function ApexVerifyStep({
       cancelled = true;
       clearInterval(id);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -555,7 +554,6 @@ function WildcardCertStep({ onDone }: { onDone: () => void }): React.ReactElemen
         setSub('done');
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onIssue = async (): Promise<void> => {

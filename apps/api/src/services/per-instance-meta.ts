@@ -1,7 +1,6 @@
 import { fetch } from 'undici';
 import { decryptJson, loadMasterKey } from '@selfbase/crypto';
 import type { InstanceSecrets } from './instance-secrets.js';
-import type { schema } from '@selfbase/db';
 
 /**
  * Shared helper that calls the per-instance `pg-meta` container via the

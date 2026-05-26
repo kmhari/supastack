@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { Client } from 'pg';
 import {
   vaultListAll,
@@ -31,12 +31,6 @@ function makeFakeClient(rowsByQuery: Record<string, unknown[]>): Client {
 }
 
 describe('vault-client SQL helpers', () => {
-  let calls: { sql: string; values: unknown[] }[];
-
-  beforeEach(() => {
-    calls = [];
-  });
-
   it('vaultListAll selects from decrypted_secrets, filters key_id, orders by name', async () => {
     const client = makeFakeClient({
       'vault.decrypted_secrets': [

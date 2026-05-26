@@ -18,7 +18,7 @@
  * `req.log` spy attached at app-build time.
  */
 import { randomBytes } from 'node:crypto';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { CreateLoginRoleResponse, DeleteLoginRolesResponse } from '@selfbase/shared';
 import {
