@@ -11,12 +11,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-type Method =
-  | 'get'
-  | 'post'
-  | 'put'
-  | 'patch'
-  | 'delete';
+type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 interface MockCall {
   method: Method;
@@ -90,7 +85,11 @@ describe('setupApi', () => {
 describe('authApi', () => {
   it('login posts credentials', async () => {
     await apiMod.authApi.login({ email: 'a@b', password: 'x' });
-    expect(lastCall()).toMatchObject({ method: 'post', url: '/auth/login', body: { email: 'a@b', password: 'x' } });
+    expect(lastCall()).toMatchObject({
+      method: 'post',
+      url: '/auth/login',
+      body: { email: 'a@b', password: 'x' },
+    });
   });
   it('logout → POST /auth/logout', async () => {
     await apiMod.authApi.logout();
@@ -153,7 +152,10 @@ describe('membersApi', () => {
   });
   it('invite → POST /members/invites', async () => {
     await apiMod.membersApi.invite({ email: 'a@b', role: 'admin' });
-    expect(lastCall()).toMatchObject({ url: '/members/invites', body: { email: 'a@b', role: 'admin' } });
+    expect(lastCall()).toMatchObject({
+      url: '/members/invites',
+      body: { email: 'a@b', role: 'admin' },
+    });
   });
   it('listInvites → GET /members/invites', async () => {
     await apiMod.membersApi.listInvites();
@@ -207,7 +209,10 @@ describe('instancesApi', () => {
   });
   it('reveal posts password', async () => {
     await apiMod.instancesApi.reveal('r', { password: 'p' });
-    expect(lastCall()).toMatchObject({ url: '/instances/r/credentials/reveal', body: { password: 'p' } });
+    expect(lastCall()).toMatchObject({
+      url: '/instances/r/credentials/reveal',
+      body: { password: 'p' },
+    });
   });
   it('health → GET /instances/:ref/health', async () => {
     await apiMod.instancesApi.health('r');
@@ -223,7 +228,9 @@ describe('backupsApi', () => {
     expect(lastCall().url).toBe('/instances/r/backups');
   });
   it('downloadUrl returns a string path', () => {
-    expect(apiMod.backupsApi.downloadUrl('r', 'b1')).toBe('/api/v1/instances/r/backups/b1/download');
+    expect(apiMod.backupsApi.downloadUrl('r', 'b1')).toBe(
+      '/api/v1/instances/r/backups/b1/download',
+    );
   });
 });
 

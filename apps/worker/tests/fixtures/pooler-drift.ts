@@ -112,7 +112,8 @@ export const driftFixtures: DriftFixture[] = [
       poolerRow: { ref: orphanRef, externalId: orphanRef, status: 'active', updatedAt: fresh },
       svTenant: { external_id: orphanRef },
     },
-    observed: 'supavisor has a tenant with no matching instance row (stale pooler row points to a removed instance)',
+    observed:
+      'supavisor has a tenant with no matching instance row (stale pooler row points to a removed instance)',
     expected: 'orphan_in_supavisor',
     expectedRemediation: 'unregister_orphan',
   },

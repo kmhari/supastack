@@ -158,9 +158,8 @@ vi.mock('drizzle-orm', async (orig) => {
   };
 });
 
-const { issueRefresh, rotateRefresh, revokeRefreshByClient } = await import(
-  '../../src/services/oauth-refresh-store.js'
-);
+const { issueRefresh, rotateRefresh, revokeRefreshByClient } =
+  await import('../../src/services/oauth-refresh-store.js');
 
 beforeEach(() => {
   store.clear();

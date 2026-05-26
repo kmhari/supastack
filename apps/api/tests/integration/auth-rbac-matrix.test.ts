@@ -60,11 +60,7 @@ describe.skipIf(!hasTestEnv)('auth + RBAC matrix across /v1/* routes', () => {
 
   // Admin-only mutating endpoints — member PAT must get 403.
   const adminOnlyRoutes: Array<[string, string, unknown]> = [
-    [
-      'POST',
-      `/v1/projects/${ref}/database/query`,
-      { query: 'select 1' },
-    ],
+    ['POST', `/v1/projects/${ref}/database/query`, { query: 'select 1' }],
     ['POST', `/v1/projects/${ref}/cli/login-role`, { read_only: true }],
     ['DELETE', `/v1/projects/${ref}/cli/login-role`, undefined],
   ];

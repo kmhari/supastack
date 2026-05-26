@@ -55,7 +55,13 @@ vi.mock('@selfbase/db', () => {
             }),
             limit: async () => {
               if (isOrgKind) return [{ kind: storeMode }];
-              if (isOrgStoreCfg) return [{ kind: storeMode, configEncrypted: storeMode === 's3' ? Buffer.from('x') : null }];
+              if (isOrgStoreCfg)
+                return [
+                  {
+                    kind: storeMode,
+                    configEncrypted: storeMode === 's3' ? Buffer.from('x') : null,
+                  },
+                ];
               return [];
             },
             orderBy: async () => backupRows,
@@ -86,8 +92,22 @@ vi.mock('@selfbase/db', () => {
     }),
     schema: {
       supabaseInstances: { ref: 'ref', lastBackupAt: 'lastBackupAt', updatedAt: 'updatedAt' },
-      backups: { id: 'id', instanceRef: 'instanceRef', kind: 'kind', status: 'status', storeKey: 'storeKey', storeKind: 'storeKind', sizeBytes: 'sizeBytes', completedAt: 'completedAt', error: 'error', startedAt: 'startedAt' },
-      org: { backupStoreKind: 'backupStoreKind', backupStoreConfigEncrypted: 'backupStoreConfigEncrypted' },
+      backups: {
+        id: 'id',
+        instanceRef: 'instanceRef',
+        kind: 'kind',
+        status: 'status',
+        storeKey: 'storeKey',
+        storeKind: 'storeKind',
+        sizeBytes: 'sizeBytes',
+        completedAt: 'completedAt',
+        error: 'error',
+        startedAt: 'startedAt',
+      },
+      org: {
+        backupStoreKind: 'backupStoreKind',
+        backupStoreConfigEncrypted: 'backupStoreConfigEncrypted',
+      },
     },
   };
 });
@@ -145,7 +165,9 @@ describe('backup job', () => {
 
   it('store failure → row marked failed and rethrows', async () => {
     putShouldFail = true;
-    await expect(handleBackup({ ref: 'r0000000000000000001', kind: 'manual' })).rejects.toThrow(/disk full/);
+    await expect(handleBackup({ ref: 'r0000000000000000001', kind: 'manual' })).rejects.toThrow(
+      /disk full/,
+    );
     expect(updatedBackups.some((u) => u.status === 'failed')).toBe(true);
   });
 

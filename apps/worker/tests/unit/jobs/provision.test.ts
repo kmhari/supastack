@@ -215,7 +215,12 @@ describe('handleProvision', () => {
   });
 
   it('auth probe failure (auth-class) → drift-helper message', async () => {
-    probeMock.mockResolvedValueOnce({ ok: false, isAuthClass: true, attempts: 5, lastError: '28P01' } as never);
+    probeMock.mockResolvedValueOnce({
+      ok: false,
+      isAuthClass: true,
+      attempts: 5,
+      lastError: '28P01',
+    } as never);
     await expect(handleProvision({ ref })).rejects.toThrow(/pg_password_drift_at_provision/);
     expect(statusUpdates.some((u) => u.status === 'failed')).toBe(true);
   });

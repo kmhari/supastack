@@ -102,7 +102,14 @@ for (const r of rows) {
       ].join(''),
     );
   } else {
-    console.log(pad(r.pkg, widths[0]) + pad(r.status, widths.slice(1).reduce((a, b) => a + b, 0), true));
+    console.log(
+      pad(r.pkg, widths[0]) +
+        pad(
+          r.status,
+          widths.slice(1).reduce((a, b) => a + b, 0),
+          true,
+        ),
+    );
   }
 }
 console.log();

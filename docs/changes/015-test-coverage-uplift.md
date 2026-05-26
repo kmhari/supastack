@@ -4,13 +4,13 @@ Closes the priority gaps called out in issue #45. Per-package vitest suites adde
 
 ## Per-package deltas
 
-| Package | Baseline (2026-05-26) | After | Target |
-|---|---|---|---|
-| `packages/shared` | 0% (no tests) | **96.44%** | ≥80% ✅ |
-| `apps/api` | 39.43% | **71.86%** (w/ test env) — 41.78% rollup w/o | ≥70% ✅ |
-| `apps/worker` | 24.97% | **80.59%** | ≥60% ✅ |
-| `packages/db` | 24.05% | **95.97%** (w/ test env) — 68.65% rollup w/o | ≥70% ✅ |
-| `apps/web` | 1.01% | **35.46%** | ≥30% ✅ |
+| Package           | Baseline (2026-05-26) | After                                        | Target  |
+| ----------------- | --------------------- | -------------------------------------------- | ------- |
+| `packages/shared` | 0% (no tests)         | **96.44%**                                   | ≥80% ✅ |
+| `apps/api`        | 39.43%                | **71.86%** (w/ test env) — 41.78% rollup w/o | ≥70% ✅ |
+| `apps/worker`     | 24.97%                | **80.59%**                                   | ≥60% ✅ |
+| `packages/db`     | 24.05%                | **95.97%** (w/ test env) — 68.65% rollup w/o | ≥70% ✅ |
+| `apps/web`        | 1.01%                 | **35.46%**                                   | ≥30% ✅ |
 
 Regression-guard packages (`oauth`, `crypto`, `mcp`, `docker-control`, `backup-store`) all held their floors.
 

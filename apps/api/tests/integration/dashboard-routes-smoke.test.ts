@@ -36,7 +36,11 @@ describe.skipIf(!hasTestEnv)('/api/v1/* dashboard routes smoke', () => {
     // members
     { method: 'GET', url: '/api/v1/members' },
     { method: 'GET', url: '/api/v1/members/invites' },
-    { method: 'POST', url: '/api/v1/members/invites', body: { email: `inv-${randomBytes(3).toString('hex')}@x.io`, role: 'member' } },
+    {
+      method: 'POST',
+      url: '/api/v1/members/invites',
+      body: { email: `inv-${randomBytes(3).toString('hex')}@x.io`, role: 'member' },
+    },
     // apex
     { method: 'GET', url: '/api/v1/apex' },
     { method: 'POST', url: '/api/v1/apex/recheck' },
@@ -54,7 +58,11 @@ describe.skipIf(!hasTestEnv)('/api/v1/* dashboard routes smoke', () => {
     { method: 'GET', url: '/api/v1/health' },
     // tokens (under /auth/tokens)
     { method: 'GET', url: '/api/v1/auth/tokens' },
-    { method: 'POST', url: '/api/v1/auth/tokens', body: { label: `t-${randomBytes(3).toString('hex')}` } },
+    {
+      method: 'POST',
+      url: '/api/v1/auth/tokens',
+      body: { label: `t-${randomBytes(3).toString('hex')}` },
+    },
     { method: 'GET', url: '/api/v1/auth/me' },
     // instances
     { method: 'GET', url: '/api/v1/instances' },

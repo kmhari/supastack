@@ -131,7 +131,9 @@ function masterKey(): Buffer {
   return Buffer.from(process.env.MASTER_KEY!, 'base64');
 }
 
-function mintToken(overrides: Partial<{ sub: string; iss: string; aud: string; ttlSec: number }> = {}): SignResult {
+function mintToken(
+  overrides: Partial<{ sub: string; iss: string; aud: string; ttlSec: number }> = {},
+): SignResult {
   return signAccessToken({
     masterKey: masterKey(),
     sub: overrides.sub ?? 'user-active',

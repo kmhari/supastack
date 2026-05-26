@@ -43,9 +43,7 @@ describe('OAuthAuthorizeQuerySchema', () => {
     expect(OAuthAuthorizeQuerySchema.safeParse({ ...base, client_id: 'nope' }).success).toBe(false);
   });
   it('strict — unknown rejected', () => {
-    expect(
-      OAuthAuthorizeQuerySchema.safeParse({ ...base, extra: 1 } as never).success,
-    ).toBe(false);
+    expect(OAuthAuthorizeQuerySchema.safeParse({ ...base, extra: 1 } as never).success).toBe(false);
   });
 });
 
@@ -64,9 +62,9 @@ describe('OAuthToken request bodies', () => {
   };
   it('auth code body', () => {
     expect(OAuthTokenAuthCodeBodySchema.parse(code)).toBeDefined();
-    expect(OAuthTokenAuthCodeBodySchema.safeParse({ ...code, code_verifier: 'short' }).success).toBe(
-      false,
-    );
+    expect(
+      OAuthTokenAuthCodeBodySchema.safeParse({ ...code, code_verifier: 'short' }).success,
+    ).toBe(false);
   });
   it('refresh body', () => {
     expect(OAuthTokenRefreshBodySchema.parse(refresh)).toBeDefined();

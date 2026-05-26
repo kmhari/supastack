@@ -18,10 +18,34 @@ import { driftFixtures, type DriftFixture } from '../../fixtures/pooler-drift.js
 // ─── shared mock state ─────────────────────────────────────────────────────
 
 interface DbState {
-  instances: Array<{ ref: string; status: string; encryptedSecrets: Buffer; portDbDirect: number | null; portPostgres: number }>;
-  poolerTenants: Array<{ instanceRef: string; externalId: string; status: string; lastError: string | null; updatedAt: Date; sniHostname?: string; lastReconciledAt?: Date | null }>;
+  instances: Array<{
+    ref: string;
+    status: string;
+    encryptedSecrets: Buffer;
+    portDbDirect: number | null;
+    portPostgres: number;
+  }>;
+  poolerTenants: Array<{
+    instanceRef: string;
+    externalId: string;
+    status: string;
+    lastError: string | null;
+    updatedAt: Date;
+    sniHostname?: string;
+    lastReconciledAt?: Date | null;
+  }>;
   poolerEvents: Array<{ externalId: string; event: string; detail: unknown }>;
-  reconcilerRuns: Array<{ id: string; status: string; triggerSource: string; actorId: string | null; startedAt: Date; completedAt?: Date; errorMessage?: string | null; instancesSeen?: number; actionsTaken?: Record<string, number> }>;
+  reconcilerRuns: Array<{
+    id: string;
+    status: string;
+    triggerSource: string;
+    actorId: string | null;
+    startedAt: Date;
+    completedAt?: Date;
+    errorMessage?: string | null;
+    instancesSeen?: number;
+    actionsTaken?: Record<string, number>;
+  }>;
   org: Array<{ apexDomain: string }>;
 }
 
@@ -45,7 +69,9 @@ vi.mock('pg', () => {
   class Client {
     async connect(): Promise<void> {
       if (pgState.shouldFail) {
-        const err = new Error('password authentication failed for user "postgres"') as Error & { code?: string };
+        const err = new Error('password authentication failed for user "postgres"') as Error & {
+          code?: string;
+        };
         if (pgState.authClass) err.code = '28P01';
         throw err;
       }
@@ -77,14 +103,26 @@ vi.mock('undici', () => ({
     if (!externalId) return { ok: true, status: 200, json: async () => ({}), text: async () => '' };
     if (method === 'GET') {
       const state = fetchState.tenants.get(externalId);
-      if (state === 'error') return { ok: false, status: 500, json: async () => ({}), text: async () => 'boom' };
-      if (state === 'present') return { ok: true, status: 200, json: async () => ({ external_id: externalId }), text: async () => '' };
+      if (state === 'error')
+        return { ok: false, status: 500, json: async () => ({}), text: async () => 'boom' };
+      if (state === 'present')
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ external_id: externalId }),
+          text: async () => '',
+        };
       return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
     }
     if (method === 'PUT') {
       fetchState.registerCalls.push(externalId);
       if (fetchState.registerShouldFail) {
-        return { ok: false, status: 500, json: async () => ({}), text: async () => (fetchState.registerFailIsAuth ? 'auth failed' : 'boom') };
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({}),
+          text: async () => (fetchState.registerFailIsAuth ? 'auth failed' : 'boom'),
+        };
       }
       fetchState.tenants.set(externalId, 'present');
       return { ok: true, status: 201, json: async () => ({}), text: async () => '' };
@@ -125,12 +163,15 @@ function mockDb() {
             });
           }
           return {
-            returning: async () => dbState.reconcilerRuns.slice(-arr.length).map((r) => ({ id: r.id })),
+            returning: async () =>
+              dbState.reconcilerRuns.slice(-arr.length).map((r) => ({ id: r.id })),
           };
         }
         if (table.__name === 'poolerTenants') {
           for (const v of arr) {
-            const existingIdx = dbState.poolerTenants.findIndex((p) => p.externalId === v.externalId);
+            const existingIdx = dbState.poolerTenants.findIndex(
+              (p) => p.externalId === v.externalId,
+            );
             const row = {
               instanceRef: v.instanceRef as string,
               externalId: v.externalId as string,
@@ -139,7 +180,11 @@ function mockDb() {
               sniHostname: v.sniHostname as string | undefined,
               updatedAt: new Date(),
             };
-            if (existingIdx >= 0) dbState.poolerTenants[existingIdx] = { ...dbState.poolerTenants[existingIdx]!, ...row };
+            if (existingIdx >= 0)
+              dbState.poolerTenants[existingIdx] = {
+                ...dbState.poolerTenants[existingIdx]!,
+                ...row,
+              };
             else dbState.poolerTenants.push(row);
           }
           return {
@@ -168,7 +213,8 @@ function mockDb() {
             for (const r of dbState.reconcilerRuns) Object.assign(r, vals);
           }
           if (table.__name === 'poolerTenants') {
-            for (const p of dbState.poolerTenants) Object.assign(p, vals, { updatedAt: new Date() });
+            for (const p of dbState.poolerTenants)
+              Object.assign(p, vals, { updatedAt: new Date() });
           }
         },
       }),
@@ -192,7 +238,8 @@ function buildSelect(cols?: Record<string, unknown>): unknown {
   builder.where = () => builder;
   builder.limit = async (_n: number) => rowsFor(table, cols);
   // Plain await without .where()/.limit() — resolve to all rows
-  (builder as { then: (resolve: (v: unknown) => void) => void }).then = (resolve) => resolve(rowsFor(table, cols));
+  (builder as { then: (resolve: (v: unknown) => void) => void }).then = (resolve) =>
+    resolve(rowsFor(table, cols));
   return builder;
 }
 
@@ -219,10 +266,37 @@ function rowsFor(table: string, _cols?: Record<string, unknown>): unknown[] {
 vi.mock('@selfbase/db', () => ({
   db: () => mockDb(),
   schema: {
-    supabaseInstances: { __name: 'supabaseInstances', ref: 'ref', status: 'status', encryptedSecrets: 'encryptedSecrets', portDbDirect: 'portDbDirect', portPostgres: 'portPostgres' },
-    poolerTenants: { __name: 'poolerTenants', instanceRef: 'instanceRef', externalId: 'externalId', status: 'status', updatedAt: 'updatedAt', lastError: 'lastError', sniHostname: 'sniHostname', lastReconciledAt: 'lastReconciledAt' },
-    poolerEvents: { __name: 'poolerEvents', externalId: 'externalId', event: 'event', detail: 'detail' },
-    reconcilerRuns: { __name: 'reconcilerRuns', id: 'id', status: 'status', startedAt: 'startedAt', triggerSource: 'triggerSource' },
+    supabaseInstances: {
+      __name: 'supabaseInstances',
+      ref: 'ref',
+      status: 'status',
+      encryptedSecrets: 'encryptedSecrets',
+      portDbDirect: 'portDbDirect',
+      portPostgres: 'portPostgres',
+    },
+    poolerTenants: {
+      __name: 'poolerTenants',
+      instanceRef: 'instanceRef',
+      externalId: 'externalId',
+      status: 'status',
+      updatedAt: 'updatedAt',
+      lastError: 'lastError',
+      sniHostname: 'sniHostname',
+      lastReconciledAt: 'lastReconciledAt',
+    },
+    poolerEvents: {
+      __name: 'poolerEvents',
+      externalId: 'externalId',
+      event: 'event',
+      detail: 'detail',
+    },
+    reconcilerRuns: {
+      __name: 'reconcilerRuns',
+      id: 'id',
+      status: 'status',
+      startedAt: 'startedAt',
+      triggerSource: 'triggerSource',
+    },
     org: { __name: 'org', apexDomain: 'apexDomain' },
   },
 }));
@@ -320,7 +394,8 @@ describe('pooler-reconciler — 7 drift classes', () => {
 
   it('single-instance pass: missing_pooler_row registers + flips pooler row to active', async () => {
     loadFixture(driftFixtures.find((f) => f.id === 'missing_pooler_row')!);
-    const { startRun, runSingleInstanceReconcile } = await import('../../../src/services/pooler-reconciler.js');
+    const { startRun, runSingleInstanceReconcile } =
+      await import('../../../src/services/pooler-reconciler.js');
     const { runId } = await startRun('manual');
     const result = await runSingleInstanceReconcile(runId, 'r0000000000000000001');
     expect(result.remediated).toBe(true);
@@ -330,7 +405,8 @@ describe('pooler-reconciler — 7 drift classes', () => {
   it('supavisor unreachable → run marked failed', async () => {
     loadFixture(driftFixtures[0]!);
     fetchState.tenants.set('r0000000000000000001', 'error');
-    const { startRun, runFullReconcile } = await import('../../../src/services/pooler-reconciler.js');
+    const { startRun, runFullReconcile } =
+      await import('../../../src/services/pooler-reconciler.js');
     const { runId } = await startRun('cron');
     await runFullReconcile(runId);
     const run = dbState.reconcilerRuns.find((r) => r.id === runId);
@@ -343,7 +419,8 @@ describe('pooler-reconciler — 7 drift classes', () => {
     fetchState.registerShouldFail = true;
     pgState.shouldFail = true;
     pgState.authClass = true;
-    const { startRun, runFullReconcile } = await import('../../../src/services/pooler-reconciler.js');
+    const { startRun, runFullReconcile } =
+      await import('../../../src/services/pooler-reconciler.js');
     const { runId } = await startRun('cron');
     await runFullReconcile(runId);
     const events = dbState.poolerEvents.map((e) => e.event);

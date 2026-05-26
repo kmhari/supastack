@@ -92,17 +92,15 @@ describe('LoginRequest / TokenCreateRequest / InviteCreateRequest / InviteAccept
   });
   it('InviteCreateRequest enum', () => {
     expect(InviteCreateRequest.parse({ email: 'a@b.co', role: 'admin' })).toBeDefined();
-    expect(
-      InviteCreateRequest.safeParse({ email: 'a@b.co', role: 'owner' }).success,
-    ).toBe(false);
+    expect(InviteCreateRequest.safeParse({ email: 'a@b.co', role: 'owner' }).success).toBe(false);
   });
   it('InviteAcceptRequest token length', () => {
     expect(
       InviteAcceptRequest.parse({ token: 'x'.repeat(32), password: 'longenough' }),
     ).toBeDefined();
-    expect(
-      InviteAcceptRequest.safeParse({ token: 'short', password: 'longenough' }).success,
-    ).toBe(false);
+    expect(InviteAcceptRequest.safeParse({ token: 'short', password: 'longenough' }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -114,17 +112,15 @@ describe('InstanceCreateRequest', () => {
     expect(r.backupRetain).toBe(7);
   });
   it('rejects bad dbPassword chars', () => {
-    expect(
-      InstanceCreateRequest.safeParse({ name: 'x', dbPassword: 'has space12' }).success,
-    ).toBe(false);
-    expect(
-      InstanceCreateRequest.safeParse({ name: 'x', dbPassword: 'with$dollar' }).success,
-    ).toBe(false);
+    expect(InstanceCreateRequest.safeParse({ name: 'x', dbPassword: 'has space12' }).success).toBe(
+      false,
+    );
+    expect(InstanceCreateRequest.safeParse({ name: 'x', dbPassword: 'with$dollar' }).success).toBe(
+      false,
+    );
   });
   it('accepts good dbPassword', () => {
-    expect(
-      InstanceCreateRequest.parse({ name: 'x', dbPassword: 'abcdefgh12' }),
-    ).toBeDefined();
+    expect(InstanceCreateRequest.parse({ name: 'x', dbPassword: 'abcdefgh12' })).toBeDefined();
   });
   it('rejects jwtExpirySec out of range', () => {
     expect(InstanceCreateRequest.safeParse({ name: 'x', jwtExpirySec: 1 }).success).toBe(false);
@@ -236,15 +232,15 @@ describe('BackupStoreConfig discriminated union', () => {
 
 describe('UpdatePostgrestConfigBodySchema', () => {
   it('accepts known fields', () => {
-    expect(UpdatePostgrestConfigBodySchema.parse({ db_schema: 'public', max_rows: 100 })).toBeDefined();
+    expect(
+      UpdatePostgrestConfigBodySchema.parse({ db_schema: 'public', max_rows: 100 }),
+    ).toBeDefined();
   });
   it('db_pool nullable', () => {
     expect(UpdatePostgrestConfigBodySchema.parse({ db_pool: null })).toBeDefined();
   });
   it('rejects unknown fields (strict)', () => {
-    expect(
-      UpdatePostgrestConfigBodySchema.safeParse({ unknown: 1 } as never).success,
-    ).toBe(false);
+    expect(UpdatePostgrestConfigBodySchema.safeParse({ unknown: 1 } as never).success).toBe(false);
   });
   it('rejects out-of-range', () => {
     expect(UpdatePostgrestConfigBodySchema.safeParse({ max_rows: -1 }).success).toBe(false);
@@ -293,9 +289,9 @@ describe('UpdateAuthConfigBodySchema', () => {
     expect(
       UpdateAuthConfigBodySchema.safeParse({ security_captcha_provider: 'bogus' as never }).success,
     ).toBe(false);
-    expect(
-      UpdateAuthConfigBodySchema.safeParse({ sms_provider: 'bogus' as never }).success,
-    ).toBe(false);
+    expect(UpdateAuthConfigBodySchema.safeParse({ sms_provider: 'bogus' as never }).success).toBe(
+      false,
+    );
   });
   it('accepts nullable fields', () => {
     expect(UpdateAuthConfigBodySchema.parse({ site_url: null })).toBeDefined();

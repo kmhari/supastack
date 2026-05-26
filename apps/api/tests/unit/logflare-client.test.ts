@@ -5,7 +5,13 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
  * mocked; we don't need a live Logflare container in unit tests.
  */
 
-const instanceStore = { row: null as null | { status: string; secrets: { logflarePrivateAccessToken: string }; portKong: number } };
+const instanceStore = {
+  row: null as null | {
+    status: string;
+    secrets: { logflarePrivateAccessToken: string };
+    portKong: number;
+  },
+};
 
 vi.mock('@selfbase/db', () => ({
   db: () => ({
@@ -14,17 +20,21 @@ vi.mock('@selfbase/db', () => ({
         where: () => ({
           limit: async () => {
             if (!instanceStore.row) return [];
-            return [{
-              status: instanceStore.row.status,
-              portKong: instanceStore.row.portKong,
-              encryptedSecrets: Buffer.from('stub'),
-            }];
+            return [
+              {
+                status: instanceStore.row.status,
+                portKong: instanceStore.row.portKong,
+                encryptedSecrets: Buffer.from('stub'),
+              },
+            ];
           },
         }),
       }),
     }),
   }),
-  schema: { supabaseInstances: { ref: 'ref', status: 'status', portKong: 'pk', encryptedSecrets: 'es' } },
+  schema: {
+    supabaseInstances: { ref: 'ref', status: 'status', portKong: 'pk', encryptedSecrets: 'es' },
+  },
 }));
 
 vi.mock('@selfbase/crypto', () => ({
@@ -34,14 +44,17 @@ vi.mock('@selfbase/crypto', () => ({
 
 vi.mock('drizzle-orm', () => ({ eq: () => ({}) }));
 
-const { queryLogs, AnalyticsUnreachableError, _SERVICE_TABLE } = await import(
-  '../../src/services/logflare-client.js'
-);
+const { queryLogs, AnalyticsUnreachableError, _SERVICE_TABLE } =
+  await import('../../src/services/logflare-client.js');
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-  instanceStore.row = { status: 'running', portKong: 30006, secrets: { logflarePrivateAccessToken: 'tok-1' } };
+  instanceStore.row = {
+    status: 'running',
+    portKong: 30006,
+    secrets: { logflarePrivateAccessToken: 'tok-1' },
+  };
   fetchMock = vi.fn();
   globalThis.fetch = fetchMock as unknown as typeof fetch;
 });
@@ -87,7 +100,11 @@ describe('queryLogs', () => {
   });
 
   it('paused project → AnalyticsUnreachableError with status hint', async () => {
-    instanceStore.row = { status: 'paused', portKong: 30006, secrets: { logflarePrivateAccessToken: 'tok' } };
+    instanceStore.row = {
+      status: 'paused',
+      portKong: 30006,
+      secrets: { logflarePrivateAccessToken: 'tok' },
+    };
     await expect(queryLogs('ref-1', { service: 'api' })).rejects.toThrow(AnalyticsUnreachableError);
   });
 

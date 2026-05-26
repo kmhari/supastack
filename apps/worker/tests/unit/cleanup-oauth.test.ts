@@ -103,7 +103,11 @@ describe('runCleanupOauthRefresh', () => {
     refreshStore.push(
       { token: 'idle-1', lastUsedAt: new Date(now - 40 * day), revokedAt: null },
       { token: 'fresh-1', lastUsedAt: new Date(now - 5 * day), revokedAt: null },
-      { token: 'revoked-old', lastUsedAt: new Date(now - 100 * day), revokedAt: new Date(now - 50 * day) },
+      {
+        token: 'revoked-old',
+        lastUsedAt: new Date(now - 100 * day),
+        revokedAt: new Date(now - 50 * day),
+      },
     );
     const result = await runCleanupOauthRefresh();
     expect(result.deletedCount).toBe(1);

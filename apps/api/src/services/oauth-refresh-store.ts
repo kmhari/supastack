@@ -21,13 +21,15 @@ export type RotateRefreshResult =
 
 export async function issueRefresh(input: IssueRefreshInput): Promise<string> {
   const token = randomBytes(32).toString('base64url');
-  await db().insert(schema.oauthRefreshTokens).values({
-    token,
-    clientId: input.clientId,
-    userId: input.userId,
-    scope: input.scope,
-    previousToken: input.previousToken ?? null,
-  });
+  await db()
+    .insert(schema.oauthRefreshTokens)
+    .values({
+      token,
+      clientId: input.clientId,
+      userId: input.userId,
+      scope: input.scope,
+      previousToken: input.previousToken ?? null,
+    });
   return token;
 }
 
@@ -78,9 +80,7 @@ export async function rotateRefresh(
       scope: row.scope,
       previousToken: oldToken,
     });
-    await tx
-      .delete(schema.oauthRefreshTokens)
-      .where(eq(schema.oauthRefreshTokens.token, oldToken));
+    await tx.delete(schema.oauthRefreshTokens).where(eq(schema.oauthRefreshTokens.token, oldToken));
   });
 
   return { ok: true, newToken, userId: row.userId, scope: row.scope };
@@ -90,10 +90,7 @@ export async function rotateRefresh(
  * Revoke ALL refresh tokens for (user, client). Returns count deleted.
  * Used by: dashboard revoke + reuse-detection.
  */
-export async function revokeRefreshByClient(
-  clientId: string,
-  userId: string,
-): Promise<number> {
+export async function revokeRefreshByClient(clientId: string, userId: string): Promise<number> {
   const rows = await db()
     .delete(schema.oauthRefreshTokens)
     .where(
@@ -114,9 +111,6 @@ export async function touchRefresh(token: string): Promise<void> {
     .update(schema.oauthRefreshTokens)
     .set({ lastUsedAt: sql`now()` })
     .where(
-      and(
-        eq(schema.oauthRefreshTokens.token, token),
-        isNull(schema.oauthRefreshTokens.revokedAt),
-      ),
+      and(eq(schema.oauthRefreshTokens.token, token), isNull(schema.oauthRefreshTokens.revokedAt)),
     );
 }

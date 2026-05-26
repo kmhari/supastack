@@ -16,11 +16,7 @@ describe('AppError', () => {
 });
 
 describe('errors factory', () => {
-  const cases: Array<[
-    () => AppError,
-    number,
-    AppError['code'],
-  ]> = [
+  const cases: Array<[() => AppError, number, AppError['code']]> = [
     [() => errors.invalidInput('m'), 400, 'invalid_input'],
     [() => errors.unauthenticated(), 401, 'unauthenticated'],
     [() => errors.reauthRequired(), 401, 'reauth_required'],

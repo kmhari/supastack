@@ -80,23 +80,17 @@ describe('ProjectGeneralPage', () => {
       cert: null,
     });
     render(
-      withProviders(
-        '/dashboard/project/abc',
-        '/dashboard/project/:ref',
-        <ProjectGeneralPage />,
-      ),
+      withProviders('/dashboard/project/abc', '/dashboard/project/:ref', <ProjectGeneralPage />),
     );
-    await waitFor(() => expect(screen.getAllByDisplayValue('My Project').length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByDisplayValue('My Project').length).toBeGreaterThan(0),
+    );
   });
 
   it('renders error message when api fails', async () => {
     instanceGet.mockRejectedValue(new Error('boom'));
     render(
-      withProviders(
-        '/dashboard/project/abc',
-        '/dashboard/project/:ref',
-        <ProjectGeneralPage />,
-      ),
+      withProviders('/dashboard/project/abc', '/dashboard/project/:ref', <ProjectGeneralPage />),
     );
     await waitFor(() => {
       // Either the error block or no display value present

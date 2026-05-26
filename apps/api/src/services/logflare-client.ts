@@ -16,13 +16,7 @@ import { db, schema } from '@selfbase/db';
 import { decryptJson, loadMasterKey } from '@selfbase/crypto';
 import type { InstanceSecrets } from './instance-secrets.js';
 
-export type LogService =
-  | 'api'
-  | 'postgres'
-  | 'edge-function'
-  | 'auth'
-  | 'storage'
-  | 'realtime';
+export type LogService = 'api' | 'postgres' | 'edge-function' | 'auth' | 'storage' | 'realtime';
 
 const SERVICE_TABLE: Record<LogService, string> = {
   api: 'edge_logs',
@@ -121,9 +115,10 @@ export async function queryLogs(ref: string, opts: QueryLogsOptions): Promise<Lo
   } catch (err) {
     throw new AnalyticsBadGatewayError(`logflare returned invalid JSON: ${(err as Error).message}`);
   }
-  const result = (json as { result?: LogRow[]; data?: LogRow[] }).result
-    ?? (json as { result?: LogRow[]; data?: LogRow[] }).data
-    ?? [];
+  const result =
+    (json as { result?: LogRow[]; data?: LogRow[] }).result ??
+    (json as { result?: LogRow[]; data?: LogRow[] }).data ??
+    [];
   return result;
 }
 

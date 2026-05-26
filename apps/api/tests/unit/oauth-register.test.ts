@@ -53,10 +53,13 @@ const { resetBuckets } = await import('../../src/services/oauth-register-bucket.
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify();
-  await app.register(async (mgmt) => {
-    await mgmt.register(mgmtApiErrorsPlugin);
-    await mgmt.register(oauthRegisterRoutes);
-  }, { prefix: '/v1' });
+  await app.register(
+    async (mgmt) => {
+      await mgmt.register(mgmtApiErrorsPlugin);
+      await mgmt.register(oauthRegisterRoutes);
+    },
+    { prefix: '/v1' },
+  );
   return app;
 }
 
@@ -80,7 +83,9 @@ describe('POST /v1/oauth/register (RFC 7591 DCR)', () => {
       });
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.client_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      expect(body.client_id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
       expect(body.token_endpoint_auth_method).toBe('none');
       expect(body.grant_types).toEqual(['authorization_code', 'refresh_token']);
       expect(body.response_types).toEqual(['code']);

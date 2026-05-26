@@ -120,7 +120,9 @@ describe('functions schemas', () => {
     const r = EszipDeployQuerySchema.parse({ slug: 'my-fn', verify_jwt: 'true' });
     expect(r.verify_jwt).toBe(true);
     expect(EszipDeployQuerySchema.safeParse({ slug: 'BAD' }).success).toBe(false);
-    expect(EszipDeployQuerySchema.safeParse({ slug: 'my-fn', ezbr_sha256: 'zz' }).success).toBe(false);
+    expect(EszipDeployQuerySchema.safeParse({ slug: 'my-fn', ezbr_sha256: 'zz' }).success).toBe(
+      false,
+    );
   });
   it('EszipUpdateQuerySchema strips slug + name', () => {
     expect(EszipUpdateQuerySchema.parse({})).toBeDefined();
@@ -223,9 +225,7 @@ describe('db query/dump schemas', () => {
   it('DbDumpBodySchema mutually exclusive', () => {
     expect(DbDumpBodySchema.parse({})).toBeDefined();
     expect(DbDumpBodySchema.parse({ schema_only: true })).toBeDefined();
-    expect(
-      DbDumpBodySchema.safeParse({ schema_only: true, data_only: true }).success,
-    ).toBe(false);
+    expect(DbDumpBodySchema.safeParse({ schema_only: true, data_only: true }).success).toBe(false);
     expect(DbDumpBodySchema.safeParse({ extra: 1 } as never).success).toBe(false);
   });
   it('DbDumpDryRunResponseSchema', () => {
