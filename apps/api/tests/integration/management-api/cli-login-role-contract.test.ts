@@ -58,7 +58,10 @@ interface OpenApiSnapshot {
     >
   >;
   components: {
-    schemas: Record<string, { type: string; properties: Record<string, unknown>; required: string[] }>;
+    schemas: Record<
+      string,
+      { type: string; properties: Record<string, unknown>; required: string[] }
+    >;
   };
 }
 
@@ -145,8 +148,6 @@ describe('cli-login-role contract vs upstream OpenAPI snapshot', () => {
   // ─── Forward-compat with our chosen Zod posture ─────────────────────────
 
   it('CreateLoginRoleBody is strict — surprise fields are rejected (our policy, not upstream-mandated)', () => {
-    expect(() =>
-      CreateLoginRoleBody.parse({ read_only: false, surprise: 1 } as never),
-    ).toThrow();
+    expect(() => CreateLoginRoleBody.parse({ read_only: false, surprise: 1 } as never)).toThrow();
   });
 });

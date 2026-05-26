@@ -124,7 +124,10 @@ export function SettingsTokensPage(): React.ReactElement {
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-foreground">{t.label}</span>
                       {t.source === 'cli' && (
-                        <Badge variant="outline" className="h-4 px-1.5 text-[10px] font-medium uppercase tracking-wider">
+                        <Badge
+                          variant="outline"
+                          className="h-4 px-1.5 text-[10px] font-medium uppercase tracking-wider"
+                        >
                           cli
                         </Badge>
                       )}

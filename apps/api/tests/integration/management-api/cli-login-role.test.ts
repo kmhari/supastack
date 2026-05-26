@@ -20,10 +20,7 @@
 import { randomBytes } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import {
-  CreateLoginRoleResponse,
-  DeleteLoginRolesResponse,
-} from '@selfbase/shared';
+import { CreateLoginRoleResponse, DeleteLoginRolesResponse } from '@selfbase/shared';
 import {
   buildAuthedApp,
   hasTestEnv,
@@ -58,9 +55,9 @@ let existsResult: boolean = false;
 vi.mock('../../../src/services/per-instance-pg.js', async () => {
   // Re-export the real error classes so the service layer's `instanceof`
   // checks still match. Only the function body is replaced.
-  const actual = await vi.importActual<
-    typeof import('../../../src/services/per-instance-pg.js')
-  >('../../../src/services/per-instance-pg.js');
+  const actual = await vi.importActual<typeof import('../../../src/services/per-instance-pg.js')>(
+    '../../../src/services/per-instance-pg.js',
+  );
 
   return {
     ...actual,
@@ -131,9 +128,7 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/cli/login-role', () => {
     existsResult = false;
     recordedQueries.length = 0;
     // Clear the in-memory rate-limit bucket so cases are hermetic.
-    const { _resetBuckets } = await import(
-      '../../../src/services/cli-login-role-bucket.js'
-    );
+    const { _resetBuckets } = await import('../../../src/services/cli-login-role-bucket.js');
     _resetBuckets();
   });
 
@@ -174,7 +169,9 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/cli/login-role', () => {
 
     // CREATE statement: role + target identifiers correctly quoted.
     const createSql = recordedQueries[3]!.sql;
-    expect(createSql).toContain('CREATE ROLE "cli_login_postgres" NOINHERIT LOGIN NOREPLICATION IN ROLE "postgres"');
+    expect(createSql).toContain(
+      'CREATE ROLE "cli_login_postgres" NOINHERIT LOGIN NOREPLICATION IN ROLE "postgres"',
+    );
 
     // ALTER statement: role identifier + password literal + VALID UNTIL.
     const alterSql = recordedQueries[4]!.sql;
@@ -414,11 +411,9 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/cli/login-role', () => {
     await withMockInstance(ref);
 
     const captured: string[] = [];
-    const spy = vi
-      .spyOn(app.log, 'info')
-      .mockImplementation((obj, msg, ...rest) => {
-        captured.push(JSON.stringify({ obj, msg, rest }));
-      });
+    const spy = vi.spyOn(app.log, 'info').mockImplementation((obj, msg, ...rest) => {
+      captured.push(JSON.stringify({ obj, msg, rest }));
+    });
     // Also catch nested child loggers.
     const origChild = app.log.child.bind(app.log);
     vi.spyOn(app.log, 'child').mockImplementation((bindings) => {
@@ -441,9 +436,7 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/cli/login-role', () => {
 
     spy.mockRestore();
 
-    const rotated = captured.filter((line) =>
-      line.includes('cli_login_role_rotated'),
-    );
+    const rotated = captured.filter((line) => line.includes('cli_login_role_rotated'));
     expect(rotated.length).toBe(1);
     // No log line carries the rotated password.
     for (const line of captured) {
@@ -489,9 +482,7 @@ describe.skipIf(!hasTestEnv)('DELETE /v1/projects/:ref/cli/login-role', () => {
     nextMode = { kind: 'ok' };
     existsResult = false;
     recordedQueries.length = 0;
-    const { _resetBuckets } = await import(
-      '../../../src/services/cli-login-role-bucket.js'
-    );
+    const { _resetBuckets } = await import('../../../src/services/cli-login-role-bucket.js');
     _resetBuckets();
   });
 
@@ -516,9 +507,7 @@ describe.skipIf(!hasTestEnv)('DELETE /v1/projects/:ref/cli/login-role', () => {
     // on empty"). Here we instead test the "POST then DELETE" flow lower
     // in this file: see the "POST → DELETE → POST recovers" case for the
     // full ALTER trace.
-    const existChecks = recordedQueries.filter((q) =>
-      q.sql.startsWith('SELECT EXISTS'),
-    );
+    const existChecks = recordedQueries.filter((q) => q.sql.startsWith('SELECT EXISTS'));
     expect(existChecks.length).toBe(2);
     expect(existChecks[0]!.params).toEqual(['cli_login_postgres']);
     expect(existChecks[1]!.params).toEqual(['cli_login_supabase_read_only_user']);
@@ -619,9 +608,7 @@ describe.skipIf(!hasTestEnv)('DELETE /v1/projects/:ref/cli/login-role', () => {
 
     spy.mockRestore();
 
-    expect(
-      captured.some((line) => line.includes('cli_login_role_invalidated')),
-    ).toBe(true);
+    expect(captured.some((line) => line.includes('cli_login_role_invalidated'))).toBe(true);
   });
 
   // ─── POST → DELETE → POST recovers — covers T022 #3 ──────────────────────

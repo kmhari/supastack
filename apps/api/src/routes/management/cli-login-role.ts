@@ -32,11 +32,7 @@ import {
   invalidateCliLoginRoles,
   rotateCliLoginRole,
 } from '../../services/cli-login-role-service.js';
-import {
-  RATE_LIMIT,
-  WINDOW_MS,
-  tryConsume,
-} from '../../services/cli-login-role-bucket.js';
+import { RATE_LIMIT, WINDOW_MS, tryConsume } from '../../services/cli-login-role-bucket.js';
 import {
   InstanceNotFoundError,
   InstanceNotRunningError,
@@ -150,31 +146,28 @@ export const cliLoginRoleRoutes: FastifyPluginAsync = async (app) => {
   );
 
   // ─── DELETE: invalidate active passwords on both CLI roles ────────────────
-  app.delete<{ Params: { ref: string } }>(
-    '/projects/:ref/cli/login-role',
-    async (req, reply) => {
-      const user = app.requireAuth(req);
-      app.authorize(req, 'database.create-login-role');
+  app.delete<{ Params: { ref: string } }>('/projects/:ref/cli/login-role', async (req, reply) => {
+    const user = app.requireAuth(req);
+    app.authorize(req, 'database.create-login-role');
 
-      const ref = req.params.ref;
-      const proj = await getProjectByRef(user.id, ref);
-      if (!proj) {
-        throw new ManagementApiError(404, 'Project not found', 'not_found', { ref });
-      }
+    const ref = req.params.ref;
+    const proj = await getProjectByRef(user.id, ref);
+    if (!proj) {
+      throw new ManagementApiError(404, 'Project not found', 'not_found', { ref });
+    }
 
-      // DELETE does NOT consume the rate-limit bucket (spec Q3, FR-010 —
-      // the bucket gates the create endpoint only, so lockdown is always
-      // available even from a PAT that has hit its rotation cap).
-      try {
-        await invalidateCliLoginRoles(ref, {
-          patId: user.tokenId ?? user.id,
-          requesterIp: req.ip,
-          logger: req.log,
-        });
-        return reply.status(200).send({ message: 'ok' });
-      } catch (err) {
-        mapPgError(err);
-      }
-    },
-  );
+    // DELETE does NOT consume the rate-limit bucket (spec Q3, FR-010 —
+    // the bucket gates the create endpoint only, so lockdown is always
+    // available even from a PAT that has hit its rotation cap).
+    try {
+      await invalidateCliLoginRoles(ref, {
+        patId: user.tokenId ?? user.id,
+        requesterIp: req.ip,
+        logger: req.log,
+      });
+      return reply.status(200).send({ message: 'ok' });
+    } catch (err) {
+      mapPgError(err);
+    }
+  });
 };
