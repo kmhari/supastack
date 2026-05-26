@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
 import {
   putSession,
   sessionExists,
@@ -50,7 +50,7 @@ let fake: FakeRedis;
 
 beforeEach(() => {
   fake = new FakeRedis();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   setRedisForTesting(fake as any);
 });
 

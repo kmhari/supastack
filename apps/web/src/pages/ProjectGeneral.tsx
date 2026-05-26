@@ -26,7 +26,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import {
@@ -469,26 +468,6 @@ function Section({
       </h2>
       {description && <p className="m-0 mb-4 text-sm text-muted-foreground">{description}</p>}
       {children}
-    </div>
-  );
-}
-
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}): React.ReactElement {
-  return (
-    <div className="grid grid-cols-[200px_1fr] items-start gap-6">
-      <div className="pt-2">
-        <Label className="text-sm text-foreground">{label}</Label>
-        {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
-      </div>
-      <div className="min-w-0">{children}</div>
     </div>
   );
 }

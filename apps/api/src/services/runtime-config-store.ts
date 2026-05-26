@@ -40,8 +40,6 @@ import {
   SECRET_FIELDS,
   UpdateAuthConfigBodySchema,
   UpdatePostgrestConfigBodySchema,
-  type UpdateAuthConfigBody,
-  type UpdatePostgrestConfigBody,
   POSTGREST_CONFIG_DEFAULTS,
 } from '@selfbase/shared';
 import { ManagementApiError } from '../plugins/mgmt-api-errors.js';

@@ -1,13 +1,4 @@
-import {
-  pgTable,
-  uuid,
-  text,
-  integer,
-  jsonb,
-  timestamp,
-  index,
-  uniqueIndex,
-} from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, jsonb, timestamp, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { users } from './identity.js';
 

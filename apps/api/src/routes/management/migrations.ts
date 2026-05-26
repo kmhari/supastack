@@ -32,22 +32,6 @@ const UpsertBody = z.object({
   statements: z.array(z.string()).nullable().optional(),
 });
 
-async function ensureProject<T extends { ref: string }>(
-  app: Parameters<FastifyPluginAsync>[0],
-  req: Parameters<Parameters<FastifyPluginAsync>[0]['get']>[1] extends infer F
-    ? F extends (req: infer R, ...rest: unknown[]) => unknown
-      ? R
-      : never
-    : never,
-  ref: string,
-): Promise<void> {
-  const user = app.requireAuth(req);
-  const proj = await getProjectByRef(user.id, ref);
-  if (!proj) {
-    throw new ManagementApiError(404, 'Project not found', 'not_found', { ref });
-  }
-}
-
 function mapPgError(err: unknown): never {
   if (err instanceof InstanceNotFoundError) {
     throw new ManagementApiError(404, err.message, 'not_found');

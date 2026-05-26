@@ -253,7 +253,6 @@ export async function verifyAndFinalize(apex: string): Promise<VerifyResult> {
       .where(eq(schema.wildcardCerts.apex, apex));
 
     // Mark in-progress renewal event as success
-    const orgId = row.orgId;
     await db()
       .update(schema.certRenewalEvents)
       .set({ outcome: 'success', certNotAfter: notAfter, finishedAt: new Date() })

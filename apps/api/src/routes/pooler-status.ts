@@ -5,7 +5,7 @@
  * recent reconciler runs into one shape for the dashboard panel.
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { desc, eq } from 'drizzle-orm';
+import { desc } from 'drizzle-orm';
 import { fetch } from 'undici';
 import crypto from 'node:crypto';
 import { db, schema } from '@selfbase/db';
