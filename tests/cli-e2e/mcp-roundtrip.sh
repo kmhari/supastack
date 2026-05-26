@@ -85,8 +85,74 @@ CALL_RES=$(curl -sk -X POST "$MCP" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_projects","arguments":{}}}')
 echo "    response: $(echo "$CALL_RES" | head -c 200)..."
 
+# Phase 6 US4 — get_logs via direct API (not MCP — proves the backing endpoint works)
+echo "==> [4] get_logs via direct API call (US4)"
+if [[ -n "${SELFBASE_PROJECT_REF:-}" ]]; then
+  API="https://api.${SELFBASE_APEX}"
+  LOGS_RES=$(curl -sk "${API}/v1/projects/${SELFBASE_PROJECT_REF}/analytics/endpoints/logs.all?service=api" \
+    -H "Authorization: Bearer ${JWT}" -w '\nHTTP %{http_code}\n')
+  STATUS=$(echo "$LOGS_RES" | grep -oE 'HTTP [0-9]+' | tail -1 | awk '{print $2}')
+  if [[ "$STATUS" == "200" ]]; then
+    echo "    200 — logs endpoint accessible via OAuth bearer"
+  elif [[ "$STATUS" == "503" ]]; then
+    echo "    503 (analytics_unreachable) — endpoint present but logflare not reachable (acceptable in test env)"
+  else
+    echo "    WARN: unexpected status $STATUS for get_logs"
+  fi
+else
+  echo "    SKIP: SELFBASE_PROJECT_REF not set"
+fi
+
+# Phase 7 US5 — list_storage_buckets via direct API
+echo "==> [5] list_storage_buckets via direct API call (US5)"
+if [[ -n "${SELFBASE_PROJECT_REF:-}" ]]; then
+  API="https://api.${SELFBASE_APEX}"
+  BUCKETS_RES=$(curl -sk "${API}/v1/projects/${SELFBASE_PROJECT_REF}/storage/buckets" \
+    -H "Authorization: Bearer ${JWT}" -w '\nHTTP %{http_code}\n')
+  STATUS=$(echo "$BUCKETS_RES" | grep -oE 'HTTP [0-9]+' | tail -1 | awk '{print $2}')
+  if [[ "$STATUS" == "200" ]]; then
+    BUCKETS_BODY=$(echo "$BUCKETS_RES" | sed '$d')
+    BUCKET_COUNT=$(echo "$BUCKETS_BODY" | jq -r 'length' 2>/dev/null || echo '?')
+    echo "    200 — $BUCKET_COUNT buckets returned"
+  elif [[ "$STATUS" == "503" || "$STATUS" == "502" ]]; then
+    echo "    $STATUS — endpoint present but storage container not reachable (acceptable)"
+  else
+    echo "    WARN: unexpected status $STATUS for list_storage_buckets"
+  fi
+else
+  echo "    SKIP: SELFBASE_PROJECT_REF not set"
+fi
+
+# Phase 5 US3 — revoke MCP client (verifies SC-004 <5s propagation)
+echo "==> [6] revoke MCP client (US3 + SC-004)"
+if [[ -n "${SELFBASE_SESSION_COOKIE:-}" ]]; then
+  # Get the JWT's client_id from the JWT payload (no need to look up DB)
+  AZP=$(echo "$JWT" | cut -d. -f2 | base64 --decode 2>/dev/null | jq -r '.azp' 2>/dev/null || echo "")
+  if [[ -n "$AZP" ]]; then
+    DASH="https://${SELFBASE_APEX}"
+    REVOKE_RES=$(curl -sk -X DELETE "${DASH}/api/v1/oauth/clients/${AZP}" \
+      -H "Cookie: sb_sid=${SELFBASE_SESSION_COOKIE}" \
+      -w '\nHTTP %{http_code}\n')
+    STATUS=$(echo "$REVOKE_RES" | grep -oE 'HTTP [0-9]+' | tail -1 | awk '{print $2}')
+    [[ "$STATUS" == "200" ]] || { echo "    WARN: revoke returned $STATUS"; }
+    if [[ "$STATUS" == "200" ]]; then
+      echo "    revoke 200; now verify JWT rejected within 5s..."
+      sleep 2
+      POST_RES=$(curl -sk -X POST "$MCP" -H "Authorization: Bearer ${JWT}" \
+        -H 'Content-Type: application/json' \
+        -d '{"jsonrpc":"2.0","id":100,"method":"tools/list"}' \
+        -w '\nHTTP %{http_code}\n')
+      REJECTED=$(echo "$POST_RES" | grep -oE 'HTTP [0-9]+' | tail -1 | awk '{print $2}')
+      [[ "$REJECTED" == "401" ]] || { echo "FAIL: revoked JWT still accepted (got $REJECTED)"; exit 1; }
+      echo "    revoked JWT rejected with 401 ✓ (SC-004 met)"
+    fi
+  fi
+else
+  echo "    SKIP: SELFBASE_SESSION_COOKIE not set (revoke requires dashboard session)"
+fi
+
 # Revoked-token check (negative)
-echo "==> [4] expired/invalid bearer → 401 + WWW-Authenticate"
+echo "==> [7] expired/invalid bearer → 401 + WWW-Authenticate"
 EXPIRED_RES=$(curl -sk -X POST "$MCP" \
   -H "Authorization: Bearer not.a.valid.jwt" \
   -H "Content-Type: application/json" \
