@@ -46,6 +46,8 @@ export const ACTIONS = [
   'instance.secrets.read',
   'instance.secrets.write',
   'instance.vault.enable',
+  // feature 012 — CLI login-role (passwordless `supabase db push`)
+  'database.create-login-role',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -88,6 +90,7 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'instance.secrets.read': true,
     'instance.secrets.write': true,
     'instance.vault.enable': true,
+    'database.create-login-role': true,
   },
   member: {
     'setup.run': false, // setup only runs unauthenticated, before any user exists
@@ -125,6 +128,7 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'instance.secrets.read': true, // members can view digests (no plaintext) — read-only dashboard view
     'instance.secrets.write': false,
     'instance.vault.enable': false,
+    'database.create-login-role': false, // members cannot mint write-capable PG creds via CLI exchange
   },
 };
 

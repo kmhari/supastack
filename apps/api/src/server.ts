@@ -28,6 +28,7 @@ import { functionsRoutes } from './routes/management/functions.js';
 import { secretsRoutes } from './routes/management/secrets.js';
 import { genTypesRoutes } from './routes/management/gen-types.js';
 import { migrationsRoutes } from './routes/management/migrations.js';
+import { cliLoginRoleRoutes } from './routes/management/cli-login-role.js';
 import { authConfigRoutes } from './routes/management/auth-config.js';
 import { postgrestConfigRoutes } from './routes/management/postgrest-config.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
@@ -211,6 +212,8 @@ export async function buildApp(): Promise<FastifyInstance> {
       // Feature 009 — runtime config tunables (postgres-config + auth-config):
       await mgmt.register(postgrestConfigRoutes);
       await mgmt.register(authConfigRoutes);
+      // Feature 012 — CLI login-role (passwordless `supabase db push`):
+      await mgmt.register(cliLoginRoleRoutes);
       // Catch-all MUST be last so real routes match first (FR-024).
       await mgmt.register(notImplementedRoutes);
     },
