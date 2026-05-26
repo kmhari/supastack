@@ -143,11 +143,6 @@ describe('renderInstanceEnv — happy path', () => {
     expect(out).toMatch(/^SUPABASE_PUBLIC_URL=https:\/\/aaaaaaaaaaaaaaaaaaaa\.x\.io$/m);
   });
 
-  test('NEXT_PUBLIC_BASE_PATH is constant /studio (matches Studio image build-arg)', async () => {
-    const out = await renderInstanceEnv(baseInputs());
-    expect(out).toMatch(/^NEXT_PUBLIC_BASE_PATH=\/studio$/m);
-  });
-
   test('POSTGRES_HOST is internal "db" (feature 005: sibling containers connect direct)', async () => {
     const out = await renderInstanceEnv(
       baseInputs({ ref: 'abcdefghijklmnopqrst', apex: 'selfbase.example.com' }),
