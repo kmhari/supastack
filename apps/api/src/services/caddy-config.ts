@@ -182,6 +182,21 @@ export async function buildCaddyConfig(): Promise<unknown> {
       ]
     : [];
 
+  /**
+   * MCP service host (`mcp.<apex>`) — feature 014. Routes to the selfbase-mcp
+   * container which serves the OAuth-gated Streamable HTTP transport at /mcp
+   * and the protected-resource discovery at /.well-known/oauth-protected-resource.
+   */
+  const mcpHostRoute = apex
+    ? [
+        {
+          match: [{ host: [`mcp.${apex}`] }],
+          handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'mcp:3002' }] }],
+          terminal: true,
+        },
+      ]
+    : [];
+
   const httpsRoutes = [
     ...instances.map((i) => instanceRoute(i.ref, i.portKong, dataHost(i.ref))),
     // Feature 010 — redirect Studio's broken /functions/secrets URL to selfbase.
@@ -189,6 +204,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
     ...instances.map((i) => studioSecretsRedirectRoute(i.ref, studioHost(i.ref))),
     ...instances.map((i) => instanceStudioRoute(i.ref, i.portStudio, studioHost(i.ref))),
     ...apiHostRoute,
+    ...mcpHostRoute,
     dashboardFallback,
   ];
 
@@ -200,6 +216,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
     ...instances.map((i) => studioSecretsRedirectRoute(i.ref, studioHost(i.ref))),
     ...instances.map((i) => instanceStudioRoute(i.ref, i.portStudio, studioHost(i.ref))),
     ...apiHostRoute,
+    ...mcpHostRoute,
     dashboardFallback,
   ];
 

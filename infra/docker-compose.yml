@@ -58,6 +58,9 @@ services:
     restart: unless-stopped
     cap_add:
       - NET_BIND_SERVICE
+    environment:
+      # Feature 014 — needed by the explicit mcp.<apex> server block in Caddyfile.
+      SELFBASE_APEX: ${SELFBASE_APEX:?SELFBASE_APEX required}
     ports:
       - '80:80'
       - '443:443'
@@ -111,6 +114,8 @@ services:
       # short-TTL HS256 JWTs with this secret to call supavisor's /api/tenants.
       SUPAVISOR_URL: http://supavisor:4000
       SUPAVISOR_API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET:-}
+      # Feature 014 — OAuth issuer + JWT iss/aud derivation. Same value mcp + supavisor use.
+      SELFBASE_APEX: ${SELFBASE_APEX:?SELFBASE_APEX required}
     ports:
       - 3001:3001
       # pg-edge proxy — direct Postgres endpoint for db.<ref>.<apex>:5432
@@ -179,6 +184,44 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  # MCP HTTP service — wraps upstream @supabase/mcp-server-supabase as a
+  # Streamable HTTP transport at mcp.<apex>/mcp, gated by selfbase OAuth
+  # bearer tokens (feature 014).
+  mcp:
+    image: selfbase/mcp:${SELFBASE_VERSION:-dev}
+    build:
+      context: ..
+      dockerfile: apps/mcp/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SELFBASE_SERVICE: mcp
+      DATABASE_URL: postgres://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
+      REDIS_URL: redis://redis:6379
+      MASTER_KEY: ${MASTER_KEY:?MASTER_KEY required}
+      SELFBASE_API_URL: http://api:3001
+      SELFBASE_APEX: ${SELFBASE_APEX:?SELFBASE_APEX required}
+    networks: [internal]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          'fetch("http://localhost:3002/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
 
   # Top-level Supavisor — multi-tenant Postgres pooler (feature 005 Phase 5).
   # Provides pooler.<apex>:6543 (transaction mode). Each project is registered

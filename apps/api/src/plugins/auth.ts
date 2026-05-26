@@ -8,6 +8,16 @@ import { Redis } from 'ioredis';
 import RedisStore from 'connect-redis';
 import { db, schema } from '@selfbase/db';
 import { errors, type Role } from '@selfbase/shared';
+import { loadMasterKey } from '@selfbase/crypto';
+import {
+  verifyAccessToken,
+  isRevoked,
+  ExpiredTokenError,
+  InvalidSignatureError,
+  InvalidIssuerError,
+  InvalidAudienceError,
+  MalformedTokenError,
+} from '@selfbase/oauth';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -22,6 +32,19 @@ declare module 'fastify' {
        * rate-limit keying + audit logging of `cli/login-role` rotations.
        */
       tokenId?: string;
+      /**
+       * UUID of the `oauth_clients` row whose JWT bearer authenticated this
+       * request, IFF the credential was an OAuth 2.1 access token. Undefined
+       * for PAT or session-cookie auth. Used by feature 014 for revoke
+       * targeting + audit logging.
+       */
+      oauthClientId?: string;
+      /**
+       * JWT `jti` claim — set IFF this request was authenticated via an
+       * OAuth access token. Used to revoke this specific token without
+       * affecting other tokens issued under the same (user, client) grant.
+       */
+      oauthJti?: string;
     };
   }
   interface Session {
@@ -61,37 +84,96 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
     store: new RedisStore({ client: redis, prefix: 'selfbase:sess:' }),
   });
 
+  // Feature 014 — OAuth 2.1 JWT bearer support. Lazily resolved so tests
+  // without OAuth env vars don't error at plugin load time.
+  const apex = process.env.SELFBASE_APEX;
+  const oauthIssuer = apex ? `https://api.${apex}` : null;
+  const oauthAudience = apex ? `https://mcp.${apex}/mcp` : null;
+
   app.addHook('preHandler', async (req: FastifyRequest, _reply: FastifyReply) => {
-    // 1. Bearer token
+    // 1. Bearer token — try PAT first (sbp_ prefix), then OAuth JWT
     const auth = req.headers.authorization;
     if (auth?.startsWith('Bearer ')) {
       const raw = auth.slice('Bearer '.length).trim();
-      const sha = sha256(raw);
-      const rows = await db()
-        .select({
-          tokenId: schema.apiTokens.id,
-          userId: schema.apiTokens.userId,
-          email: schema.users.email,
-          role: schema.orgMembers.role,
-        })
-        .from(schema.apiTokens)
-        .innerJoin(schema.users, eq(schema.users.id, schema.apiTokens.userId))
-        .innerJoin(schema.orgMembers, eq(schema.orgMembers.userId, schema.apiTokens.userId))
-        .where(and(eq(schema.apiTokens.tokenSha256, sha), isNull(schema.apiTokens.revokedAt)))
-        .limit(1);
-      if (rows[0]) {
-        req.user = {
-          id: rows[0].userId,
-          email: rows[0].email,
-          role: rows[0].role as Role,
-          tokenId: rows[0].tokenId,
-        };
-        // Best-effort last_used_at update — fire-and-forget
-        await db()
-          .update(schema.apiTokens)
-          .set({ lastUsedAt: new Date() })
-          .where(eq(schema.apiTokens.tokenSha256, sha));
-        return;
+
+      // 1a. PAT path (legacy, still primary credential)
+      if (raw.startsWith('sbp_')) {
+        const sha = sha256(raw);
+        const rows = await db()
+          .select({
+            tokenId: schema.apiTokens.id,
+            userId: schema.apiTokens.userId,
+            email: schema.users.email,
+            role: schema.orgMembers.role,
+          })
+          .from(schema.apiTokens)
+          .innerJoin(schema.users, eq(schema.users.id, schema.apiTokens.userId))
+          .innerJoin(schema.orgMembers, eq(schema.orgMembers.userId, schema.apiTokens.userId))
+          .where(and(eq(schema.apiTokens.tokenSha256, sha), isNull(schema.apiTokens.revokedAt)))
+          .limit(1);
+        if (rows[0]) {
+          req.user = {
+            id: rows[0].userId,
+            email: rows[0].email,
+            role: rows[0].role as Role,
+            tokenId: rows[0].tokenId,
+          };
+          // Best-effort last_used_at update — fire-and-forget
+          await db()
+            .update(schema.apiTokens)
+            .set({ lastUsedAt: new Date() })
+            .where(eq(schema.apiTokens.tokenSha256, sha));
+          return;
+        }
+      } else if (oauthIssuer && oauthAudience && raw.split('.').length === 3) {
+        // 1b. OAuth JWT path (feature 014)
+        try {
+          const claims = verifyAccessToken({
+            masterKey: loadMasterKey(),
+            token: raw,
+            expectedIss: oauthIssuer,
+            expectedAud: oauthAudience,
+          });
+          // Redis revocation check — SC-004 (<5s propagation)
+          if (await isRevoked(redis, claims.jti)) {
+            return; // 401 via requireAuth (no user set)
+          }
+          // FR-010a: re-resolve user status on every JWT request — covers SC-007
+          // (removed-user revocation propagates within one request)
+          const rows = await db()
+            .select({
+              userId: schema.users.id,
+              email: schema.users.email,
+              role: schema.orgMembers.role,
+            })
+            .from(schema.users)
+            .innerJoin(schema.orgMembers, eq(schema.orgMembers.userId, schema.users.id))
+            .where(eq(schema.users.id, claims.sub))
+            .limit(1);
+          if (rows[0]) {
+            req.user = {
+              id: rows[0].userId,
+              email: rows[0].email,
+              role: rows[0].role as Role,
+              oauthClientId: claims.azp,
+              oauthJti: claims.jti,
+            };
+            return;
+          }
+          // sub claim references a user no longer in org_members → reject (FR-010a)
+        } catch (err) {
+          // Expected verification failures: silently fall through to session
+          // cookie path / no-auth state. The 401 emerges from requireAuth().
+          if (
+            !(err instanceof ExpiredTokenError) &&
+            !(err instanceof InvalidSignatureError) &&
+            !(err instanceof InvalidIssuerError) &&
+            !(err instanceof InvalidAudienceError) &&
+            !(err instanceof MalformedTokenError)
+          ) {
+            throw err;
+          }
+        }
       }
     }
     // 2. Session cookie

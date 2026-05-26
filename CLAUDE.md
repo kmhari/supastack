@@ -88,7 +88,7 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-**Active feature plan**: none. Feature 013 implementation complete on branch `013-db-query-dump`; awaiting deploy + live-VM smoke + PR.
+**Active feature plan**: feature 014 — hosted multi-project MCP + OAuth 2.1 authorization server. Spec + clarifications + plan + research + data-model + contracts + quickstart complete. Plan: [specs/014-mcp-http-oauth/plan.md](specs/014-mcp-http-oauth/plan.md). Adds OAuth 2.1 server to `apps/api`, new `apps/mcp` compose service wrapping upstream `@supabase/mcp-server-supabase` (Apache 2.0), plus 3 new `/v1/*` endpoints (`get_logs`, `list_storage_buckets`, `pause_project`/`restore_project`). Operator UX: paste `https://mcp.<apex>/mcp` into any MCP client, click Authorize, get full multi-project tool surface — same UX as Cloud's `mcp.supabase.com/mcp`.
 
 **Most recently merged**: feature 013 — `db query` + `db dump` Management API endpoints (closes #36, unblocks 3 MCP tools per #37). See [docs/changes/013-db-query-dump.md](docs/changes/013-db-query-dump.md) and [specs/013-db-query-dump/plan.md](specs/013-db-query-dump/plan.md). Prior: feature 012 — CLI login-role for passwordless `supabase db push` (issue #31, [docs/changes/012-cli-login-role.md](docs/changes/012-cli-login-role.md)).
 
