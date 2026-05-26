@@ -137,40 +137,30 @@ Execution steps:
     - If more than 5 categories remain unresolved, select the top 5 by (Impact * Uncertainty) heuristic.
 
 4. Sequential questioning loop (interactive):
-    - Present EXACTLY ONE question at a time.
-    - For multiple‑choice questions:
-       - **Analyze all options** and determine the **most suitable option** based on:
-          - Best practices for the project type
-          - Common patterns in similar implementations
-          - Risk reduction (security, performance, maintainability)
-          - Alignment with any explicit project goals or constraints visible in the spec
-       - Present your **recommended option prominently** at the top with clear reasoning (1-2 sentences explaining why this is the best choice).
-       - Format as: `**Recommended:** Option [X] - <reasoning>`
-       - Then render all options as a Markdown table:
-
-       | Option | Description |
-       |--------|-------------|
-       | A | <Option A description> |
-       | B | <Option B description> |
-       | C | <Option C description> (add D/E as needed up to 5) |
-       | Short | Provide a different short answer (<=5 words) (Include only if free-form alternative is appropriate) |
-
-       - After the table, add: `You can reply with the option letter (e.g., "A"), accept the recommendation by saying "yes" or "recommended", or provide your own short answer.`
-    - For short‑answer style (no meaningful discrete options):
-       - Provide your **suggested answer** based on best practices and context.
-       - Format as: `**Suggested:** <your proposed answer> - <brief reasoning>`
-       - Then output: `Format: Short answer (<=5 words). You can accept the suggestion by saying "yes" or "suggested", or provide your own answer.`
-    - After the user answers:
-       - If the user replies with "yes", "recommended", or "suggested", use your previously stated recommendation/suggestion as the answer.
-       - Otherwise, validate the answer maps to one option or fits the <=5 word constraint.
-       - If ambiguous, ask for a quick disambiguation (count still belongs to same question; do not advance).
-       - Once satisfactory, record it in working memory (do not yet write to disk) and move to the next queued question.
+    - Present EXACTLY ONE question at a time **via the `AskUserQuestion` tool**. This is non-negotiable for this skill — do NOT render questions as markdown tables, do NOT ask via free text. Every clarification question goes through `AskUserQuestion`.
+    - **Analyze all options** before calling the tool. Determine the most suitable choice based on:
+       - Best practices for the project type
+       - Common patterns in similar implementations
+       - Risk reduction (security, performance, maintainability)
+       - Alignment with any explicit project goals or constraints visible in the spec
+    - Build the `AskUserQuestion` call with:
+       - `question`: the full clarification question, ending in "?". Include enough context that the user can answer without re-reading the spec.
+       - `header`: a ≤12-char chip label summarising the topic (e.g., "Auth method", "TTL", "Rate limit").
+       - `multiSelect`: `false` (clarify questions are always single-select).
+       - `options`: **2–4 entries**. Put the recommended option FIRST and append `" (Recommended)"` to its `label` (≤5 words). Use `description` (1–2 sentences) to explain the trade-off and why this option was picked.
+       - Do NOT add a manual "Short answer" / "Custom" / "Other" option — the `AskUserQuestion` tool auto-provides an "Other" affordance for free-form input.
+    - Handling genuinely-free-form questions (e.g., picking a TTL value, a name, a number): you cannot use a plain text prompt — `AskUserQuestion` requires ≥2 options. Provide 2-3 plausible candidate values, with your recommended value first. The user picks "Other" if none fit and types the custom value.
+    - After the user answers (`AskUserQuestion` returns a structured `answers` object):
+       - The selected option's `label` (strip any trailing `" (Recommended)"`) is the answer.
+       - If the answer was "Other", the user's custom text is in `annotations[<question>].notes` (or just in `answers[<question>]` depending on tool version) — use that verbatim as the answer.
+       - If the answer is ambiguous (e.g., user typed a value that doesn't match any option AND isn't a coherent custom value), ask one clarifying follow-up `AskUserQuestion` (counts toward the same question, does not consume a new slot in the 5-question budget).
+       - Once satisfactory, record the answer in working memory (do not yet write to disk) and move to the next queued question.
     - Stop asking further questions when:
        - All critical ambiguities resolved early (remaining queued items become unnecessary), OR
        - User signals completion ("done", "good", "no more"), OR
        - You reach 5 asked questions.
-    - Never reveal future queued questions in advance.
-    - If no valid questions exist at start, immediately report no critical ambiguities.
+    - Never reveal future queued questions in advance — the `AskUserQuestion` UI shows the user only the current question; preserve that scoping by not narrating upcoming questions in your text output either.
+    - If no valid questions exist at start, immediately report no critical ambiguities (no `AskUserQuestion` call needed).
 
 5. Integration after EACH accepted answer (incremental update approach):
     - Maintain in-memory representation of the spec (loaded once at start) plus the raw file contents.
