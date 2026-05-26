@@ -89,7 +89,7 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-**Active feature plan**: feature 015 — test coverage uplift per issue #45. Plan: [specs/015-test-coverage-uplift/plan.md](specs/015-test-coverage-uplift/plan.md). Raises per-package statement coverage to: `packages/shared` ≥80%, `apps/api` ≥70%, `apps/worker` ≥60%, `packages/db` ≥70%, `apps/web` ≥30%. Uses existing vitest + `pnpm test:coverage` runner; one scoped FR-009 exception (4 test-only devDeps to `apps/web`); no CI gating; no production `any` introduced.
+**Active feature plan**: feature 016 — MCP post-ship hardening (issues #50–#53). Plan: [specs/016-mcp-post-ship/plan.md](specs/016-mcp-post-ship/plan.md). Four follow-up improvements to feature 014: (US1) statement_timeout=8s default at provision; (US2) filter deferred MCP tools from tools/list; (US3) auto-uncomment Kong analytics routes for get_logs; (US4) 14 missing OAuth route-level tests.
 
 **Most recently merged**: feature 014 — hosted multi-project MCP + OAuth 2.1 authorization server (full spec at [specs/014-mcp-http-oauth/plan.md](specs/014-mcp-http-oauth/plan.md); operator runbook at [docs/changes/014-mcp-http-oauth.md](docs/changes/014-mcp-http-oauth.md)). Prior: feature 013 — `db query` + `db dump` Management API endpoints (closes #36, unblocks 3 MCP tools per #37).
 

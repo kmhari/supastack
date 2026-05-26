@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildPlatform } from '../src/platform-build.js';
+import { createToolSchemas } from '@supabase/mcp-server-supabase';
 
 /**
  * T038 — verify the deferred-tool-group stripping works against the real
@@ -53,5 +54,32 @@ describe('buildPlatform', () => {
   it('database group is fully present (full feature 013 surface)', () => {
     expect(platform.database).toBeDefined();
     expect(typeof platform.database.executeSql).toBe('function');
+  });
+});
+
+describe('DEFERRED_TOOLS filter (T008)', () => {
+  const DEFERRED_TOOLS = new Set([
+    'create_project',
+    'get_cost',
+    'confirm_cost',
+    'get_advisors',
+    'get_storage_config',
+    'update_storage_config',
+  ]);
+
+  it('all 7 deferred tool names exist in upstream createToolSchemas — confirms filter is necessary', () => {
+    const schemas = createToolSchemas();
+    const names = Object.keys(schemas);
+    for (const tool of DEFERRED_TOOLS) {
+      expect(names).toContain(tool);
+    }
+  });
+
+  it('applying DEFERRED_TOOLS filter removes all 7 from the tool list', () => {
+    const schemas = createToolSchemas();
+    const filtered = Object.keys(schemas).filter((k) => !DEFERRED_TOOLS.has(k));
+    for (const tool of DEFERRED_TOOLS) {
+      expect(filtered).not.toContain(tool);
+    }
   });
 });

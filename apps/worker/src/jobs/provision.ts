@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { eq } from 'drizzle-orm';
 import { fetch } from 'undici';
+import pg from 'pg';
 import { db, schema } from '@selfbase/db';
 import { decryptJson, loadMasterKey } from '@selfbase/crypto';
 import { logger } from '@selfbase/shared';
@@ -10,6 +11,7 @@ import { Redis } from 'ioredis';
 import { QUEUES } from '../queues.js';
 import { probeAuthWithStoredPassword } from '../services/pg-password-probe.js';
 import { handleVaultEnable } from './vault-enable-job.js';
+import { applyProvisionDefaults } from '../services/pg-provision-defaults.js';
 import {
   composeUp,
   composeAllHealthy,
@@ -186,6 +188,25 @@ export async function handleProvision(payload: { ref: string }): Promise<void> {
     log.info('enabling supabase_vault');
     await handleVaultEnable({ ref, source: 'provision' });
     log.info('vault enabled');
+
+    // 6d. Feature 016 — set statement_timeout = 8s database-wide so execute_sql
+    //     and db query are protected from runaway queries from first use.
+    const pgDefaults = new pg.Client({
+      host: 'host.docker.internal',
+      port: row.portDbDirect ?? row.portPostgres,
+      user: 'supabase_admin',
+      password: secrets.postgresPassword,
+      database: 'postgres',
+      ssl: false,
+      connectionTimeoutMillis: 5000,
+    });
+    await pgDefaults.connect();
+    try {
+      await applyProvisionDefaults(pgDefaults);
+    } finally {
+      await pgDefaults.end().catch(() => {});
+    }
+    log.info('provision defaults applied');
 
     // 7. Mark running
     await db()
