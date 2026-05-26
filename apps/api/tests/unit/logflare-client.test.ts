@@ -5,7 +5,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
  * mocked; we don't need a live Logflare container in unit tests.
  */
 
-const instanceStore = { row: null as null | { status: string; secrets: { logflarePrivateAccessToken: string } } };
+const instanceStore = { row: null as null | { status: string; secrets: { logflarePrivateAccessToken: string }; portKong: number } };
 
 vi.mock('@selfbase/db', () => ({
   db: () => ({
@@ -16,6 +16,7 @@ vi.mock('@selfbase/db', () => ({
             if (!instanceStore.row) return [];
             return [{
               status: instanceStore.row.status,
+              portKong: instanceStore.row.portKong,
               encryptedSecrets: Buffer.from('stub'),
             }];
           },
@@ -23,7 +24,7 @@ vi.mock('@selfbase/db', () => ({
       }),
     }),
   }),
-  schema: { supabaseInstances: { ref: 'ref', status: 'status', encryptedSecrets: 'es' } },
+  schema: { supabaseInstances: { ref: 'ref', status: 'status', portKong: 'pk', encryptedSecrets: 'es' } },
 }));
 
 vi.mock('@selfbase/crypto', () => ({
@@ -40,7 +41,7 @@ const { queryLogs, AnalyticsUnreachableError, _SERVICE_TABLE } = await import(
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-  instanceStore.row = { status: 'running', secrets: { logflarePrivateAccessToken: 'tok-1' } };
+  instanceStore.row = { status: 'running', portKong: 30006, secrets: { logflarePrivateAccessToken: 'tok-1' } };
   fetchMock = vi.fn();
   globalThis.fetch = fetchMock as unknown as typeof fetch;
 });
@@ -66,7 +67,8 @@ describe('queryLogs', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.event_message).toBe('hi');
     const url = fetchMock.mock.calls[0]![0] as string;
-    expect(url).toContain('selfbase-ref-1-analytics-1:4000');
+    expect(url).toContain('host.docker.internal:30006');
+    expect(url).toContain('/analytics/v1/');
     expect(url).toContain('edge_logs');
   });
 
@@ -85,7 +87,7 @@ describe('queryLogs', () => {
   });
 
   it('paused project → AnalyticsUnreachableError with status hint', async () => {
-    instanceStore.row = { status: 'paused', secrets: { logflarePrivateAccessToken: 'tok' } };
+    instanceStore.row = { status: 'paused', portKong: 30006, secrets: { logflarePrivateAccessToken: 'tok' } };
     await expect(queryLogs('ref-1', { service: 'api' })).rejects.toThrow(AnalyticsUnreachableError);
   });
 
@@ -99,11 +101,23 @@ describe('queryLogs', () => {
     await expect(queryLogs('ref-1', { service: 'api' })).rejects.toThrow(AnalyticsUnreachableError);
   });
 
-  it('default time range is roughly last 1h', async () => {
+  it('default has no WHERE clause; supplied bounds use microsecond epochs', async () => {
+    // Default: no time bounds (Logflare endpoint's internal time window applies)
     fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ result: [] }) });
     await queryLogs('ref-1', { service: 'api' });
-    const url = decodeURIComponent(fetchMock.mock.calls[0]![0] as string);
-    // start should be ~1h ago, end ~now; both ISO strings present
-    expect(url).toMatch(/BETWEEN '20\d{2}-/);
+    const urlDefault = decodeURIComponent(fetchMock.mock.calls[0]![0] as string);
+    expect(urlDefault).not.toMatch(/WHERE/);
+
+    // With explicit bounds: timestamps as microsecond epochs (BigQuery dialect)
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ result: [] }) });
+    await queryLogs('ref-1', {
+      service: 'api',
+      isoTimestampStart: '2026-05-26T12:00:00Z',
+      isoTimestampEnd: '2026-05-26T13:00:00Z',
+    });
+    const urlBounded = decodeURIComponent(fetchMock.mock.calls[1]![0] as string);
+    expect(urlBounded).toContain('WHERE');
+    expect(urlBounded).toMatch(/timestamp >= \d{13,}/); // microsecond epoch
+    expect(urlBounded).toMatch(/timestamp <= \d{13,}/);
   });
 });

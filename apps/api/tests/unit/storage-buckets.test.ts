@@ -34,12 +34,12 @@ vi.mock('@selfbase/db', () => ({
     select: () => ({
       from: () => ({
         where: () => ({
-          limit: async () => [{ status: dbStatus.value }],
+          limit: async () => [{ status: dbStatus.value, portKong: 30006 }],
         }),
       }),
     }),
   }),
-  schema: { supabaseInstances: { ref: 'ref', status: 'status' } },
+  schema: { supabaseInstances: { ref: 'ref', status: 'status', portKong: 'pk' } },
 }));
 
 vi.mock('drizzle-orm', () => ({ eq: () => ({}) }));
