@@ -52,48 +52,25 @@ Open **`/settings/mcp-clients`** in the dashboard. Each row shows: client_name, 
 | `list_storage_buckets` (a.k.a. `list_all_buckets`)                       | `GET /v1/projects/:ref/storage/buckets`              | Routes through per-project Kong (`/storage/v1/*`)                                                            |
 | `search_docs`                                                            | Supabase docs (hosted)                               | No backend dep                                                                                               |
 
-### Deferred tools (still appear in `tools/list` but error at call time)
+### Deferred tools (filtered from `tools/list` by feature 016)
 
-Upstream `@supabase/mcp-server-supabase` registers MCP tools by **operation-group** presence, not per-method. So even though selfbase deliberately omits these capabilities, the tools still show up. Calling any of them surfaces a clean "not implemented" error (not a crash):
+Upstream `@supabase/mcp-server-supabase` registers MCP tools by **operation-group** presence, not per-method. Feature 016 filters them out of `tools/list` at server startup so clients never see them:
 
 - `create_project`, `get_cost`, `confirm_cost` — see feature 017 follow-up
-- `get_advisors` (security + perf) — see feature 016 follow-up
+- `get_advisors` (security + performance) — see feature 016
 - `get_storage_config` / `update_storage_config` — see feature 018 follow-up
 - All `*_branch` tools — see issue #41
 
-Long-term fix is either upstream per-method gating OR post-construction tool-unregister via `@modelcontextprotocol/sdk`'s `Server` API.
+## `get_logs` — Kong analytics route
 
-## One-time per-project op required for `get_logs`
+The analytics route is **uncommented by default** in the template as of feature 016. New projects provisioned after this deploy get it automatically.
 
-The per-project `kong.yml` has the analytics routes **commented out by default** in the upstream supabase-template. For `get_logs` to work, operators must:
+For any **existing project** provisioned before feature 016, uncomment the `analytics-v1-api` block in that project's `kong.yml` then restart Kong:
 
 ```bash
-# On the VM
-PROJ_KONG=/var/selfbase/instances/<ref>/volumes/api/kong.yml
-
-# Uncomment the analytics-v1-api block in the analytics section (lines ~310-318):
-sudo python3 <<EOF
-path = '$PROJ_KONG'
-with open(path) as f: txt = f.read()
-old = (
-  "  # - name: analytics-v1-api\n"
-  "  #   _comment: 'Analytics: /analytics/v1/api/endpoints/* -> http://logflare:4000/api/endpoints/*'\n"
-  "  #   url: http://analytics:4000/api/endpoints\n"
-  "  #   routes:\n"
-  "  #     - name: analytics-v1-api\n"
-  "  #       strip_path: true\n"
-  "  #       paths:\n"
-  "  #         - /analytics/v1/api/endpoints/\n"
-)
-new = old.replace('  # ', '  ').replace('  - ', '  - ')  # uncomment
-with open(path, 'w') as f: f.write(new)
-EOF
-
-# Restart that project's Kong
+# On the VM — edit <ref>'s kong.yml, uncomment the analytics-v1-api block, then:
 sudo docker restart selfbase-<ref>-kong-1
 ```
-
-**TODO** (follow-up): patch `infra/supabase-template/volumes/api/kong.yml` to uncomment by default, and add a worker job that patches existing projects' kong.yml.
 
 ## OAuth design
 
@@ -187,7 +164,5 @@ infra/docker-compose.yml                         MODIFIED — adds selfbase-mcp 
 
 ## Known limitations
 
-1. **`tools/list` includes 4 tools that error at call time** (`create_project`, `get_cost`, `confirm_cost`, `get_advisors`) — upstream architecture; see "Deferred tools" above.
-2. **`get_logs` requires manual Kong patch** per project — see "One-time per-project op" above.
-3. **No granular OAuth scopes** in v1 — all grants are all-or-nothing within the operator's RBAC role. Finer scopes deferred to a later feature.
-4. **No OAuth admin UI** for managing client metadata (only revoke). v1 is sufficient — operator just revokes + re-authorizes if something's wrong.
+1. **No granular OAuth scopes** in v1 — all grants are all-or-nothing within the operator's RBAC role. Finer scopes deferred to a later feature.
+2. **No OAuth admin UI** for managing client metadata (only revoke). v1 is sufficient — operator just revokes + re-authorizes if something's wrong.

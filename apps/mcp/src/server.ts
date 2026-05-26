@@ -12,9 +12,19 @@ import { randomUUID } from 'node:crypto';
 import { loadMasterKey } from '@selfbase/crypto';
 import { createSupabaseMcpServer } from '@supabase/mcp-server-supabase';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
 import { AuthError, resolveBearer, wwwAuthenticateHeader } from './bearer-auth.js';
 import { buildPlatform } from './platform-build.js';
+
+const DEFERRED_TOOLS = new Set([
+  'create_project',
+  'get_cost',
+  'confirm_cost',
+  'get_advisors',
+  'get_storage_config',
+  'update_storage_config',
+]);
 
 const PORT = Number(process.env.PORT ?? 3002);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -103,6 +113,17 @@ app.post('/mcp', async (req, reply) => {
     // handleRequest assigns one; store under that id post-hoc.
     const platform = buildPlatform({ accessToken: rawBearer, apiUrl: API_URL });
     const server = createSupabaseMcpServer({ platform });
+
+    // Filter deferred tools out of tools/list so clients never see them.
+    // _requestHandlers is an internal Map on Protocol; capture before replacing.
+    const origListTools = (server as any)._requestHandlers?.get('tools/list');
+    if (origListTools) {
+      server.setRequestHandler(ListToolsRequestSchema, async (req, extra) => {
+        const r = await origListTools(req, extra);
+        return { ...r, tools: (r.tools ?? []).filter((t: { name: string }) => !DEFERRED_TOOLS.has(t.name)) };
+      });
+    }
+
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       enableJsonResponse: true,
