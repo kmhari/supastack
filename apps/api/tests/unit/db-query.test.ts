@@ -111,7 +111,7 @@ describe('POST /v1/projects/:ref/database/query', () => {
       payload: { query: 'SELECT 1' },
     });
     expect(res.statusCode).toBe(201);
-    expect(res.json()).toEqual({ result: [{ '?column?': 1 }] });
+    expect(res.json()).toEqual([{ '?column?': 1 }]);
     expect(auditInserts).toHaveLength(1);
     expect(auditInserts[0]!.action).toBe('instance.db.query.executed');
     expect(auditInserts[0]!.payload).toMatchObject({
