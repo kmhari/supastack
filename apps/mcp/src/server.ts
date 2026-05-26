@@ -93,12 +93,14 @@ app.post('/mcp', async (req, reply) => {
 
   // Session lookup
   const sessionIdHeader = req.headers['mcp-session-id'] as string | undefined;
-  let entry: SessionEntry;
+  let entry: SessionEntry | undefined;
+  let isNewSession = false;
   if (sessionIdHeader && sessions.has(sessionIdHeader)) {
     entry = sessions.get(sessionIdHeader)!;
     entry.lastUsedAt = Date.now();
   } else {
-    // Mint new session
+    // Mint new session. We don't know the transport's sessionId until
+    // handleRequest assigns one; store under that id post-hoc.
     const platform = buildPlatform({ accessToken: rawBearer, apiUrl: API_URL });
     const server = createSupabaseMcpServer({ platform });
     const transport = new StreamableHTTPServerTransport({
@@ -106,23 +108,36 @@ app.post('/mcp', async (req, reply) => {
       enableJsonResponse: true,
     });
     await server.connect(transport);
-    const sid = (transport as { sessionId?: string }).sessionId ?? randomUUID();
     entry = {
-      sessionId: sid,
+      sessionId: '', // populated after handleRequest assigns one
       userId: claims.sub,
       clientId: claims.azp,
       server,
       transport,
       lastUsedAt: Date.now(),
     };
-    sessions.set(sid, entry);
-    req.log.info({ sessionId: sid, userId: claims.sub, clientId: claims.azp }, 'mcp.session.opened');
+    isNewSession = true;
   }
 
   // Hand off to the transport — it handles the JSON-RPC routing
   reply.hijack();
   try {
     await entry.transport.handleRequest(req.raw, reply.raw, req.body);
+    // For a new session, finalize the session-map key using the transport's
+    // assigned sessionId (populated during initialize handling).
+    if (isNewSession) {
+      const sid = (entry.transport as { sessionId?: string }).sessionId;
+      if (sid) {
+        entry.sessionId = sid;
+        sessions.set(sid, entry);
+        req.log.info(
+          { sessionId: sid, userId: entry.userId, clientId: entry.clientId },
+          'mcp.session.opened',
+        );
+      } else {
+        req.log.warn('transport did not assign sessionId after handleRequest');
+      }
+    }
   } catch (err) {
     req.log.error({ err }, 'mcp transport error');
     if (!reply.raw.headersSent) {

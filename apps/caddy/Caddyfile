@@ -68,6 +68,17 @@
 	}
 }
 
+# mcp.<apex> — selfbase MCP HTTP service (feature 014). Matched BEFORE the
+# generic :443 block so it wins for the mcp subdomain. Wildcard cert
+# (*.<apex>) from feature 004 covers it; on-demand TLS still fires the first
+# time if a fresh cert is needed.
+mcp.{$SELFBASE_APEX} {
+	tls {
+		on_demand
+	}
+	reverse_proxy mcp:3002
+}
+
 # Plain HTTPS — always listening so on-demand TLS can fire. The runtime
 # config from caddy-reload.ts adds per-host (apex + <ref>.<apex>) routes
 # on top of this.

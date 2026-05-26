@@ -70,8 +70,8 @@ ACCESS_TOKEN=$(echo "$TOKEN_RES" | jq -r '.access_token')
 REFRESH_TOKEN=$(echo "$TOKEN_RES" | jq -r '.refresh_token')
 [[ -n "$ACCESS_TOKEN" && "$ACCESS_TOKEN" != "null" ]] || { echo "FAIL: no access_token"; echo "$TOKEN_RES"; exit 1; }
 [[ -n "$REFRESH_TOKEN" && "$REFRESH_TOKEN" != "null" ]] || { echo "FAIL: no refresh_token"; echo "$TOKEN_RES"; exit 1; }
-JTI_PARTS=$(echo "$ACCESS_TOKEN" | tr '.' '\n' | wc -l)
-[[ "$JTI_PARTS" == "3" ]] || { echo "FAIL: access_token not a JWT (got $JTI_PARTS parts)"; exit 1; }
+JTI_PARTS=$(echo "$ACCESS_TOKEN" | tr '.' '\n' | wc -l | tr -d '[:space:]')
+[[ "$JTI_PARTS" == "3" ]] || { echo "FAIL: access_token not a JWT (got '$JTI_PARTS' parts)"; exit 1; }
 echo "    access_token + refresh_token issued"
 
 echo "==> [5] Use access_token to call /v1/profile"

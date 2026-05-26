@@ -58,6 +58,9 @@ services:
     restart: unless-stopped
     cap_add:
       - NET_BIND_SERVICE
+    environment:
+      # Feature 014 — needed by the explicit mcp.<apex> server block in Caddyfile.
+      SELFBASE_APEX: ${SELFBASE_APEX:?SELFBASE_APEX required}
     ports:
       - '80:80'
       - '443:443'
