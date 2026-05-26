@@ -2,7 +2,7 @@
  * T021 — RBAC plugin: authorize() allows when matrix says yes, returns 403 otherwise,
  * never invokes the handler on deny.
  */
-import { describe, expect, it, beforeAll, afterAll, vi } from 'vitest';
+import { describe, expect, it, afterAll, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { rbacPlugin } from '../../../src/plugins/rbac.js';
 import { errors } from '@selfbase/shared';

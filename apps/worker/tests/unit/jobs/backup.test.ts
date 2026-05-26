@@ -46,7 +46,7 @@ vi.mock('@selfbase/db', () => {
       select: (cols?: Record<string, unknown>) => {
         const isOrgStoreCfg = cols && Object.keys(cols).includes('configEncrypted');
         const isOrgKind = cols && Object.keys(cols).includes('kind') && !isOrgStoreCfg;
-        const isBackupRows = cols && Object.keys(cols).includes('storeKey');
+        const _isBackupRows = cols && Object.keys(cols).includes('storeKey');
         return {
           from: () => ({
             where: () => ({

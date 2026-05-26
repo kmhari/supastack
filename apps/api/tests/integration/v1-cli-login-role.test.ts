@@ -12,14 +12,14 @@ const ref = `tref${randomBytes(8).toString('hex')}`.slice(0, 20);
 
 describe.skipIf(!hasTestEnv)('/v1/projects/:ref/cli/login-role auth surface', () => {
   let app: FastifyInstance;
-  let adminToken: string;
+  let _adminToken: string;
   let memberToken: string;
 
   beforeAll(async () => {
     app = await buildAuthedApp();
     const admin = await seedTestUser({ role: 'admin' });
     const member = await seedTestUser({ role: 'member' });
-    adminToken = admin.token;
+    _adminToken = admin.token;
     memberToken = member.token;
     await withMockInstance(ref, { orgId: admin.orgId });
   });

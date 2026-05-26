@@ -55,7 +55,7 @@ vi.mock('@selfbase/db', () => {
     return [];
   };
   const limitable = () => ({ limit: lookupResult });
-  const whereable = () => ({ where: () => limitable() });
+  const _whereable = () => ({ where: () => limitable() });
   const joinable: () => Record<string, unknown> = () => ({
     innerJoin: () => joinable(),
     where: () => limitable(),

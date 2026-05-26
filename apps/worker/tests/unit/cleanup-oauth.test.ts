@@ -34,7 +34,7 @@ vi.mock('@selfbase/db', () => ({
             const thirty = now - 30 * 24 * 60 * 60 * 1000;
             for (let i = refreshStore.length - 1; i >= 0; i--) {
               const r = refreshStore[i]!;
-              if (r.lastUsedAt!.getTime() < thirty && r.revokedAt == null) {
+              if (r.lastUsedAt!.getTime() < thirty && r.revokedAt === null) {
                 refreshStore.splice(i, 1);
               }
             }
