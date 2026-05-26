@@ -68,9 +68,7 @@ export const OAuthRegisterRequestSchema = z
     client_name: z.string().min(1).max(200),
     redirect_uris: z.array(OAuthRedirectUriSchema).min(1),
     token_endpoint_auth_method: z.literal('none').optional(),
-    grant_types: z
-      .array(z.enum(['authorization_code', 'refresh_token']))
-      .optional(),
+    grant_types: z.array(z.enum(['authorization_code', 'refresh_token'])).optional(),
     response_types: z.array(z.literal('code')).optional(),
     logo_uri: z.string().url().optional(),
     tos_uri: z.string().url().optional(),

@@ -39,9 +39,8 @@ vi.mock('@selfbase/db', () => ({
   },
 }));
 
-const { registerClient, getClientById, validateRedirectUri } = await import(
-  '../../src/services/oauth-clients-store.js'
-);
+const { registerClient, getClientById, validateRedirectUri } =
+  await import('../../src/services/oauth-clients-store.js');
 
 beforeEach(() => {
   dbCalls.length = 0;

@@ -30,9 +30,8 @@ vi.mock('@selfbase/crypto', () => ({
 
 vi.mock('drizzle-orm', () => ({ eq: () => ({}) }));
 
-const { mintServiceRoleJwt, _clearServiceRoleCache } = await import(
-  '../../src/services/service-role-jwt.js'
-);
+const { mintServiceRoleJwt, _clearServiceRoleCache } =
+  await import('../../src/services/service-role-jwt.js');
 
 beforeEach(() => {
   decryptCount.n = 0;

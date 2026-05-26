@@ -135,15 +135,13 @@ async function emitAudit(
   payload: Record<string, unknown>,
 ): Promise<void> {
   try {
-    await db()
-      .insert(schema.auditLog)
-      .values({
-        actorUserId: userId,
-        action,
-        targetKind: 'oauth_client',
-        targetId: clientId,
-        payload,
-      });
+    await db().insert(schema.auditLog).values({
+      actorUserId: userId,
+      action,
+      targetKind: 'oauth_client',
+      targetId: clientId,
+      payload,
+    });
   } catch (err) {
     logger.warn({ err, action }, 'oauth token audit emit failed');
   }

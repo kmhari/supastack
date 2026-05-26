@@ -22,9 +22,7 @@ import { getProjectByRef } from '../../services/project-store.js';
 
 const QuerySchema = z
   .object({
-    service: z
-      .enum(['api', 'postgres', 'edge-function', 'auth', 'storage', 'realtime'])
-      .optional(),
+    service: z.enum(['api', 'postgres', 'edge-function', 'auth', 'storage', 'realtime']).optional(),
     iso_timestamp_start: z.string().datetime().optional(),
     iso_timestamp_end: z.string().datetime().optional(),
     sql: z.string().max(4096).optional(),

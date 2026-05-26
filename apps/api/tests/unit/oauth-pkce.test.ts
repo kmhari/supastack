@@ -42,9 +42,7 @@ describe('verifyChallenge (PKCE S256)', () => {
   });
 
   it('challenge length mismatch returns false (no timing-leak via length)', () => {
-    expect(
-      verifyChallenge('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk', 'short'),
-    ).toBe(false);
+    expect(verifyChallenge('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk', 'short')).toBe(false);
   });
 
   it('verifier at exactly 43 chars is accepted', () => {

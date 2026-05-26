@@ -50,18 +50,24 @@ const { AppError } = await import('@selfbase/shared');
 
 const REF = 'bbbbbbbbbbbbbbbbbbbb';
 
-async function buildApp(opts: { user?: { id: string; email: string; role: 'admin' | 'member' } | null } = {}): Promise<FastifyInstance> {
-  const user = opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'member' as const } : opts.user;
+async function buildApp(
+  opts: { user?: { id: string; email: string; role: 'admin' | 'member' } | null } = {},
+): Promise<FastifyInstance> {
+  const user =
+    opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'member' as const } : opts.user;
   const app = Fastify();
   app.decorate('requireAuth', () => {
     if (!user) throw new AppError(401, 'unauthenticated', 'PAT required');
     return user;
   });
   app.decorate('authorize', () => {}); // instance.read is allowed for members
-  await app.register(async (mgmt) => {
-    await mgmt.register(mgmtApiErrorsPlugin);
-    await mgmt.register(storageBucketsRoutes);
-  }, { prefix: '/v1' });
+  await app.register(
+    async (mgmt) => {
+      await mgmt.register(mgmtApiErrorsPlugin);
+      await mgmt.register(storageBucketsRoutes);
+    },
+    { prefix: '/v1' },
+  );
   return app;
 }
 
@@ -75,8 +81,24 @@ beforeEach(() => {
 describe('GET /v1/projects/:ref/storage/buckets', () => {
   it('happy path → 200 + bare-array of buckets', async () => {
     proxyMock.listBuckets.mockResolvedValue([
-      { id: 'avatars', name: 'avatars', public: true, file_size_limit: 5242880, allowed_mime_types: ['image/png'], created_at: 'x', updated_at: 'y' },
-      { id: 'private', name: 'private', public: false, file_size_limit: null, allowed_mime_types: null, created_at: 'x', updated_at: 'y' },
+      {
+        id: 'avatars',
+        name: 'avatars',
+        public: true,
+        file_size_limit: 5242880,
+        allowed_mime_types: ['image/png'],
+        created_at: 'x',
+        updated_at: 'y',
+      },
+      {
+        id: 'private',
+        name: 'private',
+        public: false,
+        file_size_limit: null,
+        allowed_mime_types: null,
+        created_at: 'x',
+        updated_at: 'y',
+      },
     ]);
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/v1/projects/${REF}/storage/buckets` });

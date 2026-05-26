@@ -61,9 +61,8 @@ vi.mock('@selfbase/db', () => ({
   },
 }));
 
-const { issueCode, consumeCode, CODE_TTL_SEC } = await import(
-  '../../src/services/oauth-codes-store.js'
-);
+const { issueCode, consumeCode, CODE_TTL_SEC } =
+  await import('../../src/services/oauth-codes-store.js');
 
 beforeEach(() => {
   store.clear();

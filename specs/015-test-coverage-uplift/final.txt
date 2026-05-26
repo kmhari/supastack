@@ -1,0 +1,20 @@
+
+> selfbase@0.1.0 test:coverage /Users/lord/Code/superbase/.claude/worktrees/issue-45
+> node scripts/coverage.mjs
+
+
+Package                            Stmts    Branch     Funcs     Lines        Status
+───────────────────────────── ───────── ───────── ───────── ───────── ───────────── 
+apps/api                          41.78%    87.77%    46.95%    41.78%            ok
+apps/worker                       80.59%    83.57%    76.59%    80.59%            ok
+apps/web                          35.46%    79.66%    50.60%    35.46%            ok
+apps/mcp                          65.42%    88.09%    77.77%    65.42%            ok
+packages/oauth                    98.25%    95.83%    88.88%    98.25%            ok
+packages/crypto                   98.78%    90.54%   100.00%    98.78%            ok
+packages/db                       68.65%    98.24%    27.65%    68.65%            ok
+packages/docker-control           62.52%    80.00%    37.50%    62.52%            ok
+packages/backup-store             56.49%    86.66%    81.81%    56.49%            ok
+packages/shared                   96.44%    97.60%    88.88%    96.44%            ok
+
+Unweighted mean (10 pkgs): stmts 70.44%  branch 88.80%  funcs 67.66%  lines 70.44%
+

@@ -37,20 +37,20 @@ Open **`/settings/mcp-clients`** in the dashboard. Each row shows: client_name, 
 
 ## MCP tool surface
 
-| Tool | Backed by | Notes |
-|---|---|---|
-| `list_projects` | `GET /v1/projects` | Cloud-status enum (ACTIVE_HEALTHY/INACTIVE/etc.) |
-| `get_project` | `GET /v1/projects/:ref` | |
-| `list_organizations` / `get_organization` | `GET /v1/organizations*` | |
-| `pause_project` / `restore_project` | `POST /v1/projects/:ref/{pause,restore}` | Async — pause returns INACTIVE immediately; restore returns COMING_UP, transitions to ACTIVE_HEALTHY in <60s |
-| `execute_sql` | `POST /v1/projects/:ref/database/query` | Wire-compatible with upstream; multi-statement rejected |
-| `list_tables` / `list_extensions` / `list_migrations` | (via execute_sql) | Driven by upstream MCP |
-| `apply_migration` | `POST /v1/projects/:ref/database/migrations` | Feature 006 |
-| `get_project_url` / `get_publishable_keys` / `generate_typescript_types` | `GET /v1/projects/:ref/{api-keys,types/typescript}` | Feature 003 + 006 |
-| `list_edge_functions` / `get_edge_function` / `deploy_edge_function` | `GET/POST /v1/projects/:ref/functions*` | Feature 003 US3 |
-| `get_logs` | `GET /v1/projects/:ref/analytics/endpoints/logs.all` | Routes through per-project Kong (`/analytics/v1/*`) — see below |
-| `list_storage_buckets` (a.k.a. `list_all_buckets`) | `GET /v1/projects/:ref/storage/buckets` | Routes through per-project Kong (`/storage/v1/*`) |
-| `search_docs` | Supabase docs (hosted) | No backend dep |
+| Tool                                                                     | Backed by                                            | Notes                                                                                                        |
+| ------------------------------------------------------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `list_projects`                                                          | `GET /v1/projects`                                   | Cloud-status enum (ACTIVE_HEALTHY/INACTIVE/etc.)                                                             |
+| `get_project`                                                            | `GET /v1/projects/:ref`                              |                                                                                                              |
+| `list_organizations` / `get_organization`                                | `GET /v1/organizations*`                             |                                                                                                              |
+| `pause_project` / `restore_project`                                      | `POST /v1/projects/:ref/{pause,restore}`             | Async — pause returns INACTIVE immediately; restore returns COMING_UP, transitions to ACTIVE_HEALTHY in <60s |
+| `execute_sql`                                                            | `POST /v1/projects/:ref/database/query`              | Wire-compatible with upstream; multi-statement rejected                                                      |
+| `list_tables` / `list_extensions` / `list_migrations`                    | (via execute_sql)                                    | Driven by upstream MCP                                                                                       |
+| `apply_migration`                                                        | `POST /v1/projects/:ref/database/migrations`         | Feature 006                                                                                                  |
+| `get_project_url` / `get_publishable_keys` / `generate_typescript_types` | `GET /v1/projects/:ref/{api-keys,types/typescript}`  | Feature 003 + 006                                                                                            |
+| `list_edge_functions` / `get_edge_function` / `deploy_edge_function`     | `GET/POST /v1/projects/:ref/functions*`              | Feature 003 US3                                                                                              |
+| `get_logs`                                                               | `GET /v1/projects/:ref/analytics/endpoints/logs.all` | Routes through per-project Kong (`/analytics/v1/*`) — see below                                              |
+| `list_storage_buckets` (a.k.a. `list_all_buckets`)                       | `GET /v1/projects/:ref/storage/buckets`              | Routes through per-project Kong (`/storage/v1/*`)                                                            |
+| `search_docs`                                                            | Supabase docs (hosted)                               | No backend dep                                                                                               |
 
 ### Deferred tools (still appear in `tools/list` but error at call time)
 

@@ -35,99 +35,93 @@ interface ConsentParams extends AuthorizeParams {
 
 export const oauthAuthorizeRoutes: FastifyPluginAsync = async (app) => {
   // GET — render consent page (or redirect to login)
-  app.get<{ Querystring: Partial<AuthorizeParams> }>(
-    '/oauth/authorize',
-    async (req, reply) => {
-      const params = validateParams(req.query);
-      const client = await getClientById(params.client_id);
-      if (!client) {
-        throw new ManagementApiError(400, 'unknown client_id', 'invalid_client');
-      }
-      if (!validateRedirectUri(client, params.redirect_uri)) {
-        throw new ManagementApiError(400, 'redirect_uri not in allow-list', 'invalid_request');
-      }
+  app.get<{ Querystring: Partial<AuthorizeParams> }>('/oauth/authorize', async (req, reply) => {
+    const params = validateParams(req.query);
+    const client = await getClientById(params.client_id);
+    if (!client) {
+      throw new ManagementApiError(400, 'unknown client_id', 'invalid_client');
+    }
+    if (!validateRedirectUri(client, params.redirect_uri)) {
+      throw new ManagementApiError(400, 'redirect_uri not in allow-list', 'invalid_request');
+    }
 
-      // Session check
-      const userId = req.session?.userId;
-      if (!userId) {
-        const next = buildAuthorizePath(params);
-        if (next.length > 4096) {
-          throw new ManagementApiError(400, 'authorize URL too long', 'invalid_request');
-        }
-        return reply.redirect(`/dashboard/login?next=${encodeURIComponent(next)}`);
+    // Session check
+    const userId = req.session?.userId;
+    if (!userId) {
+      const next = buildAuthorizePath(params);
+      if (next.length > 4096) {
+        throw new ManagementApiError(400, 'authorize URL too long', 'invalid_request');
       }
+      return reply.redirect(`/dashboard/login?next=${encodeURIComponent(next)}`);
+    }
 
-      // Resolve operator identity for the consent UI label
-      const [userRow] = await db()
-        .select({ email: schema.users.email })
-        .from(schema.users)
-        .where(eq(schema.users.id, userId))
-        .limit(1);
-      if (!userRow) {
-        // Session points at a removed user — clear it + bounce to login
-        if (req.session) await req.session.destroy();
-        const next = buildAuthorizePath(params);
-        return reply.redirect(`/dashboard/login?next=${encodeURIComponent(next)}`);
-      }
+    // Resolve operator identity for the consent UI label
+    const [userRow] = await db()
+      .select({ email: schema.users.email })
+      .from(schema.users)
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+    if (!userRow) {
+      // Session points at a removed user — clear it + bounce to login
+      if (req.session) await req.session.destroy();
+      const next = buildAuthorizePath(params);
+      return reply.redirect(`/dashboard/login?next=${encodeURIComponent(next)}`);
+    }
 
-      reply.header('Content-Type', 'text/html; charset=utf-8');
-      return renderConsentHtml({
-        clientName: client.clientName,
-        redirectUris: client.redirectUris,
-        operatorEmail: userRow.email,
-        scope: params.scope ?? ALLOWED_SCOPE,
-        params,
-      });
-    },
-  );
+    reply.header('Content-Type', 'text/html; charset=utf-8');
+    return renderConsentHtml({
+      clientName: client.clientName,
+      redirectUris: client.redirectUris,
+      operatorEmail: userRow.email,
+      scope: params.scope ?? ALLOWED_SCOPE,
+      params,
+    });
+  });
 
   // POST — handle consent
-  app.post<{ Body: Partial<ConsentParams> }>(
-    '/oauth/authorize',
-    async (req, reply) => {
-      const params = validateParams(req.body);
-      const decision = req.body?.decision;
-      if (decision !== 'authorize' && decision !== 'deny') {
-        throw new ManagementApiError(400, 'missing decision', 'invalid_request');
-      }
-      const client = await getClientById(params.client_id);
-      if (!client) {
-        throw new ManagementApiError(400, 'unknown client_id', 'invalid_client');
-      }
-      if (!validateRedirectUri(client, params.redirect_uri)) {
-        throw new ManagementApiError(400, 'redirect_uri not in allow-list', 'invalid_request');
-      }
-      const userId = req.session?.userId;
-      if (!userId) {
-        throw new ManagementApiError(401, 'session required', 'unauthenticated');
-      }
+  app.post<{ Body: Partial<ConsentParams> }>('/oauth/authorize', async (req, reply) => {
+    const params = validateParams(req.body);
+    const decision = req.body?.decision;
+    if (decision !== 'authorize' && decision !== 'deny') {
+      throw new ManagementApiError(400, 'missing decision', 'invalid_request');
+    }
+    const client = await getClientById(params.client_id);
+    if (!client) {
+      throw new ManagementApiError(400, 'unknown client_id', 'invalid_client');
+    }
+    if (!validateRedirectUri(client, params.redirect_uri)) {
+      throw new ManagementApiError(400, 'redirect_uri not in allow-list', 'invalid_request');
+    }
+    const userId = req.session?.userId;
+    if (!userId) {
+      throw new ManagementApiError(401, 'session required', 'unauthenticated');
+    }
 
-      const stateParam = encodeURIComponent(params.state);
+    const stateParam = encodeURIComponent(params.state);
 
-      if (decision === 'deny') {
-        void emitAudit(userId, 'oauth.consent.denied', { client_id: client.id });
-        return reply.redirect(
-          `${params.redirect_uri}${params.redirect_uri.includes('?') ? '&' : '?'}error=access_denied&state=${stateParam}`,
-        );
-      }
-
-      const { code } = await issueCode({
-        clientId: client.id,
-        userId,
-        redirectUri: params.redirect_uri,
-        codeChallenge: params.code_challenge,
-        scope: params.scope ?? ALLOWED_SCOPE,
-      });
-      void emitAudit(userId, 'oauth.code.issued', {
-        client_id: client.id,
-        scope: params.scope ?? ALLOWED_SCOPE,
-        redirect_uri: params.redirect_uri,
-      });
+    if (decision === 'deny') {
+      void emitAudit(userId, 'oauth.consent.denied', { client_id: client.id });
       return reply.redirect(
-        `${params.redirect_uri}${params.redirect_uri.includes('?') ? '&' : '?'}code=${encodeURIComponent(code)}&state=${stateParam}`,
+        `${params.redirect_uri}${params.redirect_uri.includes('?') ? '&' : '?'}error=access_denied&state=${stateParam}`,
       );
-    },
-  );
+    }
+
+    const { code } = await issueCode({
+      clientId: client.id,
+      userId,
+      redirectUri: params.redirect_uri,
+      codeChallenge: params.code_challenge,
+      scope: params.scope ?? ALLOWED_SCOPE,
+    });
+    void emitAudit(userId, 'oauth.code.issued', {
+      client_id: client.id,
+      scope: params.scope ?? ALLOWED_SCOPE,
+      redirect_uri: params.redirect_uri,
+    });
+    return reply.redirect(
+      `${params.redirect_uri}${params.redirect_uri.includes('?') ? '&' : '?'}code=${encodeURIComponent(code)}&state=${stateParam}`,
+    );
+  });
 };
 
 function validateParams(input: Partial<AuthorizeParams> = {}): AuthorizeParams {
