@@ -47,6 +47,19 @@ async function main(): Promise<void> {
     { mode: 'full', triggerSource: 'cron' },
     { repeat: { pattern: '0 3 * * *', tz: 'UTC' }, removeOnComplete: 1 },
   );
+  // Feature 014 FR-024a — OAuth code+refresh cleanup crons. Codes expire in
+  // 60s so prune at the same cadence; refresh tokens have 30-day idle, hourly
+  // sweep is plenty.
+  await queues.cleanupOauthCodes.add(
+    'tick',
+    {},
+    { repeat: { every: 60_000 }, removeOnComplete: 1 },
+  );
+  await queues.cleanupOauthRefresh.add(
+    'tick',
+    {},
+    { repeat: { pattern: '0 * * * *', tz: 'UTC' }, removeOnComplete: 1 },
+  );
 
   logger.info({ queues: Object.keys(queues) }, 'worker started');
 

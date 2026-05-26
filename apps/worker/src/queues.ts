@@ -10,6 +10,8 @@ import { handleHealthReconciler } from './jobs/health-reconciler.js';
 import { handlePgEdgeCertIssue } from './jobs/pg-edge-cert-issue.js';
 import { handlePoolerReconciler, type PoolerReconcilerJob } from './jobs/pooler-reconciler.js';
 import { handleVaultEnable, type VaultEnableJobData } from './jobs/vault-enable-job.js';
+import { handleCleanupOauthCodes } from './jobs/cleanup-oauth-codes.js';
+import { handleCleanupOauthRefresh } from './jobs/cleanup-oauth-refresh.js';
 
 const REDIS_URL = process.env.REDIS_URL!;
 
@@ -35,6 +37,8 @@ export const QUEUES = {
   pgEdgeCertIssue: 'selfbase.pg-edge-cert-issue',
   poolerReconciler: 'selfbase.pooler-reconciler',
   vaultEnable: 'selfbase.vault-enable',
+  cleanupOauthCodes: 'selfbase.cleanup-oauth-codes',
+  cleanupOauthRefresh: 'selfbase.cleanup-oauth-refresh',
 } as const;
 
 export interface Queues {
@@ -47,6 +51,8 @@ export interface Queues {
   pgEdgeCertIssue: Queue;
   poolerReconciler: Queue;
   vaultEnable: Queue;
+  cleanupOauthCodes: Queue;
+  cleanupOauthRefresh: Queue;
 }
 
 export function connectQueues(): Queues {
@@ -60,6 +66,8 @@ export function connectQueues(): Queues {
     pgEdgeCertIssue: new Queue(QUEUES.pgEdgeCertIssue, queueOpts()),
     poolerReconciler: new Queue(QUEUES.poolerReconciler, queueOpts()),
     vaultEnable: new Queue(QUEUES.vaultEnable, queueOpts()),
+    cleanupOauthCodes: new Queue(QUEUES.cleanupOauthCodes, queueOpts()),
+    cleanupOauthRefresh: new Queue(QUEUES.cleanupOauthRefresh, queueOpts()),
   };
 }
 
@@ -112,6 +120,8 @@ export function startWorkers(): WorkersHandle {
       async (job) => handleVaultEnable(job.data as VaultEnableJobData),
       { ...workerOpts(), concurrency: 5 },
     ),
+    new Worker(QUEUES.cleanupOauthCodes, async () => handleCleanupOauthCodes(), workerOpts()),
+    new Worker(QUEUES.cleanupOauthRefresh, async () => handleCleanupOauthRefresh(), workerOpts()),
   ];
   for (const w of workers) {
     w.on('failed', (job, err) => {
