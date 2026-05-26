@@ -80,7 +80,7 @@ export const resetPgPasswordRoutes: FastifyPluginAsync = async (app) => {
           })
           .returning({ id: schema.reconcilerRuns.id });
         runId = row!.id;
-      } catch (err) {
+      } catch {
         // Another reconciler run is in-flight. Return success for the reset
         // itself; the in-flight or next-tick run will verify.
         return reply.status(200).send({

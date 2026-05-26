@@ -49,7 +49,7 @@ export async function withVaultClient<T>(
     .where(eq(schema.supabaseInstances.ref, ref))
     .limit(1);
   if (!inst) throw new InstanceNotFoundForVaultError(`instance ${ref} not found`);
-  if (inst.portDbDirect == null) {
+  if (inst.portDbDirect === null) {
     throw new VaultUnreachableError(`instance ${ref} has no port_db_direct allocated`);
   }
 

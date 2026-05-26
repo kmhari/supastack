@@ -40,5 +40,11 @@ export default [
       eqeqeq: ['error', 'always'],
     },
   },
+  {
+    files: ['**/tests/**/*.ts', '**/tests/**/*.tsx', '**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
   prettierConfig,
 ];

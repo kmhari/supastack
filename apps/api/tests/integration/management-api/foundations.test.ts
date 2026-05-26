@@ -13,7 +13,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { buildAuthedApp, hasTestEnv, mintTestToken } from '../../helpers/mgmt-api.js';
+import { buildAuthedApp, hasTestEnv } from '../../helpers/mgmt-api.js';
 
 const TEST_USER_ID = '00000000-0000-0000-0000-000000000001';
 

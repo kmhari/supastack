@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { db, schema } from '@selfbase/db';
 import { initiateWildcardOrder, verifyAndFinalize, checkDns, loadRow } from '../services/acme.js';
 import { reloadCaddy } from '../services/caddy-reload.js';

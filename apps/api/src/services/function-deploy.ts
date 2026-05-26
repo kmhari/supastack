@@ -20,7 +20,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { Readable } from 'node:stream';
+import type { Readable } from 'node:stream';
 import { promisify } from 'node:util';
 import zlib from 'node:zlib';
 

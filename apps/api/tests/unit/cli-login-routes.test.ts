@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { createECDH, createDecipheriv } from 'node:crypto';
+import { createECDH } from 'node:crypto';
 import { cliLoginRoutes } from '../../src/routes/cli-login.js';
 import { platformCliLoginRoutes } from '../../src/routes/platform-cli-login.js';
 import { setRedisForTesting, type SessionPayload } from '../../src/services/cli-login-store.js';
@@ -98,7 +98,7 @@ async function buildAppPoll(): Promise<FastifyInstance> {
 
 beforeEach(() => {
   fake = new FakeRedis();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   setRedisForTesting(fake as any);
   tokenInserts.length = 0;
 });
