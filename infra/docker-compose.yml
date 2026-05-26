@@ -111,6 +111,8 @@ services:
       # short-TTL HS256 JWTs with this secret to call supavisor's /api/tenants.
       SUPAVISOR_URL: http://supavisor:4000
       SUPAVISOR_API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET:-}
+      # Feature 014 — OAuth issuer + JWT iss/aud derivation. Same value mcp + supavisor use.
+      SELFBASE_APEX: ${SELFBASE_APEX:?SELFBASE_APEX required}
     ports:
       - 3001:3001
       # pg-edge proxy — direct Postgres endpoint for db.<ref>.<apex>:5432
