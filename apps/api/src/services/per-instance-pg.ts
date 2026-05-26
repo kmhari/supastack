@@ -55,6 +55,23 @@ export interface PerInstancePgOpts {
   readOnly?: boolean;
 }
 
+/**
+ * Per-Client `types` override that casts INT8 (oid 20) + NUMERIC (oid 1700)
+ * to JS number. Falls back to pg's default parser for every other oid.
+ */
+function numericReturningParserOverride(): { getTypeParser: typeof pg.types.getTypeParser } {
+  const INT8 = 20;
+  const NUMERIC = 1700;
+  return {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getTypeParser(oid: number, format?: any) {
+      if (oid === INT8) return (val: string) => Number(val);
+      if (oid === NUMERIC) return (val: string) => Number(val);
+      return pg.types.getTypeParser(oid, format);
+    },
+  };
+}
+
 export async function withPerInstancePg<T>(
   ref: string,
   fn: (client: pg.Client) => Promise<T>,
@@ -86,6 +103,14 @@ export async function withPerInstancePg<T>(
     database: opts.database ?? 'postgres',
     ssl: false,
     connectionTimeoutMillis: 10_000,
+    // Cast int8 (bigint) → JS number and numeric → JS number on the way out.
+    // Default pg behavior is to stringify these (because JS numbers can't
+    // represent the full int64 range); but every downstream consumer here —
+    // upstream Supabase MCP server's Zod schemas (e.g. `list_tables`), MCP
+    // `execute_sql` typed responses, dashboard JSON renderer — expects JS
+    // numbers. Matches what upstream Cloud's `database/query` emits.
+    // Scoped per-Client so it doesn't leak into other pg consumers globally.
+    types: numericReturningParserOverride(),
   };
   // `timeoutMs: null` → don't set; let the project's PG GUC decide (FR-007).
   if (opts.timeoutMs !== null) {
