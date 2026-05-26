@@ -87,6 +87,13 @@ describe('port-allocator (unit smoke)', () => {
   test('module imports cleanly', async () => {
     const mod = await import('../src/port-allocator.js');
     expect(typeof mod.allocatePorts).toBe('function');
-    expect(mod.PORT_KINDS).toEqual(['kong', 'studio', 'postgres', 'pooler', 'analytics']);
+    expect(mod.PORT_KINDS).toEqual([
+      'kong',
+      'studio',
+      'postgres',
+      'pooler',
+      'analytics',
+      'dbDirect',
+    ]);
   });
 });
