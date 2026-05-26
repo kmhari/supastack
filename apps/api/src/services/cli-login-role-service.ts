@@ -96,10 +96,7 @@ export interface RotateResult {
  *     per-project PG. Route layer maps to 502.
  *   - Other PG errors propagate as-is and are treated as 500.
  */
-export async function rotateCliLoginRole(
-  ref: string,
-  opts: RotateOpts,
-): Promise<RotateResult> {
+export async function rotateCliLoginRole(ref: string, opts: RotateOpts): Promise<RotateResult> {
   const { readOnly, patId, requesterIp, logger } = opts;
   const { role, target } = rolesForScope(readOnly);
   const password = generateCliPassword();
@@ -181,10 +178,7 @@ export interface InvalidateOpts {
  * create endpoint only; spec FR-002 treats DELETE as a lockdown lever that
  * an operator must always be able to wield.
  */
-export async function invalidateCliLoginRoles(
-  ref: string,
-  opts: InvalidateOpts,
-): Promise<void> {
+export async function invalidateCliLoginRoles(ref: string, opts: InvalidateOpts): Promise<void> {
   const { patId, requesterIp, logger } = opts;
 
   await withPerInstancePg(ref, async (client) => {

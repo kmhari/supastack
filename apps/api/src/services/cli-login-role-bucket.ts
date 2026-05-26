@@ -32,9 +32,7 @@ interface BucketState {
 
 const BUCKETS = new Map<string, BucketState>();
 
-export type ConsumeResult =
-  | { allowed: true }
-  | { allowed: false; retryAfterSeconds: number };
+export type ConsumeResult = { allowed: true } | { allowed: false; retryAfterSeconds: number };
 
 /**
  * Attempt to consume a token from the bucket identified by `key`.

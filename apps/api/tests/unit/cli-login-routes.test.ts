@@ -23,12 +23,22 @@ class FakeRedis {
   async get(k: string): Promise<string | null> {
     const e = this.store.get(k);
     if (!e) return null;
-    if (this.now > e.expiresAt) { this.store.delete(k); return null; }
+    if (this.now > e.expiresAt) {
+      this.store.delete(k);
+      return null;
+    }
     return e.value;
   }
-  async exists(k: string): Promise<number> { return (await this.get(k)) !== null ? 1 : 0; }
-  async del(k: string): Promise<number> { return this.store.delete(k) ? 1 : 0; }
-  reset(): void { this.store.clear(); this.now = 0; }
+  async exists(k: string): Promise<number> {
+    return (await this.get(k)) !== null ? 1 : 0;
+  }
+  async del(k: string): Promise<number> {
+    return this.store.delete(k) ? 1 : 0;
+  }
+  reset(): void {
+    this.store.clear();
+    this.now = 0;
+  }
 }
 
 let fake: FakeRedis;
@@ -56,7 +66,9 @@ const VALID_CLIENT_PUB_HEX = clientEcdh.getPublicKey().toString('hex');
 const SESSION_ID = '21f7bcf6-d8a6-43a0-b9d7-74f568073cf5';
 const TOKEN_NAME = 'cli_lord@apples-MacBook-Pro.local_1779716109';
 
-async function buildAppMint(authedUserId: string | null = '00000000-0000-0000-0000-000000000001'): Promise<FastifyInstance> {
+async function buildAppMint(
+  authedUserId: string | null = '00000000-0000-0000-0000-000000000001',
+): Promise<FastifyInstance> {
   const app = Fastify();
   app.decorate('requireAuth', (_req: unknown) => {
     if (!authedUserId) {
@@ -68,7 +80,9 @@ async function buildAppMint(authedUserId: string | null = '00000000-0000-0000-00
   });
   app.setErrorHandler((err, _req, reply) => {
     const status = (err as Error & { statusCode?: number }).statusCode ?? 500;
-    reply.status(status).send({ error: { code: status === 401 ? 'unauthenticated' : 'internal', message: err.message } });
+    reply.status(status).send({
+      error: { code: status === 401 ? 'unauthenticated' : 'internal', message: err.message },
+    });
   });
   await app.register(cliLoginRoutes);
   await app.ready();
@@ -117,13 +131,15 @@ describe('POST /api/v1/cli/login (dashboard mint)', () => {
   it('replay: second POST with same session_id → 409 session_in_use', async () => {
     const app = await buildAppMint();
     const first = await app.inject({
-      method: 'POST', url: '/api/v1/cli/login',
+      method: 'POST',
+      url: '/api/v1/cli/login',
       payload: { session_id: SESSION_ID, token_name: TOKEN_NAME, public_key: VALID_CLIENT_PUB_HEX },
     });
     expect(first.statusCode).toBe(200);
 
     const second = await app.inject({
-      method: 'POST', url: '/api/v1/cli/login',
+      method: 'POST',
+      url: '/api/v1/cli/login',
       payload: { session_id: SESSION_ID, token_name: TOKEN_NAME, public_key: VALID_CLIENT_PUB_HEX },
     });
     expect(second.statusCode).toBe(409);
@@ -134,8 +150,13 @@ describe('POST /api/v1/cli/login (dashboard mint)', () => {
   it('malformed session_id → 422 invalid_params', async () => {
     const app = await buildAppMint();
     const res = await app.inject({
-      method: 'POST', url: '/api/v1/cli/login',
-      payload: { session_id: 'not-a-uuid', token_name: TOKEN_NAME, public_key: VALID_CLIENT_PUB_HEX },
+      method: 'POST',
+      url: '/api/v1/cli/login',
+      payload: {
+        session_id: 'not-a-uuid',
+        token_name: TOKEN_NAME,
+        public_key: VALID_CLIENT_PUB_HEX,
+      },
     });
     expect(res.statusCode).toBe(422);
     const body = JSON.parse(res.body);
@@ -147,7 +168,8 @@ describe('POST /api/v1/cli/login (dashboard mint)', () => {
   it('malformed public_key (wrong length) → 422', async () => {
     const app = await buildAppMint();
     const res = await app.inject({
-      method: 'POST', url: '/api/v1/cli/login',
+      method: 'POST',
+      url: '/api/v1/cli/login',
       payload: { session_id: SESSION_ID, token_name: TOKEN_NAME, public_key: '04abc' },
     });
     expect(res.statusCode).toBe(422);
@@ -159,7 +181,8 @@ describe('POST /api/v1/cli/login (dashboard mint)', () => {
     const app = await buildAppMint();
     const bogus = '04' + 'aa'.repeat(64); // valid length+format but not a real curve point
     const res = await app.inject({
-      method: 'POST', url: '/api/v1/cli/login',
+      method: 'POST',
+      url: '/api/v1/cli/login',
       payload: { session_id: SESSION_ID, token_name: TOKEN_NAME, public_key: bogus },
     });
     expect(res.statusCode).toBe(422);
@@ -170,7 +193,8 @@ describe('POST /api/v1/cli/login (dashboard mint)', () => {
   it('no session (requireAuth throws) → 401', async () => {
     const app = await buildAppMint(null);
     const res = await app.inject({
-      method: 'POST', url: '/api/v1/cli/login',
+      method: 'POST',
+      url: '/api/v1/cli/login',
       payload: { session_id: SESSION_ID, token_name: TOKEN_NAME, public_key: VALID_CLIENT_PUB_HEX },
     });
     expect(res.statusCode).toBe(401);
@@ -219,9 +243,15 @@ describe('GET /platform/cli/login/:session_id (CLI poll)', () => {
     const app = await buildAppPoll();
 
     const cases = [
-      { url: `/platform/cli/login/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa?device_code=91cbae4c`, desc: 'unknown session_id' },
+      {
+        url: `/platform/cli/login/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa?device_code=91cbae4c`,
+        desc: 'unknown session_id',
+      },
       { url: `/platform/cli/login/not-a-uuid?device_code=91cbae4c`, desc: 'malformed session_id' },
-      { url: `/platform/cli/login/${SESSION_ID}?device_code=ZZZZZZZZ`, desc: 'malformed device_code' },
+      {
+        url: `/platform/cli/login/${SESSION_ID}?device_code=ZZZZZZZZ`,
+        desc: 'malformed device_code',
+      },
       { url: `/platform/cli/login/${SESSION_ID}?device_code=deadbeef`, desc: 'wrong device_code' },
     ];
 
@@ -239,9 +269,15 @@ describe('GET /platform/cli/login/:session_id (CLI poll)', () => {
   it('single-use: GET twice → first 200, second 404', async () => {
     const payload = await seedRedis();
     const app = await buildAppPoll();
-    const r1 = await app.inject({ method: 'GET', url: `/platform/cli/login/${SESSION_ID}?device_code=${payload.device_code}` });
+    const r1 = await app.inject({
+      method: 'GET',
+      url: `/platform/cli/login/${SESSION_ID}?device_code=${payload.device_code}`,
+    });
     expect(r1.statusCode).toBe(200);
-    const r2 = await app.inject({ method: 'GET', url: `/platform/cli/login/${SESSION_ID}?device_code=${payload.device_code}` });
+    const r2 = await app.inject({
+      method: 'GET',
+      url: `/platform/cli/login/${SESSION_ID}?device_code=${payload.device_code}`,
+    });
     expect(r2.statusCode).toBe(404);
     expect(r2.body).toBe(JSON.stringify({ message: 'session not found' }));
     await app.close();
@@ -251,7 +287,10 @@ describe('GET /platform/cli/login/:session_id (CLI poll)', () => {
     const payload = await seedRedis();
     fake.now += 301_000; // fast-forward
     const app = await buildAppPoll();
-    const r = await app.inject({ method: 'GET', url: `/platform/cli/login/${SESSION_ID}?device_code=${payload.device_code}` });
+    const r = await app.inject({
+      method: 'GET',
+      url: `/platform/cli/login/${SESSION_ID}?device_code=${payload.device_code}`,
+    });
     expect(r.statusCode).toBe(404);
     await app.close();
   });

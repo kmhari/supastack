@@ -11,10 +11,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import {
-  PASSWORD_BYTES,
-  generateCliPassword,
-} from '../../src/services/cli-login-role-password.js';
+import { PASSWORD_BYTES, generateCliPassword } from '../../src/services/cli-login-role-password.js';
 
 describe('generateCliPassword', () => {
   it('exports PASSWORD_BYTES = 32 (256 bits of entropy)', () => {

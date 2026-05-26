@@ -127,13 +127,13 @@ DELETE emits `event: cli_login_role_invalidated` with the same fields minus `sco
 
 ## Security posture trade-off
 
-| Aspect | Legacy `--password` flow | New endpoint flow |
-|---|---|---|
-| Credential lifetime | Long-lived per-project superuser password (rotated only on operator demand via `instance.pg-password.reset`) | 5 minutes per call; new password every call |
-| Stored on operator machine | Yes — in shell history, `~/.bashrc`, CI secrets, etc. | No — CLI never persists the rotated password |
-| Privilege envelope | Full superuser (`postgres` role, all DDL + all data) | Postgres-owner level (via `SET SESSION ROLE postgres`), OR `pg_read_all_data` for `read_only: true` |
-| Attack window if credential leaks | Until operator-initiated rotation (typically months) | ≤5 minutes after the leak moment |
-| Rate-limit on credential mint | N/A (it's a long-lived password, no minting) | 30/min/PAT/project (HTTP 429 with `Retry-After` if exceeded) |
+| Aspect                            | Legacy `--password` flow                                                                                     | New endpoint flow                                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Credential lifetime               | Long-lived per-project superuser password (rotated only on operator demand via `instance.pg-password.reset`) | 5 minutes per call; new password every call                                                         |
+| Stored on operator machine        | Yes — in shell history, `~/.bashrc`, CI secrets, etc.                                                        | No — CLI never persists the rotated password                                                        |
+| Privilege envelope                | Full superuser (`postgres` role, all DDL + all data)                                                         | Postgres-owner level (via `SET SESSION ROLE postgres`), OR `pg_read_all_data` for `read_only: true` |
+| Attack window if credential leaks | Until operator-initiated rotation (typically months)                                                         | ≤5 minutes after the leak moment                                                                    |
+| Rate-limit on credential mint     | N/A (it's a long-lived password, no minting)                                                                 | 30/min/PAT/project (HTTP 429 with `Retry-After` if exceeded)                                        |
 
 For nearly every operator the new flow is strictly better posture-wise. The legacy `--password` flow is kept as an escape hatch (operators may have CI systems that can't be migrated mid-cycle; selfbase doesn't force the migration).
 
@@ -175,16 +175,16 @@ operator terminal                                    api container              
 
 ## Verification (what we shipped + what the tests cover)
 
-| Component | File | Test |
-|---|---|---|
-| Password generator | `apps/api/src/services/cli-login-role-password.ts` | `apps/api/tests/unit/cli-login-role-password.test.ts` (5 cases) |
-| Rate-limit bucket | `apps/api/src/services/cli-login-role-bucket.ts` | `apps/api/tests/unit/cli-login-role-bucket.test.ts` (6 cases) |
-| Service layer (rotate + invalidate) | `apps/api/src/services/cli-login-role-service.ts` | `apps/api/tests/integration/management-api/cli-login-role.test.ts` (20 cases, mocked per-instance PG) |
-| Route handler (POST + DELETE) | `apps/api/src/routes/management/cli-login-role.ts` | Same as above |
-| Wire-shape contract | n/a (interlock with `@selfbase/shared` schemas) | `apps/api/tests/integration/management-api/cli-login-role-contract.test.ts` (11 cases, offline) |
-| RBAC action | `packages/shared/src/rbac.ts` (`database.create-login-role`) | Existing rbac matrix contract test |
-| Live-VM E2E (TTL + RO + DELETE) | `tests/cli-e2e/login-role.sh` | One 7-step shell script (320s sleep for TTL test; skippable via `SKIP_TTL_TEST=1`) |
-| Dual-pass legacy + password-less E2E | `tests/cli-e2e/db-push.sh` | Pass A + Pass B; evidence files emitted to `tests/cli-e2e/.evidence/012-sc-{002,003}.txt` |
+| Component                            | File                                                         | Test                                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Password generator                   | `apps/api/src/services/cli-login-role-password.ts`           | `apps/api/tests/unit/cli-login-role-password.test.ts` (5 cases)                                       |
+| Rate-limit bucket                    | `apps/api/src/services/cli-login-role-bucket.ts`             | `apps/api/tests/unit/cli-login-role-bucket.test.ts` (6 cases)                                         |
+| Service layer (rotate + invalidate)  | `apps/api/src/services/cli-login-role-service.ts`            | `apps/api/tests/integration/management-api/cli-login-role.test.ts` (20 cases, mocked per-instance PG) |
+| Route handler (POST + DELETE)        | `apps/api/src/routes/management/cli-login-role.ts`           | Same as above                                                                                         |
+| Wire-shape contract                  | n/a (interlock with `@selfbase/shared` schemas)              | `apps/api/tests/integration/management-api/cli-login-role-contract.test.ts` (11 cases, offline)       |
+| RBAC action                          | `packages/shared/src/rbac.ts` (`database.create-login-role`) | Existing rbac matrix contract test                                                                    |
+| Live-VM E2E (TTL + RO + DELETE)      | `tests/cli-e2e/login-role.sh`                                | One 7-step shell script (320s sleep for TTL test; skippable via `SKIP_TTL_TEST=1`)                    |
+| Dual-pass legacy + password-less E2E | `tests/cli-e2e/db-push.sh`                                   | Pass A + Pass B; evidence files emitted to `tests/cli-e2e/.evidence/012-sc-{002,003}.txt`             |
 
 ## Quickstart for verification
 
