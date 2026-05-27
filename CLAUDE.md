@@ -89,7 +89,7 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-**Active feature plan**: feature 017 — cap per-project Kong gateway nginx workers. Plan: [specs/017-kong-worker-cap/plan.md](specs/017-kong-worker-cap/plan.md). One-line template change (`KONG_NGINX_WORKER_PROCESSES=2`) in `infra/supabase-template/docker-compose.yml`; expected to drop per-project gateway idle RSS from ~1.25 GiB to <300 MiB on the 12-core production VM (~3 GiB total saving across the 3 projects).
+**Active feature plan**: feature 018 — T078 master key rotation (issue #54). Plan: [specs/018-t078-master-key-rotation/plan.md](specs/018-t078-master-key-rotation/plan.md). Re-key tool (`scripts/rekey-master.mjs`), E2E validation script, and operator runbook.
 
 **Most recently merged**: feature 016 — MCP post-ship hardening (issues #50–#53): (US1) statement_timeout=8s default at provision; (US2) filter deferred MCP tools from tools/list; (US3) auto-uncomment Kong analytics routes for get_logs; (US4) 14 missing OAuth route-level tests. Prior: feature 014 — hosted multi-project MCP + OAuth 2.1 authorization server (full spec at [specs/014-mcp-http-oauth/plan.md](specs/014-mcp-http-oauth/plan.md); operator runbook at [docs/changes/014-mcp-http-oauth.md](docs/changes/014-mcp-http-oauth.md)).
 
