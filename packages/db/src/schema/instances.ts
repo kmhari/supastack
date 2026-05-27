@@ -23,7 +23,7 @@ export const supabaseInstances = pgTable(
       .references(() => org.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     status: text('status', {
-      enum: ['provisioning', 'running', 'paused', 'stopped', 'failed', 'deleting'],
+      enum: ['provisioning', 'running', 'paused', 'stopped', 'failed', 'deleting', 'restoring'],
     }).notNull(),
     supabaseVersion: text('supabase_version').notNull(),
     encryptedSecrets: bytea('encrypted_secrets').notNull(),
