@@ -89,15 +89,13 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-**Active feature plan**: feature 016 — MCP post-ship hardening (issues #50–#53). Plan: [specs/016-mcp-post-ship/plan.md](specs/016-mcp-post-ship/plan.md). Four follow-up improvements to feature 014: (US1) statement_timeout=8s default at provision; (US2) filter deferred MCP tools from tools/list; (US3) auto-uncomment Kong analytics routes for get_logs; (US4) 14 missing OAuth route-level tests.
+**Active feature plan**: feature 017 — cap per-project Kong gateway nginx workers. Plan: [specs/017-kong-worker-cap/plan.md](specs/017-kong-worker-cap/plan.md). One-line template change (`KONG_NGINX_WORKER_PROCESSES=2`) in `infra/supabase-template/docker-compose.yml`; expected to drop per-project gateway idle RSS from ~1.25 GiB to <300 MiB on the 12-core production VM (~3 GiB total saving across the 3 projects).
 
-**Most recently merged**: feature 014 — hosted multi-project MCP + OAuth 2.1 authorization server (full spec at [specs/014-mcp-http-oauth/plan.md](specs/014-mcp-http-oauth/plan.md); operator runbook at [docs/changes/014-mcp-http-oauth.md](docs/changes/014-mcp-http-oauth.md)). Prior: feature 013 — `db query` + `db dump` Management API endpoints (closes #36, unblocks 3 MCP tools per #37).
+**Most recently merged**: feature 016 — MCP post-ship hardening (issues #50–#53): (US1) statement_timeout=8s default at provision; (US2) filter deferred MCP tools from tools/list; (US3) auto-uncomment Kong analytics routes for get_logs; (US4) 14 missing OAuth route-level tests. Prior: feature 014 — hosted multi-project MCP + OAuth 2.1 authorization server (full spec at [specs/014-mcp-http-oauth/plan.md](specs/014-mcp-http-oauth/plan.md); operator runbook at [docs/changes/014-mcp-http-oauth.md](docs/changes/014-mcp-http-oauth.md)).
 
 **Other in-flight work**: feature 009 — runtime config tunables (`postgres-config` + `config --auth-*`) — issue #11. Plan: `specs/009-runtime-config-tunables/plan.md`. Implementation complete; locally tested; not yet deployed. Shape-vs-behavioral parity gap tracked separately as issue #21.
 
 **Other open spec branches**: `007-auto-cert-renewal` (Cloudflare DNS API auto-renewal — issue #6, not yet implemented).
-
-**Active feature plan**: feature 017 — T077 silent OAuth token refresh validation (issue #54). Plan: [specs/017-t077-silent-refresh-smoke/plan.md](specs/017-t077-silent-refresh-smoke/plan.md). One-shot live smoke; single new script `tests/cli-e2e/t077-silent-refresh.sh`; no production code changes.
 <!-- SPECKIT END -->
 
 ## userEmail
