@@ -53,6 +53,8 @@ export const ACTIONS = [
   'database.create-login-role',
   // feature 013 — db query + db dump endpoints (admin-only SQL + pg_dump)
   'database.write',
+  // feature 019 — async backup restore
+  'backup.restore',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -99,6 +101,7 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'instance.vault.enable': true,
     'database.create-login-role': true,
     'database.write': true,
+    'backup.restore': true,
   },
   member: {
     'setup.run': false, // setup only runs unauthenticated, before any user exists
@@ -140,6 +143,7 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'instance.vault.enable': false,
     'database.create-login-role': false, // members cannot mint write-capable PG creds via CLI exchange
     'database.write': false, // members cannot run arbitrary SQL or pg_dump (admin-only superuser surface)
+    'backup.restore': false, // restore is admin-only (data destructive)
   },
 };
 

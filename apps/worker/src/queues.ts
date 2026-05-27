@@ -12,6 +12,7 @@ import { handlePoolerReconciler, type PoolerReconcilerJob } from './jobs/pooler-
 import { handleVaultEnable, type VaultEnableJobData } from './jobs/vault-enable-job.js';
 import { handleCleanupOauthCodes } from './jobs/cleanup-oauth-codes.js';
 import { handleCleanupOauthRefresh } from './jobs/cleanup-oauth-refresh.js';
+import { handleRestore, handleRestoreGc } from './jobs/restore.js';
 
 const REDIS_URL = process.env.REDIS_URL!;
 
@@ -39,6 +40,8 @@ export const QUEUES = {
   vaultEnable: 'selfbase.vault-enable',
   cleanupOauthCodes: 'selfbase.cleanup-oauth-codes',
   cleanupOauthRefresh: 'selfbase.cleanup-oauth-refresh',
+  restore: 'selfbase.restore',
+  restoreGc: 'selfbase.restore-gc',
 } as const;
 
 export interface Queues {
@@ -53,6 +56,8 @@ export interface Queues {
   vaultEnable: Queue;
   cleanupOauthCodes: Queue;
   cleanupOauthRefresh: Queue;
+  restore: Queue;
+  restoreGc: Queue;
 }
 
 export function connectQueues(): Queues {
@@ -68,6 +73,8 @@ export function connectQueues(): Queues {
     vaultEnable: new Queue(QUEUES.vaultEnable, queueOpts()),
     cleanupOauthCodes: new Queue(QUEUES.cleanupOauthCodes, queueOpts()),
     cleanupOauthRefresh: new Queue(QUEUES.cleanupOauthRefresh, queueOpts()),
+    restore: new Queue(QUEUES.restore, queueOpts()),
+    restoreGc: new Queue(QUEUES.restoreGc, queueOpts()),
   };
 }
 
@@ -122,6 +129,16 @@ export function startWorkers(): WorkersHandle {
     ),
     new Worker(QUEUES.cleanupOauthCodes, async () => handleCleanupOauthCodes(), workerOpts()),
     new Worker(QUEUES.cleanupOauthRefresh, async () => handleCleanupOauthRefresh(), workerOpts()),
+    new Worker(
+      QUEUES.restore,
+      async (job) => handleRestore(job.data as { restore_job_id: string }),
+      workerOpts(),
+    ),
+    new Worker(
+      QUEUES.restoreGc,
+      async (job) => handleRestoreGc(job.data as { restore_job_id: string }),
+      workerOpts(),
+    ),
   ];
   for (const w of workers) {
     w.on('failed', (job, err) => {
