@@ -126,6 +126,10 @@ services:
       - /var/selfbase/backups:/var/selfbase/backups
       - /var/run/docker.sock:/var/run/docker.sock
       - certs-data:/var/selfbase/certs
+      # Docker CLI + compose plugin — needed by ssl-enforcement-store and any
+      # service that shells out to `docker compose exec` (composeExec helper).
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /usr/libexec/docker/cli-plugins:/usr/libexec/docker/cli-plugins:ro
     networks: [internal]
     # pg-edge proxy (feature 005) connects to per-instance Postgres via
     # host.docker.internal:<port_db_direct>. Same mapping as caddy uses
