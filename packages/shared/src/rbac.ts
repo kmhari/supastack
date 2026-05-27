@@ -42,6 +42,9 @@ export const ACTIONS = [
   'data_api_config.write',
   'auth_config.read',
   'auth_config.write',
+  // feature 026 — supabase config push compat (database/postgres)
+  'database_config.read',
+  'database_config.write',
   // feature 010 — secrets management (vault-backed)
   'instance.secrets.read',
   'instance.secrets.write',
@@ -89,6 +92,8 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'data_api_config.write': true,
     'auth_config.read': true,
     'auth_config.write': true,
+    'database_config.read': true,
+    'database_config.write': true,
     'instance.secrets.read': true,
     'instance.secrets.write': true,
     'instance.vault.enable': true,
@@ -128,6 +133,8 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'data_api_config.write': false,
     'auth_config.read': true,
     'auth_config.write': false,
+    'database_config.read': true,
+    'database_config.write': false,
     'instance.secrets.read': true, // members can view digests (no plaintext) — read-only dashboard view
     'instance.secrets.write': false,
     'instance.vault.enable': false,
