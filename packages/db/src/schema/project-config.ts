@@ -33,10 +33,10 @@ export const projectConfigSnapshots = pgTable(
   (t) => ({
     surfaceCheck: check(
       'project_config_snapshots_surface_check',
-      sql`${t.surface} IN ('postgrest', 'auth')`,
+      sql`${t.surface} IN ('postgrest', 'auth', 'postgres')`,
     ),
     uniquePerSurface: uniqueIndex('project_config_snapshots_unique').on(t.instanceRef, t.surface),
   }),
 );
 
-export type ConfigSurface = 'postgrest' | 'auth';
+export type ConfigSurface = 'postgrest' | 'auth' | 'postgres';

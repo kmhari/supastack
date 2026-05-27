@@ -7,4 +7,5 @@ export * from './mgmt-api-schemas.js';
 export * from './reserved-secrets.js';
 export * from './schemas/mgmt-api-postgrest-config.js';
 export * from './schemas/mgmt-api-auth-config.js';
+export * from './schemas/mgmt-api-postgres-config.js';
 export * from './oauth-schemas.js';
