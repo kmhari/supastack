@@ -38,6 +38,7 @@ import { authConfigRoutes } from './routes/management/auth-config.js';
 import { postgrestConfigRoutes } from './routes/management/postgrest-config.js';
 import { billingAddonsRoutes } from './routes/management/billing-addons.js';
 import { postgresConfigRoutes } from './routes/management/postgres-config.js';
+import { sslEnforcementRoutes } from './routes/management/ssl-enforcement.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 import { wildcardCertRoutes } from './routes/wildcard-certs.js';
 import { acmeChallengeRoutes } from './routes/acme-challenge.js';
@@ -247,6 +248,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       await mgmt.register(authConfigRoutes);
       await mgmt.register(billingAddonsRoutes);
       await mgmt.register(postgresConfigRoutes);
+      await mgmt.register(sslEnforcementRoutes);
       // Feature 012 — CLI login-role (passwordless `supabase db push`):
       await mgmt.register(cliLoginRoleRoutes);
       // Feature 013 — db query + db dump (ad-hoc SQL + pg_dump streaming):
