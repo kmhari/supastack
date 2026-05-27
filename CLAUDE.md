@@ -91,7 +91,7 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 <!-- SPECKIT START -->
 **Active feature plan**: feature 018 — T078 master key rotation (issue #54). Plan: [specs/018-t078-master-key-rotation/plan.md](specs/018-t078-master-key-rotation/plan.md). Re-key tool (`scripts/rekey-master.mjs`), E2E validation script, and operator runbook.
 
-**Most recently merged**: feature 014 — hosted multi-project MCP + OAuth 2.1 authorization server (full spec at [specs/014-mcp-http-oauth/plan.md](specs/014-mcp-http-oauth/plan.md); operator runbook at [docs/changes/014-mcp-http-oauth.md](docs/changes/014-mcp-http-oauth.md)). Prior: feature 013 — `db query` + `db dump` Management API endpoints (closes #36, unblocks 3 MCP tools per #37).
+**Most recently merged**: feature 016 — MCP post-ship hardening (issues #50–#53): (US1) statement_timeout=8s default at provision; (US2) filter deferred MCP tools from tools/list; (US3) auto-uncomment Kong analytics routes for get_logs; (US4) 14 missing OAuth route-level tests. Prior: feature 014 — hosted multi-project MCP + OAuth 2.1 authorization server (full spec at [specs/014-mcp-http-oauth/plan.md](specs/014-mcp-http-oauth/plan.md); operator runbook at [docs/changes/014-mcp-http-oauth.md](docs/changes/014-mcp-http-oauth.md)).
 
 **Other in-flight work**: feature 009 — runtime config tunables (`postgres-config` + `config --auth-*`) — issue #11. Plan: `specs/009-runtime-config-tunables/plan.md`. Implementation complete; locally tested; not yet deployed. Shape-vs-behavioral parity gap tracked separately as issue #21.
 
