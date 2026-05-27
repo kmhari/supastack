@@ -1,6 +1,6 @@
 # 017 — Cap Kong nginx workers per project
 
-**Status**: shipped to template; per-project rollout pending operator action.
+**Status**: shipped to template and rolled out to all 3 projects on the production VM `supaviser.dev` on 2026-05-27. Per-kong idle RSS dropped from ~1.24 GiB to ~131 MiB; total host memory used dropped from 14 GiB to 10 GiB (~3.34 GiB freed). 7-day regression check (SC-003) pending.
 
 **Feature dir**: [`specs/017-kong-worker-cap/`](../../specs/017-kong-worker-cap/)
 
