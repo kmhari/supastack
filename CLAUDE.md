@@ -96,6 +96,8 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 **Other in-flight work**: feature 009 — runtime config tunables (`postgres-config` + `config --auth-*`) — issue #11. Plan: `specs/009-runtime-config-tunables/plan.md`. Implementation complete; locally tested; not yet deployed. Shape-vs-behavioral parity gap tracked separately as issue #21.
 
 **Other open spec branches**: `007-auto-cert-renewal` (Cloudflare DNS API auto-renewal — issue #6, not yet implemented).
+
+**Active feature plan**: feature 017 — T077 silent OAuth token refresh validation (issue #54). Plan: [specs/017-t077-silent-refresh-smoke/plan.md](specs/017-t077-silent-refresh-smoke/plan.md). One-shot live smoke; single new script `tests/cli-e2e/t077-silent-refresh.sh`; no production code changes.
 <!-- SPECKIT END -->
 
 ## userEmail
