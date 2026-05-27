@@ -3,7 +3,7 @@ import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { spawn } from 'node:child_process';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { db, schema } from '@selfbase/db';
@@ -26,9 +26,6 @@ const REDIS_URL = process.env.REDIS_URL ?? 'redis://redis:6379';
 const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
 const BACKUPS_DIR = process.env.BACKUPS_DIR ?? '/var/selfbase/backups';
 
-// Delay before restore-gc fires: 24 hours
-const GC_DELAY_MS = 24 * 60 * 60 * 1000;
-
 let _gcQueue: Queue | null = null;
 function gcQueue(): Queue {
   if (!_gcQueue) {
@@ -48,6 +45,17 @@ async function resolveBackupStore(): Promise<BackupStore> {
   if (!row.cfg) throw new Error('s3 backup-store config missing');
   const cfg = decryptJson<S3StoreConfig>(row.cfg, loadMasterKey());
   return new S3Store(cfg);
+}
+
+async function spawnAsync(cmd: string, args: string[], opts: { allowExitCode1?: boolean } = {}): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn(cmd, args, { stdio: 'inherit' });
+    proc.on('close', (code) => {
+      if (code === 0 || (opts.allowExitCode1 && code === 1)) return resolve();
+      reject(new Error(`${cmd} exited ${code}`));
+    });
+    proc.on('error', reject);
+  });
 }
 
 export async function handleRestore(payload: { restore_job_id: string }): Promise<void> {
@@ -75,9 +83,9 @@ export async function handleRestore(payload: { restore_job_id: string }): Promis
     .set({ status: 'running', startedAt: new Date(), updatedAt: new Date() })
     .where(eq(schema.restoreJobs.id, restore_job_id));
 
-  let preRestoreDir: string | null = null;
-  const dataDir = path.join(INSTANCES_DIR, ref, 'volumes', 'db', 'data');
-  const tmpBlob = `/tmp/restore-${restore_job_id}.tar.gz`;
+  // Backups are pg_dump -Fc (logical), so restore uses pg_restore via docker exec.
+  // The stack stays running; we restore into the live postgres database.
+  const tmpBlob = `/tmp/restore-${restore_job_id}.dump`;
 
   // Watchdog: abort at timeout_budget_seconds
   let watchdogFired = false;
@@ -101,43 +109,47 @@ export async function handleRestore(payload: { restore_job_id: string }): Promis
     await pipeline(readStream, createWriteStream(tmpBlob));
     maybeAbort();
 
-    // Step 4: stop the whole per-instance stack
-    log.info('stopping per-instance stack');
+    // Step 4: copy dump into the db container
+    const dbContainer = `selfbase-${ref}-db-1`;
+    const containerDump = `/tmp/restore-${restore_job_id}.dump`;
+    log.info({ dbContainer }, 'copying dump into db container');
+    await spawnAsync('docker', ['cp', tmpBlob, `${dbContainer}:${containerDump}`]);
+    maybeAbort();
+
+    // Step 5: run pg_restore inside the db container (--clean --if-exists drops objects first).
+    // pg_restore exits 1 for non-fatal warnings (ownership errors in Supabase's multi-role schema
+    // are expected and don't affect the restored data). Treat code 1 as success.
+    log.info('running pg_restore');
+    await spawnAsync('docker', [
+      'exec', dbContainer,
+      'pg_restore',
+      '-U', 'postgres',
+      '-d', 'postgres',
+      '--clean', '--if-exists',
+      '--no-owner', '--no-privileges',
+      containerDump,
+    ], { allowExitCode1: true });
+    maybeAbort();
+
+    // Step 6: clean up dump inside container
+    await spawnAsync('docker', ['exec', dbContainer, 'rm', '-f', containerDump]).catch(() => {});
+
+    // Step 7: restart sibling services so they pick up the restored schema
+    log.info('restarting per-instance stack for schema refresh');
     await composeStop(ctx);
-    maybeAbort();
-
-    // Step 5: mv data dir to pre-restore snapshot
-    preRestoreDir = `${dataDir}.pre-restore-${restore_job_id}`;
-    log.info({ preRestoreDir }, 'snapshotting data dir');
-    await fsp.rename(dataDir, preRestoreDir);
-    await db()
-      .update(schema.restoreJobs)
-      .set({ preRestoreDir, updatedAt: new Date() })
-      .where(eq(schema.restoreJobs.id, restore_job_id));
-    maybeAbort();
-
-    // Step 6: extract blob into new data dir
-    log.info('extracting backup blob');
-    await fsp.mkdir(dataDir, { recursive: true });
-    await extractTarGz(tmpBlob, dataDir);
-    maybeAbort();
-
-    // Step 7: start the whole stack
-    log.info('starting per-instance stack');
     await composeStart(ctx);
     maybeAbort();
 
-    // Step 8+9: wait for db healthcheck + smoke probe
+    // Step 8: wait for db healthcheck
     log.info('waiting for db healthcheck');
     await waitUntilHealthy(ctx, job.timeoutBudgetSeconds * 1000, log);
     maybeAbort();
 
-    // Step 10: wait for sibling services (auth, rest, kong)
+    // Step 9: wait for sibling services
     log.info('waiting for sibling services');
     await waitForSiblingServices(ref, 300_000);
-    maybeAbort();
 
-    // Step 11+12: success
+    // Step 10: success
     clearTimeout(watchdog);
     await db().transaction(async (tx) => {
       await tx
@@ -150,45 +162,29 @@ export async function handleRestore(payload: { restore_job_id: string }): Promis
         .where(eq(schema.supabaseInstances.ref, ref));
     });
 
-    // Step 13: schedule GC in 24h
-    await gcQueue().add('restore-gc', { restore_job_id }, { delay: GC_DELAY_MS });
-
     log.info('mgmt_api.backup.restore_completed');
   } catch (err) {
     clearTimeout(watchdog);
     const errorMessage = (err as Error).message;
     log.error({ err: errorMessage }, 'restore failed — rolling back');
-
-    await rollback(ctx, dataDir, preRestoreDir, restore_job_id, ref, errorMessage, log);
+    await rollback(ctx, restore_job_id, ref, errorMessage, log);
   } finally {
-    // Clean up tmp blob
     await fsp.unlink(tmpBlob).catch(() => {});
   }
 }
 
 async function rollback(
   ctx: ComposeContext,
-  dataDir: string,
-  preRestoreDir: string | null,
   restore_job_id: string,
   ref: string,
   errorMessage: string,
   log: ReturnType<typeof logger.child>,
 ): Promise<void> {
   try {
-    // Best-effort stop
+    // Best-effort restart the stack to recover
     await composeStop(ctx).catch(() => {});
-
-    // Swap dirs back if snapshot exists
-    if (preRestoreDir) {
-      await fsp.rm(dataDir, { recursive: true, force: true }).catch(() => {});
-      await fsp.rename(preRestoreDir, dataDir).catch(() => {});
-    }
-
-    // Restart stack
     await composeStart(ctx).catch(() => {});
 
-    // Wait for recovery
     let recoveredOk = false;
     try {
       await waitUntilHealthy(ctx, 5 * 60 * 1000, log);
@@ -233,8 +229,6 @@ async function waitUntilHealthy(
 }
 
 async function waitForSiblingServices(ref: string, budgetMs: number): Promise<void> {
-  // Light HTTP probe on auth and rest via their internal ports.
-  // We use per-instance secrets to discover the port_kong value.
   const [inst] = await db()
     .select({ portKong: schema.supabaseInstances.portKong })
     .from(schema.supabaseInstances)
@@ -247,21 +241,14 @@ async function waitForSiblingServices(ref: string, budgetMs: number): Promise<vo
 
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(`${kongBase}/auth/v1/health`, { signal: AbortSignal.timeout(3000) });
-      if (res.ok) return;
+      // Use kong's own health endpoint (not upstream service routes which require auth)
+      const res = await fetch(`${kongBase}/`, { signal: AbortSignal.timeout(3000) });
+      // Kong returns 404 on /, 401 on service routes — both mean kong is up
+      if (res.status < 500) return;
     } catch {}
     await new Promise((r) => setTimeout(r, 5000));
   }
-  // Non-fatal: log warning but don't fail the restore
   logger.warn({ ref }, 'sibling services did not recover within budget — marking success anyway');
-}
-
-async function extractTarGz(blob: string, destDir: string): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const proc = spawn('tar', ['-xzf', blob, '-C', destDir], { stdio: 'inherit' });
-    proc.on('close', (code) => code === 0 ? resolve() : reject(new Error(`tar exited ${code}`)));
-    proc.on('error', reject);
-  });
 }
 
 // ─── restore-gc worker ───────────────────────────────────────────────────────

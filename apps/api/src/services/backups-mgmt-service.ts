@@ -122,10 +122,6 @@ export async function initiateRestore(
     throw new RestoreError('backup_blob_missing', 'Backup blob not found in storage');
   }
 
-  // Pre-flight: disk space check
-  const dataDir = path.join(INSTANCES_DIR, ref, 'volumes', 'db', 'data');
-  await checkDiskSpace(dataDir, backup.sizeBytes ?? 0);
-
   // Compute timeout budget: 300 + ceil(size_bytes / 1e9) * 60 + 300
   const sizeGb = Math.ceil((backup.sizeBytes ?? 0) / 1e9);
   const timeoutBudgetSeconds = 300 + sizeGb * 60 + 300;
