@@ -49,9 +49,9 @@ Selfbase repo layout. Only one file under `infra/supabase-template/` is modified
 
 ### Implementation tasks
 
-- [ ] T001 [US1] Add `KONG_NGINX_WORKER_PROCESSES: "2"` to the `kong.environment` block in `infra/supabase-template/docker-compose.yml` (place it next to the other `KONG_NGINX_*` keys around line 114–115, alphabetical with `KONG_NGINX_PROXY_PROXY_BUFFER_SIZE`).
-- [ ] T002 [US1] Update `infra/supabase-template/CHANGELOG.md` with a one-line entry referencing feature 017 and the new env var, dated 2026-05-27.
-- [ ] T003 [US1] Bump the template version pointer if `infra/supabase-template/versions.md` tracks the template snapshot used by the provisioner (check the file; add a row with today's date and the change summary only if the file is the canonical version pointer — otherwise skip).
+- [X] T001 [US1] Add `KONG_NGINX_WORKER_PROCESSES: "2"` to the `kong.environment` block in `infra/supabase-template/docker-compose.yml` (place it next to the other `KONG_NGINX_*` keys around line 114–115, alphabetical with `KONG_NGINX_PROXY_PROXY_BUFFER_SIZE`).
+- [X] T002 [US1] Update `infra/supabase-template/CHANGELOG.md` with a one-line entry referencing feature 017 and the new env var, dated 2026-05-27.
+- [X] T003 [US1] Bump the template version pointer if `infra/supabase-template/versions.md` tracks the template snapshot used by the provisioner (check the file; add a row with today's date and the change summary only if the file is the canonical version pointer — otherwise skip). *(Skipped: `versions.md` tracks image-version bumps only; we are not changing the kong image.)*
 
 ### Deploy + verify on VM
 
@@ -66,8 +66,8 @@ Selfbase repo layout. Only one file under `infra/supabase-template/` is modified
 
 ## Phase 4: Polish & Cross-Cutting Concerns
 
-- [ ] T008 [P] Update `CLAUDE.md` "Active feature pointer" to reference feature 017 (or note completion and revert to 016 if 017 ships ahead of 016 close-out — check git state at PR time).
-- [ ] T009 [P] Add an entry under `docs/changes/` (e.g., `docs/changes/017-kong-worker-cap.md`) summarizing the change for operators: what changed, why, how to roll back, expected memory savings.
+- [X] T008 [P] Update `CLAUDE.md` "Active feature pointer" to reference feature 017 (or note completion and revert to 016 if 017 ships ahead of 016 close-out — check git state at PR time).
+- [X] T009 [P] Add an entry under `docs/changes/` (e.g., `docs/changes/017-kong-worker-cap.md`) summarizing the change for operators: what changed, why, how to roll back, expected memory savings.
 - [ ] T010 [US1] After 7 days post-deploy, check the per-project analytics dashboard for any uptick in gateway-originated 5xx vs. the prior 7 days (SC-003). If clean, close issue #1; if a regression appears, follow rollback in quickstart.md and re-open the spec for a higher cap.
 
 ---
