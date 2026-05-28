@@ -80,7 +80,12 @@ export async function putSslEnforcement(
         status: err.status,
       });
     }
-    throw new ManagementApiError(500, `pg_reload_conf failed: ${(err as Error).message}`, 'reload_failed', {});
+    throw new ManagementApiError(
+      500,
+      `pg_reload_conf failed: ${(err as Error).message}`,
+      'reload_failed',
+      {},
+    );
   }
 
   return { currentConfig: { database: enforce }, appliedSuccessfully: true };
@@ -96,10 +101,7 @@ function composeCtx(ref: string) {
 }
 
 async function readHba(ctx: { projectName: string; dir: string }): Promise<string> {
-  const { stdout, stderr, exitCode } = await composeExec(ctx, 'db', [
-    'cat',
-    PG_HBA_PATH,
-  ]);
+  const { stdout, stderr, exitCode } = await composeExec(ctx, 'db', ['cat', PG_HBA_PATH]);
   if (exitCode !== 0) {
     throw new ManagementApiError(
       500,
@@ -111,10 +113,7 @@ async function readHba(ctx: { projectName: string; dir: string }): Promise<strin
   return stdout;
 }
 
-async function writeHba(
-  ctx: { projectName: string; dir: string },
-  content: string,
-): Promise<void> {
+async function writeHba(ctx: { projectName: string; dir: string }, content: string): Promise<void> {
   // base64-encode to avoid any shell quoting / newline issues in composeExec.
   // The encoded string is pure alphanumeric + /+=, safe to pass as a single arg.
   const b64 = Buffer.from(content).toString('base64').replace(/\n/g, '');

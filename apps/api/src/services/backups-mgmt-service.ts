@@ -45,10 +45,7 @@ export async function listBackupsForCli(ref: string): Promise<BackupsListRespons
     })
     .from(schema.backups)
     .where(
-      and(
-        eq(schema.backups.instanceRef, ref),
-        not(inArray(schema.backups.status, ['running'])),
-      ),
+      and(eq(schema.backups.instanceRef, ref), not(inArray(schema.backups.status, ['running']))),
     )
     .orderBy(desc(schema.backups.startedAt));
 
@@ -98,7 +95,8 @@ export async function initiateRestore(
       )
       .orderBy(desc(schema.backups.startedAt))
       .limit(1);
-    if (!row) throw new RestoreError('invalid_target', 'No backup found before recovery_time_target');
+    if (!row)
+      throw new RestoreError('invalid_target', 'No backup found before recovery_time_target');
     backupId = row.id;
   }
 

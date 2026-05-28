@@ -153,9 +153,7 @@ export async function putPostgresConfig(
 
 // ─── Internals ─────────────────────────────────────────────────────────────
 
-async function readLiveConfig(
-  client: import('pg').Client,
-): Promise<PostgresConfigResponse> {
+async function readLiveConfig(client: import('pg').Client): Promise<PostgresConfigResponse> {
   const { rows } = await client.query<{ name: string; setting: string }>(
     `SELECT name, setting FROM pg_settings WHERE name = ANY($1)`,
     [[...POSTGRES_CONFIG_PARAM_NAMES]],

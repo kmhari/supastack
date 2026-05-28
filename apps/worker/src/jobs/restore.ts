@@ -47,7 +47,11 @@ async function resolveBackupStore(): Promise<BackupStore> {
   return new S3Store(cfg);
 }
 
-async function spawnAsync(cmd: string, args: string[], opts: { allowExitCode1?: boolean } = {}): Promise<void> {
+async function spawnAsync(
+  cmd: string,
+  args: string[],
+  opts: { allowExitCode1?: boolean } = {},
+): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const proc = spawn(cmd, args, { stdio: 'inherit' });
     proc.on('close', (code) => {
@@ -68,14 +72,20 @@ export async function handleRestore(payload: { restore_job_id: string }): Promis
     .from(schema.restoreJobs)
     .where(eq(schema.restoreJobs.id, restore_job_id))
     .limit(1);
-  if (!job) { log.warn('restore job not found'); return; }
+  if (!job) {
+    log.warn('restore job not found');
+    return;
+  }
   if (job.status !== 'pending') {
     log.info({ status: job.status }, 'restore job already processed — skipping');
     return;
   }
 
   const ref = job.instanceRef;
-  const ctx: ComposeContext = { projectName: `selfbase-${ref}`, dir: path.join(INSTANCES_DIR, ref) };
+  const ctx: ComposeContext = {
+    projectName: `selfbase-${ref}`,
+    dir: path.join(INSTANCES_DIR, ref),
+  };
 
   // Step 2: set running
   await db()
@@ -89,7 +99,9 @@ export async function handleRestore(payload: { restore_job_id: string }): Promis
 
   // Watchdog: abort at timeout_budget_seconds
   let watchdogFired = false;
-  const watchdog = setTimeout(() => { watchdogFired = true; }, job.timeoutBudgetSeconds * 1000);
+  const watchdog = setTimeout(() => {
+    watchdogFired = true;
+  }, job.timeoutBudgetSeconds * 1000);
 
   const maybeAbort = () => {
     if (watchdogFired) throw new Error(`timeout_exceeded (budget: ${job.timeoutBudgetSeconds}s)`);
@@ -120,15 +132,24 @@ export async function handleRestore(payload: { restore_job_id: string }): Promis
     // pg_restore exits 1 for non-fatal warnings (ownership errors in Supabase's multi-role schema
     // are expected and don't affect the restored data). Treat code 1 as success.
     log.info('running pg_restore');
-    await spawnAsync('docker', [
-      'exec', dbContainer,
-      'pg_restore',
-      '-U', 'postgres',
-      '-d', 'postgres',
-      '--clean', '--if-exists',
-      '--no-owner', '--no-privileges',
-      containerDump,
-    ], { allowExitCode1: true });
+    await spawnAsync(
+      'docker',
+      [
+        'exec',
+        dbContainer,
+        'pg_restore',
+        '-U',
+        'postgres',
+        '-d',
+        'postgres',
+        '--clean',
+        '--if-exists',
+        '--no-owner',
+        '--no-privileges',
+        containerDump,
+      ],
+      { allowExitCode1: true },
+    );
     maybeAbort();
 
     // Step 6: clean up dump inside container
@@ -210,7 +231,10 @@ async function rollback(
 
     log.warn({ recoveredOk }, 'mgmt_api.backup.restore_failed');
   } catch (rbErr) {
-    log.error({ err: (rbErr as Error).message }, 'rollback itself failed — operator intervention needed');
+    log.error(
+      { err: (rbErr as Error).message },
+      'rollback itself failed — operator intervention needed',
+    );
   }
 }
 
@@ -262,8 +286,14 @@ export async function handleRestoreGc(payload: { restore_job_id: string }): Prom
     .from(schema.restoreJobs)
     .where(eq(schema.restoreJobs.id, restore_job_id))
     .limit(1);
-  if (!job) { log.warn('restore job not found'); return; }
-  if (!job.preRestoreDir) { log.info('pre_restore_dir already null — already gc\'d'); return; }
+  if (!job) {
+    log.warn('restore job not found');
+    return;
+  }
+  if (!job.preRestoreDir) {
+    log.info("pre_restore_dir already null — already gc'd");
+    return;
+  }
 
   log.info({ preRestoreDir: job.preRestoreDir }, 'removing pre-restore snapshot');
   await fsp.rm(job.preRestoreDir, { recursive: true, force: true });
