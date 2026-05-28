@@ -89,11 +89,13 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-**Active feature plan**: feature 019 — pooler-reconciler unit tests (issue #16). Plan: [specs/019-pooler-reconciler-tests/plan.md](specs/019-pooler-reconciler-tests/plan.md). Single test file `apps/worker/tests/unit/pooler-reconciler.test.ts` covering all 7 classification variants, remediation isolation, and preflight/concurrency guards. Zero production changes.
+**Most recently merged**: pooler-reconciler Vitest unit tests (issue #16, PR #74). 32 tests covering all 7 drift classifications, remediation happy-paths, preflight/concurrency guards. Zero production changes.
 
-**Most recently merged**: feature 016 — MCP post-ship hardening (issues #50–#53): (US1) statement_timeout=8s default at provision; (US2) filter deferred MCP tools from tools/list; (US3) auto-uncomment Kong analytics routes for get_logs; (US4) 14 missing OAuth route-level tests. Prior: feature 014 — hosted multi-project MCP + OAuth 2.1 authorization server (full spec at [specs/014-mcp-http-oauth/plan.md](specs/014-mcp-http-oauth/plan.md); operator runbook at [docs/changes/014-mcp-http-oauth.md](docs/changes/014-mcp-http-oauth.md)).
+**Prior merged**: feature 019 — `supabase backups list/restore` async restore worker (issue #14, PR #67). Three new mgmt-API endpoints; `restore_jobs` table; BullMQ restore worker with pg_restore + rollback; live PASS in 41s on supaviser.dev. Runbook: [docs/changes/019-backups-list-restore.md](docs/changes/019-backups-list-restore.md).
 
-**Other in-flight work**: feature 009 — runtime config tunables (`postgres-config` + `config --auth-*`) — issue #11. Plan: `specs/009-runtime-config-tunables/plan.md`. Implementation complete; locally tested; not yet deployed. Shape-vs-behavioral parity gap tracked separately as issue #21.
+**Prior merged**: feature 018 — T078 master key rotation (PR #59, issue #54). Rekey tool, E2E script, operator runbook. Prior: feature 016 — MCP post-ship hardening.
+
+**Other in-flight work**: feature 009 — runtime config tunables (`postgres-config` + `config --auth-*`) — issue #11. Plan: `specs/009-runtime-config-tunables/plan.md`. Implementation complete; locally tested; not yet deployed.
 
 **Other open spec branches**: `007-auto-cert-renewal` (Cloudflare DNS API auto-renewal — issue #6, not yet implemented).
 <!-- SPECKIT END -->
