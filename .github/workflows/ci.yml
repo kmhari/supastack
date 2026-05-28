@@ -112,6 +112,7 @@ jobs:
           EOF
           # Export for use by the api/web boot steps below
           echo "DATABASE_URL=postgres://selfbase:${DB_PW}@localhost:5432/selfbase" >> $GITHUB_ENV
+          echo "REDIS_URL=redis://localhost:6379" >> $GITHUB_ENV
           echo "CONTROL_DB_PASSWORD=${DB_PW}" >> $GITHUB_ENV
           echo "MASTER_KEY=${MK}" >> $GITHUB_ENV
           echo "SESSION_SECRET=${SS}" >> $GITHUB_ENV
@@ -119,11 +120,13 @@ jobs:
       - name: Start postgres + redis
         run: |
           cd infra
-          sudo docker compose --env-file .env up -d db redis
+          sudo docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml up -d db redis
           # Wait for postgres to accept connections
           until sudo docker exec selfbase-db-1 pg_isready -U selfbase >/dev/null 2>&1; do
             echo "waiting for postgres..."; sleep 2
           done
+          # Confirm host port bindings
+          ss -tlnp 2>&1 | grep -E ':5432|:6379' || true
 
       - name: Run api in background
         env:
@@ -134,16 +137,25 @@ jobs:
           PORT: '3001'
         run: |
           pnpm --filter @selfbase/api dev > /tmp/api.log 2>&1 &
-          echo "API_PID=$!" >> $GITHUB_ENV
-          # Wait for api health
-          until curl -fsS http://localhost:3001/api/v1/health >/dev/null 2>&1; do
-            if ! kill -0 $! 2>/dev/null; then
-              echo "::error::api process exited; tail of log:"
-              tail -40 /tmp/api.log
-              exit 1
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+          # Bounded wait for api health (120s). `tsx watch` keeps the parent
+          # alive even when the inner api crashes, so `kill -0` isn't a
+          # reliable liveness signal here — dump the log periodically and
+          # hard-fail on the deadline.
+          deadline=$((SECONDS + 120))
+          while [ $SECONDS -lt $deadline ]; do
+            if curl -fsS http://localhost:3001/api/v1/health >/dev/null 2>&1; then
+              echo "api is healthy"; break
             fi
-            echo "waiting for api..."; sleep 2
+            echo "waiting for api... (t=$SECONDS)"
+            sleep 2
           done
+          if ! curl -fsS http://localhost:3001/api/v1/health >/dev/null 2>&1; then
+            echo "::error::api did not become healthy in 120s; tail of log:"
+            tail -100 /tmp/api.log
+            exit 1
+          fi
 
       - name: Run web dev server in background
         run: |
