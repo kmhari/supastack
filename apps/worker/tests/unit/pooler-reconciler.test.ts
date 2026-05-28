@@ -345,7 +345,7 @@ describe('failed_stale age boundary (fake timers)', () => {
     vi.useRealTimers();
   });
 
-  function setupFullReconcile(updatedAt: Date) {
+  function _setupFullReconcile(updatedAt: Date) {
     // runFullReconcile db calls:
     // 1: select instances, 2: select poolerRows
     // 3+: remediation db calls (we short-circuit by making inst lookup fail)

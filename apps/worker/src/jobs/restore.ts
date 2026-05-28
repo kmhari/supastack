@@ -27,7 +27,7 @@ const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
 const BACKUPS_DIR = process.env.BACKUPS_DIR ?? '/var/selfbase/backups';
 
 let _gcQueue: Queue | null = null;
-function gcQueue(): Queue {
+function _useGcQueue(): Queue {
   if (!_gcQueue) {
     _gcQueue = new Queue('selfbase.restore-gc', {
       connection: new Redis(REDIS_URL, { maxRetriesPerRequest: null }),
@@ -35,6 +35,7 @@ function gcQueue(): Queue {
   }
   return _gcQueue;
 }
+void _useGcQueue;
 
 async function resolveBackupStore(): Promise<BackupStore> {
   const [row] = await db()
@@ -241,7 +242,7 @@ async function rollback(
 async function waitUntilHealthy(
   ctx: ComposeContext,
   budgetMs: number,
-  log: ReturnType<typeof logger.child>,
+  _log: ReturnType<typeof logger.child>,
 ): Promise<void> {
   const deadline = Date.now() + budgetMs;
   while (Date.now() < deadline) {

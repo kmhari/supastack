@@ -82,7 +82,6 @@ export function ProjectAuthProvidersPage(): React.ReactElement {
     if (p && p.kind === 'oauth') {
       setActiveProvider(p);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerParam]);
 
   const rows = useMemo(() => splitRegistry(PROVIDER_REGISTRY), []);
