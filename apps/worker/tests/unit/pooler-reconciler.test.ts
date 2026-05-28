@@ -436,6 +436,110 @@ describe('orphan_in_supavisor — sv tenant with no matching instance', () => {
   });
 });
 
+// ── Remediation happy paths ─────────────────────────────────────────────────
+// For each classification that calls registerTenantForInstance, verify that
+// when it succeeds the result has remediated: true and no error.
+//
+// registerTenantForInstance db sequence: inst lookup → org lookup →
+//   insert POOLER_TENANTS → (supavisorRegister fetch PUT) → update active
+// Followed by: emitEvent insert, optional lastReconciledAt, finishRun.
+
+describe('remediation success — registerTenantForInstance completes', () => {
+  it('missing_pooler_row → remediated: true', async () => {
+    setupDb(
+      [inst('r1')],              // runSingleInstanceReconcile: inst
+      [],                        // poolerRow → none → classification: missing_pooler_row
+      [instSecrets('r1')],       // registerTenantForInstance: inst
+      [{ apex: 'test.dev' }],    // registerTenantForInstance: org
+      [],                        // insert POOLER_TENANTS (onConflictDoUpdate)
+      [],                        // update POOLER_TENANTS status='active'
+      [],                        // emitEvent('reconciler.registered_missing')
+      // no lastReconciledAt — poolerRow was null
+      [],                        // finishRun
+    );
+    fetchMock
+      .mockResolvedValueOnce(SV_OK)  // supavisorGetTenant GET (classification; result unused)
+      .mockResolvedValueOnce(SV_OK); // supavisorRegister PUT
+
+    const result = await runSingleInstanceReconcile(RUN, 'r1');
+
+    expect(result.classification).toBe('missing_pooler_row');
+    expect(result.remediated).toBe(true);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('missing_in_supavisor → remediated: true', async () => {
+    setupDb(
+      [inst('r1')],
+      [poolerRow('r1', 'active')],
+      [instSecrets('r1')],
+      [{ apex: 'test.dev' }],
+      [],                        // insert POOLER_TENANTS
+      [],                        // update POOLER_TENANTS active
+      [],                        // emitEvent('reconciler.registered_missing')
+      [],                        // lastReconciledAt (poolerRow existed)
+      [],                        // finishRun
+    );
+    fetchMock
+      .mockResolvedValueOnce(SV_404)  // supavisorGetTenant → 404 → missing_in_supavisor
+      .mockResolvedValueOnce(SV_OK);  // supavisorRegister PUT
+
+    const result = await runSingleInstanceReconcile(RUN, 'r1');
+
+    expect(result.classification).toBe('missing_in_supavisor');
+    expect(result.remediated).toBe(true);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('pg_password_drift → remediated: true', async () => {
+    setupDb(
+      [inst('r1')],
+      [poolerRow('r1', 'pg_password_drift')],
+      [instSecrets('r1')],
+      [{ apex: 'test.dev' }],
+      [],                        // insert POOLER_TENANTS
+      [],                        // update POOLER_TENANTS active
+      [],                        // emitEvent('password_reset_then_registered')
+      [],                        // lastReconciledAt
+      [],                        // finishRun
+    );
+    fetchMock
+      .mockResolvedValueOnce(SV_OK)  // supavisorGetTenant (irrelevant for drift classification)
+      .mockResolvedValueOnce(SV_OK); // supavisorRegister PUT
+
+    const result = await runSingleInstanceReconcile(RUN, 'r1');
+
+    expect(result.classification).toBe('pg_password_drift');
+    expect(result.remediated).toBe(true);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('failed_stale → remediated: true (forceRetry path)', async () => {
+    // updatedAt = 1ms ago — would be consistent without forceRetry, but
+    // runSingleInstanceReconcile always passes forceRetry=true.
+    setupDb(
+      [inst('r1')],
+      [poolerRow('r1', 'failed', new Date(Date.now() - 1))],
+      [instSecrets('r1')],
+      [{ apex: 'test.dev' }],
+      [],                        // insert POOLER_TENANTS
+      [],                        // update POOLER_TENANTS active
+      [],                        // emitEvent('reconciler.retry_succeeded')
+      [],                        // lastReconciledAt
+      [],                        // finishRun
+    );
+    fetchMock
+      .mockResolvedValueOnce(SV_OK)  // supavisorGetTenant
+      .mockResolvedValueOnce(SV_OK); // supavisorRegister PUT
+
+    const result = await runSingleInstanceReconcile(RUN, 'r1');
+
+    expect(result.classification).toBe('failed_stale');
+    expect(result.remediated).toBe(true);
+    expect(result.error).toBeUndefined();
+  });
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // US2 — Remediation isolation and aggregation
 // ═══════════════════════════════════════════════════════════════════════════
