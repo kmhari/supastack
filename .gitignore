@@ -83,3 +83,6 @@ apps/web/tests/e2e/.auth/
 # CLI test artifacts
 .supabase_token
 .selfbase
+
+# Local Claude harness state
+.claude/scheduled_tasks.lock
