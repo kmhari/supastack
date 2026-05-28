@@ -40,6 +40,18 @@ export async function composeRestart(ctx: ComposeContext): Promise<void> {
 }
 
 /**
+ * Re-create a single service in the compose project. Unlike `docker restart`
+ * (which keeps the container's existing env), this re-reads the per-instance
+ * .env file and recreates the container with the new substituted values.
+ *
+ * Used by feature 020's auth-config PATCH path so changes flow through to
+ * GoTrue without recreating the entire per-instance stack.
+ */
+export async function composeUpService(ctx: ComposeContext, service: string): Promise<void> {
+  await runDockerCompose(ctx, ['up', '-d', '--no-deps', service]);
+}
+
+/**
  * Restart a single container by name. Used by the function-deploy and
  * secret-set hot paths to bounce only the per-instance `functions` container
  * — avoids pulling Postgres + Kong + Realtime down on every code change.

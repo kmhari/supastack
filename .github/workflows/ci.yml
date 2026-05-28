@@ -56,3 +56,145 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Test
         run: pnpm test
+
+  # ─── Feature 021 — Dashboard browser-level e2e tests ───────────────────────
+  #
+  # Spins up postgres + redis via docker compose, runs the api + web as Node
+  # processes (with SELFBASE_TEST_FAKE_DOCKER=1 so per-instance provisioning
+  # is mocked), then runs Playwright against the local dashboard. Captures
+  # screenshots + traces on failure and uploads them as a build artifact.
+  e2e:
+    name: e2e browser tests
+    runs-on: ubuntu-latest
+    needs: guardrails
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Install workspace deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @selfbase/web exec playwright install --with-deps chromium
+
+      - name: Generate test stack secrets
+        id: secrets
+        run: |
+          MK=$(openssl rand -hex 32)
+          DB_PW=$(openssl rand -hex 16)
+          SS=$(openssl rand -hex 32)
+          SVA=$(openssl rand -hex 32)
+          SVB=$(openssl rand -hex 32)
+          SVV=$(openssl rand -hex 16)
+          cat > infra/.env <<EOF
+          SELFBASE_APEX=test.local
+          SELFBASE_PUBLIC_IP=
+          SELFBASE_VERSION=dev
+          MASTER_KEY=${MK}
+          CONTROL_DB_PASSWORD=${DB_PW}
+          SESSION_SECRET=${SS}
+          COOKIE_SECURE=0
+          LOG_LEVEL=warn
+          ACME_DIRECTORY_URL=
+          STUDIO_IMAGE=selfbase/studio:latest
+          SUPAVISOR_API_JWT_SECRET=${SVA}
+          SUPAVISOR_SECRET_KEY_BASE=${SVB}
+          SUPAVISOR_VAULT_ENC_KEY=${SVV}
+          EOF
+          # Export for use by the api/web boot steps below
+          echo "DATABASE_URL=postgres://selfbase:${DB_PW}@localhost:5432/selfbase" >> $GITHUB_ENV
+          echo "CONTROL_DB_PASSWORD=${DB_PW}" >> $GITHUB_ENV
+          echo "MASTER_KEY=${MK}" >> $GITHUB_ENV
+          echo "SESSION_SECRET=${SS}" >> $GITHUB_ENV
+
+      - name: Start postgres + redis
+        run: |
+          cd infra
+          sudo docker compose --env-file .env up -d db redis
+          # Wait for postgres to accept connections
+          until sudo docker exec selfbase-db-1 pg_isready -U selfbase >/dev/null 2>&1; do
+            echo "waiting for postgres..."; sleep 2
+          done
+
+      - name: Run api in background
+        env:
+          SELFBASE_TEST_FAKE_DOCKER: '1'
+          NODE_ENV: development
+          COOKIE_SECURE: '0'
+          LOG_LEVEL: warn
+          PORT: '3001'
+        run: |
+          pnpm --filter @selfbase/api dev > /tmp/api.log 2>&1 &
+          echo "API_PID=$!" >> $GITHUB_ENV
+          # Wait for api health
+          until curl -fsS http://localhost:3001/api/v1/health >/dev/null 2>&1; do
+            if ! kill -0 $! 2>/dev/null; then
+              echo "::error::api process exited; tail of log:"
+              tail -40 /tmp/api.log
+              exit 1
+            fi
+            echo "waiting for api..."; sleep 2
+          done
+
+      - name: Run web dev server in background
+        run: |
+          pnpm --filter @selfbase/web dev > /tmp/web.log 2>&1 &
+          echo "WEB_PID=$!" >> $GITHUB_ENV
+          until curl -fsS http://localhost:5173 >/dev/null 2>&1; do
+            if ! kill -0 $! 2>/dev/null; then
+              echo "::error::web process exited; tail of log:"
+              tail -40 /tmp/web.log
+              exit 1
+            fi
+            echo "waiting for web..."; sleep 2
+          done
+
+      - name: Run Playwright suite
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:5173
+          CI: '1'
+        run: pnpm --filter @selfbase/web test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+            /tmp/api.log
+            /tmp/web.log
+          retention-days: 14
+
+      - name: Comment PR on failure
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body:
+                `❌ **Browser-test job failed** — [view run](${runUrl})\n\n` +
+                `Screenshots, traces, and api/web logs are attached as the ` +
+                `\`playwright-report-${process.env.GITHUB_RUN_ID}\` artifact ` +
+                `on that page. Download to reproduce the failure locally.\n\n` +
+                `Run locally:\n` +
+                '```bash\n' +
+                'cd infra && sudo docker compose --env-file .env up -d db redis\n' +
+                'SELFBASE_TEST_FAKE_DOCKER=1 pnpm dev\n' +
+                'pnpm --filter @selfbase/web test:e2e\n' +
+                '```'
+            });
