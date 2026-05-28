@@ -29,7 +29,7 @@ export async function handleHealthReconciler(): Promise<void> {
       updatedAt: schema.supabaseInstances.updatedAt,
     })
     .from(schema.supabaseInstances)
-    .where(not(inArray(schema.supabaseInstances.status, ['deleting'])));
+    .where(not(inArray(schema.supabaseInstances.status, ['deleting', 'restoring'])));
 
   const now = Date.now();
   for (const row of rows) {

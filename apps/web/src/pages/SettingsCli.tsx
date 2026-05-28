@@ -127,11 +127,40 @@ TOML
     fi
   fi
 
+  local supabase_rc
   if (( \${#extra_env[@]} )); then
     env "\${extra_env[@]}" "$real_supabase" "\${extra_args[@]}" "$@"
   else
     "$real_supabase" "\${extra_args[@]}" "$@"
   fi
+  supabase_rc=$?
+
+  # Post-login cleanup: 'supabase login --profile <path>' writes ~/.supabase/profile
+  # as the implicit global default, which silently routes future plain 'supabase login'
+  # (e.g. against Supabase Cloud) back here. Offer to clean it up interactively.
+  local subcmd arg
+  for arg in "$@"; do
+    case "$arg" in
+      -*) ;;
+      *) subcmd="$arg"; break ;;
+    esac
+  done
+  if [[ $supabase_rc -eq 0 && "$subcmd" == "login" && -f "$HOME/.supabase/profile" ]]; then
+    echo "" >&2
+    echo "⚠ ~/.supabase/profile is set as the global default profile." >&2
+    echo "  While that file exists, plain 'supabase login' (e.g. against" >&2
+    echo "  Supabase Cloud) will be routed to whatever profile it points at." >&2
+    if read -q "REPLY?  Delete ~/.supabase/profile now? [y/N] "; then
+      echo "" >&2
+      rm -f "$HOME/.supabase/profile"
+      echo "  ✓ Removed ~/.supabase/profile" >&2
+    else
+      echo "" >&2
+      echo "  Keeping it. 'rm ~/.supabase/profile' when you need to switch deployments." >&2
+    fi
+  fi
+
+  return $supabase_rc
 }`;
 
   return (
@@ -247,7 +276,7 @@ TOML
               </>
             }
             code={wrapperSnippet}
-            note="On first selfbase invocation, you'll see '✓ Generated selfbase profile (~/.config/selfbase/<apex>.toml)' once. Every subsequent call prints '✓ Using selfbase profile (...)' for visibility."
+            note="On first selfbase invocation, you'll see '✓ Generated selfbase profile (~/.config/selfbase/<apex>.toml)' once. Every subsequent call prints '✓ Using selfbase profile (...)' for visibility. After any successful 'supabase login', the wrapper checks for ~/.supabase/profile (which the upstream CLI writes whenever --profile is passed) and interactively offers to remove it — keeping plain 'supabase login' free for Cloud or other deployments."
           />
 
           <Card className="bg-secondary/20 p-5">

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { AlertCircle, Download, KeyRound } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Download, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
-import { cliApi } from '@/lib/api';
+import { apexApi, cliApi } from '@/lib/api';
 import { Shell } from '@/components/Shell';
 import { PageHeader } from '@/components/PageHeader';
 import { CopyButton } from '@/components/CopyButton';
@@ -34,6 +34,13 @@ export function ConnectCliPage(): React.ReactElement {
     queryKey: ['cli-profile-toml'],
     queryFn: () => cliApi.profileToml(),
   });
+  const { data: apexStatus } = useQuery({
+    queryKey: ['apex'],
+    queryFn: () => apexApi.status(),
+  });
+  const apex = apexStatus?.apex ?? '<your-apex-domain>';
+  const selfbaseFileCmd = `echo '${apex}' > .selfbase`;
+  const supabaseTokenCmd = `echo '<paste-token-here>' > .supabase_token`;
 
   const [tokenOpen, setTokenOpen] = useState(false);
   const [revealedToken, setRevealedToken] = useState<{
@@ -152,6 +159,24 @@ export function ConnectCliPage(): React.ReactElement {
           />
         </div>
         <Alert variant="default" className="mt-4">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>Heads up: this also sets a global default</AlertTitle>
+          <AlertDescription>
+            Passing <code className="mx-1 font-mono text-xs">--profile</code> to{' '}
+            <code className="mx-1 font-mono text-xs">supabase login</code> also writes{' '}
+            <code className="mx-1 font-mono text-xs">~/.supabase/profile</code> pointing at this
+            file. While that file exists, plain{' '}
+            <code className="mx-1 font-mono text-xs">supabase login</code> (e.g. against Supabase
+            Cloud) is routed here too. Run{' '}
+            <code className="mx-1 font-mono text-xs">rm ~/.supabase/profile</code> when switching
+            deployments, or use the{' '}
+            <a href="/settings/cli" className="underline">
+              per-project wrapper
+            </a>{' '}
+            shown below — it prompts to remove the file interactively after every successful login.
+          </AlertDescription>
+        </Alert>
+        <Alert variant="default" className="mt-4">
           <AlertCircle className="size-4" />
           <AlertTitle>No Docker on this machine?</AlertTitle>
           <AlertDescription>
@@ -161,6 +186,47 @@ export function ConnectCliPage(): React.ReactElement {
             both paths.
           </AlertDescription>
         </Alert>
+      </section>
+
+      {/* Optional Step — Per-project auto-routing via the zsh wrapper */}
+      <section className="mb-10">
+        <h2 className="m-0 mb-3 text-lg font-medium text-foreground">
+          Optional &mdash; Per-project auto-routing
+        </h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Working across multiple deployments (Cloud + selfbase, or several selfbase installs)?
+          Drop these two files at your project's git root and the{' '}
+          <a href="/settings/cli" className="underline">
+            zsh wrapper at /settings/cli
+          </a>{' '}
+          handles profile + token routing automatically — no{' '}
+          <code className="mx-1 font-mono text-xs">--profile</code> flag on every command, no
+          stale <code className="mx-1 font-mono text-xs">~/.supabase/profile</code> to clean up.
+          The <code className="mx-1 font-mono text-xs">.selfbase</code> file is safe to commit;
+          the wrapper auto-gitignores{' '}
+          <code className="mx-1 font-mono text-xs">.supabase_token</code>.
+        </p>
+        <div className="flex flex-col gap-3">
+          <CliCommandBlock
+            command={selfbaseFileCmd}
+            caption={
+              apexStatus?.apex
+                ? 'Tells the wrapper this project routes to your selfbase apex.'
+                : 'Apex not configured yet — replace <your-apex-domain> with the apex once /setup is finished.'
+            }
+          />
+          <CliCommandBlock
+            command={supabaseTokenCmd}
+            caption={
+              <>
+                Injects the token as{' '}
+                <code className="mx-1 font-mono text-xs">SUPABASE_ACCESS_TOKEN</code>. Replace{' '}
+                <code className="font-mono">&lt;paste-token-here&gt;</code> with the PAT from Step
+                2 (or use the pre-filled command in the token-reveal dialog).
+              </>
+            }
+          />
+        </div>
       </section>
 
       {/* Token-reveal dialog */}
@@ -180,11 +246,17 @@ export function ConnectCliPage(): React.ReactElement {
             </DialogDescription>
           </DialogHeader>
           {revealedToken && (
-            <div className="flex items-center gap-2">
-              <code className="flex-1 select-all overflow-x-auto rounded-md border border-border bg-card px-3 py-2 font-mono text-xs">
-                {revealedToken.token}
-              </code>
-              <CopyButton value={revealedToken.token} label="Copy token" />
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <code className="flex-1 select-all overflow-x-auto rounded-md border border-border bg-card px-3 py-2 font-mono text-xs">
+                  {revealedToken.token}
+                </code>
+                <CopyButton value={revealedToken.token} label="Copy token" />
+              </div>
+              <CliCommandBlock
+                command={`echo '${revealedToken.token}' > .supabase_token`}
+                caption="Optional: drop the token at your project's git root for the /settings/cli wrapper — it auto-gitignores the file and injects SUPABASE_ACCESS_TOKEN on every supabase call."
+              />
             </div>
           )}
           <DialogFooter>
