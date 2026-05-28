@@ -34,6 +34,10 @@ export function ProjectShell({
       ],
     },
     {
+      heading: 'Authentication',
+      items: [{ to: `${base}/auth/providers`, label: 'Providers' }],
+    },
+    {
       heading: 'Diagnostics',
       items: [{ to: `${base}/health`, label: 'Health' }],
     },
@@ -49,7 +53,7 @@ export function ProjectShell({
               <div className="mb-1 px-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 {g.heading}
               </div>
-              <nav className="flex flex-col gap-0.5">
+              <nav className="flex flex-col">
                 {g.items.map((t) => {
                   const isActive = pathname === t.to;
                   return (
@@ -57,7 +61,7 @@ export function ProjectShell({
                       key={t.to}
                       to={t.to}
                       className={cn(
-                        'rounded-md px-2.5 py-1.5 text-sm no-underline transition-colors',
+                        'border-b border-border-soft/40 px-2.5 py-2 text-sm no-underline transition-colors last:border-b-0',
                         isActive
                           ? 'bg-secondary text-foreground'
                           : 'text-foreground-light hover:bg-secondary/50 hover:text-foreground',
@@ -73,7 +77,7 @@ export function ProjectShell({
         </aside>
 
         <div className="min-w-0 flex-1">
-          <div className="mx-auto max-w-[920px] px-10 py-10">
+          <div className="mx-auto max-w-[1280px] px-10 py-10">
             <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">{title}</h1>
             {subtitle && <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>}
             <div className="mt-7 flex flex-col gap-8">{children}</div>

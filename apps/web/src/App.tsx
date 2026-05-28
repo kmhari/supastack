@@ -13,6 +13,7 @@ import { ProjectSecretsPage } from './pages/ProjectSecrets.js';
 import { CliLoginPage } from './pages/CliLogin.js';
 import { InstanceBackupsPage } from './pages/InstanceBackups.js';
 import { ProjectHealthPage } from './pages/ProjectHealth.js';
+import { ProjectAuthProvidersPage } from './pages/ProjectAuthProviders.js';
 import { SettingsOrgPage } from './pages/SettingsOrg.js';
 import { SettingsMembersPage } from './pages/SettingsMembers.js';
 import { SettingsAuditPage } from './pages/SettingsAudit.js';
@@ -116,6 +117,14 @@ export function App(): React.ReactElement {
           element={
             <RequireAuth>
               <ProjectHealthPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/dashboard/project/:ref/auth/providers"
+          element={
+            <RequireAuth>
+              <ProjectAuthProvidersPage />
             </RequireAuth>
           }
         />
