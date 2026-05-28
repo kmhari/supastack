@@ -52,7 +52,7 @@ describe('buildAuthFieldStatusExtension', () => {
     expect(ext.fieldStatus.jwt_exp).toEqual({ status: 'honored', envName: 'JWT_EXPIRY' });
     expect(ext.fieldStatus.external_google_secret).toEqual({
       status: 'honored',
-      envName: 'GOOGLE_SECRET',
+      envName: 'GOTRUE_EXTERNAL_GOOGLE_SECRET',
       secret: true,
     });
     expect(ext.fieldStatus.saml_enabled?.status).toBe('stored_only');

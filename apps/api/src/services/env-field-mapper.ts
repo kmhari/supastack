@@ -86,15 +86,27 @@ const ALREADY_HONORED: Record<string, FieldStatus> = {
   smtp_pass: { kind: 'honored', envName: 'SMTP_PASS', secret: true },
   smtp_sender_name: { kind: 'honored', envName: 'SMTP_SENDER_NAME' },
   // OAuth: google/github/azure (3 providers × 3 fields — already wired in template)
-  external_google_enabled: { kind: 'honored', envName: 'GOOGLE_ENABLED' },
-  external_google_client_id: { kind: 'honored', envName: 'GOOGLE_CLIENT_ID' },
-  external_google_secret: { kind: 'honored', envName: 'GOOGLE_SECRET', secret: true },
-  external_github_enabled: { kind: 'honored', envName: 'GITHUB_ENABLED' },
-  external_github_client_id: { kind: 'honored', envName: 'GITHUB_CLIENT_ID' },
-  external_github_secret: { kind: 'honored', envName: 'GITHUB_SECRET', secret: true },
-  external_azure_enabled: { kind: 'honored', envName: 'AZURE_ENABLED' },
-  external_azure_client_id: { kind: 'honored', envName: 'AZURE_CLIENT_ID' },
-  external_azure_secret: { kind: 'honored', envName: 'AZURE_SECRET', secret: true },
+  external_google_enabled: { kind: 'honored', envName: 'GOTRUE_EXTERNAL_GOOGLE_ENABLED' },
+  external_google_client_id: { kind: 'honored', envName: 'GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID' },
+  external_google_secret: {
+    kind: 'honored',
+    envName: 'GOTRUE_EXTERNAL_GOOGLE_SECRET',
+    secret: true,
+  },
+  external_github_enabled: { kind: 'honored', envName: 'GOTRUE_EXTERNAL_GITHUB_ENABLED' },
+  external_github_client_id: { kind: 'honored', envName: 'GOTRUE_EXTERNAL_GITHUB_CLIENT_ID' },
+  external_github_secret: {
+    kind: 'honored',
+    envName: 'GOTRUE_EXTERNAL_GITHUB_SECRET',
+    secret: true,
+  },
+  external_azure_enabled: { kind: 'honored', envName: 'GOTRUE_EXTERNAL_AZURE_ENABLED' },
+  external_azure_client_id: { kind: 'honored', envName: 'GOTRUE_EXTERNAL_AZURE_CLIENT_ID' },
+  external_azure_secret: {
+    kind: 'honored',
+    envName: 'GOTRUE_EXTERNAL_AZURE_SECRET',
+    secret: true,
+  },
 };
 
 // ─── Auth-config: 17 newly-promoted OAuth providers + Slack OIDC + per-family extras (T023) ─
