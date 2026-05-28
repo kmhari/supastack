@@ -166,26 +166,35 @@ function ProjectCard({ row }: { row: InstanceRow }): React.ReactElement {
   const href = row.urls.studio ?? `/dashboard/project/${row.ref}`;
   const cardClasses =
     'group relative flex flex-col gap-1.5 rounded-lg border border-border-soft bg-card p-5 transition-colors hover:border-border';
+  // Avoid nested <a> by placing the studio link as a fully-positioned overlay
+  // BEHIND the Settings link, with pointer-events: auto, so clicks on the
+  // card surface (but NOT on the Settings icon) navigate to Studio. React's
+  // validateDOMNesting fires on <a> inside <a>; the overlay pattern keeps
+  // both targets clickable without nesting them.
   return (
-    <a href={href} className={cn(cardClasses, 'no-underline')}>
-      <div className="text-base font-medium text-foreground break-words pr-8">{row.name}</div>
-      <div className="text-sm text-muted-foreground">
+    <div className={cardClasses}>
+      <a
+        href={href}
+        aria-label={`Open ${row.name} in Studio`}
+        className="absolute inset-0 z-0 rounded-lg no-underline"
+      />
+      <div className="pointer-events-none relative z-10 text-base font-medium text-foreground break-words pr-8">
+        {row.name}
+      </div>
+      <div className="pointer-events-none relative z-10 text-sm text-muted-foreground">
         Self-hosted {row.supabaseVersion ? `· ${row.supabaseVersion}` : ''}
       </div>
-      <div className="mt-3">
+      <div className="pointer-events-none relative z-10 mt-3">
         <StatusPill status={row.status} />
       </div>
-      {/* Settings icon — opens the selfbase per-project settings page.
-          stopPropagation prevents the outer card's Studio nav from firing. */}
       <Link
         to={`/dashboard/project/${row.ref}`}
         aria-label={`${row.name} settings`}
-        onClick={(e) => e.stopPropagation()}
-        className="absolute right-3 top-3 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="absolute right-3 top-3 z-20 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <Settings className="size-4" />
       </Link>
-    </a>
+    </div>
   );
 }
 
