@@ -133,27 +133,42 @@ jobs:
           SELFBASE_TEST_FAKE_DOCKER: '1'
           NODE_ENV: development
           COOKIE_SECURE: '0'
-          LOG_LEVEL: warn
+          LOG_LEVEL: info
           PORT: '3001'
         run: |
-          pnpm --filter @selfbase/api dev > /tmp/api.log 2>&1 &
+          # `tsx watch` is for local dev; in CI we don't want filesystem
+          # watching (it adds spurious restarts), and we want stdout flushed
+          # immediately. Use plain `tsx` and unbuffered output.
+          NODE_OPTIONS="--enable-source-maps" \
+            pnpm --filter @selfbase/api exec tsx src/server.ts \
+              > /tmp/api.log 2>&1 &
           API_PID=$!
           echo "API_PID=$API_PID" >> $GITHUB_ENV
-          # Bounded wait for api health (120s). `tsx watch` keeps the parent
-          # alive even when the inner api crashes, so `kill -0` isn't a
-          # reliable liveness signal here — dump the log periodically and
-          # hard-fail on the deadline.
+          # Bounded wait for api health (120s). On every check, dump the
+          # latest stderr/stdout so a hang's root cause is visible in the
+          # job log without waiting for the deadline.
           deadline=$((SECONDS + 120))
+          last_size=0
           while [ $SECONDS -lt $deadline ]; do
             if curl -fsS http://localhost:3001/api/v1/health >/dev/null 2>&1; then
-              echo "api is healthy"; break
+              echo "api is healthy at t=$SECONDS"; break
             fi
-            echo "waiting for api... (t=$SECONDS)"
+            if ! kill -0 $API_PID 2>/dev/null; then
+              echo "::error::api process exited prematurely; full log:"
+              cat /tmp/api.log
+              exit 1
+            fi
+            # Stream new log content since last check
+            cur_size=$(stat -c%s /tmp/api.log 2>/dev/null || echo 0)
+            if [ "$cur_size" -gt "$last_size" ]; then
+              tail -c +$((last_size + 1)) /tmp/api.log
+              last_size=$cur_size
+            fi
             sleep 2
           done
           if ! curl -fsS http://localhost:3001/api/v1/health >/dev/null 2>&1; then
             echo "::error::api did not become healthy in 120s; tail of log:"
-            tail -100 /tmp/api.log
+            tail -200 /tmp/api.log
             exit 1
           fi
 
