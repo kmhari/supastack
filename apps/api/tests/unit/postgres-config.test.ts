@@ -36,12 +36,8 @@ describe('UpdatePostgresConfigBodySchema', () => {
     expect(() =>
       UpdatePostgresConfigBodySchema.parse({ statement_timeout: '8000ms' }),
     ).not.toThrow();
-    expect(() =>
-      UpdatePostgresConfigBodySchema.parse({ statement_timeout: '30s' }),
-    ).not.toThrow();
-    expect(() =>
-      UpdatePostgresConfigBodySchema.parse({ statement_timeout: '5min' }),
-    ).not.toThrow();
+    expect(() => UpdatePostgresConfigBodySchema.parse({ statement_timeout: '30s' })).not.toThrow();
+    expect(() => UpdatePostgresConfigBodySchema.parse({ statement_timeout: '5min' })).not.toThrow();
   });
 
   it('rejects statement_timeout with invalid unit', () => {

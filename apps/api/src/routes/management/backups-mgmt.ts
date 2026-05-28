@@ -44,9 +44,12 @@ export const backupsMgmtRoutes: FastifyPluginAsync = async (app) => {
     app.authorize(req, 'backup.list');
 
     const proj = await getProjectByRef(user.id, req.params.ref);
-    if (!proj) throw new ManagementApiError(404, 'Project not found', 'not_found', { ref: req.params.ref });
+    if (!proj)
+      throw new ManagementApiError(404, 'Project not found', 'not_found', { ref: req.params.ref });
     if (proj.status === 'provisioning' || proj.status === 'deleting') {
-      throw new ManagementApiError(409, 'Project not running', 'project_not_running', { ref: req.params.ref });
+      throw new ManagementApiError(409, 'Project not running', 'project_not_running', {
+        ref: req.params.ref,
+      });
     }
 
     const result = await listBackupsForCli(req.params.ref);
@@ -64,10 +67,20 @@ export const backupsMgmtRoutes: FastifyPluginAsync = async (app) => {
       const proj = await getProjectByRef(user.id, ref);
       if (!proj) throw new ManagementApiError(404, 'Project not found', 'not_found', { ref });
       if (proj.status === 'paused') {
-        throw new ManagementApiError(409, 'Project is paused; resume before restoring', 'project_paused', { ref });
+        throw new ManagementApiError(
+          409,
+          'Project is paused; resume before restoring',
+          'project_paused',
+          { ref },
+        );
       }
       if (proj.status === 'restoring') {
-        throw new ManagementApiError(409, 'A restore is already in progress', 'restore_in_progress', { ref });
+        throw new ManagementApiError(
+          409,
+          'A restore is already in progress',
+          'restore_in_progress',
+          { ref },
+        );
       }
 
       const parsed = RestoreRequestSchema.safeParse(req.body);
@@ -89,15 +102,27 @@ export const backupsMgmtRoutes: FastifyPluginAsync = async (app) => {
           if (code === 'backup_blob_missing') {
             throw new ManagementApiError(410, err.message, code, {});
           }
-          if (code === 'backup_status_invalid' || code === 'restore_in_progress' || code === 'disk_space_insufficient') {
+          if (
+            code === 'backup_status_invalid' ||
+            code === 'restore_in_progress' ||
+            code === 'disk_space_insufficient'
+          ) {
             throw new ManagementApiError(409, err.message, code, (err as any).details ?? {});
           }
           throw new ManagementApiError(400, err.message, code, {});
         }
         // Postgres unique-constraint violation = concurrent restore in progress
         const pgErr = err as any;
-        if (pgErr?.code === '23505' && pgErr?.constraint?.includes('uq_restore_jobs_one_inflight')) {
-          throw new ManagementApiError(409, 'A restore is already in progress', 'restore_in_progress', { ref });
+        if (
+          pgErr?.code === '23505' &&
+          pgErr?.constraint?.includes('uq_restore_jobs_one_inflight')
+        ) {
+          throw new ManagementApiError(
+            409,
+            'A restore is already in progress',
+            'restore_in_progress',
+            { ref },
+          );
         }
         throw err;
       }
@@ -119,7 +144,10 @@ export const backupsMgmtRoutes: FastifyPluginAsync = async (app) => {
       app.authorize(req, 'backup.list');
 
       const proj = await getProjectByRef(user.id, req.params.ref);
-      if (!proj) throw new ManagementApiError(404, 'Project not found', 'not_found', { ref: req.params.ref });
+      if (!proj)
+        throw new ManagementApiError(404, 'Project not found', 'not_found', {
+          ref: req.params.ref,
+        });
 
       const result = await getRestoreStatus(req.params.ref);
       return reply.send(result);

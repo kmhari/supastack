@@ -120,7 +120,10 @@ app.post('/mcp', async (req, reply) => {
     if (origListTools) {
       server.setRequestHandler(ListToolsRequestSchema, async (req, extra) => {
         const r = await origListTools(req, extra);
-        return { ...r, tools: (r.tools ?? []).filter((t: { name: string }) => !DEFERRED_TOOLS.has(t.name)) };
+        return {
+          ...r,
+          tools: (r.tools ?? []).filter((t: { name: string }) => !DEFERRED_TOOLS.has(t.name)),
+        };
       });
     }
 

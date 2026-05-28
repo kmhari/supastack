@@ -6,11 +6,11 @@
 
 ## What changed
 
-| Method | Path | Step | What |
-|---|---|---|---|
-| `GET` | `/v1/projects/<ref>/billing/addons` | 1 | Stub — honest empty arrays; selfbase has no addon concept |
-| `GET/PUT/PATCH` | `/v1/projects/<ref>/config/database/postgres` | 3 | Real — applies Postgres GUCs via `ALTER SYSTEM SET` + `pg_reload_conf()` |
-| `GET/PUT` | `/v1/projects/<ref>/ssl-enforcement` | 4 | Real — flips `pg_hba.conf` `host` ↔ `hostssl` for external address ranges + reload |
+| Method          | Path                                          | Step | What                                                                               |
+| --------------- | --------------------------------------------- | ---- | ---------------------------------------------------------------------------------- |
+| `GET`           | `/v1/projects/<ref>/billing/addons`           | 1    | Stub — honest empty arrays; selfbase has no addon concept                          |
+| `GET/PUT/PATCH` | `/v1/projects/<ref>/config/database/postgres` | 3    | Real — applies Postgres GUCs via `ALTER SYSTEM SET` + `pg_reload_conf()`           |
+| `GET/PUT`       | `/v1/projects/<ref>/ssl-enforcement`          | 4    | Real — flips `pg_hba.conf` `host` ↔ `hostssl` for external address ranges + reload |
 
 Steps 2 (`GET/PATCH /v1/projects/:ref/postgrest`) was already live from feature 009.
 
@@ -58,12 +58,13 @@ PUT → read pg_hba.conf
 ```
 
 External address ranges managed (matches the supabase-template `pg_hba.conf`):
+
 - RFC 1918 blocks: `10.x`, `172.16-31.x`, `192.168.x`
 - `0.0.0.0/0` and `::0/0` catch-all lines
 
 Lines not matching these patterns (local socket, loopback, replication) are left untouched.
 
-**Note**: per-instance Postgres already terminates TLS via the wildcard cert mounted into the instance stack (feature 005). `ssl-enforcement` only controls whether TLS is *required* — the cert is present regardless.
+**Note**: per-instance Postgres already terminates TLS via the wildcard cert mounted into the instance stack (feature 005). `ssl-enforcement` only controls whether TLS is _required_ — the cert is present regardless.
 
 ## Files
 
@@ -82,6 +83,7 @@ Lines not matching these patterns (local socket, loopback, replication) are left
 ## Testing
 
 32 unit tests across 3 new files:
+
 - **billing-addons** (2): 200 with empty arrays, 404 for unknown ref
 - **postgres-config** (19): Zod validation, field ranges, enum values, time-pattern formats, `POSTGRES_INTEGER_FIELDS` / `POSTGRES_BOOLEAN_FIELDS` / `PARAM_NAMES` invariants
 - **ssl-enforcement** (11): `isSslEnforced`, `rewriteExternalLines` — enforce, un-enforce, idempotency, round-trip, mixed-state detection

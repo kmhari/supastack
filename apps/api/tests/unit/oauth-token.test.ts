@@ -4,7 +4,14 @@ import Fastify, { type FastifyInstance } from 'fastify';
 const auditCalls: Array<{ action: string }> = [];
 
 type ConsumeResult =
-  | { ok: true; userId: string; codeChallenge: string; scope: string; redirectUri: string; clientId: string }
+  | {
+      ok: true;
+      userId: string;
+      codeChallenge: string;
+      scope: string;
+      redirectUri: string;
+      clientId: string;
+    }
   | { ok: false; error: string };
 
 type RotateResult =
@@ -109,7 +116,11 @@ beforeEach(() => {
 describe('POST /v1/oauth/token — authorization_code', () => {
   it('happy path → 200 + access_token + refresh_token + expires_in:3600; oauth.token.issued emitted', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'POST', url: '/v1/oauth/token', payload: AUTH_CODE_BODY });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/oauth/token',
+      payload: AUTH_CODE_BODY,
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(typeof body.access_token).toBe('string');
@@ -122,7 +133,11 @@ describe('POST /v1/oauth/token — authorization_code', () => {
   it('code reuse → 400 invalid_grant', async () => {
     consumeResult = { ok: false, error: 'already consumed' };
     const app = await buildApp();
-    const res = await app.inject({ method: 'POST', url: '/v1/oauth/token', payload: AUTH_CODE_BODY });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/oauth/token',
+      payload: AUTH_CODE_BODY,
+    });
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('invalid_grant');
   });
@@ -130,7 +145,11 @@ describe('POST /v1/oauth/token — authorization_code', () => {
   it('wrong code_verifier → 400 invalid_grant', async () => {
     verifyChallengeResult = false;
     const app = await buildApp();
-    const res = await app.inject({ method: 'POST', url: '/v1/oauth/token', payload: AUTH_CODE_BODY });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/oauth/token',
+      payload: AUTH_CODE_BODY,
+    });
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('invalid_grant');
   });

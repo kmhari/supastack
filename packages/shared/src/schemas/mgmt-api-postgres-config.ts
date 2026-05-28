@@ -59,10 +59,7 @@ export const POSTGRES_INTEGER_FIELDS = new Set([
   'max_worker_processes',
 ]);
 
-export const POSTGRES_BOOLEAN_FIELDS = new Set([
-  'track_commit_timestamp',
-  'hot_standby_feedback',
-]);
+export const POSTGRES_BOOLEAN_FIELDS = new Set(['track_commit_timestamp', 'hot_standby_feedback']);
 
 export const POSTGRES_CONFIG_PARAM_NAMES = [
   'effective_cache_size',

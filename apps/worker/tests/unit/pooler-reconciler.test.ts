@@ -62,8 +62,12 @@ function makeFinishRunCapture() {
 
   return {
     chain,
-    get status() { return capturedStatus; },
-    get actionsTaken() { return capturedActionsTaken; },
+    get status() {
+      return capturedStatus;
+    },
+    get actionsTaken() {
+      return capturedActionsTaken;
+    },
   };
 }
 
@@ -204,13 +208,13 @@ describe('classification via runSingleInstanceReconcile', () => {
 
   it('consistent — active pooler row + sv tenant present', async () => {
     setupDb(
-      [inst('r1')],                                    // select inst
-      [poolerRow('r1', 'active')],                     // select poolerRow
+      [inst('r1')], // select inst
+      [poolerRow('r1', 'active')], // select poolerRow
       // no remediation db calls (consistent is a no-op)
-      [],                                              // update lastReconciledAt
-      [],                                              // finishRun
+      [], // update lastReconciledAt
+      [], // finishRun
     );
-    fetchMock.mockResolvedValue(SV_OK);               // supavisorGetTenant → found
+    fetchMock.mockResolvedValue(SV_OK); // supavisorGetTenant → found
 
     const result = await runSingleInstanceReconcile(RUN, 'r1');
 
@@ -221,11 +225,11 @@ describe('classification via runSingleInstanceReconcile', () => {
 
   it('missing_pooler_row — no pooler row for the instance', async () => {
     setupDb(
-      [inst('r1')],   // select inst
-      [],             // select poolerRow → none
+      [inst('r1')], // select inst
+      [], // select poolerRow → none
       // remediate: registerTenantForInstance inst lookup → not found → throw
-      [],             // probeAuthForInstance inst lookup → not found → skip promotion
-      [],             // finishRun (status: partial_failure)
+      [], // probeAuthForInstance inst lookup → not found → skip promotion
+      [], // finishRun (status: partial_failure)
     );
     fetchMock.mockResolvedValue(SV_404); // supavisorGetTenant → not found
 
@@ -242,8 +246,8 @@ describe('classification via runSingleInstanceReconcile', () => {
       [poolerRow('r1', 'pg_password_drift')],
       // remediate: registerTenantForInstance inst lookup → not found → throw (no maybePromoteToDrift for this case)
       [],
-      [],             // update lastReconciledAt (poolerRow exists)
-      [],             // finishRun
+      [], // update lastReconciledAt (poolerRow exists)
+      [], // finishRun
     );
     fetchMock.mockResolvedValue(SV_OK);
 
@@ -257,9 +261,9 @@ describe('classification via runSingleInstanceReconcile', () => {
       [inst('r1')],
       [poolerRow('r1', 'active')],
       // remediate: registerTenantForInstance inst lookup → not found → throw
-      [],             // probeAuthForInstance → not found
-      [],             // update lastReconciledAt
-      [],             // finishRun
+      [], // probeAuthForInstance → not found
+      [], // update lastReconciledAt
+      [], // finishRun
     );
     fetchMock.mockResolvedValue(SV_404); // no sv tenant
 
@@ -270,8 +274,8 @@ describe('classification via runSingleInstanceReconcile', () => {
 
   it('instance_gone — instance not found in supabase_instances', async () => {
     setupDb(
-      [],   // select inst → none → early return
-      [],   // finishRun
+      [], // select inst → none → early return
+      [], // finishRun
     );
     // No fetch calls expected (returns before supavisor check)
 
@@ -285,16 +289,16 @@ describe('classification via runSingleInstanceReconcile', () => {
 
   it('instance_gone — inst.status is deleting', async () => {
     setupDb(
-      [inst('r1', 'deleting')],    // select inst
+      [inst('r1', 'deleting')], // select inst
       [poolerRow('r1', 'active')], // select poolerRow
       // remediate instance_gone → unregisterTenantForInstance → supavisorUnregisterTenant (fetch DELETE) + db delete
-      [],                          // db().delete(POOLER_TENANTS)
-      [],                          // emitEvent insert
-      [],                          // update lastReconciledAt (poolerRow exists)
-      [],                          // finishRun
+      [], // db().delete(POOLER_TENANTS)
+      [], // emitEvent insert
+      [], // update lastReconciledAt (poolerRow exists)
+      [], // finishRun
     );
     fetchMock
-      .mockResolvedValueOnce(SV_OK)  // supavisorGetTenant GET
+      .mockResolvedValueOnce(SV_OK) // supavisorGetTenant GET
       .mockResolvedValueOnce(SV_OK); // supavisorUnregisterTenant DELETE
 
     const result = await runSingleInstanceReconcile(RUN, 'r1');
@@ -314,9 +318,9 @@ describe('classification via runSingleInstanceReconcile', () => {
       [inst('r1')],
       [recentFailed],
       // remediate failed_stale → registerTenantForInstance inst lookup → not found → throw
-      [],   // probeAuthForInstance → not found
-      [],   // update lastReconciledAt
-      [],   // finishRun
+      [], // probeAuthForInstance → not found
+      [], // update lastReconciledAt
+      [], // finishRun
     );
     fetchMock.mockResolvedValue(SV_404);
 
@@ -350,10 +354,10 @@ describe('failed_stale age boundary (fake timers)', () => {
     setupDb(
       [inst('r1')],
       [poolerRow('r1', 'failed', updatedAt)],
-      [],   // remediation inst lookup → fails
-      [],   // probeAuthForInstance → not found
-      [],   // update lastReconciledAt
-      [],   // finishRun
+      [], // remediation inst lookup → fails
+      [], // probeAuthForInstance → not found
+      [], // update lastReconciledAt
+      [], // finishRun
     );
     fetchMock.mockResolvedValue(SV_404);
   }
@@ -363,10 +367,10 @@ describe('failed_stale age boundary (fake timers)', () => {
     setupDb(
       [inst('r1')],
       [poolerRow('r1', 'failed', new Date(FAKE_NOW - STALE_MS - 1))],
-      [],   // registerTenantForInstance: inst lookup → empty → throws
-      [],   // emitEvent('reconciler.retry_failed') insert
-      [],   // probeAuthForInstance: inst lookup → empty → skips promotion
-      [],   // lastReconciledAt
+      [], // registerTenantForInstance: inst lookup → empty → throws
+      [], // emitEvent('reconciler.retry_failed') insert
+      [], // probeAuthForInstance: inst lookup → empty → skips promotion
+      [], // lastReconciledAt
       capture.chain, // finishRun
     );
     fetchMock.mockResolvedValue(SV_404);
@@ -383,7 +387,7 @@ describe('failed_stale age boundary (fake timers)', () => {
       [inst('r1')],
       [poolerRow('r1', 'failed', new Date(FAKE_NOW - STALE_MS))],
       // remediate consistent → no db calls
-      [],   // update lastReconciledAt
+      [], // update lastReconciledAt
       capture.chain, // finishRun
     );
     fetchMock.mockResolvedValue(SV_404);
@@ -398,7 +402,7 @@ describe('failed_stale age boundary (fake timers)', () => {
     setupDb(
       [inst('r1')],
       [poolerRow('r1', 'failed', new Date(FAKE_NOW - STALE_MS + 1))],
-      [],   // update lastReconciledAt
+      [], // update lastReconciledAt
       capture.chain, // finishRun
     );
     fetchMock.mockResolvedValue(SV_404);
@@ -416,14 +420,14 @@ describe('orphan_in_supavisor — sv tenant with no matching instance', () => {
     // No instances in supabase_instances; poolerRow for 'orphan-ref' causes
     // it to appear in allExternalIds. Supavisor reports it as present.
     setupDb(
-      [],                                          // select instances → none
-      [poolerRow('orphan-ref', 'active')],         // select poolerRows
+      [], // select instances → none
+      [poolerRow('orphan-ref', 'active')], // select poolerRows
       // remediate orphan_in_supavisor → supavisorUnregisterTenant (DELETE) + emitEvent
-      [],                                          // emitEvent insert
-      [],                                          // finishRun
+      [], // emitEvent insert
+      [], // finishRun
     );
     fetchMock
-      .mockResolvedValueOnce(SV_OK)  // supavisorListExisting GET orphan-ref → found
+      .mockResolvedValueOnce(SV_OK) // supavisorListExisting GET orphan-ref → found
       .mockResolvedValueOnce(SV_OK); // supavisorUnregisterTenant DELETE
 
     await runFullReconcile(RUN);
@@ -432,7 +436,7 @@ describe('orphan_in_supavisor — sv tenant with no matching instance', () => {
       ([, opts]: [string, RequestInit]) => opts?.method === 'DELETE',
     );
     expect(deleteCall).toBeDefined();
-    expect((deleteCall![0] as string)).toContain('orphan-ref');
+    expect(deleteCall![0] as string).toContain('orphan-ref');
   });
 });
 
@@ -447,18 +451,18 @@ describe('orphan_in_supavisor — sv tenant with no matching instance', () => {
 describe('remediation success — registerTenantForInstance completes', () => {
   it('missing_pooler_row → remediated: true', async () => {
     setupDb(
-      [inst('r1')],              // runSingleInstanceReconcile: inst
-      [],                        // poolerRow → none → classification: missing_pooler_row
-      [instSecrets('r1')],       // registerTenantForInstance: inst
-      [{ apex: 'test.dev' }],    // registerTenantForInstance: org
-      [],                        // insert POOLER_TENANTS (onConflictDoUpdate)
-      [],                        // update POOLER_TENANTS status='active'
-      [],                        // emitEvent('reconciler.registered_missing')
+      [inst('r1')], // runSingleInstanceReconcile: inst
+      [], // poolerRow → none → classification: missing_pooler_row
+      [instSecrets('r1')], // registerTenantForInstance: inst
+      [{ apex: 'test.dev' }], // registerTenantForInstance: org
+      [], // insert POOLER_TENANTS (onConflictDoUpdate)
+      [], // update POOLER_TENANTS status='active'
+      [], // emitEvent('reconciler.registered_missing')
       // no lastReconciledAt — poolerRow was null
-      [],                        // finishRun
+      [], // finishRun
     );
     fetchMock
-      .mockResolvedValueOnce(SV_OK)  // supavisorGetTenant GET (classification; result unused)
+      .mockResolvedValueOnce(SV_OK) // supavisorGetTenant GET (classification; result unused)
       .mockResolvedValueOnce(SV_OK); // supavisorRegister PUT
 
     const result = await runSingleInstanceReconcile(RUN, 'r1');
@@ -474,15 +478,15 @@ describe('remediation success — registerTenantForInstance completes', () => {
       [poolerRow('r1', 'active')],
       [instSecrets('r1')],
       [{ apex: 'test.dev' }],
-      [],                        // insert POOLER_TENANTS
-      [],                        // update POOLER_TENANTS active
-      [],                        // emitEvent('reconciler.registered_missing')
-      [],                        // lastReconciledAt (poolerRow existed)
-      [],                        // finishRun
+      [], // insert POOLER_TENANTS
+      [], // update POOLER_TENANTS active
+      [], // emitEvent('reconciler.registered_missing')
+      [], // lastReconciledAt (poolerRow existed)
+      [], // finishRun
     );
     fetchMock
-      .mockResolvedValueOnce(SV_404)  // supavisorGetTenant → 404 → missing_in_supavisor
-      .mockResolvedValueOnce(SV_OK);  // supavisorRegister PUT
+      .mockResolvedValueOnce(SV_404) // supavisorGetTenant → 404 → missing_in_supavisor
+      .mockResolvedValueOnce(SV_OK); // supavisorRegister PUT
 
     const result = await runSingleInstanceReconcile(RUN, 'r1');
 
@@ -497,14 +501,14 @@ describe('remediation success — registerTenantForInstance completes', () => {
       [poolerRow('r1', 'pg_password_drift')],
       [instSecrets('r1')],
       [{ apex: 'test.dev' }],
-      [],                        // insert POOLER_TENANTS
-      [],                        // update POOLER_TENANTS active
-      [],                        // emitEvent('password_reset_then_registered')
-      [],                        // lastReconciledAt
-      [],                        // finishRun
+      [], // insert POOLER_TENANTS
+      [], // update POOLER_TENANTS active
+      [], // emitEvent('password_reset_then_registered')
+      [], // lastReconciledAt
+      [], // finishRun
     );
     fetchMock
-      .mockResolvedValueOnce(SV_OK)  // supavisorGetTenant (irrelevant for drift classification)
+      .mockResolvedValueOnce(SV_OK) // supavisorGetTenant (irrelevant for drift classification)
       .mockResolvedValueOnce(SV_OK); // supavisorRegister PUT
 
     const result = await runSingleInstanceReconcile(RUN, 'r1');
@@ -522,14 +526,14 @@ describe('remediation success — registerTenantForInstance completes', () => {
       [poolerRow('r1', 'failed', new Date(Date.now() - 1))],
       [instSecrets('r1')],
       [{ apex: 'test.dev' }],
-      [],                        // insert POOLER_TENANTS
-      [],                        // update POOLER_TENANTS active
-      [],                        // emitEvent('reconciler.retry_succeeded')
-      [],                        // lastReconciledAt
-      [],                        // finishRun
+      [], // insert POOLER_TENANTS
+      [], // update POOLER_TENANTS active
+      [], // emitEvent('reconciler.retry_succeeded')
+      [], // lastReconciledAt
+      [], // finishRun
     );
     fetchMock
-      .mockResolvedValueOnce(SV_OK)  // supavisorGetTenant
+      .mockResolvedValueOnce(SV_OK) // supavisorGetTenant
       .mockResolvedValueOnce(SV_OK); // supavisorRegister PUT
 
     const result = await runSingleInstanceReconcile(RUN, 'r1');
@@ -553,18 +557,18 @@ describe('runFullReconcile — remediation isolation', () => {
       [inst('A'), inst('B'), inst('C')],
       [poolerRow('A', 'active'), poolerRow('B', 'active'), poolerRow('C', 'active')],
       // B remediation: registerTenantForInstance inst lookup → not found → throw
-      [],   // B: registerTenantForInstance inst lookup
-      [],   // B: probeAuthForInstance inst lookup
+      [], // B: registerTenantForInstance inst lookup
+      [], // B: probeAuthForInstance inst lookup
       // lastReconciledAt for each (A, B, C) — all 3 pooler rows exist
-      [],   // A lastReconciledAt
-      [],   // B lastReconciledAt
-      [],   // C lastReconciledAt
-      [],   // finishRun
+      [], // A lastReconciledAt
+      [], // B lastReconciledAt
+      [], // C lastReconciledAt
+      [], // finishRun
     );
     fetchMock
-      .mockResolvedValueOnce(SV_OK)   // A — found
-      .mockResolvedValueOnce(SV_404)  // B — not found → missing_in_supavisor
-      .mockResolvedValueOnce(SV_OK);  // C — found
+      .mockResolvedValueOnce(SV_OK) // A — found
+      .mockResolvedValueOnce(SV_404) // B — not found → missing_in_supavisor
+      .mockResolvedValueOnce(SV_OK); // C — found
 
     await expect(runFullReconcile(RUN)).resolves.toBeUndefined();
 
@@ -577,15 +581,13 @@ describe('runFullReconcile — remediation isolation', () => {
     setupDb(
       [inst('A'), inst('B')],
       [poolerRow('A', 'active'), poolerRow('B', 'active')],
-      [],   // B: registerTenantForInstance inst lookup
-      [],   // B: probeAuthForInstance
-      [],   // A lastReconciledAt
-      [],   // B lastReconciledAt
+      [], // B: registerTenantForInstance inst lookup
+      [], // B: probeAuthForInstance
+      [], // A lastReconciledAt
+      [], // B lastReconciledAt
       capture.chain, // finishRun
     );
-    fetchMock
-      .mockResolvedValueOnce(SV_OK)
-      .mockResolvedValueOnce(SV_404);
+    fetchMock.mockResolvedValueOnce(SV_OK).mockResolvedValueOnce(SV_404);
 
     await runFullReconcile(RUN);
 
@@ -601,21 +603,19 @@ describe('runFullReconcile — remediation isolation', () => {
       // B registerTenantForInstance inst lookup → not found → throw
       [],
       // probeAuthForInstance: provide an inst row so the probe actually runs
-      [instSecrets('B')],  // inst lookup for probe
+      [instSecrets('B')], // inst lookup for probe
       // pg.Client will throw auth error (configured below)
       // maybePromoteToDrift: update POOLER_TENANTS + emitEvent
-      [],   // update POOLER_TENANTS status=pg_password_drift
-      [],   // emitEvent insert
-      [],   // B lastReconciledAt
-      [],   // finishRun
+      [], // update POOLER_TENANTS status=pg_password_drift
+      [], // emitEvent insert
+      [], // B lastReconciledAt
+      [], // finishRun
     );
-    fetchMock
-      .mockResolvedValueOnce(SV_404);                    // B not in supavisor
+    fetchMock.mockResolvedValueOnce(SV_404); // B not in supavisor
 
-    const authErr = Object.assign(
-      new Error('password authentication failed for user "postgres"'),
-      { code: '28P01' },
-    );
+    const authErr = Object.assign(new Error('password authentication failed for user "postgres"'), {
+      code: '28P01',
+    });
     pgConnect.mockRejectedValue(authErr);
 
     await runFullReconcile(RUN);
@@ -633,12 +633,12 @@ describe('runFullReconcile — remediation isolation', () => {
       [inst('A'), inst('B')],
       [poolerRow('A', 'active'), poolerRow('B', 'active')],
       // both consistent → no remediation db calls
-      [],   // A lastReconciledAt
-      [],   // B lastReconciledAt
+      [], // A lastReconciledAt
+      [], // B lastReconciledAt
       capture.chain, // finishRun
     );
     fetchMock
-      .mockResolvedValueOnce(SV_OK)  // A
+      .mockResolvedValueOnce(SV_OK) // A
       .mockResolvedValueOnce(SV_OK); // B
 
     await runFullReconcile(RUN);
@@ -658,9 +658,9 @@ describe('startRun — preflight and concurrency', () => {
     // Provide 3 db calls: preflight update, GC execute, insert run row.
     // We verify the preflight update was called by checking dbCallCount.
     setupDb(
-      [],                           // preflight: UPDATE reconciler_runs SET status='failed'
-      [],                           // GC: EXECUTE DELETE FROM reconciler_runs ...
-      [{ id: 'new-run' }],          // INSERT reconciler_runs RETURNING
+      [], // preflight: UPDATE reconciler_runs SET status='failed'
+      [], // GC: EXECUTE DELETE FROM reconciler_runs ...
+      [{ id: 'new-run' }], // INSERT reconciler_runs RETURNING
     );
 
     const { runId } = await startRun('cron');
@@ -685,8 +685,8 @@ describe('startRun — preflight and concurrency', () => {
     });
 
     setupDb(
-      [],           // preflight update
-      gcChain,      // GC execute — intercepted
+      [], // preflight update
+      gcChain, // GC execute — intercepted
       [{ id: 'new-run' }], // insert
     );
 
@@ -717,13 +717,13 @@ describe('startRun — preflight and concurrency', () => {
     });
 
     setupDb(
-      [],           // preflight update
-      [],           // GC execute
-      insertChain,  // INSERT → throws unique constraint
+      [], // preflight update
+      [], // GC execute
+      insertChain, // INSERT → throws unique constraint
       [{ id: existingId, startedAt: existingStartedAt }], // SELECT existing run
     );
 
-    const thrown = await startRun('cron').catch(e => e);
+    const thrown = await startRun('cron').catch((e) => e);
     expect(thrown).toBeInstanceOf(ReconcilerInFlightError);
     expect((thrown as ReconcilerInFlightError).inFlightRunId).toBe(existingId);
     expect((thrown as ReconcilerInFlightError).inFlightStartedAt).toEqual(existingStartedAt);
