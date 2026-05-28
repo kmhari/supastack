@@ -181,6 +181,19 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
       });
     });
 
+    // CI e2e mode: the worker isn't running, so the provision job would
+    // sit unprocessed and projects would stay `provisioning` forever (which
+    // makes every project-shell page render an empty/error state and fails
+    // every browser-test assertion against a project ref). Flip status to
+    // `running` synchronously and skip the queue.
+    if (process.env.SELFBASE_TEST_FAKE_DOCKER === '1') {
+      await db()
+        .update(schema.supabaseInstances)
+        .set({ status: 'running' })
+        .where(eq(schema.supabaseInstances.ref, ref));
+      return reply.status(202).send({ ref, name: body.name, status: 'running' });
+    }
+
     await provisionQueue().add('provision', { ref }, { removeOnComplete: 100 });
 
     return reply.status(202).send({ ref, name: body.name, status: 'provisioning' });
