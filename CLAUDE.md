@@ -89,7 +89,9 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-**Most recently merged**: feature 019 — `supabase backups list/restore` async restore worker (issue #14, PR #67). Three new mgmt-API endpoints; `restore_jobs` table; BullMQ restore worker with pg_restore + rollback; live PASS in 41s on supaviser.dev. Runbook: [docs/changes/019-backups-list-restore.md](docs/changes/019-backups-list-restore.md).
+**Most recently merged**: pooler-reconciler Vitest unit tests (issue #16, PR #74). 32 tests covering all 7 drift classifications, remediation happy-paths, preflight/concurrency guards. Zero production changes.
+
+**Prior merged**: feature 019 — `supabase backups list/restore` async restore worker (issue #14, PR #67). Three new mgmt-API endpoints; `restore_jobs` table; BullMQ restore worker with pg_restore + rollback; live PASS in 41s on supaviser.dev. Runbook: [docs/changes/019-backups-list-restore.md](docs/changes/019-backups-list-restore.md).
 
 **Prior merged**: feature 018 — T078 master key rotation (PR #59, issue #54). Rekey tool, E2E script, operator runbook. Prior: feature 016 — MCP post-ship hardening.
 
