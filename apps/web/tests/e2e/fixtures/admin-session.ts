@@ -26,10 +26,7 @@ export const ADMIN_PASSWORD = process.env.PLAYWRIGHT_ADMIN_PASSWORD ?? 'hunter2h
 const ORG_NAME = process.env.PLAYWRIGHT_ORG_NAME ?? 'e2e';
 const APEX_DOMAIN = process.env.PLAYWRIGHT_APEX_DOMAIN ?? 'test.local';
 
-const STORAGE_STATE_PATH = resolve(
-  process.cwd(),
-  'tests/e2e/.auth/admin-storage-state.json',
-);
+const STORAGE_STATE_PATH = resolve(process.cwd(), 'tests/e2e/.auth/admin-storage-state.json');
 
 interface Fixtures {
   adminContext: BrowserContext;
@@ -138,9 +135,7 @@ async function seedAdmin(apiBaseUrl: string): Promise<void> {
     }),
   });
   if (!resp.ok && resp.status !== 410) {
-    throw new Error(
-      `Could not seed admin via /setup — got HTTP ${resp.status} ${resp.statusText}`,
-    );
+    throw new Error(`Could not seed admin via /setup — got HTTP ${resp.status} ${resp.statusText}`);
   }
 }
 
@@ -191,10 +186,7 @@ async function fileExists(path: string): Promise<boolean> {
  *
  * Task: T016
  */
-async function loadOrCreateMemberStorageState(
-  _browser: Browser,
-  apiBase: string,
-): Promise<string> {
+async function loadOrCreateMemberStorageState(_browser: Browser, apiBase: string): Promise<string> {
   if (await fileExists(MEMBER_STORAGE_STATE_PATH)) {
     return MEMBER_STORAGE_STATE_PATH;
   }
@@ -212,11 +204,7 @@ async function loadOrCreateMemberStorageState(
   }
 
   const storageState = { cookies, origins: [] as unknown[] };
-  await writeFile(
-    MEMBER_STORAGE_STATE_PATH,
-    JSON.stringify(storageState, null, 2),
-    'utf8',
-  );
+  await writeFile(MEMBER_STORAGE_STATE_PATH, JSON.stringify(storageState, null, 2), 'utf8');
   return MEMBER_STORAGE_STATE_PATH;
 }
 
@@ -234,9 +222,7 @@ async function inviteAndAcceptMember(apiBase: string): Promise<void> {
     body: JSON.stringify({ email: MEMBER_EMAIL, role: 'member' }),
   });
   if (!inviteResp.ok && inviteResp.status !== 409) {
-    throw new Error(
-      `Could not invite member: HTTP ${inviteResp.status} ${inviteResp.statusText}`,
-    );
+    throw new Error(`Could not invite member: HTTP ${inviteResp.status} ${inviteResp.statusText}`);
   }
 
   // The invite token lives inside the `link` field as ?token=... — extract it.
@@ -274,9 +260,7 @@ async function inviteAndAcceptMember(apiBase: string): Promise<void> {
       body: JSON.stringify({ email: MEMBER_EMAIL, role: 'member' }),
     });
     if (!reResp.ok) {
-      throw new Error(
-        `Could not re-invite member: HTTP ${reResp.status} ${reResp.statusText}`,
-      );
+      throw new Error(`Could not re-invite member: HTTP ${reResp.status} ${reResp.statusText}`);
     }
     const body = (await reResp.json()) as { link?: string };
     const m = body.link?.match(/token=([a-f0-9]+)/i);
@@ -292,9 +276,7 @@ async function inviteAndAcceptMember(apiBase: string): Promise<void> {
     body: JSON.stringify({ token, password: MEMBER_PASSWORD }),
   });
   if (!acceptResp.ok) {
-    throw new Error(
-      `Could not accept invite: HTTP ${acceptResp.status} ${acceptResp.statusText}`,
-    );
+    throw new Error(`Could not accept invite: HTTP ${acceptResp.status} ${acceptResp.statusText}`);
   }
 }
 

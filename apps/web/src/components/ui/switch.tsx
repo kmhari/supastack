@@ -8,10 +8,7 @@ import { cn } from '@/lib/utils';
  * auth-config toggles (Enable Sign in with X, Skip nonce checks, Allow
  * users without an email, etc.) matching Cloud's UX.
  */
-function Switch({
-  className,
-  ...props
-}: React.ComponentProps<typeof SwitchPrimitive.Root>) {
+function Switch({ className, ...props }: React.ComponentProps<typeof SwitchPrimitive.Root>) {
   return (
     <SwitchPrimitive.Root
       data-slot="switch"

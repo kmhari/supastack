@@ -47,32 +47,107 @@ export interface ExcludedPage {
 // ─── Project-shell pages ────────────────────────────────────────────────────
 
 const PROJECT_PAGES: ReadonlyArray<ExpectedPage> = [
-  { path: '/dashboard/project/{ref}',                  headline: 'General',         requiresProject: true,  sourceFile: 'ProjectGeneral.tsx' },
-  { path: '/dashboard/project/{ref}/api-keys',         headline: 'API Keys',        requiresProject: true,  sourceFile: 'ProjectApiKeys.tsx' },
-  { path: '/dashboard/project/{ref}/jwt-keys',         headline: 'JWT Keys',        requiresProject: true,  sourceFile: 'ProjectJwtKeys.tsx' },
-  { path: '/dashboard/project/{ref}/secrets',          headline: 'Secrets',         requiresProject: true,  sourceFile: 'ProjectSecrets.tsx' },
-  { path: '/dashboard/project/{ref}/backups',          headline: 'Backups',         requiresProject: true,  sourceFile: 'InstanceBackups.tsx' },
-  { path: '/dashboard/project/{ref}/auth/providers',         headline: 'Auth Providers',    requiresProject: true,  sourceFile: 'ProjectAuthProviders.tsx' },
-  { path: '/dashboard/project/{ref}/auth/url-configuration', headline: 'URL Configuration', requiresProject: true,  sourceFile: 'ProjectAuthUrlConfig.tsx' },
-  { path: '/dashboard/project/{ref}/health',                 headline: 'Health',            requiresProject: true,  sourceFile: 'ProjectHealth.tsx' },
+  {
+    path: '/dashboard/project/{ref}',
+    headline: 'General',
+    requiresProject: true,
+    sourceFile: 'ProjectGeneral.tsx',
+  },
+  {
+    path: '/dashboard/project/{ref}/api-keys',
+    headline: 'API Keys',
+    requiresProject: true,
+    sourceFile: 'ProjectApiKeys.tsx',
+  },
+  {
+    path: '/dashboard/project/{ref}/jwt-keys',
+    headline: 'JWT Keys',
+    requiresProject: true,
+    sourceFile: 'ProjectJwtKeys.tsx',
+  },
+  {
+    path: '/dashboard/project/{ref}/secrets',
+    headline: 'Secrets',
+    requiresProject: true,
+    sourceFile: 'ProjectSecrets.tsx',
+  },
+  {
+    path: '/dashboard/project/{ref}/backups',
+    headline: 'Backups',
+    requiresProject: true,
+    sourceFile: 'InstanceBackups.tsx',
+  },
+  {
+    path: '/dashboard/project/{ref}/auth/providers',
+    headline: 'Auth Providers',
+    requiresProject: true,
+    sourceFile: 'ProjectAuthProviders.tsx',
+  },
+  {
+    path: '/dashboard/project/{ref}/auth/url-configuration',
+    headline: 'URL Configuration',
+    requiresProject: true,
+    sourceFile: 'ProjectAuthUrlConfig.tsx',
+  },
+  {
+    path: '/dashboard/project/{ref}/health',
+    headline: 'Health',
+    requiresProject: true,
+    sourceFile: 'ProjectHealth.tsx',
+  },
 ];
 
 // ─── Settings-shell pages (org-level) ───────────────────────────────────────
 
 const SETTINGS_PAGES: ReadonlyArray<ExpectedPage> = [
-  { path: '/settings/org',          headline: 'Overview',              requiresProject: false, sourceFile: 'SettingsOrg.tsx' },
-  { path: '/settings/members',      headline: 'Members',               requiresProject: false, sourceFile: 'SettingsMembers.tsx' },
-  { path: '/settings/tokens',       headline: 'Tokens',                requiresProject: false, sourceFile: 'SettingsTokens.tsx' },
-  { path: '/settings/cli',          headline: 'CLI integration',       requiresProject: false, sourceFile: 'SettingsCli.tsx' },
-  { path: '/settings/mcp-clients',  headline: 'Connected MCP clients', requiresProject: false, sourceFile: 'SettingsMcpClients.tsx' },
-  { path: '/settings/database',     headline: 'Database',              requiresProject: false, sourceFile: 'SettingsDatabase.tsx' },
-  { path: '/settings/audit',        headline: 'Audit',                 requiresProject: false, sourceFile: 'SettingsAudit.tsx' },
+  {
+    path: '/settings/org',
+    headline: 'Overview',
+    requiresProject: false,
+    sourceFile: 'SettingsOrg.tsx',
+  },
+  {
+    path: '/settings/members',
+    headline: 'Members',
+    requiresProject: false,
+    sourceFile: 'SettingsMembers.tsx',
+  },
+  {
+    path: '/settings/tokens',
+    headline: 'Tokens',
+    requiresProject: false,
+    sourceFile: 'SettingsTokens.tsx',
+  },
+  {
+    path: '/settings/cli',
+    headline: 'CLI integration',
+    requiresProject: false,
+    sourceFile: 'SettingsCli.tsx',
+  },
+  {
+    path: '/settings/mcp-clients',
+    headline: 'Connected MCP clients',
+    requiresProject: false,
+    sourceFile: 'SettingsMcpClients.tsx',
+  },
+  {
+    path: '/settings/database',
+    headline: 'Database',
+    requiresProject: false,
+    sourceFile: 'SettingsDatabase.tsx',
+  },
+  {
+    path: '/settings/audit',
+    headline: 'Audit',
+    requiresProject: false,
+    sourceFile: 'SettingsAudit.tsx',
+  },
 ];
 
 // ─── Top-level pages ────────────────────────────────────────────────────────
 
 const TOP_PAGES: ReadonlyArray<ExpectedPage> = [
-  { path: '/dashboard',  headline: 'Projects',  requiresProject: false, sourceFile: 'Instances.tsx' },
+  { path: '/dashboard', headline: 'Projects', requiresProject: false, sourceFile: 'Instances.tsx' },
 ];
 
 export const EXPECTED_PAGES: ReadonlyArray<ExpectedPage> = [
@@ -87,17 +162,17 @@ export const PROJECT_SHELL_GROUPS: ReadonlyArray<SidebarGroup> = [
   {
     heading: 'Configuration',
     items: [
-      { label: 'General',  suffix: '' },
+      { label: 'General', suffix: '' },
       { label: 'API Keys', suffix: '/api-keys' },
       { label: 'JWT Keys', suffix: '/jwt-keys' },
-      { label: 'Secrets',  suffix: '/secrets' },
-      { label: 'Backups',  suffix: '/backups' },
+      { label: 'Secrets', suffix: '/secrets' },
+      { label: 'Backups', suffix: '/backups' },
     ],
   },
   {
     heading: 'Authentication',
     items: [
-      { label: 'Providers',         suffix: '/auth/providers' },
+      { label: 'Providers', suffix: '/auth/providers' },
       { label: 'URL Configuration', suffix: '/auth/url-configuration' },
     ],
   },
@@ -108,13 +183,13 @@ export const PROJECT_SHELL_GROUPS: ReadonlyArray<SidebarGroup> = [
 ];
 
 export const SETTINGS_SHELL_ITEMS: ReadonlyArray<SidebarItem> = [
-  { label: 'Overview',           suffix: '/settings/org' },
-  { label: 'Members',            suffix: '/settings/members' },
-  { label: 'Tokens',             suffix: '/settings/tokens' },
-  { label: 'CLI integration',    suffix: '/settings/cli' },
-  { label: 'MCP clients',        suffix: '/settings/mcp-clients' },
-  { label: 'Database',           suffix: '/settings/database' },
-  { label: 'Audit',              suffix: '/settings/audit' },
+  { label: 'Overview', suffix: '/settings/org' },
+  { label: 'Members', suffix: '/settings/members' },
+  { label: 'Tokens', suffix: '/settings/tokens' },
+  { label: 'CLI integration', suffix: '/settings/cli' },
+  { label: 'MCP clients', suffix: '/settings/mcp-clients' },
+  { label: 'Database', suffix: '/settings/database' },
+  { label: 'Audit', suffix: '/settings/audit' },
 ];
 
 // ─── Explicit exclusions ────────────────────────────────────────────────────
@@ -123,12 +198,12 @@ export const SETTINGS_SHELL_ITEMS: ReadonlyArray<SidebarItem> = [
 // smoke. New additions need a written reason; the lint reads this list.
 
 export const EXCLUDED_PAGES: ReadonlyArray<ExcludedPage> = [
-  { file: 'Login.tsx',         reason: 'Pre-auth page; tested implicitly by every admin-fixture login' },
-  { file: 'Setup.tsx',         reason: 'Bootstrap flow; covered by golden-path.spec.ts' },
-  { file: 'AcceptInvite.tsx',  reason: 'Covered by invite-flow.spec.ts' },
-  { file: 'CliLogin.tsx',      reason: 'PKCE CLI flow; smoke covered by tests/cli-e2e/cli-login.sh' },
-  { file: 'ConnectCli.tsx',    reason: 'Static info page; no interaction' },
-  { file: 'InstancesNew.tsx',  reason: 'Covered by golden-path.spec.ts' },
+  { file: 'Login.tsx', reason: 'Pre-auth page; tested implicitly by every admin-fixture login' },
+  { file: 'Setup.tsx', reason: 'Bootstrap flow; covered by golden-path.spec.ts' },
+  { file: 'AcceptInvite.tsx', reason: 'Covered by invite-flow.spec.ts' },
+  { file: 'CliLogin.tsx', reason: 'PKCE CLI flow; smoke covered by tests/cli-e2e/cli-login.sh' },
+  { file: 'ConnectCli.tsx', reason: 'Static info page; no interaction' },
+  { file: 'InstancesNew.tsx', reason: 'Covered by golden-path.spec.ts' },
 ];
 
 // ─── Console error allowlist (per research R-005) ───────────────────────────

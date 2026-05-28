@@ -36,8 +36,7 @@ export function ProviderIcon({
   size?: 'sm' | 'md' | 'lg';
 }): React.ReactElement {
   const file = ICON_FILE[name];
-  const sizeClass =
-    size === 'sm' ? 'size-5' : size === 'lg' ? 'size-8' : 'size-6';
+  const sizeClass = size === 'sm' ? 'size-5' : size === 'lg' ? 'size-8' : 'size-6';
 
   if (!file) {
     return (

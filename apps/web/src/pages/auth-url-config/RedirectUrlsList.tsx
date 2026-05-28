@@ -25,12 +25,10 @@ export function RedirectUrlsList({
     <section className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h2 className="m-0 text-xl font-normal tracking-tight text-foreground">
-            Redirect URLs
-          </h2>
+          <h2 className="m-0 text-xl font-normal tracking-tight text-foreground">Redirect URLs</h2>
           <p className="m-0 text-sm text-muted-foreground">
-            URLs that auth providers are permitted to redirect to post authentication. Wildcards
-            are allowed, for example, https://*.domain.com
+            URLs that auth providers are permitted to redirect to post authentication. Wildcards are
+            allowed, for example, https://*.domain.com
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">

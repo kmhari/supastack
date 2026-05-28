@@ -26,27 +26,27 @@ All four save via a single "Save changes" button, which triggers a ~30s GoTrue r
 
 ### Providers list (25 rows)
 
-| Row | Behavior |
-|---|---|
-| Email | Toggle row (`external_email_enabled`) — flip + auto-save |
-| Phone | Toggle row (`external_phone_enabled`) — same pattern |
-| SAML 2.0 | Disabled, "Coming soon" → [#61](https://github.com/kmhari/selfbase/issues/61) |
-| Web3 Wallet | Disabled, "Coming soon" → [#72](https://github.com/kmhari/selfbase/issues/72) |
-| 21 OAuth providers (alphabetical) | Click → side drawer with provider-specific fields |
+| Row                               | Behavior                                                                      |
+| --------------------------------- | ----------------------------------------------------------------------------- |
+| Email                             | Toggle row (`external_email_enabled`) — flip + auto-save                      |
+| Phone                             | Toggle row (`external_phone_enabled`) — same pattern                          |
+| SAML 2.0                          | Disabled, "Coming soon" → [#61](https://github.com/kmhari/selfbase/issues/61) |
+| Web3 Wallet                       | Disabled, "Coming soon" → [#72](https://github.com/kmhari/selfbase/issues/72) |
+| 21 OAuth providers (alphabetical) | Click → side drawer with provider-specific fields                             |
 
 ### Per-provider drawer
 
 Each OAuth row opens a side drawer with fields specific to that provider's family:
 
-| Provider family | Fields |
-|---|---|
-| **Google** | Enable + Client IDs (comma-joined Web/Android/One Tap IDs) + Client Secret + Skip nonce checks + Allow users without an email + Callback URL |
-| **Apple** | Enable + **Services ID** + Additional Services IDs (comma-sep) + Client Secret + Allow users without an email + Callback URL |
-| **Azure / GitLab / Keycloak** | CommonFour + a **URL field** (tenant URL / self-hosted GitLab URL / Keycloak realm URL) |
-| **WorkOS** | Enable + Client ID + Secret + URL (no email_optional) |
-| **LinkedIn / Slack (OIDC)** | OIDC-prefixed CommonFour — writes to `external_<key>_oidc_*` fields |
-| **Slack (Deprecated)** | Legacy CommonFour writing to `external_slack_*`. Cloud-equivalent backward-compat row |
-| **Everyone else (12)** | CommonFour: Enable + Client ID + Secret + Allow users without an email + Callback URL |
+| Provider family               | Fields                                                                                                                                       |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Google**                    | Enable + Client IDs (comma-joined Web/Android/One Tap IDs) + Client Secret + Skip nonce checks + Allow users without an email + Callback URL |
+| **Apple**                     | Enable + **Services ID** + Additional Services IDs (comma-sep) + Client Secret + Allow users without an email + Callback URL                 |
+| **Azure / GitLab / Keycloak** | CommonFour + a **URL field** (tenant URL / self-hosted GitLab URL / Keycloak realm URL)                                                      |
+| **WorkOS**                    | Enable + Client ID + Secret + URL (no email_optional)                                                                                        |
+| **LinkedIn / Slack (OIDC)**   | OIDC-prefixed CommonFour — writes to `external_<key>_oidc_*` fields                                                                          |
+| **Slack (Deprecated)**        | Legacy CommonFour writing to `external_slack_*`. Cloud-equivalent backward-compat row                                                        |
+| **Everyone else (12)**        | CommonFour: Enable + Client ID + Secret + Allow users without an email + Callback URL                                                        |
 
 **The Callback URL field** is read-only and pre-filled with `https://<ref>.<apex>/auth/v1/callback`. Click "Copy" and paste it into the IdP console (e.g. Google Cloud Console → Credentials → Authorized redirect URIs).
 
@@ -55,9 +55,9 @@ Each OAuth row opens a side drawer with fields specific to that provider's famil
 ### After Save
 
 1. Drawer closes immediately
-2. Non-blocking toast appears: *"Restarting auth — your changes will be live in ~30s"*
+2. Non-blocking toast appears: _"Restarting auth — your changes will be live in ~30s"_
 3. Dashboard polls the per-instance container status with exponential backoff (500ms / 1s / 2s / 4s cap, max 60s)
-4. On success: toast flips to *"Settings applied"*, the provider row's status pill flips Enabled
+4. On success: toast flips to _"Settings applied"_, the provider row's status pill flips Enabled
 5. On failure: toast flips to error with a Retry button; the status pill reverts
 
 ---
@@ -66,18 +66,18 @@ Each OAuth row opens a side drawer with fields specific to that provider's famil
 
 Operators bring their own OAuth credentials. Most-used IdPs:
 
-| Provider | Where to get credentials |
-|---|---|
-| Google | [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials) |
-| GitHub | [GitHub → Settings → Developer settings → OAuth Apps](https://github.com/settings/developers) |
-| Discord | [Discord Developer Portal](https://discord.com/developers/applications) |
-| Apple | [Apple Developer → Identifiers → Services IDs](https://developer.apple.com/account/resources/identifiers/list/serviceId) |
-| Azure | [Azure Portal → App registrations](https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps) |
-| Facebook | [Meta for Developers → Apps](https://developers.facebook.com/apps/) |
-| GitLab | Your self-hosted instance → Admin → Applications |
-| Keycloak | Your Keycloak admin → Realm → Clients |
-| Slack | [Slack API → Your Apps](https://api.slack.com/apps) |
-| WorkOS | [WorkOS Dashboard → Configuration](https://dashboard.workos.com/) |
+| Provider | Where to get credentials                                                                                                 |
+| -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Google   | [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)                                  |
+| GitHub   | [GitHub → Settings → Developer settings → OAuth Apps](https://github.com/settings/developers)                            |
+| Discord  | [Discord Developer Portal](https://discord.com/developers/applications)                                                  |
+| Apple    | [Apple Developer → Identifiers → Services IDs](https://developer.apple.com/account/resources/identifiers/list/serviceId) |
+| Azure    | [Azure Portal → App registrations](https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps)                         |
+| Facebook | [Meta for Developers → Apps](https://developers.facebook.com/apps/)                                                      |
+| GitLab   | Your self-hosted instance → Admin → Applications                                                                         |
+| Keycloak | Your Keycloak admin → Realm → Clients                                                                                    |
+| Slack    | [Slack API → Your Apps](https://api.slack.com/apps)                                                                      |
+| WorkOS   | [WorkOS Dashboard → Configuration](https://dashboard.workos.com/)                                                        |
 
 For every other provider, the drawer's `Docs` link in the footer routes to Supabase's upstream guide.
 
@@ -95,11 +95,17 @@ curl -sS -H "Authorization: Bearer $PAT" \
 
 ```json
 [
-  { "key": "jwt_exp",                "value": { "status": "honored", "envName": "JWT_EXPIRY" } },
-  { "key": "site_url",               "value": { "status": "honored", "envName": "SITE_URL" } },
-  { "key": "uri_allow_list",         "value": { "status": "honored", "envName": "ADDITIONAL_REDIRECT_URLS" } },
-  { "key": "disable_signup",         "value": { "status": "honored", "envName": "DISABLE_SIGNUP" } },
-  { "key": "external_google_secret", "value": { "status": "honored", "envName": "GOOGLE_SECRET", "secret": true } }
+  { "key": "jwt_exp", "value": { "status": "honored", "envName": "JWT_EXPIRY" } },
+  { "key": "site_url", "value": { "status": "honored", "envName": "SITE_URL" } },
+  {
+    "key": "uri_allow_list",
+    "value": { "status": "honored", "envName": "ADDITIONAL_REDIRECT_URLS" }
+  },
+  { "key": "disable_signup", "value": { "status": "honored", "envName": "DISABLE_SIGNUP" } },
+  {
+    "key": "external_google_secret",
+    "value": { "status": "honored", "envName": "GOOGLE_SECRET", "secret": true }
+  }
 ]
 ```
 

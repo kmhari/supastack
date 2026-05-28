@@ -131,8 +131,7 @@ export interface AuthConfigResponse {
 }
 
 export const authConfigApi = {
-  get: (ref: string) =>
-    unwrap<AuthConfigResponse>(client.get(`/projects/${ref}/config/auth`)),
+  get: (ref: string) => unwrap<AuthConfigResponse>(client.get(`/projects/${ref}/config/auth`)),
   patch: (ref: string, body: Record<string, unknown>) =>
     unwrap<AuthConfigResponse>(client.patch(`/projects/${ref}/config/auth`, body)),
 };

@@ -11,9 +11,9 @@ import { ProviderIcon } from './ProviderIcon';
  * Shared row geometry — used inside the providers Card so every row
  * shares borders / padding / separators (no individual bordered chips).
  */
-const ROW_BASE =
-  'flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors';
-const ROW_HOVER = 'hover:bg-accent/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const ROW_BASE = 'flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors';
+const ROW_HOVER =
+  'hover:bg-accent/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 export function ProviderRow({
   provider,
@@ -62,11 +62,7 @@ export function EmailPhoneToggleRow({
   );
 }
 
-export function ComingSoonRow({
-  provider,
-}: {
-  provider: ComingSoonProvider;
-}): React.ReactElement {
+export function ComingSoonRow({ provider }: { provider: ComingSoonProvider }): React.ReactElement {
   const issueUrl = `https://github.com/kmhari/selfbase/issues/${provider.comingSoonIssue}`;
   return (
     <a

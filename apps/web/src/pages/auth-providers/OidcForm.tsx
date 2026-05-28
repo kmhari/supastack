@@ -123,9 +123,7 @@ export function OidcForm({
               autoComplete="off"
             />
           </InputWithSuffix>
-          <p className="m-0 text-xs text-muted-foreground">
-            Leave blank to keep the saved value.
-          </p>
+          <p className="m-0 text-xs text-muted-foreground">Leave blank to keep the saved value.</p>
         </FieldRow>
 
         <ToggleRow
@@ -138,7 +136,12 @@ export function OidcForm({
 
         <FieldRow id={`${provider.key}-callback`} label="Callback URL (for OAuth)">
           <div className="flex items-center gap-2">
-            <Input id={`${provider.key}-callback`} value={callbackUrl} readOnly className="flex-1 text-muted-foreground" />
+            <Input
+              id={`${provider.key}-callback`}
+              value={callbackUrl}
+              readOnly
+              className="flex-1 text-muted-foreground"
+            />
             <CopyButton value={callbackUrl} variant="outline" size="sm" />
           </div>
           <p className="m-0 text-xs text-muted-foreground">

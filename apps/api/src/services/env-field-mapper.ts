@@ -507,8 +507,7 @@ STORED_ONLY_REASONS['sessions_inactivity_timeout'] =
 
 const UNSUPPORTED_REASONS: Record<string, string> = {
   oauth_server_enabled: 'Cloud-only OAuth authorization server — see #63',
-  oauth_server_allow_dynamic_registration:
-    'Cloud-only OAuth authorization server — see #63',
+  oauth_server_allow_dynamic_registration: 'Cloud-only OAuth authorization server — see #63',
   oauth_server_authorization_path: 'Cloud-only OAuth authorization server — see #63',
   nimbus_oauth_client_id: 'Cloud-only Nimbus OAuth broker — see #63',
   nimbus_oauth_client_secret: 'Cloud-only Nimbus OAuth broker — see #63',
@@ -554,9 +553,8 @@ function buildFieldStatus(): Record<string, FieldStatus> {
  * UpdateAuthConfigBody is present and classified. Mutating this object after
  * module load is forbidden; use the readonly-cast accessor below.
  */
-export const AUTH_CONFIG_FIELD_STATUS: Readonly<Record<string, FieldStatus>> = Object.freeze(
-  buildFieldStatus(),
-);
+export const AUTH_CONFIG_FIELD_STATUS: Readonly<Record<string, FieldStatus>> =
+  Object.freeze(buildFieldStatus());
 
 /**
  * The honored subset, re-derived from AUTH_CONFIG_FIELD_STATUS. Used by

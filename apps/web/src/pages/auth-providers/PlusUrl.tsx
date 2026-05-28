@@ -126,9 +126,7 @@ export function PlusUrl({
               autoComplete="off"
             />
           </InputWithSuffix>
-          <p className="m-0 text-xs text-muted-foreground">
-            Leave blank to keep the saved value.
-          </p>
+          <p className="m-0 text-xs text-muted-foreground">Leave blank to keep the saved value.</p>
         </FieldRow>
 
         <FieldRow id={`${provider.key}-url`} label={urlLabelFor(provider.key)}>
@@ -153,7 +151,12 @@ export function PlusUrl({
 
         <FieldRow id={`${provider.key}-callback`} label="Callback URL (for OAuth)">
           <div className="flex items-center gap-2">
-            <Input id={`${provider.key}-callback`} value={callbackUrl} readOnly className="flex-1 text-muted-foreground" />
+            <Input
+              id={`${provider.key}-callback`}
+              value={callbackUrl}
+              readOnly
+              className="flex-1 text-muted-foreground"
+            />
             <CopyButton value={callbackUrl} variant="outline" size="sm" />
           </div>
           <p className="m-0 text-xs text-muted-foreground">
@@ -211,7 +214,8 @@ function urlPlaceholderFor(key: string): string {
 
 function urlHelpFor(key: string): string {
   if (key === 'azure') return 'Azure AD / Entra ID tenant authority URL.';
-  if (key === 'gitlab') return 'Leave blank for gitlab.com. Set to your self-hosted GitLab URL otherwise.';
+  if (key === 'gitlab')
+    return 'Leave blank for gitlab.com. Set to your self-hosted GitLab URL otherwise.';
   if (key === 'keycloak') return 'Full URL to the Keycloak realm, including `/realms/<realm>`.';
   return '';
 }

@@ -7,10 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { SiteUrlForm } from './auth-url-config/SiteUrlForm';
 import { RedirectUrlsList } from './auth-url-config/RedirectUrlsList';
 import { AddRedirectUrlsDialog } from './auth-url-config/AddRedirectUrlsDialog';
-import {
-  parseAllowList,
-  serializeAllowList,
-} from './auth-url-config/redirect-url-helpers';
+import { parseAllowList, serializeAllowList } from './auth-url-config/redirect-url-helpers';
 import { useRestartToast } from './auth-providers/use-restart-toast';
 
 /**

@@ -9,13 +9,7 @@
  * T056 (SAML/Web3/Custom Providers coming-soon entries).
  */
 
-export type FormTemplate =
-  | 'CommonFour'
-  | 'PlusUrl'
-  | 'WorkOsShape'
-  | 'Google'
-  | 'Apple'
-  | 'Oidc';
+export type FormTemplate = 'CommonFour' | 'PlusUrl' | 'WorkOsShape' | 'Google' | 'Apple' | 'Oidc';
 
 export interface ToggleOnlyProvider {
   kind: 'toggle-only';

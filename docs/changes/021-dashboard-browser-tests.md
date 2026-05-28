@@ -1,6 +1,6 @@
 # Feature 021 — Dashboard Browser-Level E2E Tests
 
-**Closes**: nothing directly — feature exists to close a *class* of bug (silent dashboard regressions that pass vitest+jsdom but break in a real browser, as exposed during feature 020's deploy).
+**Closes**: nothing directly — feature exists to close a _class_ of bug (silent dashboard regressions that pass vitest+jsdom but break in a real browser, as exposed during feature 020's deploy).
 **Spec**: [specs/021-dashboard-browser-tests/](../../specs/021-dashboard-browser-tests/)
 
 ## Why this feature exists
@@ -15,18 +15,18 @@ None of them rendered the actual SPA inside a real browser. This feature adds Pl
 
 ## What you get
 
-| Capability | Where |
-|---|---|
-| Playwright runner against the deployed dashboard | `apps/web/tests/e2e/*.spec.ts` |
-| Admin-session fixture (auto-bootstrap on first run) | `apps/web/tests/e2e/fixtures/admin-session.ts` |
-| Member-session fixture (for non-admin RBAC tests) | same file |
-| Test-project fixture (cached across the run) | `apps/web/tests/e2e/fixtures/test-project.ts` |
-| Sidebar regression catcher (the bug that motivated this) | `apps/web/tests/e2e/sidebar-nav.spec.ts` |
-| Auth Providers drawer / deep-link / RBAC coverage | `apps/web/tests/e2e/auth-providers.spec.ts` |
-| One assertion per critical dashboard page | `apps/web/tests/e2e/page-smokes.spec.ts` |
-| Coverage lint that fails CI on new-page-without-smoke | `apps/web/scripts/check-page-coverage.mjs` |
-| Secret redactor for screenshot/log artifacts | `apps/web/tests/e2e/redactor.ts` + reporter |
-| GitHub Actions `e2e` job — runs on every PR | `.github/workflows/ci.yml` |
+| Capability                                               | Where                                          |
+| -------------------------------------------------------- | ---------------------------------------------- |
+| Playwright runner against the deployed dashboard         | `apps/web/tests/e2e/*.spec.ts`                 |
+| Admin-session fixture (auto-bootstrap on first run)      | `apps/web/tests/e2e/fixtures/admin-session.ts` |
+| Member-session fixture (for non-admin RBAC tests)        | same file                                      |
+| Test-project fixture (cached across the run)             | `apps/web/tests/e2e/fixtures/test-project.ts`  |
+| Sidebar regression catcher (the bug that motivated this) | `apps/web/tests/e2e/sidebar-nav.spec.ts`       |
+| Auth Providers drawer / deep-link / RBAC coverage        | `apps/web/tests/e2e/auth-providers.spec.ts`    |
+| One assertion per critical dashboard page                | `apps/web/tests/e2e/page-smokes.spec.ts`       |
+| Coverage lint that fails CI on new-page-without-smoke    | `apps/web/scripts/check-page-coverage.mjs`     |
+| Secret redactor for screenshot/log artifacts             | `apps/web/tests/e2e/redactor.ts` + reporter    |
+| GitHub Actions `e2e` job — runs on every PR              | `.github/workflows/ci.yml`                     |
 
 ## Running locally
 
