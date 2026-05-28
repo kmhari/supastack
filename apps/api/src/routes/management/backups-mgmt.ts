@@ -11,8 +11,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
-import { db, schema } from '@selfbase/db';
-import { eq } from 'drizzle-orm';
 import { logger } from '@selfbase/shared';
 import { RestoreRequestSchema } from '@selfbase/shared';
 
@@ -107,12 +105,14 @@ export const backupsMgmtRoutes: FastifyPluginAsync = async (app) => {
             code === 'restore_in_progress' ||
             code === 'disk_space_insufficient'
           ) {
-            throw new ManagementApiError(409, err.message, code, (err as any).details ?? {});
+            const details =
+              (err as { details?: Record<string, unknown> }).details ?? {};
+            throw new ManagementApiError(409, err.message, code, details);
           }
           throw new ManagementApiError(400, err.message, code, {});
         }
         // Postgres unique-constraint violation = concurrent restore in progress
-        const pgErr = err as any;
+        const pgErr = err as { code?: string; constraint?: string };
         if (
           pgErr?.code === '23505' &&
           pgErr?.constraint?.includes('uq_restore_jobs_one_inflight')

@@ -1,8 +1,6 @@
 import { and, desc, eq, inArray, lte, not } from 'drizzle-orm';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
 import { db, schema } from '@selfbase/db';
 import { decryptJson, loadMasterKey } from '@selfbase/crypto';
 import {
@@ -20,7 +18,7 @@ import type {
 const execFileAsync = promisify(execFile);
 
 const BACKUPS_DIR = process.env.BACKUPS_DIR ?? '/var/selfbase/backups';
-const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
+const _INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
 
 export async function resolveBackupStore(): Promise<{ kind: 'local' | 's3'; store: BackupStore }> {
   const [row] = await db()
@@ -148,7 +146,7 @@ export async function initiateRestore(
   };
 }
 
-async function checkDiskSpace(dataDir: string, backupSizeBytes: number): Promise<void> {
+async function _checkDiskSpace(dataDir: string, _backupSizeBytes: number): Promise<void> {
   let dataDirBytes = 0;
   try {
     const { stdout } = await execFileAsync('du', ['-sb', dataDir]);
@@ -173,7 +171,7 @@ async function checkDiskSpace(dataDir: string, backupSizeBytes: number): Promise
       'disk_space_insufficient',
       `Need ${required} bytes, only ${availableBytes} available`,
     );
-    (err as any).details = {
+    (err as RestoreError & { details?: unknown }).details = {
       required_bytes: required,
       available_bytes: availableBytes,
       data_dir_bytes: dataDirBytes,
