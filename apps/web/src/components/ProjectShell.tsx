@@ -35,7 +35,10 @@ export function ProjectShell({
     },
     {
       heading: 'Authentication',
-      items: [{ to: `${base}/auth/providers`, label: 'Providers' }],
+      items: [
+        { to: `${base}/auth/providers`, label: 'Providers' },
+        { to: `${base}/auth/url-configuration`, label: 'URL Configuration' },
+      ],
     },
     {
       heading: 'Diagnostics',
