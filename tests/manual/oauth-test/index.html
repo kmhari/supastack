@@ -13,11 +13,18 @@
         --accent: #34d399;
         --border: #1f2937;
       }
-      * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+      }
       body {
         margin: 0;
         min-height: 100vh;
-        font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font:
+          14px/1.5 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
         background: var(--bg);
         color: var(--fg);
         display: grid;
@@ -32,39 +39,91 @@
         border-radius: 12px;
         padding: 28px;
       }
-      h1 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
-      p.muted { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
-      label { display: block; margin: 14px 0 4px; font-size: 12px; color: var(--muted); }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      p.muted {
+        margin: 0 0 20px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      label {
+        display: block;
+        margin: 14px 0 4px;
+        font-size: 12px;
+        color: var(--muted);
+      }
       input {
-        width: 100%; padding: 9px 11px;
-        background: #0b0d10; color: var(--fg);
-        border: 1px solid var(--border); border-radius: 6px;
+        width: 100%;
+        padding: 9px 11px;
+        background: #0b0d10;
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
         font: inherit;
       }
       button {
-        margin-top: 18px; padding: 10px 16px;
-        background: #24292f; color: var(--fg);
-        border: 1px solid var(--border); border-radius: 6px;
-        font: inherit; font-weight: 500; cursor: pointer;
-        display: inline-flex; align-items: center; gap: 8px;
+        margin-top: 18px;
+        padding: 10px 16px;
+        background: #24292f;
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font: inherit;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
       }
-      button:hover { background: #2d333b; }
-      button.signout { background: transparent; }
+      button:hover {
+        background: #2d333b;
+      }
+      button.signout {
+        background: transparent;
+      }
       pre {
-        margin: 16px 0 0; padding: 14px;
-        background: #0b0d10; border: 1px solid var(--border);
-        border-radius: 6px; font-size: 12px;
-        overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+        margin: 16px 0 0;
+        padding: 14px;
+        background: #0b0d10;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
       }
-      .row { display: flex; gap: 8px; align-items: center; }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
       .pill {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 3px 10px; border-radius: 999px;
-        font-size: 12px; font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 500;
       }
-      .pill.ok { background: rgba(52, 211, 153, .12); color: var(--accent); border: 1px solid rgba(52, 211, 153, .35); }
-      .pill.no { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-      .error { color: #f87171; margin-top: 14px; font-size: 13px; }
+      .pill.ok {
+        background: rgba(52, 211, 153, 0.12);
+        color: var(--accent);
+        border: 1px solid rgba(52, 211, 153, 0.35);
+      }
+      .pill.no {
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }
+      .error {
+        color: #f87171;
+        margin-top: 14px;
+        font-size: 13px;
+      }
     </style>
   </head>
   <body>
@@ -79,7 +138,7 @@
       <label>Provider</label>
       <input id="provider" value="github" />
 
-      <div class="row" style="margin-top: 18px; justify-content: space-between;">
+      <div class="row" style="margin-top: 18px; justify-content: space-between">
         <div id="status" class="pill no">checking session…</div>
         <div>
           <button id="signin">Sign in</button>
@@ -96,8 +155,7 @@
 
       const DEFAULTS = {
         url: 'https://znishgvglkafpmjkqspw.supaviser.dev',
-        anon:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5OTc2NDIxLCJleHAiOjE5Mzc2NTY0MjF9.9d05W-eDM0Gua6-Y5LX1qf5cs7m1BX4EtDp4XFhNCVU',
+        anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5OTc2NDIxLCJleHAiOjE5Mzc2NTY0MjF9.9d05W-eDM0Gua6-Y5LX1qf5cs7m1BX4EtDp4XFhNCVU',
         provider: 'github',
       };
       const urlEl = document.getElementById('url');
@@ -116,9 +174,7 @@
       // guard, stale PKCE state from earlier attempts (e.g. a sign-in
       // whose user was later deleted) gets replayed and produces 500
       // "User not found" against the now-empty database.
-      const inCallback = /[?&#]code=|#access_token=|#error=/.test(
-        location.search + location.hash,
-      );
+      const inCallback = /[?&#]code=|#access_token=|#error=/.test(location.search + location.hash);
       if (!inCallback) {
         for (const k of Object.keys(localStorage)) {
           if (k.startsWith('sb-')) localStorage.removeItem(k);

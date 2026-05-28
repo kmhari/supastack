@@ -91,17 +91,10 @@ export function ToggleRow({
         <Label htmlFor={id} className="font-normal text-foreground">
           {label}
         </Label>
-        {description ? (
-          <p className="m-0 text-xs text-muted-foreground">{description}</p>
-        ) : null}
+        {description ? <p className="m-0 text-xs text-muted-foreground">{description}</p> : null}
       </div>
       <div className="shrink-0">
-        <Switch
-          id={id}
-          checked={checked}
-          onCheckedChange={onChange}
-          disabled={disabled}
-        />
+        <Switch id={id} checked={checked} onCheckedChange={onChange} disabled={disabled} />
       </div>
     </div>
   );

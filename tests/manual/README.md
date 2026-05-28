@@ -10,6 +10,6 @@ project without standing up extra scaffolding.
 
 ## Index
 
-| Tool | Purpose |
-|---|---|
+| Tool                           | Purpose                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`oauth-test/`](./oauth-test/) | Single-page `supabase-js` harness for verifying a project's OAuth provider configuration end-to-end. Pre-filled for the current default test project; localStorage purged on cold load so stale PKCE state doesn't poison the run. Used during the live-VM smoke for feature 022 (URL Configuration page) to confirm a `redirect_to` of `http://localhost:8765/` is honored once it's in the allow-list. |

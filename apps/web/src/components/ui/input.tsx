@@ -9,8 +9,7 @@ function Input({ className, type, autoComplete, ...props }: React.ComponentProps
   // autoComplete value (e.g. "email", "current-password", "new-password").
   // Password inputs default to "new-password" rather than "off" because
   // browsers ignore "off" on type=password but honor "new-password".
-  const effectiveAutoComplete =
-    autoComplete ?? (type === 'password' ? 'new-password' : 'off');
+  const effectiveAutoComplete = autoComplete ?? (type === 'password' ? 'new-password' : 'off');
   return (
     <input
       type={type}

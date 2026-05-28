@@ -74,9 +74,7 @@ export function AppleForm({
           <ProviderIcon name={provider.key} size="lg" />
           <SheetTitle>Apple</SheetTitle>
         </div>
-        <SheetDescription>
-          Configure Sign in with Apple for this project.
-        </SheetDescription>
+        <SheetDescription>Configure Sign in with Apple for this project.</SheetDescription>
       </SheetHeader>
 
       <AutofillTrap />
@@ -157,7 +155,12 @@ export function AppleForm({
 
         <FieldRow id="apple-callback" label="Callback URL (for OAuth)">
           <div className="flex items-center gap-2">
-            <Input id="apple-callback" value={callbackUrl} readOnly className="flex-1 text-muted-foreground" />
+            <Input
+              id="apple-callback"
+              value={callbackUrl}
+              readOnly
+              className="flex-1 text-muted-foreground"
+            />
             <CopyButton value={callbackUrl} variant="outline" size="sm" />
           </div>
           <p className="m-0 text-xs text-muted-foreground">

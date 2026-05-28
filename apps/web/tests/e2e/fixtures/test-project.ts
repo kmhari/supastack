@@ -16,10 +16,7 @@ import { resolve } from 'node:path';
  */
 
 const PROJECT_NAME = 'e2e-test-project';
-const STORAGE_STATE_PATH = resolve(
-  process.cwd(),
-  'tests/e2e/.auth/admin-storage-state.json',
-);
+const STORAGE_STATE_PATH = resolve(process.cwd(), 'tests/e2e/.auth/admin-storage-state.json');
 
 declare global {
   var __e2eTestProjectRef: string | undefined;

@@ -51,8 +51,10 @@ describe('behavioral parity assertion coverage', () => {
       const specific = matchers.some(([re]) => re.test(f));
       if (specific) return false;
       // Fallback path: honored entry → has envName → fallback applies.
-      return AUTH_CONFIG_FIELD_STATUS[f]!.kind === 'honored' &&
-        !(AUTH_CONFIG_FIELD_STATUS[f] as { envName?: string }).envName;
+      return (
+        AUTH_CONFIG_FIELD_STATUS[f]!.kind === 'honored' &&
+        !(AUTH_CONFIG_FIELD_STATUS[f] as { envName?: string }).envName
+      );
     });
     expect(offenders).toEqual([]);
   });

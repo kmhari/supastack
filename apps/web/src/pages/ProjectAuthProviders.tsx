@@ -12,11 +12,7 @@ import {
   type ActiveOAuthProvider,
   type ProviderDef,
 } from './auth-providers/provider-registry';
-import {
-  ProviderRow,
-  EmailPhoneToggleRow,
-  ComingSoonRow,
-} from './auth-providers/ProviderRow';
+import { ProviderRow, EmailPhoneToggleRow, ComingSoonRow } from './auth-providers/ProviderRow';
 import { GoogleForm } from './auth-providers/GoogleForm';
 import { CommonFour } from './auth-providers/CommonFour';
 import { PlusUrl } from './auth-providers/PlusUrl';

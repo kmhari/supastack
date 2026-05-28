@@ -35,7 +35,10 @@ test.describe('URL Configuration page', () => {
     const page = await adminContext.newPage();
     await page.goto(`/dashboard/project/${ref}/auth/url-configuration`);
 
-    await page.getByRole('button', { name: /^Add URL$/ }).first().click();
+    await page
+      .getByRole('button', { name: /^Add URL$/ })
+      .first()
+      .click();
     await expect(page.getByRole('heading', { name: 'Add new redirect URLs' })).toBeVisible();
     expect(await page.getByPlaceholder('https://mydomain.com').count()).toBe(1);
 
@@ -50,7 +53,10 @@ test.describe('URL Configuration page', () => {
     const page = await adminContext.newPage();
     await page.goto(`/dashboard/project/${ref}/auth/url-configuration`);
 
-    await page.getByRole('button', { name: /^Add URL$/ }).first().click();
+    await page
+      .getByRole('button', { name: /^Add URL$/ })
+      .first()
+      .click();
     await page.getByPlaceholder('https://mydomain.com').fill('javascript:alert(1)');
     await page.getByRole('button', { name: /Save URLs/ }).click();
     await expect(page.getByText(/valid http\(s\) URL/i)).toBeVisible();

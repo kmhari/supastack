@@ -169,7 +169,12 @@ export function GoogleForm({
 
         <FieldRow id="google-callback" label="Callback URL (for OAuth)">
           <div className="flex items-center gap-2">
-            <Input id="google-callback" value={callbackUrl} readOnly className="flex-1 text-muted-foreground" />
+            <Input
+              id="google-callback"
+              value={callbackUrl}
+              readOnly
+              className="flex-1 text-muted-foreground"
+            />
             <CopyButton value={callbackUrl} variant="outline" size="sm" />
           </div>
           <p className="m-0 text-xs text-muted-foreground">

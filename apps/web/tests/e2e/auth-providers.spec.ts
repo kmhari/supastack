@@ -48,15 +48,15 @@ test.describe('Auth Providers page', () => {
 
     // Open the Google row. The button's accessible name includes the status
     // pill text ("Google Disabled" / "Google Enabled"), so anchor with /^Google/.
-    await page.getByRole('button', { name: /^Google\b/ }).first().click();
+    await page
+      .getByRole('button', { name: /^Google\b/ })
+      .first()
+      .click();
 
     // Drawer fields per provider-form-templates.md §4 (Google template).
     await expect(page.getByLabel('Client IDs')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByLabel('Client Secret (for OAuth)')).toBeVisible();
-    await expect(page.getByLabel('Callback URL (for OAuth)')).toHaveAttribute(
-      'readonly',
-      '',
-    );
+    await expect(page.getByLabel('Callback URL (for OAuth)')).toHaveAttribute('readonly', '');
 
     // Reveal button is rendered disabled (deferred to issue #73 per spec FR-016).
     await expect(page.getByRole('button', { name: 'Reveal' })).toBeDisabled();
@@ -71,9 +71,7 @@ test.describe('Auth Providers page', () => {
     const page = await adminContext.newPage();
     // URL-encoded space + parens; the page reads `?provider=` and matches
     // case-insensitively against ProviderDef.displayName.
-    await page.goto(
-      `/dashboard/project/${ref}/auth/providers?provider=Slack%20%28OIDC%29`,
-    );
+    await page.goto(`/dashboard/project/${ref}/auth/providers?provider=Slack%20%28OIDC%29`);
 
     // The drawer's title is the provider's displayName — "Slack (OIDC)".
     // This distinguishes it from the legacy "Slack (Deprecated)" drawer.

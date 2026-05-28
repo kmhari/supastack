@@ -124,8 +124,7 @@ describe('AUTH_CONFIG_FIELD_STATUS counts (T029)', () => {
 
   it('every stored_only / unsupported reason references a tracking issue', () => {
     const noIssueRef = entries.filter(
-      (e) =>
-        (e.kind === 'stored_only' || e.kind === 'unsupported') && !/#\d+/.test(e.reason),
+      (e) => (e.kind === 'stored_only' || e.kind === 'unsupported') && !/#\d+/.test(e.reason),
     );
     expect(noIssueRef).toEqual([]);
   });
@@ -133,9 +132,7 @@ describe('AUTH_CONFIG_FIELD_STATUS counts (T029)', () => {
   it('secret-named honored fields are flagged for masking', () => {
     const unmasked = honored.filter(
       (e) =>
-        e.kind === 'honored' &&
-        /SECRET|AUTH_TOKEN|API_KEY|SMTP_PASS/i.test(e.envName) &&
-        !e.secret,
+        e.kind === 'honored' && /SECRET|AUTH_TOKEN|API_KEY|SMTP_PASS/i.test(e.envName) && !e.secret,
     );
     expect(unmasked).toEqual([]);
   });

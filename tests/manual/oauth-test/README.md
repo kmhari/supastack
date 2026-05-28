@@ -33,6 +33,7 @@ open http://localhost:8765/
 ## Operator prerequisites
 
 For a GitHub round-trip:
+
 1. The project's GitHub OAuth credentials must be saved
    (`/dashboard/project/<ref>/auth/providers` → GitHub drawer).
 2. `http://localhost:8765/` (or `http://localhost:8765/**` for path
@@ -43,11 +44,11 @@ For a GitHub round-trip:
 
 ## Expected outcome on success
 
-| Stage | UI |
-|---|---|
-| Cold load | Pill: gray "signed out". Sign in button visible. |
-| Click Sign in | Browser navigates away → GitHub Authorize page. |
-| Click Authorize | Bounces through `/auth/v1/callback` → lands at `http://localhost:8765/?code=…`. |
+| Stage                    | UI                                                                                                                                                                                                   |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cold load                | Pill: gray "signed out". Sign in button visible.                                                                                                                                                     |
+| Click Sign in            | Browser navigates away → GitHub Authorize page.                                                                                                                                                      |
+| Click Authorize          | Bounces through `/auth/v1/callback` → lands at `http://localhost:8765/?code=…`.                                                                                                                      |
 | Token exchange completes | Pill: green "signed in as &lt;email-or-handle&gt;". JSON shows `user.id`, `email`, `provider: "github"`, `user_metadata` (avatar_url, user_name, full_name), `expires_at`, truncated `access_token`. |
 
 ## When something goes wrong
@@ -58,7 +59,7 @@ For a GitHub round-trip:
 - **"Unsupported provider: provider is not enabled" on `/authorize`**:
   the OAuth provider credentials aren't reaching GoTrue. Check the
   project's auth container env: `docker exec selfbase-<ref>-auth-1 env
-  | grep GOTRUE_EXTERNAL_<UPPER>_`. If empty, re-save from the dashboard
+| grep GOTRUE_EXTERNAL_<UPPER>_`. If empty, re-save from the dashboard
   Auth Providers drawer.
 - **Final redirect lands on the project URL instead of localhost**:
   `http://localhost:<port>/**` isn't in the allow-list. Open the

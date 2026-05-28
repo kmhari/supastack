@@ -31,36 +31,26 @@ describe('looksLikeValidUrl', () => {
 
 describe('dedupKey', () => {
   it('folds case-insensitive scheme and host', () => {
-    expect(dedupKey('HTTP://Localhost:3000/foo')).toBe(
-      dedupKey('http://localhost:3000/foo'),
-    );
+    expect(dedupKey('HTTP://Localhost:3000/foo')).toBe(dedupKey('http://localhost:3000/foo'));
   });
 
   it('preserves byte-exact path (with vs without trailing-slash on subpath)', () => {
-    expect(dedupKey('http://localhost:3000/foo')).not.toBe(
-      dedupKey('http://localhost:3000/foo/'),
-    );
+    expect(dedupKey('http://localhost:3000/foo')).not.toBe(dedupKey('http://localhost:3000/foo/'));
   });
 
   it('preserves wildcards in the dedup key', () => {
-    expect(dedupKey('http://localhost:3000/**')).toBe(
-      'http://localhost:3000/**',
-    );
+    expect(dedupKey('http://localhost:3000/**')).toBe('http://localhost:3000/**');
   });
 
   it('preserves query string in the dedup key', () => {
-    expect(dedupKey('http://localhost:3000/?x=1')).toBe(
-      dedupKey('HTTP://localhost:3000/?x=1'),
-    );
+    expect(dedupKey('http://localhost:3000/?x=1')).toBe(dedupKey('HTTP://localhost:3000/?x=1'));
   });
 
   it('WHATWG URL normalisation: root with and without trailing slash fold (intentional, matches GoTrue)', () => {
     // `new URL('http://localhost:3000').pathname === '/'`, so the absence of
     // a trailing slash on the root path round-trips to the same key. This
     // matches GoTrue's runtime behaviour.
-    expect(dedupKey('http://localhost:3000')).toBe(
-      dedupKey('http://localhost:3000/'),
-    );
+    expect(dedupKey('http://localhost:3000')).toBe(dedupKey('http://localhost:3000/'));
   });
 
   it('falls back to exact string when input is unparseable', () => {

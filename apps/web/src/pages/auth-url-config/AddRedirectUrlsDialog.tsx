@@ -10,11 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  MAX_REDIRECT_URLS,
-  dedupKey,
-  looksLikeValidUrl,
-} from './redirect-url-helpers';
+import { MAX_REDIRECT_URLS, dedupKey, looksLikeValidUrl } from './redirect-url-helpers';
 
 type Row = { id: string; value: string; error: string | null };
 
@@ -120,9 +116,7 @@ export function AddRedirectUrlsDialog({
 
     // Cap check
     if (existingUrls.length + deduped.length > MAX_REDIRECT_URLS) {
-      setTopError(
-        `Cap of ${MAX_REDIRECT_URLS} URLs reached. Remove some entries first.`,
-      );
+      setTopError(`Cap of ${MAX_REDIRECT_URLS} URLs reached. Remove some entries first.`);
       return;
     }
 
@@ -135,8 +129,8 @@ export function AddRedirectUrlsDialog({
         <DialogHeader>
           <DialogTitle>Add new redirect URLs</DialogTitle>
           <DialogDescription>
-            This will add a URL to a list of allowed URLs that can interact with your
-            Authentication services for this project.
+            This will add a URL to a list of allowed URLs that can interact with your Authentication
+            services for this project.
           </DialogDescription>
         </DialogHeader>
 

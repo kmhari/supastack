@@ -46,7 +46,9 @@ async function main() {
   }
 
   if (offenders.length === 0 && dangling.length === 0) {
-    console.log(`✓ check-page-coverage: ${pageFiles.size} dashboard-page files all covered or excluded`);
+    console.log(
+      `✓ check-page-coverage: ${pageFiles.size} dashboard-page files all covered or excluded`,
+    );
     process.exit(0);
   }
 
@@ -56,12 +58,16 @@ async function main() {
       console.error(`     apps/web/src/pages/${f}`);
     }
     console.error('');
-    console.error('   To fix: add an entry to EXPECTED_PAGES in apps/web/tests/e2e/expected-pages.ts,');
+    console.error(
+      '   To fix: add an entry to EXPECTED_PAGES in apps/web/tests/e2e/expected-pages.ts,',
+    );
     console.error('   OR add it to EXCLUDED_PAGES with a reason.');
   }
   if (dangling.length > 0) {
     console.error('');
-    console.error('❌ check-page-coverage: the following registry entries reference missing files:');
+    console.error(
+      '❌ check-page-coverage: the following registry entries reference missing files:',
+    );
     for (const f of dangling) {
       console.error(`     ${f}`);
     }
