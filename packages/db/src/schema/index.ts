@@ -9,3 +9,4 @@ export * from './pg-edge-certs.js';
 export * from './reconciler-runs.js';
 export * from './project-config.js';
 export * from './oauth.js';
+export * from './restore-jobs.js';
