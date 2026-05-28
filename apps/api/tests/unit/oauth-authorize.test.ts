@@ -82,7 +82,11 @@ beforeEach(() => {
 describe('GET /v1/oauth/authorize', () => {
   it('valid session + valid params → 200 HTML containing client_name', async () => {
     const app = await buildApp('u1');
-    const res = await app.inject({ method: 'GET', url: '/v1/oauth/authorize', query: VALID_PARAMS });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/oauth/authorize',
+      query: VALID_PARAMS,
+    });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.body).toContain('TestClient');
@@ -90,7 +94,11 @@ describe('GET /v1/oauth/authorize', () => {
 
   it('no session → 302 redirect to /dashboard/login?next=...', async () => {
     const app = await buildApp(null);
-    const res = await app.inject({ method: 'GET', url: '/v1/oauth/authorize', query: VALID_PARAMS });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/oauth/authorize',
+      query: VALID_PARAMS,
+    });
     expect(res.statusCode).toBe(302);
     expect(res.headers['location']).toContain('/dashboard/login?next=');
   });

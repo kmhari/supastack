@@ -39,7 +39,11 @@ async function buildApp(authed = true) {
       : null;
     done();
   });
-  app.decorate('requireAuth', () => ({ id: '00000000-0000-0000-0000-000000000001', email: 'test@test.local', role: 'admin' as const }));
+  app.decorate('requireAuth', () => ({
+    id: '00000000-0000-0000-0000-000000000001',
+    email: 'test@test.local',
+    role: 'admin' as const,
+  }));
   app.decorate('authorize', () => {});
   await app.register(billingAddonsRoutes, { prefix: '/v1' });
   return app;

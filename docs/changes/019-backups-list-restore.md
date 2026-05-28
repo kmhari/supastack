@@ -6,11 +6,11 @@ Closes issue #14.
 
 ### New Management API endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/v1/projects/:ref/database/backups` | List backups for CLI compat |
-| `POST` | `/v1/projects/:ref/database/backups/restore-pitr` | Initiate async restore |
-| `GET` | `/v1/projects/:ref/database/backups/restore-status` | Poll restore job status |
+| Method | Path                                                | Description                 |
+| ------ | --------------------------------------------------- | --------------------------- |
+| `GET`  | `/v1/projects/:ref/database/backups`                | List backups for CLI compat |
+| `POST` | `/v1/projects/:ref/database/backups/restore-pitr`   | Initiate async restore      |
+| `GET`  | `/v1/projects/:ref/database/backups/restore-status` | Poll restore job status     |
 
 ### New `restore_jobs` table
 
@@ -32,6 +32,7 @@ The API checks `available_bytes >= 2 × data_dir_bytes` before enqueuing a resto
 ### Rollback guarantee
 
 If the worker fails or times out at any point after snapshotting the data dir, it automatically:
+
 1. Stops the stack
 2. Swaps the pre-restore snapshot back
 3. Restarts the stack

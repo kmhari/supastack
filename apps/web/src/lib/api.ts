@@ -113,6 +113,29 @@ export const instancesApi = {
   health: (ref: string) => unwrap(client.get(`/instances/${ref}/health`)),
 };
 
+// ─── auth-config (feature 020 — auth providers dashboard) ───────────────────
+//
+// Dashboard talks to the Management API surface via the same `/api/v1` prefix
+// used by every other dashboard call (Caddy routes `/api/*` to the api;
+// `/v1/*` is reserved for the CLI-compat host at `api.<apex>`). The api
+// registers `authConfigRoutes` twice — once at `/v1/...` for the CLI and
+// once at `/api/v1/...` for the dashboard — so the wire shape is identical.
+export type FieldStatusEntry =
+  | { status: 'honored'; envName: string; secret?: boolean }
+  | { status: 'stored_only'; reason: string }
+  | { status: 'unsupported'; reason: string };
+
+export interface AuthConfigResponse {
+  [field: string]: unknown;
+  _selfbase?: { fieldStatus: Record<string, FieldStatusEntry> };
+}
+
+export const authConfigApi = {
+  get: (ref: string) => unwrap<AuthConfigResponse>(client.get(`/projects/${ref}/config/auth`)),
+  patch: (ref: string, body: Record<string, unknown>) =>
+    unwrap<AuthConfigResponse>(client.patch(`/projects/${ref}/config/auth`, body)),
+};
+
 // ─── backups ────────────────────────────────────────────────────────────────
 export const backupsApi = {
   list: (ref: string) => unwrap(client.get(`/instances/${ref}/backups`)),

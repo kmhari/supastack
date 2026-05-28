@@ -75,6 +75,23 @@ async function buildStatus(): Promise<ApexStatus> {
 export const apexRoutes: FastifyPluginAsync = async (app) => {
   app.get('/apex', async (req, reply) => {
     app.authorize(req, 'org.read');
+    // CI e2e mode: skip real DNS + cert probes (no DNS for test.local on the
+    // runner, no ACME). Returning a "fully configured" status lets the
+    // RequireAuth gate fall through to the actual page; otherwise every
+    // browser-test navigation is intercepted into the Setup wizard.
+    if (process.env.SELFBASE_TEST_FAKE_DOCKER === '1') {
+      const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
+      const apex = orgRow?.apex ?? 'test.local';
+      return reply.send({
+        apex,
+        expectedIp: '127.0.0.1',
+        observedIps: ['127.0.0.1'],
+        dnsResolved: true,
+        wildcardObservedIps: ['127.0.0.1'],
+        wildcardResolved: true,
+        cert: { reachable: true, issued: true },
+      });
+    }
     return reply.send(await buildStatus());
   });
 

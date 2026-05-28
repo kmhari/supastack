@@ -116,11 +116,18 @@ app.post('/mcp', async (req, reply) => {
 
     // Filter deferred tools out of tools/list so clients never see them.
     // _requestHandlers is an internal Map on Protocol; capture before replacing.
-    const origListTools = (server as any)._requestHandlers?.get('tools/list');
+    const origListTools = (
+      server as unknown as { _requestHandlers?: Map<string, unknown> }
+    )._requestHandlers?.get('tools/list') as
+      | ((req: unknown, extra: unknown) => Promise<{ tools: unknown[] }>)
+      | undefined;
     if (origListTools) {
       server.setRequestHandler(ListToolsRequestSchema, async (req, extra) => {
         const r = await origListTools(req, extra);
-        return { ...r, tools: (r.tools ?? []).filter((t: { name: string }) => !DEFERRED_TOOLS.has(t.name)) };
+        return {
+          ...r,
+          tools: (r.tools ?? []).filter((t: { name: string }) => !DEFERRED_TOOLS.has(t.name)),
+        };
       });
     }
 

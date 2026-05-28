@@ -79,13 +79,13 @@ const client = new pg.Client({ connectionString: DB_URL });
 await client.connect();
 
 const TABLES = [
-  { table: 'supabase_instances',       id: 'ref',  col: 'encrypted_secrets',           nullable: false },
-  { table: 'project_config_snapshots', id: 'id',   col: 'encrypted_payload',            nullable: false },
-  { table: 'project_secrets',          id: 'id',   col: 'encrypted_value',              nullable: false },
-  { table: 'users',                    id: 'id',   col: 'backup_store_config_encrypted', nullable: true  },
-  { table: 'tls_accounts',             id: 'id',   col: 'account_key_pem',              nullable: false },
-  { table: 'tls_certs',                id: 'id',   col: 'key_pem',                      nullable: true  },
-  { table: 'pg_edge_certs',            id: 'id',   col: 'key_pem',                      nullable: true  },
+  { table: 'supabase_instances', id: 'ref', col: 'encrypted_secrets', nullable: false },
+  { table: 'project_config_snapshots', id: 'id', col: 'encrypted_payload', nullable: false },
+  { table: 'project_secrets', id: 'id', col: 'encrypted_value', nullable: false },
+  { table: 'users', id: 'id', col: 'backup_store_config_encrypted', nullable: true },
+  { table: 'tls_accounts', id: 'id', col: 'account_key_pem', nullable: false },
+  { table: 'tls_certs', id: 'id', col: 'key_pem', nullable: true },
+  { table: 'pg_edge_certs', id: 'id', col: 'key_pem', nullable: true },
 ];
 
 let totalRows = 0;
@@ -97,7 +97,7 @@ try {
     // Skip if table or column doesn't exist on this deployment
     const { rows: colCheck } = await client.query(
       `SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name=$2`,
-      [table, col]
+      [table, col],
     );
     if (colCheck.length === 0) {
       console.log(`[rekey] ${table}.${col}: column not found — skip`);
@@ -106,7 +106,7 @@ try {
 
     const nullClause = nullable ? `AND ${col} IS NOT NULL` : '';
     const { rows } = await client.query(
-      `SELECT ${id}, ${col} FROM ${table} WHERE ${col} IS NOT NULL ${nullClause}`
+      `SELECT ${id}, ${col} FROM ${table} WHERE ${col} IS NOT NULL ${nullClause}`,
     );
 
     if (rows.length === 0) {
@@ -130,10 +130,10 @@ try {
         throw new Error(`[rekey] FAIL verify ${table}.${col} id=${row[id]}: ${err.message}`);
       }
       if (!DRY_RUN) {
-        await client.query(
-          `UPDATE ${table} SET ${col} = $1 WHERE ${id} = $2`,
-          [rekeyedBlob, row[id]]
-        );
+        await client.query(`UPDATE ${table} SET ${col} = $1 WHERE ${id} = $2`, [
+          rekeyedBlob,
+          row[id],
+        ]);
       }
       ok++;
     }

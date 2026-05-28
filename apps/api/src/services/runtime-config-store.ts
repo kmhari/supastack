@@ -43,9 +43,10 @@ import {
   POSTGREST_CONFIG_DEFAULTS,
 } from '@selfbase/shared';
 import { ManagementApiError } from '../plugins/mgmt-api-errors.js';
-import { restartOrRollback } from './container-reload.js';
+import { recreateOrRollback, restartOrRollback } from './container-reload.js';
 import {
   AUTH_CONFIG_HONORED,
+  AUTH_CONFIG_FIELD_STATUS,
   POSTGREST_CONFIG_MAP,
   defaultEnvValueTransform,
   lookupAuthFieldMapping,
@@ -78,12 +79,53 @@ const AUTH_CONFIG_DEFAULTS: ConfigJson = {
   sms_autoconfirm: false,
 };
 
+// ─── Selfbase extension (feature 020 US4) ──────────────────────────────────
+
+/**
+ * Per-field status indicator surfaced under `_selfbase.fieldStatus` on the
+ * auth-config GET response. Computed once at module init from
+ * AUTH_CONFIG_FIELD_STATUS — per-request cost is zero.
+ *
+ * The key is namespaced (`_selfbase`) so unmodified upstream `supabase` CLI
+ * clients ignore it (FR-002, SC-005).
+ *
+ * Spec: specs/020-auth-providers-dashboard/spec.md FR-002, FR-003
+ * Contract: specs/020-auth-providers-dashboard/contracts/auth-config-get-response.md
+ */
+export function buildAuthFieldStatusExtension(): {
+  fieldStatus: Record<string, Record<string, unknown>>;
+} {
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const [field, entry] of Object.entries(AUTH_CONFIG_FIELD_STATUS)) {
+    if (entry.kind === 'honored') {
+      const projection: Record<string, unknown> = {
+        status: 'honored',
+        envName: entry.envName,
+      };
+      if (entry.secret) projection.secret = true;
+      out[field] = projection;
+    } else if (entry.kind === 'stored_only') {
+      out[field] = { status: 'stored_only', reason: entry.reason };
+    } else {
+      out[field] = { status: 'unsupported', reason: entry.reason };
+    }
+  }
+  return { fieldStatus: out };
+}
+
+const AUTH_FIELD_STATUS_EXTENSION = Object.freeze(buildAuthFieldStatusExtension());
+
 // ─── Public API ────────────────────────────────────────────────────────────
 
 /** GET handler entry-point. Returns the redacted post-merge config. */
 export async function getConfig(ref: string, surface: ConfigSurface): Promise<ConfigJson> {
   const plaintext = await loadCurrentPlaintext(ref, surface);
-  return redactSecrets(plaintext);
+  const redacted = redactSecrets(plaintext);
+  if (surface === 'auth') {
+    // Inject the selfbase extension. Postgrest surface is unchanged.
+    return { ...redacted, _selfbase: AUTH_FIELD_STATUS_EXTENSION };
+  }
+  return redacted;
 }
 
 /**
@@ -289,8 +331,25 @@ async function applyEnvAndRestart(
   }
 
   await atomicWrite(envPath, newEnv);
-  await restartOrRollback(containerNameFor(ref, surface), envPath, beforeEnv);
+  // Use compose `up -d <service>` (recreate) so the new .env is re-substituted
+  // into the container env. `docker restart` keeps the original env baked at
+  // create-time, which silently breaks PATCH→container for any honored field.
+  // The compose service names are `auth` and `rest` (per supabase-template's
+  // service: lines); the container name is `selfbase-<ref>-<service>-1`.
+  const composeDir = path.join(INSTANCES_DIR, ref);
+  const projectName = `selfbase-${ref}`;
+  const serviceName = surface === 'postgrest' ? 'rest' : 'auth';
+  await recreateOrRollback(
+    composeDir,
+    projectName,
+    serviceName,
+    containerNameFor(ref, surface),
+    envPath,
+    beforeEnv,
+  );
 }
+// keep restartOrRollback import used elsewhere (function-deploy hot path)
+void restartOrRollback;
 
 async function persistSnapshot(
   ref: string,

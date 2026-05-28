@@ -9,7 +9,7 @@
 Added one environment variable to the `kong` service in `infra/supabase-template/docker-compose.yml`:
 
 ```yaml
-KONG_NGINX_WORKER_PROCESSES: "2"
+KONG_NGINX_WORKER_PROCESSES: '2'
 ```
 
 That's the entire code change. No image bump, no schema, no API surface.
@@ -22,11 +22,11 @@ Per-project request volume is well under 1% CPU at idle and only briefly spikes 
 
 ## Expected impact
 
-| Metric | Before | After |
-|---|---|---|
-| nginx workers per kong container | 12 (= host CPU count) | 2 |
-| Idle RSS per kong container | ~1.25 GiB | <300 MiB |
-| Total kong memory across 3 projects | ~3.75 GiB | ~750 MiB |
+| Metric                              | Before                | After    |
+| ----------------------------------- | --------------------- | -------- |
+| nginx workers per kong container    | 12 (= host CPU count) | 2        |
+| Idle RSS per kong container         | ~1.25 GiB             | <300 MiB |
+| Total kong memory across 3 projects | ~3.75 GiB             | ~750 MiB |
 
 No measurable latency or throughput change at current traffic.
 

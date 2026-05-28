@@ -12,15 +12,15 @@ All sensitive per-project data in selfbase is encrypted at rest using AES-256-GC
 
 ## Affected tables
 
-| Table | Column | Purpose |
-|-------|--------|---------|
-| `supabase_instances` | `encrypted_secrets` | Per-project JWT secret, Postgres password, API keys |
-| `project_config_snapshots` | `encrypted_payload` | Runtime config tunables |
-| `project_secrets` | `encrypted_value` | Per-project vault secrets |
-| `users` | `backup_store_config_encrypted` | S3 backup store credentials |
-| `tls_accounts` | `account_key_pem` | ACME account private key |
-| `tls_certs` | `key_pem` | Per-domain TLS cert private key |
-| `pg_edge_certs` | `key_pem` | PG edge proxy cert private key |
+| Table                      | Column                          | Purpose                                             |
+| -------------------------- | ------------------------------- | --------------------------------------------------- |
+| `supabase_instances`       | `encrypted_secrets`             | Per-project JWT secret, Postgres password, API keys |
+| `project_config_snapshots` | `encrypted_payload`             | Runtime config tunables                             |
+| `project_secrets`          | `encrypted_value`               | Per-project vault secrets                           |
+| `users`                    | `backup_store_config_encrypted` | S3 backup store credentials                         |
+| `tls_accounts`             | `account_key_pem`               | ACME account private key                            |
+| `tls_certs`                | `key_pem`                       | Per-domain TLS cert private key                     |
+| `pg_edge_certs`            | `key_pem`                       | PG edge proxy cert private key                      |
 
 ## Pre-rotation checklist
 

@@ -91,6 +91,18 @@ function preflightGuards(): void {
 export async function buildApp(): Promise<FastifyInstance> {
   preflightGuards();
 
+  // Feature 021 T005 — install a fake docker control when the test mode env
+  // var is set. This lets the browser-test harness (and any other consumer)
+  // create projects via POST /api/v1/instances without actually spinning up
+  // per-instance container stacks. Production builds (env unset) skip this
+  // hook entirely; the real dockerode-backed control is used as before.
+  if (process.env.SELFBASE_TEST_FAKE_DOCKER === '1') {
+    (globalThis as { __selfbaseFakeDockerControl?: unknown }).__selfbaseFakeDockerControl = {
+      restart: async (_name: string): Promise<void> => {},
+      waitHealthy: async (_name: string, _timeoutMs?: number): Promise<void> => {},
+    };
+  }
+
   // DB
   makeDb(DATABASE_URL);
   await migrate(DATABASE_URL);
@@ -213,6 +225,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(platformCliLoginRoutes); // /platform/cli/login/:session_id (feature 011 — CLI poll)
   await app.register(oauthDiscoveryRoutes); // /.well-known/oauth-authorization-server (feature 014 FR-006)
   await app.register(oauthClientsDashboardRoutes); // /api/v1/oauth/clients{,/:id} (feature 014 US3)
+  // Feature 020 — dashboard mounts the auth-config route alongside the /v1 mgmt mount
+  // so the SPA can talk to /api/v1/projects/:ref/config/auth (same-origin) without
+  // having to cross to api.<apex>. Same handler; dashboard error envelope shape.
+  await app.register(authConfigRoutes, { prefix: '/api/v1' });
 
   // ─── /v1/* — Supabase Management API compatibility surface ─────────────
   //
