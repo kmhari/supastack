@@ -95,9 +95,9 @@
       import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
       const DEFAULTS = {
-        url: 'https://cwcbvosmxmhdaqlrouma.supaviser.dev',
+        url: 'https://znishgvglkafpmjkqspw.supaviser.dev',
         anon:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5OTYwNTIwLCJleHAiOjE5Mzc2NDA1MjB9.eLWItuaXkDnGZCIkh6s2ZbZ2J6pgWcSdT9ZZ6thcM1Y',
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5OTc2NDIxLCJleHAiOjE5Mzc2NTY0MjF9.9d05W-eDM0Gua6-Y5LX1qf5cs7m1BX4EtDp4XFhNCVU',
         provider: 'github',
       };
       const urlEl = document.getElementById('url');
@@ -109,9 +109,28 @@
       const signinBtn = document.getElementById('signin');
       const signoutBtn = document.getElementById('signout');
 
-      urlEl.value = localStorage.getItem('sb_url') || DEFAULTS.url;
-      anonEl.value = localStorage.getItem('sb_anon') || DEFAULTS.anon;
-      providerEl.value = localStorage.getItem('sb_provider') || DEFAULTS.provider;
+      // Purge supabase-js storage on COLD load (URL has no ?code= and no
+      // #access_token=). When the URL DOES carry a callback payload we
+      // must NOT purge — supabase-js still needs the `code-verifier` it
+      // wrote to localStorage before the github redirect. Without this
+      // guard, stale PKCE state from earlier attempts (e.g. a sign-in
+      // whose user was later deleted) gets replayed and produces 500
+      // "User not found" against the now-empty database.
+      const inCallback = /[?&#]code=|#access_token=|#error=/.test(
+        location.search + location.hash,
+      );
+      if (!inCallback) {
+        for (const k of Object.keys(localStorage)) {
+          if (k.startsWith('sb-')) localStorage.removeItem(k);
+        }
+      }
+
+      urlEl.value = DEFAULTS.url;
+      anonEl.value = DEFAULTS.anon;
+      providerEl.value = DEFAULTS.provider;
+      localStorage.setItem('sb_url', DEFAULTS.url);
+      localStorage.setItem('sb_anon', DEFAULTS.anon);
+      localStorage.setItem('sb_provider', DEFAULTS.provider);
 
       function persist() {
         localStorage.setItem('sb_url', urlEl.value.trim());
@@ -119,22 +138,23 @@
         localStorage.setItem('sb_provider', providerEl.value.trim());
       }
 
-      let client = null;
-      function newClient() {
-        persist();
-        client = createClient(urlEl.value.trim(), anonEl.value.trim(), {
-          auth: { persistSession: true, detectSessionInUrl: true, flowType: 'pkce' },
-        });
-        return client;
-      }
+      // ONE client for the lifetime of the page. Creating fresh clients on
+      // every render() races them against each other for the same
+      // localStorage key (`sb-<ref>-auth-token`) and causes getSession() to
+      // miss the session that another instance just persisted. The console
+      // warning "Multiple GoTrueClient instances detected" is the symptom.
+      persist();
+      const client = createClient(urlEl.value.trim(), anonEl.value.trim(), {
+        auth: { persistSession: true, detectSessionInUrl: true, flowType: 'pkce' },
+      });
 
-      async function render() {
+      function renderSession(s) {
         errorEl.hidden = true;
-        const { data } = await newClient().auth.getSession();
-        const s = data.session;
         if (s) {
           statusEl.className = 'pill ok';
-          statusEl.textContent = `signed in as ${s.user.email ?? s.user.user_metadata?.user_name ?? s.user.id}`;
+          statusEl.textContent = `signed in as ${
+            s.user.email ?? s.user.user_metadata?.user_name ?? s.user.id
+          }`;
           sessionEl.hidden = false;
           sessionEl.textContent = JSON.stringify(
             {
@@ -161,10 +181,15 @@
         }
       }
 
+      // Single, persistent subscription. supabase-js fires INITIAL_SESSION
+      // synchronously after construction and SIGNED_IN once detectSessionInUrl
+      // finishes consuming the `?code=` payload.
+      client.auth.onAuthStateChange((_event, session) => renderSession(session));
+
       signinBtn.addEventListener('click', async () => {
         errorEl.hidden = true;
         try {
-          const { error } = await newClient().auth.signInWithOAuth({
+          const { error } = await client.auth.signInWithOAuth({
             provider: providerEl.value.trim(),
             options: { redirectTo: window.location.href.split('#')[0].split('?')[0] },
           });
@@ -177,12 +202,7 @@
 
       signoutBtn.addEventListener('click', async () => {
         await client.auth.signOut();
-        render();
       });
-
-      render();
-      // Re-render once after the auth lib processes a fresh ?code= callback.
-      newClient().auth.onAuthStateChange(() => render());
     </script>
   </body>
 </html>

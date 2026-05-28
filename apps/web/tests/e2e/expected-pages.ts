@@ -52,8 +52,9 @@ const PROJECT_PAGES: ReadonlyArray<ExpectedPage> = [
   { path: '/dashboard/project/{ref}/jwt-keys',         headline: 'JWT Keys',        requiresProject: true,  sourceFile: 'ProjectJwtKeys.tsx' },
   { path: '/dashboard/project/{ref}/secrets',          headline: 'Secrets',         requiresProject: true,  sourceFile: 'ProjectSecrets.tsx' },
   { path: '/dashboard/project/{ref}/backups',          headline: 'Backups',         requiresProject: true,  sourceFile: 'InstanceBackups.tsx' },
-  { path: '/dashboard/project/{ref}/auth/providers',   headline: 'Auth Providers',  requiresProject: true,  sourceFile: 'ProjectAuthProviders.tsx' },
-  { path: '/dashboard/project/{ref}/health',           headline: 'Health',          requiresProject: true,  sourceFile: 'ProjectHealth.tsx' },
+  { path: '/dashboard/project/{ref}/auth/providers',         headline: 'Auth Providers',    requiresProject: true,  sourceFile: 'ProjectAuthProviders.tsx' },
+  { path: '/dashboard/project/{ref}/auth/url-configuration', headline: 'URL Configuration', requiresProject: true,  sourceFile: 'ProjectAuthUrlConfig.tsx' },
+  { path: '/dashboard/project/{ref}/health',                 headline: 'Health',            requiresProject: true,  sourceFile: 'ProjectHealth.tsx' },
 ];
 
 // ─── Settings-shell pages (org-level) ───────────────────────────────────────
@@ -95,7 +96,10 @@ export const PROJECT_SHELL_GROUPS: ReadonlyArray<SidebarGroup> = [
   },
   {
     heading: 'Authentication',
-    items: [{ label: 'Providers', suffix: '/auth/providers' }],
+    items: [
+      { label: 'Providers',         suffix: '/auth/providers' },
+      { label: 'URL Configuration', suffix: '/auth/url-configuration' },
+    ],
   },
   {
     heading: 'Diagnostics',

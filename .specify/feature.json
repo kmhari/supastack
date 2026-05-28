@@ -1,1 +1,3 @@
-{"feature_directory":"specs/021-dashboard-browser-tests"}
+{
+  "feature_directory": "specs/022-url-configuration"
+}
