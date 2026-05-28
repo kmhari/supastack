@@ -105,8 +105,7 @@ export const backupsMgmtRoutes: FastifyPluginAsync = async (app) => {
             code === 'restore_in_progress' ||
             code === 'disk_space_insufficient'
           ) {
-            const details =
-              (err as { details?: Record<string, unknown> }).details ?? {};
+            const details = (err as { details?: Record<string, unknown> }).details ?? {};
             throw new ManagementApiError(409, err.message, code, details);
           }
           throw new ManagementApiError(400, err.message, code, {});
