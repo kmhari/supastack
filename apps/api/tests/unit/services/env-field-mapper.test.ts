@@ -35,8 +35,14 @@ describe('lookupAuthFieldMapping', () => {
     expect(lookupAuthFieldMapping('external_google_client_id').kind).toBe('honored');
     expect(lookupAuthFieldMapping('external_google_secret').kind).toBe('honored');
   });
-  it('non-template OAuth provider (apple) → stored_only', () => {
-    expect(lookupAuthFieldMapping('external_apple_enabled').kind).toBe('stored_only');
+  it('OAuth providers promoted in feature 020 are honored (apple, discord, slack, slack-oidc, linkedin-oidc, workos, …)', () => {
+    // Feature 020 T023 — flipped these from stored_only → honored.
+    expect(lookupAuthFieldMapping('external_apple_enabled').kind).toBe('honored');
+    expect(lookupAuthFieldMapping('external_discord_secret').kind).toBe('honored');
+    expect(lookupAuthFieldMapping('external_slack_enabled').kind).toBe('honored');
+    expect(lookupAuthFieldMapping('external_slack_oidc_enabled').kind).toBe('honored');
+    expect(lookupAuthFieldMapping('external_linkedin_oidc_secret').kind).toBe('honored');
+    expect(lookupAuthFieldMapping('external_workos_url').kind).toBe('honored');
   });
   it('unknown auth field → stored_only', () => {
     expect(lookupAuthFieldMapping('totally_made_up').kind).toBe('stored_only');

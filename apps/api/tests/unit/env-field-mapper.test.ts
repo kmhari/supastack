@@ -32,7 +32,7 @@ describe('env-field-mapper inventory', () => {
   it('every UpdateAuthConfigBody field is reachable (honored or stored_only)', () => {
     for (const field of ALL_AUTH_CONFIG_FIELDS) {
       const m = lookupAuthFieldMapping(field);
-      expect(m.kind).toMatch(/^(honored|stored_only)$/);
+      expect(m.kind).toMatch(/^(honored|stored_only|unsupported)$/);
     }
   });
 
@@ -41,7 +41,7 @@ describe('env-field-mapper inventory', () => {
     expect(keys.length).toBeGreaterThan(0);
     for (const field of keys) {
       const m = lookupPostgrestFieldMapping(field);
-      expect(m.kind).toMatch(/^(honored|stored_only)$/);
+      expect(m.kind).toMatch(/^(honored|stored_only|unsupported)$/);
     }
   });
 
@@ -80,5 +80,60 @@ describe('env-field-mapper inventory', () => {
   it('unknown field names resolve to stored_only', () => {
     expect(lookupAuthFieldMapping('totally_made_up').kind).toBe('stored_only');
     expect(lookupPostgrestFieldMapping('also_made_up').kind).toBe('stored_only');
+  });
+});
+
+// ─── T029 — count assertions and reason-text invariants (feature 020) ───────
+
+import { AUTH_CONFIG_FIELD_STATUS } from '../../src/services/env-field-mapper.js';
+
+describe('AUTH_CONFIG_FIELD_STATUS counts (T029)', () => {
+  const entries = Object.values(AUTH_CONFIG_FIELD_STATUS);
+  const honored = entries.filter((e) => e.kind === 'honored');
+  const storedOnly = entries.filter((e) => e.kind === 'stored_only');
+  const unsupported = entries.filter((e) => e.kind === 'unsupported');
+
+  it('total is exactly 234 (matches upstream snapshot)', () => {
+    expect(entries.length).toBe(234);
+  });
+
+  it('honored count is in target range [160, 170]', () => {
+    expect(honored.length).toBeGreaterThanOrEqual(160);
+    expect(honored.length).toBeLessThanOrEqual(170);
+  });
+
+  it('unsupported count is exactly 6 (Cloud-only OAuth server + Nimbus)', () => {
+    expect(unsupported.length).toBe(6);
+  });
+
+  it('stored_only + unsupported + honored sums to 234', () => {
+    expect(honored.length + storedOnly.length + unsupported.length).toBe(234);
+  });
+
+  it('every non-honored entry has a non-empty reason', () => {
+    const offenders = entries.filter(
+      (e) => e.kind !== 'honored' && (!('reason' in e) || !e.reason),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('every honored entry has a non-empty envName', () => {
+    const offenders = entries.filter((e) => e.kind === 'honored' && !e.envName);
+    expect(offenders).toEqual([]);
+  });
+
+  it('every stored_only / unsupported reason references a tracking issue', () => {
+    const noIssueRef = entries.filter(
+      (e) => (e.kind === 'stored_only' || e.kind === 'unsupported') && !/#\d+/.test(e.reason),
+    );
+    expect(noIssueRef).toEqual([]);
+  });
+
+  it('secret-named honored fields are flagged for masking', () => {
+    const unmasked = honored.filter(
+      (e) =>
+        e.kind === 'honored' && /SECRET|AUTH_TOKEN|API_KEY|SMTP_PASS/i.test(e.envName) && !e.secret,
+    );
+    expect(unmasked).toEqual([]);
   });
 });

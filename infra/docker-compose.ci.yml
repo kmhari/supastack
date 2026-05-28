@@ -1,0 +1,14 @@
+# Compose override used only by `.github/workflows/ci.yml` for the e2e job.
+# Exposes per-service ports to the GitHub runner host so the api + web dev
+# servers (which run natively on the runner, NOT inside the compose network)
+# can reach Postgres at localhost:5432 and Redis at localhost:6379.
+#
+# Production deploys never load this file — db/redis stay internal-only.
+
+services:
+  db:
+    ports:
+      - '127.0.0.1:5432:5432'
+  redis:
+    ports:
+      - '127.0.0.1:6379:6379'

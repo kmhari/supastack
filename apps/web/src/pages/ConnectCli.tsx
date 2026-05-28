@@ -194,17 +194,16 @@ export function ConnectCliPage(): React.ReactElement {
           Optional &mdash; Per-project auto-routing
         </h2>
         <p className="mb-3 text-sm text-muted-foreground">
-          Working across multiple deployments (Cloud + selfbase, or several selfbase installs)?
-          Drop these two files at your project's git root and the{' '}
+          Working across multiple deployments (Cloud + selfbase, or several selfbase installs)? Drop
+          these two files at your project's git root and the{' '}
           <a href="/settings/cli" className="underline">
             zsh wrapper at /settings/cli
           </a>{' '}
           handles profile + token routing automatically — no{' '}
-          <code className="mx-1 font-mono text-xs">--profile</code> flag on every command, no
-          stale <code className="mx-1 font-mono text-xs">~/.supabase/profile</code> to clean up.
-          The <code className="mx-1 font-mono text-xs">.selfbase</code> file is safe to commit;
-          the wrapper auto-gitignores{' '}
-          <code className="mx-1 font-mono text-xs">.supabase_token</code>.
+          <code className="mx-1 font-mono text-xs">--profile</code> flag on every command, no stale{' '}
+          <code className="mx-1 font-mono text-xs">~/.supabase/profile</code> to clean up. The{' '}
+          <code className="mx-1 font-mono text-xs">.selfbase</code> file is safe to commit; the
+          wrapper auto-gitignores <code className="mx-1 font-mono text-xs">.supabase_token</code>.
         </p>
         <div className="flex flex-col gap-3">
           <CliCommandBlock
@@ -221,8 +220,8 @@ export function ConnectCliPage(): React.ReactElement {
               <>
                 Injects the token as{' '}
                 <code className="mx-1 font-mono text-xs">SUPABASE_ACCESS_TOKEN</code>. Replace{' '}
-                <code className="font-mono">&lt;paste-token-here&gt;</code> with the PAT from Step
-                2 (or use the pre-filled command in the token-reveal dialog).
+                <code className="font-mono">&lt;paste-token-here&gt;</code> with the PAT from Step 2
+                (or use the pre-filled command in the token-reveal dialog).
               </>
             }
           />
