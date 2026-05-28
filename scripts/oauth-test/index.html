@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Selfbase OAuth tester</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0d10;
+        --fg: #e7ecf3;
+        --muted: #8a93a3;
+        --accent: #34d399;
+        --border: #1f2937;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .card {
+        width: 100%;
+        max-width: 560px;
+        background: #11161c;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 28px;
+      }
+      h1 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+      p.muted { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
+      label { display: block; margin: 14px 0 4px; font-size: 12px; color: var(--muted); }
+      input {
+        width: 100%; padding: 9px 11px;
+        background: #0b0d10; color: var(--fg);
+        border: 1px solid var(--border); border-radius: 6px;
+        font: inherit;
+      }
+      button {
+        margin-top: 18px; padding: 10px 16px;
+        background: #24292f; color: var(--fg);
+        border: 1px solid var(--border); border-radius: 6px;
+        font: inherit; font-weight: 500; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 8px;
+      }
+      button:hover { background: #2d333b; }
+      button.signout { background: transparent; }
+      pre {
+        margin: 16px 0 0; padding: 14px;
+        background: #0b0d10; border: 1px solid var(--border);
+        border-radius: 6px; font-size: 12px;
+        overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+      }
+      .row { display: flex; gap: 8px; align-items: center; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 3px 10px; border-radius: 999px;
+        font-size: 12px; font-weight: 500;
+      }
+      .pill.ok { background: rgba(52, 211, 153, .12); color: var(--accent); border: 1px solid rgba(52, 211, 153, .35); }
+      .pill.no { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+      .error { color: #f87171; margin-top: 14px; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Selfbase OAuth tester</h1>
+      <p class="muted">Signs in against a selfbase project via Supabase's OAuth flow.</p>
+
+      <label>Project URL</label>
+      <input id="url" />
+      <label>Anon key</label>
+      <input id="anon" />
+      <label>Provider</label>
+      <input id="provider" value="github" />
+
+      <div class="row" style="margin-top: 18px; justify-content: space-between;">
+        <div id="status" class="pill no">checking session…</div>
+        <div>
+          <button id="signin">Sign in</button>
+          <button id="signout" class="signout" hidden>Sign out</button>
+        </div>
+      </div>
+
+      <div id="error" class="error" hidden></div>
+      <pre id="session" hidden></pre>
+    </div>
+
+    <script type="module">
+      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+      const DEFAULTS = {
+        url: 'https://cwcbvosmxmhdaqlrouma.supaviser.dev',
+        anon:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5OTYwNTIwLCJleHAiOjE5Mzc2NDA1MjB9.eLWItuaXkDnGZCIkh6s2ZbZ2J6pgWcSdT9ZZ6thcM1Y',
+        provider: 'github',
+      };
+      const urlEl = document.getElementById('url');
+      const anonEl = document.getElementById('anon');
+      const providerEl = document.getElementById('provider');
+      const statusEl = document.getElementById('status');
+      const sessionEl = document.getElementById('session');
+      const errorEl = document.getElementById('error');
+      const signinBtn = document.getElementById('signin');
+      const signoutBtn = document.getElementById('signout');
+
+      urlEl.value = localStorage.getItem('sb_url') || DEFAULTS.url;
+      anonEl.value = localStorage.getItem('sb_anon') || DEFAULTS.anon;
+      providerEl.value = localStorage.getItem('sb_provider') || DEFAULTS.provider;
+
+      function persist() {
+        localStorage.setItem('sb_url', urlEl.value.trim());
+        localStorage.setItem('sb_anon', anonEl.value.trim());
+        localStorage.setItem('sb_provider', providerEl.value.trim());
+      }
+
+      let client = null;
+      function newClient() {
+        persist();
+        client = createClient(urlEl.value.trim(), anonEl.value.trim(), {
+          auth: { persistSession: true, detectSessionInUrl: true, flowType: 'pkce' },
+        });
+        return client;
+      }
+
+      async function render() {
+        errorEl.hidden = true;
+        const { data } = await newClient().auth.getSession();
+        const s = data.session;
+        if (s) {
+          statusEl.className = 'pill ok';
+          statusEl.textContent = `signed in as ${s.user.email ?? s.user.user_metadata?.user_name ?? s.user.id}`;
+          sessionEl.hidden = false;
+          sessionEl.textContent = JSON.stringify(
+            {
+              user: {
+                id: s.user.id,
+                email: s.user.email,
+                provider: s.user.app_metadata?.provider,
+                user_metadata: s.user.user_metadata,
+              },
+              expires_at: new Date(s.expires_at * 1000).toISOString(),
+              access_token: s.access_token.slice(0, 40) + '…',
+            },
+            null,
+            2,
+          );
+          signinBtn.hidden = true;
+          signoutBtn.hidden = false;
+        } else {
+          statusEl.className = 'pill no';
+          statusEl.textContent = 'signed out';
+          sessionEl.hidden = true;
+          signinBtn.hidden = false;
+          signoutBtn.hidden = true;
+        }
+      }
+
+      signinBtn.addEventListener('click', async () => {
+        errorEl.hidden = true;
+        try {
+          const { error } = await newClient().auth.signInWithOAuth({
+            provider: providerEl.value.trim(),
+            options: { redirectTo: window.location.href.split('#')[0].split('?')[0] },
+          });
+          if (error) throw error;
+        } catch (e) {
+          errorEl.hidden = false;
+          errorEl.textContent = e.message || String(e);
+        }
+      });
+
+      signoutBtn.addEventListener('click', async () => {
+        await client.auth.signOut();
+        render();
+      });
+
+      render();
+      // Re-render once after the auth lib processes a fresh ?code= callback.
+      newClient().auth.onAuthStateChange(() => render());
+    </script>
+  </body>
+</html>
