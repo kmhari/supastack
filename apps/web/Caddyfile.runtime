@@ -1,8 +1,18 @@
 # Tiny static file server for the built dashboard, fronted by the platform
 # Caddy in infra/docker-compose.yml. SPA fallback to /index.html.
+# Cache policy (issue #80): index.html + SPA routes revalidate every load
+# (no-cache -> cheap 304s), so a deploy is picked up on a normal refresh.
+# Content-hashed /assets/* are cached immutably (filename changes on rebuild).
 :80 {
 	root * /srv
+	encode zstd gzip
+
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	@html not path /assets/*
+	header @html Cache-Control "no-cache"
+
 	try_files {path} /index.html
 	file_server
-	encode zstd gzip
 }
