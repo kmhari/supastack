@@ -29,7 +29,11 @@ function readBody(req) {
     let buf = '';
     req.on('data', (c) => (buf += c));
     req.on('end', () => {
-      try { resolve(JSON.parse(buf || '{}')); } catch { resolve({}); }
+      try {
+        resolve(JSON.parse(buf || '{}'));
+      } catch {
+        resolve({});
+      }
     });
   });
 }
@@ -44,7 +48,7 @@ function apexStatus() {
     dnsResolved,
     httpsReachable: certIssued && wildcardCertIssued,
     cert: certIssued
-      ? { issued: true, issuer: 'Let\'s Encrypt', notAfter: '2026-09-01', selfSigned: false }
+      ? { issued: true, issuer: "Let's Encrypt", notAfter: '2026-09-01', selfSigned: false }
       : { issued: false, selfSigned: false, error: null },
   };
 }
@@ -56,8 +60,13 @@ const server = http.createServer(async (req, res) => {
 
   // CORS preflight
   if (method === 'OPTIONS') {
-    res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': '*' });
-    res.end(); return;
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': '*',
+      'Access-Control-Allow-Methods': '*',
+    });
+    res.end();
+    return;
   }
 
   console.log(`[mock] ${method} ${url}`);
@@ -106,13 +115,13 @@ const server = http.createServer(async (req, res) => {
 
   // POST /api/v1/apex/recheck already above — duplicate guard
 
-
   // PATCH /api/v1/org  (save apex domain)
   if (method === 'PATCH' && url === '/api/v1/org') {
     const body = await readBody(req);
     if (body.apexDomain) {
       apex = body.apexDomain;
-      dnsResolved = false; certIssued = false;
+      dnsResolved = false;
+      certIssued = false;
       console.log(`[mock]   apex set to ${apex}`);
     }
     return json(res, 200, { id: 'mock-org-id', name: 'Selfbase', apexDomain: apex });
@@ -135,7 +144,9 @@ const server = http.createServer(async (req, res) => {
     if (wildcardCertIssued) {
       return json(res, 200, {
         cert: {
-          status: 'issued', notAfter: '2026-09-01', allDnsReady: true,
+          status: 'issued',
+          notAfter: '2026-09-01',
+          allDnsReady: true,
           dnsChecks: [
             { name: `_acme-challenge.${apex}`, value: 'mock-acme-token-abc123', found: true },
             { name: `_acme-challenge.${apex}`, value: 'mock-acme-token-xyz789', found: true },
@@ -152,21 +163,28 @@ const server = http.createServer(async (req, res) => {
       cert: {
         status: wildcardChallengeSent ? 'awaiting_dns' : 'pending',
         allDnsReady: ready,
-        dnsChecks: wildcardChallengeSent && apex ? [
-          { name: `_acme-challenge.${apex}`, value: 'mock-acme-token-abc123', found: ready },
-          { name: `_acme-challenge.${apex}`, value: 'mock-acme-token-xyz789', found: ready },
-        ] : [],
-        challengeRecords: wildcardChallengeSent && apex ? [
-          { name: `_acme-challenge.${apex}`, value: 'mock-acme-token-abc123' },
-          { name: `_acme-challenge.${apex}`, value: 'mock-acme-token-xyz789' },
-        ] : [],
+        dnsChecks:
+          wildcardChallengeSent && apex
+            ? [
+                { name: `_acme-challenge.${apex}`, value: 'mock-acme-token-abc123', found: ready },
+                { name: `_acme-challenge.${apex}`, value: 'mock-acme-token-xyz789', found: ready },
+              ]
+            : [],
+        challengeRecords:
+          wildcardChallengeSent && apex
+            ? [
+                { name: `_acme-challenge.${apex}`, value: 'mock-acme-token-abc123' },
+                { name: `_acme-challenge.${apex}`, value: 'mock-acme-token-xyz789' },
+              ]
+            : [],
       },
     });
   }
 
   // POST /api/v1/wildcard-certs/verify
   if (method === 'POST' && url === '/api/v1/wildcard-certs/verify') {
-    if (!dnsResolved) return json(res, 200, { status: 'awaiting_dns', allDnsReady: false, dnsChecks: [] });
+    if (!dnsResolved)
+      return json(res, 200, { status: 'awaiting_dns', allDnsReady: false, dnsChecks: [] });
     wildcardCertIssued = true;
     return json(res, 200, { status: 'issued', notAfter: '2026-09-01' });
   }
