@@ -38,6 +38,9 @@ export async function composeStart(ctx: ComposeContext): Promise<void> {
 export async function composeRestart(ctx: ComposeContext): Promise<void> {
   await runDockerCompose(ctx, ['restart']);
 }
+export async function composeRestartService(ctx: ComposeContext, service: string): Promise<void> {
+  await runDockerCompose(ctx, ['restart', service]);
+}
 
 /**
  * Re-create a single service in the compose project. Unlike `docker restart`
