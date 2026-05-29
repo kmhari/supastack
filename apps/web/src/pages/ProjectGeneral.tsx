@@ -91,8 +91,9 @@ export function ProjectGeneralPage(): React.ReactElement {
   });
 
   const lifecycle = useMutation({
-    mutationFn: async (action: 'pause' | 'resume' | 'restart' | 'delete') => {
+    mutationFn: async (action: 'pause' | 'resume' | 'restart' | 'restart-db' | 'delete') => {
       if (action === 'delete') return instancesApi.delete(ref);
+      if (action === 'restart-db') return instancesApi.restartDb(ref);
       return (instancesApi[action] as (r: string) => Promise<unknown>)(ref);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['instances'] }),
@@ -100,6 +101,8 @@ export function ProjectGeneralPage(): React.ReactElement {
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [restartOpen, setRestartOpen] = useState(false);
+  const [restartDbOpen, setRestartDbOpen] = useState(false);
 
   const onSubmitName = (e: FormEvent): void => {
     e.preventDefault();
@@ -237,13 +240,13 @@ export function ProjectGeneralPage(): React.ReactElement {
                 disabled={!['running', 'stopped'].includes(data.status)}
                 primaryLabel="Restart project"
                 primaryIcon={<RefreshCw className="size-3.5" />}
-                onPrimary={() => lifecycle.mutate('restart')}
+                onPrimary={() => setRestartOpen(true)}
                 items={[
                   {
-                    label: 'Full restart',
+                    label: 'Restart database only',
                     description:
-                      'Restarts every container in the project. Slower but recovers from any state.',
-                    onSelect: () => lifecycle.mutate('restart'),
+                      'Restarts only the Postgres container. Auth, Storage, and REST remain running.',
+                    onSelect: () => setRestartDbOpen(true),
                   },
                 ]}
               />
@@ -350,6 +353,57 @@ export function ProjectGeneralPage(): React.ReactElement {
               }}
             >
               Delete forever
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Restart project confirmation dialog */}
+      <Dialog open={restartOpen} onOpenChange={setRestartOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Restart project?</DialogTitle>
+            <DialogDescription>
+              All services will restart and your project will be unavailable for a few minutes.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRestartOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                lifecycle.mutate('restart');
+                setRestartOpen(false);
+              }}
+            >
+              Restart project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Restart database confirmation dialog */}
+      <Dialog open={restartDbOpen} onOpenChange={setRestartDbOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Restart database?</DialogTitle>
+            <DialogDescription>
+              Active connections will drop briefly while Postgres restarts. Auth, Storage, and REST
+              remain running.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRestartDbOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                lifecycle.mutate('restart-db');
+                setRestartDbOpen(false);
+              }}
+            >
+              Restart database
             </Button>
           </DialogFooter>
         </DialogContent>

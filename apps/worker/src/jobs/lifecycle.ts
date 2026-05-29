@@ -8,6 +8,7 @@ import {
   composeDown,
   composePull,
   composeRestart,
+  composeRestartService,
   composeStart,
   composeStop,
   composeUp,
@@ -17,7 +18,7 @@ import { enqueueBackup } from './backup-enqueue.js';
 
 const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
 
-export type LifecycleAction = 'pause' | 'resume' | 'restart' | 'delete' | 'upgrade';
+export type LifecycleAction = 'pause' | 'resume' | 'restart' | 'restart-db' | 'delete' | 'upgrade';
 
 export interface UpgradeArgs {
   ref: string;
@@ -63,6 +64,12 @@ export async function handleLifecycle(
       await waitHealthy(ctx, 60_000);
       await setStatus(ref, 'running');
       log.info('restarted');
+      return;
+    case 'restart-db':
+      await composeRestartService(ctx, 'db');
+      await waitHealthy(ctx, 60_000);
+      await setStatus(ref, 'running');
+      log.info('restarted-db');
       return;
     case 'delete':
       await composeDown(ctx, { removeVolumes: true });
