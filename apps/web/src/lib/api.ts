@@ -67,6 +67,7 @@ export interface ApexStatus {
   dnsResolved: boolean;
   wildcardObservedIps: string[];
   wildcardResolved: boolean;
+  httpsReachable: boolean;
   cert: ApexCert | null;
 }
 export const apexApi = {
