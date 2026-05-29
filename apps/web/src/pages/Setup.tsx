@@ -198,12 +198,7 @@ function AdminStep({
 
 // ─── Step 2: domain + certs (merged) ───────────────────────────────────────
 
-type DomainCertsSub =
-  | 'enter-apex'
-  | 'verifying-dns'
-  | 'issuing-certs'
-  | 'verifying-https'
-  | 'done';
+type DomainCertsSub = 'enter-apex' | 'verifying-dns' | 'issuing-certs' | 'verifying-https' | 'done';
 
 function DomainCertsStep({
   initialApex,
@@ -440,7 +435,12 @@ function DomainCertsStep({
           </Alert>
         )}
         {httpsCheckRetries >= 6 && (
-          <Button onClick={() => { setHttpsCheckRetries(0); setSub('verifying-https'); }}>
+          <Button
+            onClick={() => {
+              setHttpsCheckRetries(0);
+              setSub('verifying-https');
+            }}
+          >
             Retry HTTPS check
           </Button>
         )}
@@ -533,11 +533,7 @@ function DomainCertsStep({
         >
           {recheckLoading ? <Loader2 className="size-3.5 animate-spin" /> : 'Recheck now'}
         </Button>
-        <Button
-          disabled={!allDnsResolved}
-          onClick={() => void onCreateCerts()}
-          className="flex-1"
-        >
+        <Button disabled={!allDnsResolved} onClick={() => void onCreateCerts()} className="flex-1">
           {allDnsResolved ? 'Create Certs' : 'Waiting for DNS…'}
         </Button>
       </div>
@@ -571,8 +567,8 @@ function CliOnboardingStep({
       <div>
         <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">CLI setup</h1>
         <p className="m-0 mt-1 text-sm text-muted-foreground">
-          Step 3 of 3 — configure your local <code>supabase</code> CLI to work with this
-          Selfbase install.
+          Step 3 of 3 — configure your local <code>supabase</code> CLI to work with this Selfbase
+          install.
         </p>
       </div>
 
@@ -584,7 +580,8 @@ function CliOnboardingStep({
           This file tells the CLI which Selfbase install to use and authenticates your requests.
           {!masterToken && (
             <span className="text-warn">
-              {' '}Token not available — retrieve it from{' '}
+              {' '}
+              Token not available — retrieve it from{' '}
               <a href="/settings/tokens" className="underline">
                 Settings → API Tokens
               </a>
@@ -614,8 +611,8 @@ function CliOnboardingStep({
           2. Add the shell wrapper to <code>~/.zshrc</code> or <code>~/.bashrc</code>
         </h2>
         <p className="m-0 text-sm text-muted-foreground">
-          This wrapper automatically routes <code>supabase</code> CLI commands to the right
-          Selfbase install based on the <code>.selfbase</code> file in your project.
+          This wrapper automatically routes <code>supabase</code> CLI commands to the right Selfbase
+          install based on the <code>.selfbase</code> file in your project.
         </p>
         <div className="relative">
           <pre className="m-0 max-h-48 overflow-y-auto overflow-x-auto rounded-md border border-border bg-secondary/40 p-3 pr-12 font-mono text-xs leading-relaxed text-foreground">
