@@ -8,7 +8,7 @@
  *
  * Replaces the old two-file system (.selfbase for domain + .supabase_token for token).
  */
-export function getWrapperSnippet(apex: string): string {
+export function getWrapperSnippet(_apex: string): string {
   return `# selfbase + supabase wrapper:
 #   - .selfbase at git root → contains token= and domain= lines
 #     wrapper injects SUPABASE_ACCESS_TOKEN and auto-generates
