@@ -8,11 +8,20 @@
 
 **Input**: User description: "find a place for this test" — the web cache-headers regression test (#80 / PR #90) and integration / infra-contract tests generally.
 
+## Clarifications
+
+### Session 2026-05-29
+
+- Q: Where should the new home for integration / infra-contract tests live so CI collects them? → A: A node-environment vitest project rooted at the repo-level `tests/` directory, added to the workspace globs — existing `tests/integration/*` and new cross-cutting/contract tests are collected with no moves.
+- Q: How should the 3 env-gated orphaned integration tests (backup, backup-retention, provision-instance) be handled? → A: Collect them so they report as skipped when live-stack env is absent (visible, not dormant); actually executing them in CI is tracked in #91 (blocked on the env solution in #75) — out of scope here.
+- Q: Should behavioral container-based checks (the cache-header docker+curl `.sh`) run in CI or stay manual-only? → A: Manual-only — documented as a local/VM check; CI protection comes from the equivalent collected vitest contract test. No Docker-backed CI job is added.
+- Q: Should the cache-header contract test (currently `apps/web/tests/unit`, with a node-env override) relocate to the new root `tests/` home? → A: No — leave it in `apps/web/tests/unit` (already a collected location; web-adjacent; already shipped in PR #90). The root `tests/` home serves the orphaned `tests/integration/*` and future cross-cutting tests; this test stays put with its env override.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - An integration/contract test I write actually runs in CI (Priority: P1)
 
-As a contributor, when I add a test that is **not** a unit test for a single package — e.g. a contract test asserting the production web server config sets the right cache headers, or a test spanning several packages — I place it in one obvious location and it runs on every CI build with no extra wiring.
+As a contributor, when I add a test that is **not** a unit test for a single package — e.g. a test spanning several packages, or a cross-cutting integration / infra-contract test that belongs to no single package — I place it in one obvious location and it runs on every CI build with no extra wiring.
 
 **Why this priority**: This is the core gap. Today such a test either lands in a directory the test runner never scans (so it never executes) or is shoehorned into a package's unit suite with an environment workaround. Either way the protection is unreliable. Without this story the feature delivers nothing.
 
@@ -71,7 +80,7 @@ As a maintainer, I want CI to fail when a newly-added test file would not be exe
 - **FR-001**: The repository MUST provide a single, documented location for integration / infra-contract tests that do not belong to a single package's unit suite.
 - **FR-002**: Tests placed in that location MUST be collected and executed by the CI test job with no per-test configuration.
 - **FR-003**: That location MUST run tests in an environment suitable for non-UI logic (reading repository files, using platform APIs) without requiring a per-file environment-override workaround.
-- **FR-004**: The currently-dormant root integration tests and both cache-header tests (the contract assertion and the behavioral check) MUST each be relocated into a collected location or explicitly retired / marked manual-only with a recorded reason — none left silently uncollected.
+- **FR-004**: The currently-dormant root integration tests MUST become collected (via the root `tests/` project), and both cache-header tests MUST have a recorded disposition — the contract test stays in its already-collected location (`apps/web/tests/unit`); the behavioral `.sh` is documented manual-only. None left silently uncollected.
 - **FR-005**: The system MUST distinguish "collected but skipped" from "not collected." Environment-gated tests MUST remain collected so they surface as skipped rather than absent.
 - **FR-006**: CI MUST fail when a committed test file resides in a location that no CI job collects, reporting the offending file and the expected location.
 - **FR-007**: The CI test run MUST surface which test suites executed, so coverage is auditable from the build log.
@@ -99,8 +108,8 @@ As a maintainer, I want CI to fail when a newly-added test file would not be exe
 
 - The existing test runner and CI job structure (guardrails / unit / browser-e2e) are reused; no new test framework is introduced. (Concretely: the vitest workspace and the `.github/workflows/ci.yml` jobs.)
 - "Integration / infra-contract test" means a test above the per-package unit level — either spanning multiple packages or asserting a property of a built artifact or config (e.g. the production `apps/web/Caddyfile.runtime`).
-- The dormancy is caused by the current vitest workspace collecting only `packages/*` and `apps/*`, leaving root `tests/integration/*` uncollected. The chosen home must be inside the collected set (or the collected set must be widened to include it).
-- The live-stack-gated integration tests (`tests/integration/backup*.test.ts`, `provision-instance.test.ts`, which require `TEST_API_URL` / `TEST_TOKEN_ADMIN` / `TEST_INSTANCE_REF`) are made **collected** so they report as skipped when those vars are absent. Actually executing them against a stack (possibly piggybacking on the feature-021 fake-docker harness) is **out of scope** here.
-- By default, behavioral container-based checks (the `.sh` scripts under `tests/cli-e2e/`) remain manual/local-or-VM and are **documented as manual-only**, with their CI safety net provided by an equivalent collected contract test (the pattern already used for the cache-header fix). The plan MAY instead add a Docker-backed CI job; this is deferred to `/speckit-plan`.
+- The dormancy is caused by the current vitest workspace collecting only `packages/*` and `apps/*`, leaving root `tests/integration/*` uncollected. **Resolved (Clarifications):** the home is a node-environment vitest project rooted at the repo-level `tests/` directory, added to the workspace globs, so `tests/integration/*` and new cross-cutting/contract tests are collected as-is.
+- The live-stack-gated integration tests (`tests/integration/backup*.test.ts`, `provision-instance.test.ts`, which require `TEST_API_URL` / `TEST_TOKEN_ADMIN` / `TEST_INSTANCE_REF`) are made **collected** so they report as skipped when those vars are absent. Actually executing them in CI is **out of scope** here and tracked in **#91** (blocked on the control-plane env solution in **#75**).
+- Behavioral container-based checks (the `.sh` scripts under `tests/cli-e2e/`) remain manual/local-or-VM and are **documented as manual-only** (**Resolved (Clarifications):** no Docker-backed CI job); their CI safety net is the equivalent collected vitest contract test (the pattern used for the cache-header fix).
 - The dormancy guard follows the existing self-maintaining-coverage precedent (a script wired into `pnpm lint`), not a new CI platform.
-- The cache-header fix itself (#80 / PR #90) is already shipped and independent; this feature only re-homes its tests.
+- The cache-header fix itself (#80 / PR #90) is already shipped and independent. Its vitest contract test stays in `apps/web/tests/unit` (a collected location); this feature does **not** relocate it. The root `tests/` home targets the orphaned `tests/integration/*` and future cross-cutting tests.
