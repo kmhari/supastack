@@ -52,7 +52,6 @@ EOF`;
 
   const wrapperSnippet = getWrapperSnippet(apex);
 
-
   return (
     <Shell bare>
       <SettingsLayout>
@@ -142,13 +141,13 @@ EOF`;
               <>
                 If you work across multiple deployments (Cloud + selfbase, or several selfbase
                 installs), the global default from Section 3 is awkward. Instead, create a{' '}
-                <Code inline>.selfbase</Code> file at your project&apos;s git root with your token and
-                domain. Then paste the zsh wrapper below into <Code inline>~/.zshrc</Code> — it
+                <Code inline>.selfbase</Code> file at your project&apos;s git root with your token
+                and domain. Then paste the zsh wrapper below into <Code inline>~/.zshrc</Code> — it
                 walks up to the git root, reads <Code inline>token=</Code> and{' '}
                 <Code inline>domain=</Code> from <Code inline>.selfbase</Code>, auto-generates the
                 per-domain profile under <Code inline>~/.config/selfbase/&lt;domain&gt;.toml</Code>,
-                and passes <Code inline>--profile</Code> to the CLI automatically.{' '}
-                The <Code inline>domain=</Code> line alone is safe to commit — add{' '}
+                and passes <Code inline>--profile</Code> to the CLI automatically. The{' '}
+                <Code inline>domain=</Code> line alone is safe to commit — add{' '}
                 <Code inline>.selfbase</Code> to your <Code inline>.gitignore</Code> if the file
                 contains a token.
               </>
