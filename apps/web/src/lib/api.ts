@@ -106,6 +106,7 @@ export const instancesApi = {
   pause: (ref: string) => unwrap(client.post(`/instances/${ref}/pause`)),
   resume: (ref: string) => unwrap(client.post(`/instances/${ref}/resume`)),
   restart: (ref: string) => unwrap(client.post(`/instances/${ref}/restart`)),
+  restartDb: (ref: string) => unwrap(client.post(`/instances/${ref}/restart-db`)),
   upgrade: (ref: string, body: { supabaseVersion: string; backupFirst?: boolean }) =>
     unwrap(client.post(`/instances/${ref}/upgrade`, body)),
   reveal: (ref: string, body: { password: string }) =>

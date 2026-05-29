@@ -231,6 +231,9 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Params: { ref: string } }>('/instances/:ref/restart', async (req, reply) => {
     return enqueueLifecycle(req, reply, app, 'restart', null);
   });
+  app.post<{ Params: { ref: string } }>('/instances/:ref/restart-db', async (req, reply) => {
+    return enqueueLifecycle(req, reply, app, 'restart-db', null);
+  });
   app.post<{ Params: { ref: string } }>('/instances/:ref/upgrade', async (req, reply) => {
     app.authorize(req, 'instance.upgrade');
     const user = app.requireAuth(req);
@@ -415,13 +418,14 @@ async function enqueueLifecycle(
   req: FastifyRequest<{ Params: { ref: string } }>,
   reply: FastifyReply,
   app: FastifyInstance,
-  action: 'pause' | 'resume' | 'restart',
+  action: 'pause' | 'resume' | 'restart' | 'restart-db',
   targetStatus: 'paused' | 'running' | null,
 ) {
   const actionMap = {
     pause: 'instance.pause',
     resume: 'instance.resume',
     restart: 'instance.restart',
+    'restart-db': 'instance.restart',
   } as const;
   app.authorize(req, actionMap[action]);
   const user = app.requireAuth(req);
