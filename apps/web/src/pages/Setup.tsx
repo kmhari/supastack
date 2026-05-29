@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Circle, Loader2, AlertTriangle, AlertCircle } from 'lucide-react';
 import {
@@ -214,6 +214,9 @@ function DomainCertsStep({
   const [dnsChecks, setDnsChecks] = useState<DnsCheck[]>([]);
   const [apexDnsOk, setApexDnsOk] = useState(false);
   const [wildcardDnsOk, setWildcardDnsOk] = useState(false);
+  // TODO(#94): `allTxtReady` captures the backend's `allDnsReady` but is never read —
+  // the DNS gate below uses the client-side `allTxtFound`. Wire it in or remove.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [allTxtReady, setAllTxtReady] = useState(false);
   const [expectedIp, setExpectedIp] = useState('');
   const [recheckLoading, setRecheckLoading] = useState(false);
