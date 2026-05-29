@@ -8,7 +8,7 @@
 
 ## Behavior
 
-1. Enumerate candidate test files: glob `**/*.{test,spec}.{ts,tsx}`, excluding `**/node_modules/**`, `**/dist/**`, and `**/tests/e2e/**` (Playwright; executed by the `e2e` job, not vitest).
+1. Enumerate candidate test files: glob `**/*.{test,spec}.{ts,tsx}`, pruning build/output dirs (`node_modules`, `dist`, `build`, `coverage`, `.next`, `.git`) and excluding locations intentionally outside the vitest suite — mirroring `vitest.config.ts`: `**/tests/e2e/**` (Playwright; the `e2e` job), `**/theme/**` (vendored), and `infra/supabase-template/**` (per-instance edge-function templates).
 2. A file is **collected** iff its path is under one of the collected roots: `packages/<name>/`, `apps/<name>/`, or the root `tests/` directory.
 3. Any candidate not under a collected root is a **violation**.
 

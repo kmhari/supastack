@@ -21,7 +21,7 @@ description: "Task list — feature 023: CI-enforced home for integration/infra-
 
 **Purpose**: the node-env vitest config that becomes the home.
 
-- [ ] T001 [P] Create `tests/vitest.config.ts` — a vitest project with `environment: 'node'`, `include: ['**/*.{test,spec}.ts']`, `exclude: ['**/node_modules/**', '**/dist/**']`, rooted at `tests/` (mirror the shape of `apps/web/vitest.config.ts`, but node env, not jsdom).
+- [x] T001 [P] Create `tests/vitest.config.ts` — a vitest project with `environment: 'node'`, `include: ['**/*.{test,spec}.ts']`, `exclude: ['**/node_modules/**', '**/dist/**']`, rooted at `tests/` (mirror the shape of `apps/web/vitest.config.ts`, but node env, not jsdom).
 
 ---
 
@@ -29,7 +29,7 @@ description: "Task list — feature 023: CI-enforced home for integration/infra-
 
 **Purpose**: wire the home into the workspace so `pnpm test` collects it. **Blocks US1 and US2.**
 
-- [ ] T002 Register the new project in `vitest.workspace.ts` — add `'./tests/vitest.config.ts'` to the `defineWorkspace([...])` array, keeping `'packages/*'` and `'apps/*'`.
+- [x] T002 Register the new project in `vitest.workspace.ts` — add `'./tests/vitest.config.ts'` to the `defineWorkspace([...])` array, keeping `'packages/*'` and `'apps/*'`.
 
 **Checkpoint**: `pnpm test` now loads a `tests` project — user stories can proceed.
 
@@ -41,8 +41,8 @@ description: "Task list — feature 023: CI-enforced home for integration/infra-
 
 **Independent test**: add a trivial test under `tests/`, confirm `pnpm test` runs it; flip it to fail → CI red.
 
-- [ ] T003 [US1] Verify the home in `tests/_home-check.test.ts` — temporarily add a node-env test that reads a repo file via `node:fs` + `fileURLToPath(import.meta.url)`; run `pnpm test` and confirm it executes with NO env-override comment; flip an assertion to fail and confirm the run goes red; then delete `tests/_home-check.test.ts`. (FR-002, FR-003)
-- [ ] T004 [P] [US1] Create `tests/README.md` — document the "which test goes where" convention (unit → package; integration/cross-cutting/infra-contract → `tests/` or `tests/integration/`; behavioral container `.sh` → `tests/cli-e2e/` manual-only; browser → `apps/web/tests/e2e/`) and record dispositions: cache-header contract test stays in `apps/web/tests/unit`; `.sh` checks manual-only; orphan live-stack test execution tracked in #91 (blocked on #75). (FR-009, SC-005)
+- [x] T003 [US1] Verify the home in `tests/_home-check.test.ts` — temporarily add a node-env test that reads a repo file via `node:fs` + `fileURLToPath(import.meta.url)`; run `pnpm test` and confirm it executes with NO env-override comment; flip an assertion to fail and confirm the run goes red; then delete `tests/_home-check.test.ts`. (FR-002, FR-003)
+- [x] T004 [P] [US1] Create `tests/README.md` — document the "which test goes where" convention (unit → package; integration/cross-cutting/infra-contract → `tests/` or `tests/integration/`; behavioral container `.sh` → `tests/cli-e2e/` manual-only; browser → `apps/web/tests/e2e/`) and record dispositions: cache-header contract test stays in `apps/web/tests/unit`; `.sh` checks manual-only; orphan live-stack test execution tracked in #91 (blocked on #75). (FR-009, SC-005)
 
 **Checkpoint**: the home works for new tests and is documented (MVP complete with Phases 1–3).
 
@@ -54,8 +54,8 @@ description: "Task list — feature 023: CI-enforced home for integration/infra-
 
 **Independent test**: `pnpm test` reports `tests/integration/*` as skipped (not missing) when live-stack env is unset.
 
-- [ ] T005 [US2] Run `pnpm test` and confirm `tests/integration/backup.test.ts`, `tests/integration/backup-retention.test.ts`, `tests/integration/provision-instance.test.ts` are collected and reported **skipped** (their `describe.skipIf` on missing `TEST_API_URL` / `TEST_TOKEN_ADMIN` / `TEST_INSTANCE_REF`) — not absent. (FR-005, SC-003)
-- [ ] T006 [P] [US2] Confirm each orphan test loads without throwing under node env when those env vars are unset (module-level code must not error before `skipIf`); fix any top-level access that throws so they skip cleanly. Files: `tests/integration/backup.test.ts`, `tests/integration/backup-retention.test.ts`, `tests/integration/provision-instance.test.ts`. (FR-004, FR-005)
+- [x] T005 [US2] Run `pnpm test` and confirm `tests/integration/backup.test.ts`, `tests/integration/backup-retention.test.ts`, `tests/integration/provision-instance.test.ts` are collected and reported **skipped** (their `describe.skipIf` on missing `TEST_API_URL` / `TEST_TOKEN_ADMIN` / `TEST_INSTANCE_REF`) — not absent. (FR-005, SC-003)
+- [x] T006 [P] [US2] Confirm each orphan test loads without throwing under node env when those env vars are unset (module-level code must not error before `skipIf`); fix any top-level access that throws so they skip cleanly. Files: `tests/integration/backup.test.ts`, `tests/integration/backup-retention.test.ts`, `tests/integration/provision-instance.test.ts`. (FR-004, FR-005)
 
 **Checkpoint**: zero dormant tests; orphans visible-as-skipped.
 
@@ -67,9 +67,9 @@ description: "Task list — feature 023: CI-enforced home for integration/infra-
 
 **Independent test**: a misplaced `*.test.ts` makes `pnpm lint` fail naming it; removing it passes.
 
-- [ ] T007 [US3] Create `scripts/check-test-collection.mjs` per `contracts/test-collection-guard.md` — glob `**/*.{test,spec}.{ts,tsx}` via Node 20 `fs.readdirSync(dir, { recursive: true })` (no new dependency), excluding `node_modules`, `dist`, `**/tests/e2e/**`; exit 1 listing every file outside the collected roots (`packages/*`, `apps/*`, `tests/`) with its expected home; else exit 0 printing `✓ all <N> test files are collected`. Mirror `apps/web/scripts/check-page-coverage.mjs`. (FR-006)
-- [ ] T008 [US3] Wire the guard into `pnpm lint` — append ` && node scripts/check-test-collection.mjs` to the `lint` script in root `package.json`. (FR-006)
-- [ ] T009 [US3] Negative test (SC-004): create `bogus.test.ts` at the repo root, run `pnpm lint`, confirm it fails naming `bogus.test.ts`; delete it, run `pnpm lint`, confirm it passes.
+- [x] T007 [US3] Create `scripts/check-test-collection.mjs` per `contracts/test-collection-guard.md` — glob `**/*.{test,spec}.{ts,tsx}` via Node 20 `fs.readdirSync(dir, { recursive: true })` (no new dependency), excluding `node_modules`, `dist`, `**/tests/e2e/**`; exit 1 listing every file outside the collected roots (`packages/*`, `apps/*`, `tests/`) with its expected home; else exit 0 printing `✓ all <N> test files are collected`. Mirror `apps/web/scripts/check-page-coverage.mjs`. (FR-006)
+- [x] T008 [US3] Wire the guard into `pnpm lint` — append ` && node scripts/check-test-collection.mjs` to the `lint` script in root `package.json`. (FR-006)
+- [x] T009 [US3] Negative test (SC-004): create `bogus.test.ts` at the repo root, run `pnpm lint`, confirm it fails naming `bogus.test.ts`; delete it, run `pnpm lint`, confirm it passes.
 
 **Checkpoint**: dormancy can't silently return.
 
@@ -77,9 +77,9 @@ description: "Task list — feature 023: CI-enforced home for integration/infra-
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T010 [P] Run full `pnpm test` (orphans skipped, home green) and `pnpm lint` (guard passes) — confirm both green. (SC-001)
-- [ ] T011 [P] Confirm `pnpm format:check` (prettier) and `pnpm lint` (eslint) are clean on the new files: `tests/vitest.config.ts`, `scripts/check-test-collection.mjs`, `tests/README.md`.
-- [ ] T012 [P] Write `docs/changes/023-integration-test-home.md` runbook (per the repo `docs/changes/NNN-*.md` convention): what changed (root `tests/` project, dormancy guard, README), how to add a test, the #91/#75 follow-up.
+- [x] T010 [P] Run full `pnpm test` (orphans skipped, home green) and `pnpm lint` (guard passes) — confirm both green. (SC-001)
+- [x] T011 [P] Confirm `pnpm format:check` (prettier) and `pnpm lint` (eslint) are clean on the new files: `tests/vitest.config.ts`, `scripts/check-test-collection.mjs`, `tests/README.md`.
+- [x] T012 [P] Write `docs/changes/023-integration-test-home.md` runbook (per the repo `docs/changes/NNN-*.md` convention): what changed (root `tests/` project, dormancy guard, README), how to add a test, the #91/#75 follow-up.
 
 ---
 
