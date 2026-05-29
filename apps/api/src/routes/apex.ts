@@ -17,6 +17,7 @@ interface ApexStatus {
    */
   wildcardObservedIps: string[];
   wildcardResolved: boolean;
+  httpsReachable: boolean;
   cert: CertProbeResult | null;
 }
 
@@ -44,6 +45,7 @@ async function buildStatus(): Promise<ApexStatus> {
       dnsResolved: false,
       wildcardObservedIps: [],
       wildcardResolved: false,
+      httpsReachable: false,
       cert: null,
     };
   }
@@ -61,6 +63,18 @@ async function buildStatus(): Promise<ApexStatus> {
   // nothing useful.
   const cert = dnsResolved ? await probeHttpsCert(apex) : null;
 
+  let httpsReachable = false;
+  if (cert?.issued) {
+    try {
+      const res = await fetch(`https://${apex}/api/v1/health`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      httpsReachable = res.ok;
+    } catch {
+      httpsReachable = false;
+    }
+  }
+
   return {
     apex,
     expectedIp,
@@ -68,6 +82,7 @@ async function buildStatus(): Promise<ApexStatus> {
     dnsResolved,
     wildcardObservedIps,
     wildcardResolved: wildcardOk,
+    httpsReachable,
     cert,
   };
 }
@@ -89,6 +104,7 @@ export const apexRoutes: FastifyPluginAsync = async (app) => {
         dnsResolved: true,
         wildcardObservedIps: ['127.0.0.1'],
         wildcardResolved: true,
+        httpsReachable: true,
         cert: { reachable: true, issued: true },
       });
     }
