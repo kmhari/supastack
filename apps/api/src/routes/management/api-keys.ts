@@ -7,8 +7,8 @@
  * `supabase projects api-keys` and during a few link-time flows.
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
-import type { ApiKey } from '@selfbase/shared';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
+import type { ApiKey } from '@supastack/shared';
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { getProjectByRef } from '../../services/project-store.js';
 import { instanceApiKeys } from '../../services/mgmt-api-mapping.js';

@@ -3,9 +3,9 @@ import tls from 'node:tls';
 import { readFileSync, existsSync } from 'node:fs';
 import { eq, and, not, inArray } from 'drizzle-orm';
 import Redis from 'ioredis';
-import { db, schema } from '@selfbase/db';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
-import { logger } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
+import { logger } from '@supastack/shared';
 
 /**
  * pg-edge-proxy — direct Postgres endpoint for `db.<ref>.<apex>:5432`.

@@ -5,10 +5,10 @@
  *   - waitHealthy(name, ms)  — poll until status=running AND health=healthy
  *
  * In tests, a fake control object is injected via the global hook
- * `globalThis.__selfbaseFakeDockerControl`; the production path delegates
+ * `globalThis.__supastackFakeDockerControl`; the production path delegates
  * to dockerode against /var/run/docker.sock.
  */
-import { restartContainer, waitContainerHealthy } from '@selfbase/docker-control';
+import { restartContainer, waitContainerHealthy } from '@supastack/docker-control';
 
 export interface DockerControl {
   restart(container: string): Promise<void>;
@@ -21,7 +21,7 @@ const realControl: DockerControl = {
 };
 
 export function getDockerControl(): DockerControl {
-  const fake = (globalThis as { __selfbaseFakeDockerControl?: DockerControl })
-    .__selfbaseFakeDockerControl;
+  const fake = (globalThis as { __supastackFakeDockerControl?: DockerControl })
+    .__supastackFakeDockerControl;
   return fake ?? realControl;
 }

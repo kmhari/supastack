@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { can, permissionMatrix, ROLES, ACTIONS } from '@selfbase/shared';
+import { can, permissionMatrix, ROLES, ACTIONS } from '@supastack/shared';
 
 /**
  * RBAC matrix contract test (T047). Asserts the (role × action) permission

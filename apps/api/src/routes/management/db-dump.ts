@@ -8,8 +8,8 @@
  */
 import type { FastifyPluginAsync } from 'fastify';
 import { Writable } from 'node:stream';
-import { DbDumpBodySchema, type DbDumpBody } from '@selfbase/shared';
-import { db, schema } from '@selfbase/db';
+import { DbDumpBodySchema, type DbDumpBody } from '@supastack/shared';
+import { db, schema } from '@supastack/db';
 
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import {

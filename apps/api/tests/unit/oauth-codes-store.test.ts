@@ -13,7 +13,7 @@ interface FakeCodeRow {
 
 const store = new Map<string, FakeCodeRow>();
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     insert: () => ({
       values: async (v: Partial<FakeCodeRow>) => {

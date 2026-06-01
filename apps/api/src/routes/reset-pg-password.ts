@@ -12,7 +12,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 import {
   resetPgPasswordForInstance,
   InstanceNotFoundForResetError,

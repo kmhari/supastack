@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, and } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { encryptJson, loadMasterKey } from '@selfbase/crypto';
-import { schemas, errors } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { encryptJson, loadMasterKey } from '@supastack/crypto';
+import { schemas, errors } from '@supastack/shared';
 import { reloadCaddy } from '../services/caddy-reload.js';
 
 export const orgRoutes: FastifyPluginAsync = async (app) => {

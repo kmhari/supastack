@@ -27,13 +27,13 @@ import zlib from 'node:zlib';
 const brotliDecompress = promisify(zlib.brotliDecompress);
 import type { MultipartFile, MultipartValue } from '@fastify/multipart';
 import { eq, and, sql } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import type { DeployFunctionResponse } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import type { DeployFunctionResponse } from '@supastack/shared';
 import {
   FunctionDeployMetadataSchema,
   EszipDeployQuerySchema,
   EszipUpdateQuerySchema,
-} from '@selfbase/shared';
+} from '@supastack/shared';
 import { ManagementApiError } from '../plugins/mgmt-api-errors.js';
 import { functionRowToFunction } from './mgmt-api-mapping.js';
 import { getDockerControl } from './docker-control-adapter.js';

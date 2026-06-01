@@ -13,9 +13,9 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { Redis } from 'ioredis';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { errors, logger } from '@selfbase/shared';
-import { revoke as revokeJti } from '@selfbase/oauth';
+import { db, schema } from '@supastack/db';
+import { errors, logger } from '@supastack/shared';
+import { revoke as revokeJti } from '@supastack/oauth';
 
 interface ClientListRow {
   client_id: string;

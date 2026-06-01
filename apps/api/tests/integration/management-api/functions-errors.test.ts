@@ -27,7 +27,7 @@ describe.skipIf(!hasTestEnv)('function deploy error paths', () => {
 
   beforeAll(async () => {
     fakeDocker = createFakeDockerControl();
-    (globalThis as any).__selfbaseFakeDockerControl = fakeDocker;
+    (globalThis as any).__supastackFakeDockerControl = fakeDocker;
     app = await buildAuthedApp();
     const seeded = await seedTestUser();
     token = seeded.token;
@@ -35,7 +35,7 @@ describe.skipIf(!hasTestEnv)('function deploy error paths', () => {
   });
 
   afterAll(async () => {
-    delete (globalThis as any).__selfbaseFakeDockerControl;
+    delete (globalThis as any).__supastackFakeDockerControl;
     await app?.close();
   });
 
@@ -91,7 +91,7 @@ describe.skipIf(!hasTestEnv)('function deploy error paths', () => {
     failingDocker.restart = async () => {
       throw new Error('simulated restart failure');
     };
-    (globalThis as any).__selfbaseFakeDockerControl = failingDocker;
+    (globalThis as any).__supastackFakeDockerControl = failingDocker;
 
     const form = new FormData();
     form.append(
@@ -117,6 +117,6 @@ describe.skipIf(!hasTestEnv)('function deploy error paths', () => {
     expect(body.code).toBe('deploy_rolled_back');
 
     // Reset.
-    (globalThis as any).__selfbaseFakeDockerControl = fakeDocker;
+    (globalThis as any).__supastackFakeDockerControl = fakeDocker;
   });
 });

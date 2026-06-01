@@ -25,7 +25,7 @@
  * Spec: specs/020-auth-providers-dashboard/data-model.md §1
  */
 
-import { ALL_AUTH_CONFIG_FIELDS } from '@selfbase/shared';
+import { ALL_AUTH_CONFIG_FIELDS } from '@supastack/shared';
 
 // ─── Type definitions ──────────────────────────────────────────────────────
 

@@ -3,7 +3,7 @@ import {
   OAuthAuthorizeQuerySchema,
   OAuthTokenRequestSchema,
   OAuthRegisterRequestSchema,
-} from '@selfbase/shared';
+} from '@supastack/shared';
 
 /**
  * T012 — wire-shape Zod validation against each documented contract failure

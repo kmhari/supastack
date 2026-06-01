@@ -11,7 +11,7 @@
  *        - the snapshot still names this path/method (otherwise upstream
  *          moved the endpoint and we need to deliberately re-snap),
  *        - the snapshot's request/response schemas still match what
- *          @selfbase/shared's Zod schemas accept.
+ *          @supastack/shared's Zod schemas accept.
  *   3. Assert each shared Zod schema accepts the upstream example and
  *      rejects obvious drift (the latter is implicit via `.strict()` on
  *      CreateLoginRoleBody and `z.literal('ok')` on DeleteLoginRolesResponse).
@@ -28,7 +28,7 @@ import {
   CreateLoginRoleBody,
   CreateLoginRoleResponse,
   DeleteLoginRolesResponse,
-} from '@selfbase/shared';
+} from '@supastack/shared';
 
 const SNAPSHOT_PATH = path.resolve(
   __dirname,

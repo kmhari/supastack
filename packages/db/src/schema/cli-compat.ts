@@ -107,7 +107,7 @@ export const functionDeploys = pgTable(
 // ─── project_secrets ────────────────────────────────────────────────────────
 //
 // Source of truth for which secrets are configured per project, encrypted at
-// rest with the master key (via @selfbase/crypto encryptJson). The runtime
+// rest with the master key (via @supastack/crypto encryptJson). The runtime
 // value is mirrored into the per-instance .env file at
 //   /var/selfbase/instances/<ref>/.env
 // so the edge-runtime container reads it on (re)start. This table lets the

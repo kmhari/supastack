@@ -1,7 +1,7 @@
 import { and, eq, lt } from 'drizzle-orm';
 import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 
 const RENEWAL_WINDOW_DAYS = 30;
 

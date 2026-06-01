@@ -15,7 +15,7 @@ const store = new Map<string, FakeRow>();
 let lastWhere: 'by-token' | 'by-previous' | null = null;
 let lastWhereValue: string | null = null;
 
-vi.mock('@selfbase/db', () => {
+vi.mock('@supastack/db', () => {
   // The query builder under test calls these patterns:
   //   db().insert(...).values(...)
   //   db().select().from(...).where(eq(... .token, X)).limit(...)

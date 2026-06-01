@@ -1,7 +1,7 @@
 import { and, eq, not, inArray } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
-import { db, schema } from '@selfbase/db';
-import { logger } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { logger } from '@supastack/shared';
 
 // Tiny per-process LRU. 60-second TTL absorbs cert-renewal storms.
 const cache = new Map<string, { allowed: boolean; expires: number }>();

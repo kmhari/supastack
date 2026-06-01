@@ -11,8 +11,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
-import { logger } from '@selfbase/shared';
-import { RestoreRequestSchema } from '@selfbase/shared';
+import { logger } from '@supastack/shared';
+import { RestoreRequestSchema } from '@supastack/shared';
 
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { getProjectByRef } from '../../services/project-store.js';

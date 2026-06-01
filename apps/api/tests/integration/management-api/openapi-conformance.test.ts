@@ -1,6 +1,6 @@
 /**
  * T053 — Cross-endpoint conformance against contracts/management-api.yaml
- * and the OpenAPI-mirror Zod schemas in @selfbase/shared.
+ * and the OpenAPI-mirror Zod schemas in @supastack/shared.
  *
  * For each endpoint that doesn't require a body, hit a representative
  * request and assert the response shape parses against its Zod schema.
@@ -28,7 +28,7 @@ import {
   ProfileSchema,
   ProjectSchema,
   SecretListEntrySchema,
-} from '@selfbase/shared';
+} from '@supastack/shared';
 
 const ref = `oa${randomBytes(9).toString('hex')}`.slice(0, 20);
 
@@ -38,7 +38,7 @@ describe.skipIf(!hasTestEnv)('OpenAPI conformance for /v1', () => {
   let bearer: { authorization: string };
 
   beforeAll(async () => {
-    (globalThis as any).__selfbaseFakeDockerControl = createFakeDockerControl();
+    (globalThis as any).__supastackFakeDockerControl = createFakeDockerControl();
     app = await buildAuthedApp();
     token = (await seedTestUser()).token;
     bearer = { authorization: `Bearer ${token}` };
@@ -46,7 +46,7 @@ describe.skipIf(!hasTestEnv)('OpenAPI conformance for /v1', () => {
   });
 
   afterAll(async () => {
-    delete (globalThis as any).__selfbaseFakeDockerControl;
+    delete (globalThis as any).__supastackFakeDockerControl;
     await app?.close();
   });
 

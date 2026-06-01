@@ -18,7 +18,7 @@ const fixtures = {
   }[],
 };
 
-vi.mock('@selfbase/db', () => {
+vi.mock('@supastack/db', () => {
   let callIndex = 0;
   const chain = (rows: unknown[]) => {
     const obj: Record<string, unknown> = {
@@ -57,7 +57,7 @@ vi.mock('@selfbase/db', () => {
   };
 });
 
-const dbMod = await import('@selfbase/db');
+const dbMod = await import('@supastack/db');
 const resetDbCallIndex = (dbMod as unknown as { __reset: () => void }).__reset;
 
 const { buildCaddyConfig } = await import('../../src/services/caddy-config.js');

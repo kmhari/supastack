@@ -4,12 +4,12 @@
  * and pooler_tenants upsert is a no-op for duplicates).
  *
  * Invocation:
- *   docker exec selfbase-api-1 node /app/apps/api/scripts/backfill-pooler-tenants.js
+ *   docker exec supastack-api-1 node /app/apps/api/scripts/backfill-pooler-tenants.js
  * Or via tsx in dev:
- *   pnpm --filter @selfbase/api exec tsx scripts/backfill-pooler-tenants.ts
+ *   pnpm --filter @supastack/api exec tsx scripts/backfill-pooler-tenants.ts
  */
 import { not, inArray } from 'drizzle-orm';
-import { makeDb, db, schema } from '@selfbase/db';
+import { makeDb, db, schema } from '@supastack/db';
 import { registerTenantForInstance } from '../src/services/pooler-tenants.js';
 
 async function main(): Promise<void> {

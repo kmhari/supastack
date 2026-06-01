@@ -8,7 +8,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildAuthedApp, hasTestEnv, seedTestUser } from '../../helpers/mgmt-api.js';
-import { ProfileSchema } from '@selfbase/shared';
+import { ProfileSchema } from '@supastack/shared';
 
 describe.skipIf(!hasTestEnv)('GET /v1/profile', () => {
   let app: FastifyInstance;

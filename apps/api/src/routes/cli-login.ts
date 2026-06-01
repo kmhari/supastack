@@ -22,8 +22,8 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import { db } from '@selfbase/db';
-import { CliLoginMintRequestSchema } from '@selfbase/shared';
+import { db } from '@supastack/db';
+import { CliLoginMintRequestSchema } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
 import {
   encryptForClient,

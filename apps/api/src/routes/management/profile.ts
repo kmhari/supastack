@@ -8,8 +8,8 @@
  */
 import { eq } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
-import { db, schema } from '@selfbase/db';
-import type { Profile } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import type { Profile } from '@supastack/shared';
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 
 export const profileRoutes: FastifyPluginAsync = async (app) => {

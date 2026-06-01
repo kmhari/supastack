@@ -10,7 +10,7 @@
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 
 const QUEUE_NAME = 'selfbase.pooler-reconciler';
 

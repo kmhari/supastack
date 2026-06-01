@@ -17,8 +17,8 @@
  */
 import http from 'node:http';
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
+import { db, schema } from '@supastack/db';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import type { InstanceSecrets } from './instance-secrets.js';
 
 const DOCKER_SOCK = '/var/run/docker.sock';

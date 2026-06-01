@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 import {
   registerTenantForInstance,
   unregisterTenantForInstance,

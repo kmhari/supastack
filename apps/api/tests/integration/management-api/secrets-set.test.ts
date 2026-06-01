@@ -10,7 +10,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 import { eq } from 'drizzle-orm';
 import {
   buildAuthedApp,
@@ -30,7 +30,7 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/secrets', () => {
 
   beforeAll(async () => {
     fakeDocker = createFakeDockerControl();
-    (globalThis as any).__selfbaseFakeDockerControl = fakeDocker;
+    (globalThis as any).__supastackFakeDockerControl = fakeDocker;
     app = await buildAuthedApp();
     const seeded = await seedTestUser();
     token = seeded.token;
@@ -45,7 +45,7 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/secrets', () => {
   });
 
   afterAll(async () => {
-    delete (globalThis as any).__selfbaseFakeDockerControl;
+    delete (globalThis as any).__supastackFakeDockerControl;
     await app?.close();
   });
 

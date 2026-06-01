@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import { can, errors, type Action } from '@selfbase/shared';
+import { can, errors, type Action } from '@supastack/shared';
 
 export const rbacPlugin: FastifyPluginAsync = fp(async function rbacPlugin(app) {
   app.decorate('authorize', function authorize(req: FastifyRequest, action: Action): void {

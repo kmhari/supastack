@@ -25,7 +25,7 @@ vi.mock('../../src/services/project-store.js', () => projectStoreMock);
 
 const { logsRoutes } = await import('../../src/routes/management/logs.js');
 const { mgmtApiErrorsPlugin } = await import('../../src/plugins/mgmt-api-errors.js');
-const { AppError } = await import('@selfbase/shared');
+const { AppError } = await import('@supastack/shared');
 
 const REF = 'aaaaaaaaaaaaaaaaaaaa';
 

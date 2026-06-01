@@ -18,7 +18,7 @@ import {
   withMockInstance,
   createFakeDockerControl,
 } from '../../helpers/mgmt-api.js';
-import { DeployFunctionResponseSchema } from '@selfbase/shared';
+import { DeployFunctionResponseSchema } from '@supastack/shared';
 
 const ref = `fn${randomBytes(9).toString('hex')}`.slice(0, 20);
 
@@ -34,7 +34,7 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/functions/deploy (multipart
     // service. The service reads docker-control via a module-level injector
     // that buildAuthedApp will swap in (see function-deploy.ts).
     process.env.__TEST_FAKE_DOCKER_CONTROL = '1';
-    (globalThis as any).__selfbaseFakeDockerControl = fakeDocker;
+    (globalThis as any).__supastackFakeDockerControl = fakeDocker;
     app = await buildAuthedApp();
     const seeded = await seedTestUser();
     token = seeded.token;
@@ -43,7 +43,7 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/functions/deploy (multipart
   });
 
   afterAll(async () => {
-    delete (globalThis as any).__selfbaseFakeDockerControl;
+    delete (globalThis as any).__supastackFakeDockerControl;
     await app?.close();
   });
 

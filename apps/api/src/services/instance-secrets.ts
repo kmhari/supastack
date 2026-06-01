@@ -5,7 +5,7 @@ import {
   generatePassword,
   loadMasterKey,
   signSupabaseJwt,
-} from '@selfbase/crypto';
+} from '@supastack/crypto';
 
 /**
  * The decrypted secret blob shape, mirroring contracts/compose-env.md.

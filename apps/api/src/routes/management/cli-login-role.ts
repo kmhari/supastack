@@ -25,7 +25,7 @@
  *        line (`event: cli_login_role_{rotated,invalidated}`).
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { CreateLoginRoleBody } from '@selfbase/shared';
+import { CreateLoginRoleBody } from '@supastack/shared';
 
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import {

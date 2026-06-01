@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { UpdateAuthConfigBodySchema, UpdatePostgrestConfigBodySchema } from '@selfbase/shared';
+import { UpdateAuthConfigBodySchema, UpdatePostgrestConfigBodySchema } from '@supastack/shared';
 import type { ZodObject, ZodTypeAny } from 'zod';
 
 /**

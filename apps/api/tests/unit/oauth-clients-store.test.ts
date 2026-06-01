@@ -13,7 +13,7 @@ const insertRowReturn: { value: Record<string, unknown> } = {
 };
 const selectRowReturn: { row: Record<string, unknown> | null } = { row: null };
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     insert: () => ({
       values: (v: unknown) => ({

@@ -1,6 +1,6 @@
 import { fetch } from 'undici';
 import crypto from 'node:crypto';
-import { logger } from '@selfbase/shared';
+import { logger } from '@supastack/shared';
 
 /**
  * Thin HTTP client for Supavisor's admin API (feature 005 Phase 5).

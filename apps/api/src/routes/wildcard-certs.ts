@@ -1,9 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, desc } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 import { initiateWildcardOrder, verifyAndFinalize, checkDns, loadRow } from '../services/acme.js';
 import { reloadCaddy } from '../services/caddy-reload.js';
-import { errors } from '@selfbase/shared';
+import { errors } from '@supastack/shared';
 
 export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
   // POST /wildcard-certs/initiate — start (or restart) a DNS-01 ACME order

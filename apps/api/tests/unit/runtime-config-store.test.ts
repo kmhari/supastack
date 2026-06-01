@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { containerNameFor, defaultsFor } from '../../src/services/runtime-config-store.js';
-import { REDACTED_SECRET, SECRET_FIELDS, POSTGREST_CONFIG_DEFAULTS } from '@selfbase/shared';
+import { REDACTED_SECRET, SECRET_FIELDS, POSTGREST_CONFIG_DEFAULTS } from '@supastack/shared';
 
 /**
  * T023 — runtime-config-store unit tests.
@@ -13,15 +13,15 @@ import { REDACTED_SECRET, SECRET_FIELDS, POSTGREST_CONFIG_DEFAULTS } from '@self
  */
 
 describe('containerNameFor', () => {
-  it('postgrest → selfbase-<ref>-rest-1', () => {
+  it('postgrest → supastack-<ref>-rest-1', () => {
     expect(containerNameFor('abc12345defg67890hij', 'postgrest')).toBe(
-      'selfbase-abc12345defg67890hij-rest-1',
+      'supastack-abc12345defg67890hij-rest-1',
     );
   });
 
-  it('auth → selfbase-<ref>-auth-1', () => {
+  it('auth → supastack-<ref>-auth-1', () => {
     expect(containerNameFor('abc12345defg67890hij', 'auth')).toBe(
-      'selfbase-abc12345defg67890hij-auth-1',
+      'supastack-abc12345defg67890hij-auth-1',
     );
   });
 });

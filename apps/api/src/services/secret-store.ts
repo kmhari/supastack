@@ -21,12 +21,12 @@
  *
  * Pure name-validation helpers (`validateSecretName`, `RESERVED_SECRET_NAMES`)
  * are preserved for backwards compatibility with existing unit tests in
- * `secret-store-name.test.ts`. The list now sources from `@selfbase/shared`.
+ * `secret-store-name.test.ts`. The list now sources from `@supastack/shared`.
  */
 
 import { createHash } from 'node:crypto';
-import type { SecretListEntry } from '@selfbase/shared';
-import { RESERVED_SECRET_NAMES as SHARED_RESERVED } from '@selfbase/shared';
+import type { SecretListEntry } from '@supastack/shared';
+import { RESERVED_SECRET_NAMES as SHARED_RESERVED } from '@supastack/shared';
 import { ManagementApiError } from '../plugins/mgmt-api-errors.js';
 import {
   withVaultClient,

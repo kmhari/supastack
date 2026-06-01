@@ -32,7 +32,7 @@ class FakeRedis {
 
 let mintedPlaintext = '';
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     insert: () => ({
       values: () => ({

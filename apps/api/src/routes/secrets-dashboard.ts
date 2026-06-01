@@ -14,8 +14,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { SecretSetBodySchema } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { SecretSetBodySchema } from '@supastack/shared';
 import { deleteSecrets, listSecrets, setSecrets } from '../services/secret-store.js';
 
 const DeleteBodySchema = z.array(z.string());

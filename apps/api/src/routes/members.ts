@@ -1,9 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyPluginAsync } from 'fastify';
 import { and, asc, eq, gte, isNull, lt, ne, sql } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { hashPassword } from '@selfbase/crypto';
-import { logger, errors, schemas } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { hashPassword } from '@supastack/crypto';
+import { logger, errors, schemas } from '@supastack/shared';
 
 const INVITE_TTL_HOURS = 24;
 

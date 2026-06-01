@@ -7,7 +7,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 const fakeSecrets = { jwtSecret: 'shared-jwt-secret-1234567890' };
 const decryptCount = { n: 0 };
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     select: () => ({
       from: () => ({
@@ -20,7 +20,7 @@ vi.mock('@selfbase/db', () => ({
   schema: { supabaseInstances: { ref: 'ref', encryptedSecrets: 'es' } },
 }));
 
-vi.mock('@selfbase/crypto', () => ({
+vi.mock('@supastack/crypto', () => ({
   loadMasterKey: () => Buffer.alloc(32),
   decryptJson: () => {
     decryptCount.n++;

@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
+import { db, schema } from '@supastack/db';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import type { InstanceSecrets } from './instance-secrets.js';
 
 /**
@@ -14,7 +14,7 @@ import type { InstanceSecrets } from './instance-secrets.js';
  * `host.docker.internal:<port_db_direct>` as postgres, runs the callback,
  * then closes the client in a finally block.
  *
- * Uses the `pg` package symlinked into @selfbase/db's node_modules (same
+ * Uses the `pg` package symlinked into @supastack/db's node_modules (same
  * pattern as the Phase-5 backfill script; the api package itself doesn't
  * depend on pg directly).
  */

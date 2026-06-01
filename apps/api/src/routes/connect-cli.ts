@@ -14,8 +14,8 @@
  * applies here, not the cloud envelope.
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { db, schema } from '@selfbase/db';
-import { errors } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { errors } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
 
 interface MintBody {

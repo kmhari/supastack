@@ -1,5 +1,5 @@
 /**
- * T023 — mgmt-api-mapping: pure selfbase→cloud entity mappers.
+ * T023 — mgmt-api-mapping: pure supastack→cloud entity mappers.
  * Companion to the existing tests/unit/mgmt-api-mapping.test.ts.
  */
 import { describe, expect, it } from 'vitest';
@@ -18,13 +18,13 @@ describe('instanceToProject', () => {
     orgId: 'org-1',
     createdAt: new Date('2026-01-01T00:00:00Z'),
   };
-  it('maps running → ACTIVE_HEALTHY + region=selfbase + reuses ref for id', () => {
+  it('maps running → ACTIVE_HEALTHY + region=supastack + reuses ref for id', () => {
     expect(instanceToProject({ ...base, status: 'running' })).toEqual({
       id: base.ref,
       ref: base.ref,
       name: 'My Project',
       organization_id: 'org-1',
-      region: 'selfbase',
+      region: 'supastack',
       created_at: '2026-01-01T00:00:00.000Z',
       status: 'ACTIVE_HEALTHY',
     });

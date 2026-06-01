@@ -7,7 +7,7 @@
  * need to be re-touched when scoping is added.
  */
 import { and, eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 
 type InstanceRow = typeof schema.supabaseInstances.$inferSelect;
 

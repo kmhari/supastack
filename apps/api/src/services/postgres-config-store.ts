@@ -13,8 +13,8 @@
  * Feature 026 — supabase config push compat.
  */
 import { and, eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { encryptJson, decryptJson, loadMasterKey } from '@selfbase/crypto';
+import { db, schema } from '@supastack/db';
+import { encryptJson, decryptJson, loadMasterKey } from '@supastack/crypto';
 import {
   UpdatePostgresConfigBodySchema,
   POSTGRES_INTEGER_FIELDS,
@@ -22,7 +22,7 @@ import {
   POSTGRES_CONFIG_PARAM_NAMES,
   type PostgresConfigResponse,
   type UpdatePostgresConfigBody,
-} from '@selfbase/shared';
+} from '@supastack/shared';
 import { ZodError } from 'zod';
 import { ManagementApiError } from '../plugins/mgmt-api-errors.js';
 import {

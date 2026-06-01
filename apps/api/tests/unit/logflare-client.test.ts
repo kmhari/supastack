@@ -13,7 +13,7 @@ const instanceStore = {
   },
 };
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     select: () => ({
       from: () => ({
@@ -37,7 +37,7 @@ vi.mock('@selfbase/db', () => ({
   },
 }));
 
-vi.mock('@selfbase/crypto', () => ({
+vi.mock('@supastack/crypto', () => ({
   loadMasterKey: () => Buffer.alloc(32),
   decryptJson: () => instanceStore.row?.secrets ?? {},
 }));

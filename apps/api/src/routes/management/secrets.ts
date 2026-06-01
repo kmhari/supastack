@@ -9,7 +9,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { SecretSetBodySchema } from '@selfbase/shared';
+import { SecretSetBodySchema } from '@supastack/shared';
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { getProjectByRef } from '../../services/project-store.js';
 import { deleteSecrets, listSecrets, setSecrets } from '../../services/secret-store.js';

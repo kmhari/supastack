@@ -5,7 +5,7 @@ import {
   OrganizationSchema,
   ProjectSchema,
   SecretListEntrySchema,
-} from '@selfbase/shared';
+} from '@supastack/shared';
 import {
   functionRowToFunction,
   instanceApiKeys,
@@ -20,7 +20,7 @@ import {
  * Each mapper transforms one of selfbase's internal entities into the JSON
  * shape the upstream Supabase CLI expects. The OpenAPI contract is in
  * specs/003-supabase-cli-compat-p0/contracts/management-api.yaml; the Zod
- * schemas in @selfbase/shared mirror it. These tests assert that for a
+ * schemas in @supastack/shared mirror it. These tests assert that for a
  * representative fixture entity, the mapper output passes the corresponding
  * Zod schema — catching field-name drift or shape regressions cheaply.
  */
@@ -37,7 +37,7 @@ describe('instanceToProject', () => {
     expect(() => ProjectSchema.parse(project)).not.toThrow();
     expect(project.ref).toBe('abcdefghijklmnopqrst');
     expect(project.organization_id).toBe('org-uuid-1');
-    expect(project.region).toBe('selfbase'); // synthetic — selfbase has no AWS region
+    expect(project.region).toBe('supastack'); // synthetic — supastack has no AWS region
   });
 });
 
