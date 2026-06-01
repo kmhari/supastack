@@ -326,7 +326,22 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send([{ identifier: req.params.ref, status: 'ACTIVE_HEALTHY' }]);
   });
 
-  // Misc project stubs
+  // Content endpoints — shapes validated against Studio data fetchers
+  // /content/folders: getSQLSnippetFolders expects data.data.{folders,contents} + data.cursor
+  app.get<RefParams>('/platform/projects/:ref/content/folders', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ data: { folders: [], contents: [] }, cursor: null });
+  });
+  // /content: getSqlSnippets expects data.data (array) + data.cursor
+  app.get<RefParams>('/platform/projects/:ref/content', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ data: [], cursor: null });
+  });
+  app.get<RefParams>('/platform/projects/:ref/content/count', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ count: 0 });
+  });
+  // Misc project stubs — key is always path.split('/').pop()
   for (const path of [
     '/platform/projects/:ref/settings',
     '/platform/projects/:ref/members',
@@ -337,9 +352,6 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     '/platform/projects/:ref/config/pgbouncer/status',
     '/platform/projects/:ref/config/secrets/update-status',
     '/platform/projects/:ref/notifications/advisor/exceptions',
-    '/platform/projects/:ref/content',
-    '/platform/projects/:ref/content/count',
-    '/platform/projects/:ref/content/folders',
     '/platform/projects/:ref/restore/versions',
     '/platform/projects/:ref/run-lints',
     '/platform/projects/:ref/load-balancers',
@@ -354,9 +366,6 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         'config/pgbouncer/status': { active: true },
         'config/secrets/update-status': { updating: false },
         'notifications/advisor/exceptions': { result: [] },
-        'content': { data: [], cursor: null },
-        'content/count': { count: 0 },
-        'content/folders': { data: [] },
         'restore/versions': [],
         'run-lints': [],
         'load-balancers': [],
