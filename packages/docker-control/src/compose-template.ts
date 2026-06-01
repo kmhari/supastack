@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { assertSafeForEnv } from '@selfbase/crypto';
+import { assertSafeForEnv } from '@supastack/crypto';
 
 /**
  * Inputs accepted by the per-instance .env generator. Every value is typed

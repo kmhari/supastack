@@ -11,7 +11,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 import {
   buildAuthedApp,
   hasTestEnv,
@@ -36,7 +36,7 @@ describe.skipIf(!hasTestEnv)('PATCH /v1/projects/:ref/postgrest', () => {
 
   beforeAll(async () => {
     fakeDocker = createFakeDockerControl();
-    (globalThis as any).__selfbaseFakeDockerControl = fakeDocker;
+    (globalThis as any).__supastackFakeDockerControl = fakeDocker;
     app = await buildAuthedApp();
   });
 
@@ -46,7 +46,7 @@ describe.skipIf(!hasTestEnv)('PATCH /v1/projects/:ref/postgrest', () => {
   });
 
   afterAll(async () => {
-    delete (globalThis as any).__selfbaseFakeDockerControl;
+    delete (globalThis as any).__supastackFakeDockerControl;
     await app?.close();
   });
 

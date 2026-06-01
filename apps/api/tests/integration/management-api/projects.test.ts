@@ -14,7 +14,7 @@ import {
   seedTestUser,
   withMockInstance,
 } from '../../helpers/mgmt-api.js';
-import { ProjectSchema } from '@selfbase/shared';
+import { ProjectSchema } from '@supastack/shared';
 
 const ref1 = `tref${randomBytes(8).toString('hex')}`.slice(0, 20);
 const ref2 = `tref${randomBytes(8).toString('hex')}`.slice(0, 20);

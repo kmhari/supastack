@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { verifyPassword } from '@selfbase/crypto';
-import { schemas, errors } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { verifyPassword } from '@supastack/crypto';
+import { schemas, errors } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
 
 export const authRoutes: FastifyPluginAsync = async (app) => {

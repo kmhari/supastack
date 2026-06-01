@@ -10,8 +10,8 @@
  *   contracts/oauth-authorize-endpoint.md.
  */
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import { db, schema } from '@selfbase/db';
-import { logger } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { logger } from '@supastack/shared';
 
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { getClientById, validateRedirectUri } from '../../services/oauth-clients-store.js';

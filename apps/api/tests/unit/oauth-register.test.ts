@@ -12,7 +12,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 const auditCalls: Array<{ action: string; payload: unknown }> = [];
 const clientStoreCounter = { next: 0 };
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     insert: () => ({
       values: async (vals: { action: string; payload: unknown }) => {
@@ -23,7 +23,7 @@ vi.mock('@selfbase/db', () => ({
   schema: { auditLog: {} },
 }));
 
-vi.mock('@selfbase/shared', async (orig) => {
+vi.mock('@supastack/shared', async (orig) => {
   const actual = (await orig()) as Record<string, unknown>;
   return { ...actual, logger: { warn: () => {}, info: () => {}, error: () => {} } };
 });

@@ -50,7 +50,7 @@ describe.skipIf(!hasTestEnv)('PUT /v1/projects/:ref/functions (bulk update)', ()
   let token: string;
 
   beforeAll(async () => {
-    (globalThis as any).__selfbaseFakeDockerControl = createFakeDockerControl();
+    (globalThis as any).__supastackFakeDockerControl = createFakeDockerControl();
     app = await buildAuthedApp();
     const seeded = await seedTestUser();
     token = seeded.token;
@@ -62,7 +62,7 @@ describe.skipIf(!hasTestEnv)('PUT /v1/projects/:ref/functions (bulk update)', ()
   });
 
   afterAll(async () => {
-    delete (globalThis as any).__selfbaseFakeDockerControl;
+    delete (globalThis as any).__supastackFakeDockerControl;
     await app?.close();
   });
 

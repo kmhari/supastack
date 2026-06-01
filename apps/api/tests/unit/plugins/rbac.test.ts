@@ -5,7 +5,7 @@
 import { describe, expect, it, afterAll, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { rbacPlugin } from '../../../src/plugins/rbac.js';
-import { errors } from '@selfbase/shared';
+import { errors } from '@supastack/shared';
 
 function buildApp(role: 'admin' | 'member' | null) {
   const app = Fastify();

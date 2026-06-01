@@ -13,7 +13,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { DbQueryBodySchema, DbQueryResponseSchema } from '@selfbase/shared';
+import { DbQueryBodySchema, DbQueryResponseSchema } from '@supastack/shared';
 
 const SNAPSHOT_PATH = resolve(__dirname, '__snapshots__', 'v1-run-query-body.json');
 

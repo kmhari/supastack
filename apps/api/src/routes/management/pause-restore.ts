@@ -14,8 +14,8 @@ import type { FastifyPluginAsync } from 'fastify';
 import { and, eq } from 'drizzle-orm';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
-import { db, schema } from '@selfbase/db';
-import { logger } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { logger } from '@supastack/shared';
 
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { getProjectByRef } from '../../services/project-store.js';

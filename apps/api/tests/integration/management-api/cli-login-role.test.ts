@@ -10,7 +10,7 @@
  * layer ran without standing up a real PG cluster.
  *
  * Wire-shape assertions are pinned against the Zod schemas exported by
- * `@selfbase/shared` — the same schemas the contract test
+ * `@supastack/shared` — the same schemas the contract test
  * (`cli-login-role-contract.test.ts`) cross-checks against the upstream
  * OpenAPI snapshot.
  *
@@ -20,7 +20,7 @@
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { CreateLoginRoleResponse, DeleteLoginRolesResponse } from '@selfbase/shared';
+import { CreateLoginRoleResponse, DeleteLoginRolesResponse } from '@supastack/shared';
 import {
   buildAuthedApp,
   hasTestEnv,
@@ -114,12 +114,12 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/cli/login-role', () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
-    (globalThis as any).__selfbaseFakeDockerControl = createFakeDockerControl();
+    (globalThis as any).__supastackFakeDockerControl = createFakeDockerControl();
     app = await buildAuthedApp();
   });
 
   afterAll(async () => {
-    delete (globalThis as any).__selfbaseFakeDockerControl;
+    delete (globalThis as any).__supastackFakeDockerControl;
     await app?.close();
   });
 
@@ -475,12 +475,12 @@ describe.skipIf(!hasTestEnv)('DELETE /v1/projects/:ref/cli/login-role', () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
-    (globalThis as any).__selfbaseFakeDockerControl = createFakeDockerControl();
+    (globalThis as any).__supastackFakeDockerControl = createFakeDockerControl();
     app = await buildAuthedApp();
   });
 
   afterAll(async () => {
-    delete (globalThis as any).__selfbaseFakeDockerControl;
+    delete (globalThis as any).__supastackFakeDockerControl;
     await app?.close();
   });
 

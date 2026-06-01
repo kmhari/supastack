@@ -16,7 +16,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 import {
   encryptInstanceSecrets,
   generateInstanceSecrets,

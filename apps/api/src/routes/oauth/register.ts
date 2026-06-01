@@ -8,9 +8,9 @@
  * Spec: 014-mcp-http-oauth — FR-005, contracts/oauth-register-endpoint.md.
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { db, schema } from '@selfbase/db';
-import { OAuthRegisterRequestSchema } from '@selfbase/shared';
-import { logger } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { OAuthRegisterRequestSchema } from '@supastack/shared';
+import { logger } from '@supastack/shared';
 
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { registerClient } from '../../services/oauth-clients-store.js';

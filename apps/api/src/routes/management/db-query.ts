@@ -14,8 +14,8 @@
  * Postgres `statement_timeout` GUC — matches Cloud (FR-007).
  */
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import { DbQueryBodySchema, type DbQueryBody } from '@selfbase/shared';
-import { db, schema } from '@selfbase/db';
+import { DbQueryBodySchema, type DbQueryBody } from '@supastack/shared';
+import { db, schema } from '@supastack/db';
 
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { detectMultiStatement } from '../../services/multi-statement-detect.js';

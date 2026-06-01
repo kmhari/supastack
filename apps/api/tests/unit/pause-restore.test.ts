@@ -20,7 +20,7 @@ const dbUpdates: Array<Record<string, unknown>> = [];
 const dbInserts: Array<{ action: string; payload?: unknown }> = [];
 const backupStore = { row: null as null | { id: string } };
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     select: () => ({
       from: () => ({
@@ -70,14 +70,14 @@ vi.mock('../../src/services/mgmt-api-mapping.js', () => ({
   }),
 }));
 
-vi.mock('@selfbase/shared', async (orig) => {
+vi.mock('@supastack/shared', async (orig) => {
   const actual = (await orig()) as Record<string, unknown>;
   return { ...actual, logger: { warn: () => {}, info: () => {}, error: () => {} } };
 });
 
 const { pauseRestoreRoutes } = await import('../../src/routes/management/pause-restore.js');
 const { mgmtApiErrorsPlugin } = await import('../../src/plugins/mgmt-api-errors.js');
-const { AppError } = await import('@selfbase/shared');
+const { AppError } = await import('@supastack/shared');
 
 const REF = 'aaaaaaaaaaaaaaaaaaaa';
 

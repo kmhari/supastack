@@ -3,7 +3,7 @@ import Fastify from 'fastify';
 
 vi.mock('drizzle-orm', () => ({ eq: () => ({}) }));
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     select: () => ({
       from: () => ({
@@ -21,7 +21,7 @@ vi.mock('../../src/services/project-store.js', () => ({
     ref === 'testrefabcdefghijkl' ? { ref } : null,
 }));
 
-vi.mock('@selfbase/shared', async (orig) => {
+vi.mock('@supastack/shared', async (orig) => {
   const actual = (await orig()) as Record<string, unknown>;
   return { ...actual, logger: { warn: () => {}, info: () => {}, error: () => {} } };
 });

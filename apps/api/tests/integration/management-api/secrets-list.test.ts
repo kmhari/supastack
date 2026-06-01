@@ -15,7 +15,7 @@ import {
   withMockInstance,
   createFakeDockerControl,
 } from '../../helpers/mgmt-api.js';
-import { SecretListEntrySchema } from '@selfbase/shared';
+import { SecretListEntrySchema } from '@supastack/shared';
 
 const ref = `sl${randomBytes(9).toString('hex')}`.slice(0, 20);
 
@@ -24,7 +24,7 @@ describe.skipIf(!hasTestEnv)('GET /v1/projects/:ref/secrets', () => {
   let token: string;
 
   beforeAll(async () => {
-    (globalThis as any).__selfbaseFakeDockerControl = createFakeDockerControl();
+    (globalThis as any).__supastackFakeDockerControl = createFakeDockerControl();
     app = await buildAuthedApp();
     const seeded = await seedTestUser();
     token = seeded.token;
@@ -32,7 +32,7 @@ describe.skipIf(!hasTestEnv)('GET /v1/projects/:ref/secrets', () => {
   });
 
   afterAll(async () => {
-    delete (globalThis as any).__selfbaseFakeDockerControl;
+    delete (globalThis as any).__supastackFakeDockerControl;
     await app?.close();
   });
 

@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, sql } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { hashPassword } from '@selfbase/crypto';
-import { schemas, errors } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { hashPassword } from '@supastack/crypto';
+import { schemas, errors } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
 import { reloadCaddy } from '../services/caddy-reload.js';
 

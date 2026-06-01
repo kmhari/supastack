@@ -14,7 +14,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 import { eq } from 'drizzle-orm';
 import { buildAuthedApp, hasTestEnv, seedTestUser } from '../../helpers/mgmt-api.js';
 import { PAT_FORMAT_REGEX } from '../../../src/services/api-tokens.js';

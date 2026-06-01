@@ -3,7 +3,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 
 /**
  * T008 — route-level tests for POST /v1/projects/:ref/database/query.
- * Uses in-process Fastify (app.inject), mocking @selfbase/db, project-store,
+ * Uses in-process Fastify (app.inject), mocking @supastack/db, project-store,
  * and per-instance-pg so no real PG connection is opened.
  */
 
@@ -11,7 +11,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 
 const auditInserts: Array<{ action: string; targetId: string; payload: unknown }> = [];
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     insert: () => ({
       values: async (vals: { action: string; targetId: string; payload: unknown }) => {
@@ -47,7 +47,7 @@ vi.mock('../../src/services/per-instance-pg.js', () => perInstancePgMock);
 // Now safe to import the route + plugin.
 const { dbQueryRoutes } = await import('../../src/routes/management/db-query.js');
 const { mgmtApiErrorsPlugin } = await import('../../src/plugins/mgmt-api-errors.js');
-const { AppError } = await import('@selfbase/shared');
+const { AppError } = await import('@supastack/shared');
 
 interface FakeUser {
   id: string;

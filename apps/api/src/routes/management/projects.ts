@@ -6,7 +6,7 @@
  * and the per-ref endpoint to verify a ref before persisting the link.
  */
 import type { FastifyPluginAsync } from 'fastify';
-import type { Project } from '@selfbase/shared';
+import type { Project } from '@supastack/shared';
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { getProjectByRef, listProjectsForUser } from '../../services/project-store.js';
 import { instanceToProject } from '../../services/mgmt-api-mapping.js';

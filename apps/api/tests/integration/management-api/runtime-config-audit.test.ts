@@ -11,8 +11,8 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { and, eq, desc } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { REDACTED_SECRET } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { REDACTED_SECRET } from '@supastack/shared';
 import {
   buildAuthedApp,
   hasTestEnv,
@@ -36,12 +36,12 @@ describe.skipIf(!hasTestEnv)('audit log emission for runtime config PATCHes', ()
   let app: FastifyInstance;
 
   beforeAll(async () => {
-    (globalThis as any).__selfbaseFakeDockerControl = createFakeDockerControl();
+    (globalThis as any).__supastackFakeDockerControl = createFakeDockerControl();
     app = await buildAuthedApp();
   });
 
   afterAll(async () => {
-    delete (globalThis as any).__selfbaseFakeDockerControl;
+    delete (globalThis as any).__supastackFakeDockerControl;
     await app?.close();
   });
 

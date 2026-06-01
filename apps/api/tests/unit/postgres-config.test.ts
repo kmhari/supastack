@@ -4,7 +4,7 @@ import {
   POSTGRES_INTEGER_FIELDS,
   POSTGRES_BOOLEAN_FIELDS,
   POSTGRES_CONFIG_PARAM_NAMES,
-} from '@selfbase/shared';
+} from '@supastack/shared';
 
 /**
  * Unit tests for the postgres-config surface (feature 026).

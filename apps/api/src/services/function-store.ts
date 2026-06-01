@@ -9,8 +9,8 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import { and, eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import type { FunctionRecord } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import type { FunctionRecord } from '@supastack/shared';
 import { functionRowToFunction } from './mgmt-api-mapping.js';
 
 type FunctionRow = typeof schema.projectFunctions.$inferSelect;

@@ -9,7 +9,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify';
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 import { enqueueVaultEnable, findInFlightVaultEnable } from '../services/vault-enable-client.js';
 
 export const vaultEnableRoutes: FastifyPluginAsync = async (app) => {

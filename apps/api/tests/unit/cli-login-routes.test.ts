@@ -44,8 +44,8 @@ class FakeRedis {
 let fake: FakeRedis;
 const tokenInserts: unknown[] = [];
 
-// Mock @selfbase/db so the mint route's `mintApiToken` call doesn't hit Postgres.
-vi.mock('@selfbase/db', () => ({
+// Mock @supastack/db so the mint route's `mintApiToken` call doesn't hit Postgres.
+vi.mock('@supastack/db', () => ({
   db: () => ({
     insert: () => ({
       values: (vals: unknown) => ({

@@ -4,7 +4,7 @@
  * Spec FR: cloud-compatible read of the per-instance anon + service_role
  * JWTs that selfbase minted during provisioning. The CLI uses this for
  * `supabase projects api-keys` and also internally during some link/info
- * paths. Per-instance secrets are decrypted via @selfbase/crypto.
+ * paths. Per-instance secrets are decrypted via @supastack/crypto.
  */
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -16,7 +16,7 @@ import {
   seedTestUser,
   withMockInstance,
 } from '../../helpers/mgmt-api.js';
-import { ApiKeySchema } from '@selfbase/shared';
+import { ApiKeySchema } from '@supastack/shared';
 
 const ref = `apik${randomBytes(8).toString('hex')}`.slice(0, 20);
 

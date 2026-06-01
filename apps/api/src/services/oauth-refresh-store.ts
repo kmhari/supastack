@@ -6,7 +6,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 
 export interface IssueRefreshInput {
   clientId: string;

@@ -11,7 +11,7 @@ const mockClient = {
 
 vi.mock('drizzle-orm', () => ({ eq: () => ({}) }));
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     select: () => ({
       from: () => ({
@@ -29,7 +29,7 @@ vi.mock('@selfbase/db', () => ({
   schema: { users: { id: {}, email: {} }, auditLog: {} },
 }));
 
-vi.mock('@selfbase/shared', async (orig) => {
+vi.mock('@supastack/shared', async (orig) => {
   const actual = (await orig()) as Record<string, unknown>;
   return { ...actual, logger: { warn: () => {}, info: () => {}, error: () => {} } };
 });

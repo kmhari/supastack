@@ -1,5 +1,5 @@
 import { fetch } from 'undici';
-import { logger } from '@selfbase/shared';
+import { logger } from '@supastack/shared';
 import { buildCaddyConfig } from './caddy-config.js';
 
 const CADDY_ADMIN_URL = process.env.CADDY_ADMIN_URL ?? 'http://caddy:2019';

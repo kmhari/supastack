@@ -8,7 +8,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { desc } from 'drizzle-orm';
 import { fetch } from 'undici';
 import crypto from 'node:crypto';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 
 const SUPAVISOR_URL = process.env.SUPAVISOR_URL ?? 'http://supavisor:4000';
 const SUPAVISOR_JWT_SECRET = process.env.SUPAVISOR_API_JWT_SECRET ?? '';

@@ -16,7 +16,7 @@ import {
   withMockInstance,
   createFakeDockerControl,
 } from '../../helpers/mgmt-api.js';
-import { FunctionSchema } from '@selfbase/shared';
+import { FunctionSchema } from '@supastack/shared';
 
 const ref = `ld${randomBytes(9).toString('hex')}`.slice(0, 20);
 
@@ -58,7 +58,7 @@ describe.skipIf(!hasTestEnv)('functions list / get / body / delete', () => {
 
   beforeAll(async () => {
     fakeDocker = createFakeDockerControl();
-    (globalThis as any).__selfbaseFakeDockerControl = fakeDocker;
+    (globalThis as any).__supastackFakeDockerControl = fakeDocker;
     app = await buildAuthedApp();
     const seeded = await seedTestUser();
     token = seeded.token;
@@ -68,7 +68,7 @@ describe.skipIf(!hasTestEnv)('functions list / get / body / delete', () => {
   });
 
   afterAll(async () => {
-    delete (globalThis as any).__selfbaseFakeDockerControl;
+    delete (globalThis as any).__supastackFakeDockerControl;
     await app?.close();
   });
 

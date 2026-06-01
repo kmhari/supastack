@@ -6,7 +6,7 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
-import { errors, AppError } from '@selfbase/shared';
+import { errors, AppError } from '@supastack/shared';
 import { mgmtApiErrorsPlugin, ManagementApiError } from '../../../src/plugins/mgmt-api-errors.js';
 
 async function buildApp() {

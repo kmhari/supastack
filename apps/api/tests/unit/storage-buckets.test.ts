@@ -29,7 +29,7 @@ const projectStoreMock = vi.hoisted(() => ({ getProjectByRef: vi.fn() }));
 vi.mock('../../src/services/project-store.js', () => projectStoreMock);
 
 const dbStatus = { value: 'running' as string };
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     select: () => ({
       from: () => ({
@@ -46,7 +46,7 @@ vi.mock('drizzle-orm', () => ({ eq: () => ({}) }));
 
 const { storageBucketsRoutes } = await import('../../src/routes/management/storage-buckets.js');
 const { mgmtApiErrorsPlugin } = await import('../../src/plugins/mgmt-api-errors.js');
-const { AppError } = await import('@selfbase/shared');
+const { AppError } = await import('@supastack/shared');
 
 const REF = 'bbbbbbbbbbbbbbbbbbbb';
 

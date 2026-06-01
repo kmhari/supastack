@@ -3,12 +3,12 @@
  *
  * Uses the real Fastify app via buildAuthedApp + a seeded user/token, so the
  * full preHandler hook runs. The companion file `unit/auth-plugin-dual.test.ts`
- * focuses on the OAuth JWT path via mocked @selfbase/db.
+ * focuses on the OAuth JWT path via mocked @supastack/db.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { createHash } from 'node:crypto';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 import { eq } from 'drizzle-orm';
 import { buildAuthedApp, hasTestEnv, seedTestUser, mintTestToken } from '../../helpers/mgmt-api.js';
 

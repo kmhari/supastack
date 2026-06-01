@@ -3,13 +3,13 @@ import Fastify, { type FastifyInstance } from 'fastify';
 
 /**
  * T015 — route-level tests for POST /v1/projects/:ref/database/dump.
- * Mocks @selfbase/db, project-store, per-instance-pg, and pg-dump-exec so
+ * Mocks @supastack/db, project-store, per-instance-pg, and pg-dump-exec so
  * no real PG or Docker socket is touched.
  */
 
 const auditInserts: Array<{ action: string; targetId: string; payload: unknown }> = [];
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     insert: () => ({
       values: async (vals: { action: string; targetId: string; payload: unknown }) => {
@@ -61,7 +61,7 @@ vi.mock('../../src/services/pg-dump-exec.js', () => pgDumpExecMock);
 
 const { dbDumpRoutes } = await import('../../src/routes/management/db-dump.js');
 const { mgmtApiErrorsPlugin } = await import('../../src/plugins/mgmt-api-errors.js');
-const { AppError } = await import('@selfbase/shared');
+const { AppError } = await import('@supastack/shared');
 
 async function buildApp(
   opts: {

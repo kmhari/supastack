@@ -2,15 +2,15 @@ import type { FastifyPluginAsync } from 'fastify';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { and, desc, eq } from 'drizzle-orm';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
-import { db, schema } from '@selfbase/db';
-import { errors } from '@selfbase/shared';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
+import { db, schema } from '@supastack/db';
+import { errors } from '@supastack/shared';
 import {
   LocalDiskStore,
   S3Store,
   type BackupStore,
   type S3StoreConfig,
-} from '@selfbase/backup-store';
+} from '@supastack/backup-store';
 import { signDownloadToken, verifyDownloadToken } from '../services/download-tokens.js';
 
 const REDIS_URL = process.env.REDIS_URL!;
