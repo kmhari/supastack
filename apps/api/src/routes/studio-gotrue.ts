@@ -6,26 +6,31 @@
  * surface needed for Studio to sign in, get user info, and sign out.
  *
  * Auth flow:
- *   1. POST /token?grant_type=password  — validate email+password, mint a
- *      session PAT (source='studio'), return it as access_token.
- *   2. GET  /user                       — requireAuth on Bearer PAT, return
- *      GoTrue-shaped user object.
- *   3. POST /logout                     — revoke the session PAT.
- *   4. GET  /settings                   — stub GoTrue settings (captcha off).
- *
- * The returned access_token is a real Supastack PAT (sbp_…) stored in
- * api_tokens with source='studio'. requireAuth already handles PAT Bearer
- * tokens, so all proxy routes continue to work after login.
+ *   1. POST /token?grant_type=password  — validate email+password, issue a
+ *      Studio session JWT (HS256, HKDF-derived key). Studio decodes the JWT
+ *      client-side to read user claims. All subsequent API calls send it as
+ *      Authorization: Bearer <jwt>. requireAuth verifies it via the studio
+ *      JWT path in auth.ts.
+ *   2. GET  /user      — requireAuth (accepts studio JWT), return GoTrue user.
+ *   3. POST /logout    — no-op (JWT expiry is the revocation mechanism).
+ *   4. GET  /settings  — stub GoTrue settings (captcha off).
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
-import { verifyPassword } from '@supastack/crypto';
+import { loadMasterKey, verifyPassword } from '@supastack/crypto';
 import { errors } from '@supastack/shared';
-import { mintApiToken } from '../services/api-tokens.js';
-import { sha256 } from '../plugins/auth.js';
+import { signStudioJwt, verifyStudioJwt } from '../plugins/auth.js';
 
-const STUDIO_TOKEN_LABEL = 'studio-session';
+function issueStudioJwt(userId: string, email: string, role: string, iss: string): string {
+  return signStudioJwt(loadMasterKey(), {
+    sub: userId,
+    email,
+    supastack_role: role,
+    aud: 'authenticated',
+    iss,
+  });
+}
 
 export const studioGotrueRoutes: FastifyPluginAsync = async (app) => {
   // ── Settings — must respond before sign-in form renders ──────────────────
@@ -57,40 +62,33 @@ export const studioGotrueRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Querystring: { grant_type?: string } }>('/token', async (req, reply) => {
     const grantType = req.query.grant_type ?? (req.body as Record<string, unknown>)?.grant_type;
 
+    const apex = process.env.SUPASTACK_APEX ?? 'localhost';
+    const iss = `https://${apex}`;
+
     if (grantType === 'refresh_token') {
-      // Studio tries to refresh on page reload. Re-authenticate using the
-      // refresh_token (which we store as the same PAT raw value).
+      // Studio tries to refresh on page reload. Verify the refresh_token as a
+      // studio session JWT and re-issue a fresh one.
       const body = req.body as Record<string, unknown>;
       const refreshToken = body?.refresh_token as string | undefined;
       if (!refreshToken) throw errors.unauthenticated('missing refresh_token');
 
-      const tokenHash = sha256(refreshToken);
-      const [row] = await db()
-        .select({
-          id: schema.apiTokens.id,
-          userId: schema.apiTokens.userId,
-        })
-        .from(schema.apiTokens)
-        .where(
-          and(
-            eq(schema.apiTokens.tokenSha256, tokenHash),
-            isNull(schema.apiTokens.revokedAt),
-          ),
-        )
-        .limit(1);
-
-      if (!row) throw errors.unauthenticated('invalid or expired refresh_token');
+      let claims: ReturnType<typeof verifyStudioJwt>;
+      try {
+        claims = verifyStudioJwt(loadMasterKey(), refreshToken, iss);
+      } catch {
+        throw errors.unauthenticated('invalid or expired refresh_token');
+      }
 
       const [user] = await db()
         .select({ email: schema.users.email, role: schema.orgMembers.role })
         .from(schema.users)
         .innerJoin(schema.orgMembers, eq(schema.orgMembers.userId, schema.users.id))
-        .where(eq(schema.users.id, row.userId))
+        .where(eq(schema.users.id, claims.sub))
         .limit(1);
-
       if (!user) throw errors.unauthenticated('user not found');
 
-      return reply.send(buildTokenResponse(refreshToken, refreshToken, row.userId, user.email, user.role));
+      const newJwt = issueStudioJwt(claims.sub, user.email, user.role, iss);
+      return reply.send(buildTokenResponse(newJwt, newJwt, claims.sub, user.email, user.role));
     }
 
     // password grant
@@ -118,21 +116,8 @@ export const studioGotrueRoutes: FastifyPluginAsync = async (app) => {
     const ok = row !== undefined && (await verifyPassword(row.hash, password));
     if (!ok || !row) throw errors.unauthenticated('invalid credentials');
 
-    // Revoke any existing studio sessions for this user to keep it tidy.
-    await db()
-      .update(schema.apiTokens)
-      .set({ revokedAt: new Date() })
-      .where(
-        and(
-          eq(schema.apiTokens.userId, row.id),
-          eq(schema.apiTokens.source, 'studio'),
-          isNull(schema.apiTokens.revokedAt),
-        ),
-      );
-
-    const { raw } = await mintApiToken(db(), row.id, STUDIO_TOKEN_LABEL, 'studio');
-
-    return reply.send(buildTokenResponse(raw, raw, row.id, email, row.role));
+    const jwt = issueStudioJwt(row.id, email, row.role, iss);
+    return reply.send(buildTokenResponse(jwt, jwt, row.id, email, row.role));
   });
 
   // ── Current user ──────────────────────────────────────────────────────────
@@ -147,26 +132,8 @@ export const studioGotrueRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(buildUser(user.id, user.email, user.role));
   });
 
-  // ── Logout — revoke the session PAT ──────────────────────────────────────
-  app.post('/logout', async (req, reply) => {
-    try {
-      const user = app.requireAuth(req);
-      // Revoke all studio-source tokens for this user on explicit logout.
-      await db()
-        .update(schema.apiTokens)
-        .set({ revokedAt: new Date() })
-        .where(
-          and(
-            eq(schema.apiTokens.userId, user.id),
-            eq(schema.apiTokens.source, 'studio'),
-            isNull(schema.apiTokens.revokedAt),
-          ),
-        );
-    } catch {
-      // Even if auth fails, respond 204 — Studio treats it as signed-out.
-    }
-    return reply.status(204).send();
-  });
+  // ── Logout — JWTs expire naturally; just respond 204 ─────────────────────
+  app.post('/logout', async (_req, reply) => reply.status(204).send());
 
   // ── MFA assurance level — Studio checks this after login ─────────────────
   app.get('/mfa/authenticator/assurance-level', async (_req, reply) => {
