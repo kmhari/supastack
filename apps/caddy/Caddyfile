@@ -47,8 +47,12 @@
 	handle /.well-known/acme-challenge/* {
 		reverse_proxy api:3001
 	}
-	# API routes: only /api/v1/* and /api/v1 go to the Supastack API.
-	# Other /api/* paths (Next.js internal routes like /api/ai/*, /api/parse-query)
+	# /api/get-deployment-commit — Studio Next.js route that returns 404 in dev
+	# mode; stub it at the API level instead.
+	handle /api/get-deployment-commit {
+		reverse_proxy api:3001
+	}
+	# /api/v1/* → Supastack API. Other /api/* (Studio Next.js internal routes)
 	# fall through to Studio.
 	handle /api/v1* {
 		reverse_proxy api:3001
@@ -99,8 +103,9 @@ mcp.{$SUPASTACK_APEX} {
 	}
 	# Default: route to dashboard. Per-instance routes are inserted via
 	# the admin API and matched before this fallback.
-	# Only /api/v1* goes to the Supastack API; other /api/* (Studio Next.js routes)
-	# fall through to Studio.
+	handle /api/get-deployment-commit {
+		reverse_proxy api:3001
+	}
 	handle /api/v1* {
 		reverse_proxy api:3001
 	}

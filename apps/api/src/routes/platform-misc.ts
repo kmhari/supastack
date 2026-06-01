@@ -131,4 +131,64 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     app.requireAuth(req);
     return reply.status(204).send();
   });
+
+  // ── Organizations ──────────────────────────────────────────────────────────
+  // Studio calls /platform/organizations to show the org switcher.
+  // Supastack is single-org — return the singleton org in Studio's shape.
+  app.get('/platform/organizations', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [orgRow] = await db()
+      .select({ id: schema.org.id, name: schema.org.name })
+      .from(schema.org)
+      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.org.id))
+      .where(eq(schema.orgMembers.userId, user.id))
+      .limit(1);
+    if (!orgRow) return reply.send([]);
+    return reply.send([buildOrg(orgRow.id, orgRow.name, user.role === 'admin')]);
+  });
+
+  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [orgRow] = await db()
+      .select({ id: schema.org.id, name: schema.org.name })
+      .from(schema.org)
+      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.org.id))
+      .where(eq(schema.orgMembers.userId, user.id))
+      .limit(1);
+    if (!orgRow) return reply.status(404).send({ error: 'Organization not found' });
+    return reply.send(buildOrg(orgRow.id, orgRow.name, user.role === 'admin'));
+  });
+
+  // ── Stripe / billing stubs — self-hosted has no billing ───────────────────
+  app.get('/platform/stripe/invoices/overdue', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.post('/platform/stripe/setup-intent', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ client_secret: null });
+  });
 };
+
+function buildOrg(id: string, name: string, isOwner: boolean) {
+  return {
+    id,
+    name,
+    slug: id,
+    billing_email: '',
+    billing_partner: null,
+    integration_source: null,
+    is_owner: isOwner,
+    opt_in_tags: [],
+    organization_missing_address: false,
+    organization_missing_tax_id: false,
+    organization_requires_mfa: false,
+    plan: { id: 'free', name: 'Free' },
+    restriction_data: null,
+    restriction_status: null,
+    stripe_customer_id: null,
+    subscription_id: null,
+    usage_billing_enabled: false,
+  };
+}
