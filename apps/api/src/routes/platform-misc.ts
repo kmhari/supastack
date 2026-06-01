@@ -304,6 +304,28 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ data: [] });
   });
 
+  // Database backups
+  app.get<RefParams>('/platform/database/:ref/backups', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ backups: [], tierId: 'free', tierKey: 'FREE' });
+  });
+
+  app.get<RefParams>('/platform/database/:ref/backups/downloadable-backups', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ backups: [] });
+  });
+
+  app.post<RefParams>('/platform/database/:ref/backups/download', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ url: null });
+  });
+
+  // Databases statuses (project home page)
+  app.get<RefParams>('/platform/projects/:ref/databases-statuses', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([{ identifier: req.params.ref, status: 'ACTIVE_HEALTHY' }]);
+  });
+
   // Misc project stubs
   for (const path of [
     '/platform/projects/:ref/settings',
