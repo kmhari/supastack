@@ -232,13 +232,29 @@ export async function buildApp(): Promise<FastifyInstance> {
     reply.send({ commit: 'dev', date: new Date().toISOString() }),
   );
 
-  // Management API stubs for Studio IS_PLATFORM=true — not in the management
-  // plugin so they don't require the mgmt error envelope.
-  app.post<{ Params: { ref: string } }>('/v1/projects/:ref/network-bans/retrieve', async (_req, reply) =>
+  // Management API stubs for Studio IS_PLATFORM=true — registered before the
+  // /v1 management plugin so they respond without the mgmt error envelope.
+  type RefP = { Params: { ref: string } };
+  app.post<RefP>('/v1/projects/:ref/network-bans/retrieve', async (_req, reply) =>
     reply.send({ banned_ipv4_addresses: [] }),
   );
-  app.delete<{ Params: { ref: string } }>('/v1/projects/:ref/network-bans', async (_req, reply) =>
+  app.delete<RefP>('/v1/projects/:ref/network-bans', async (_req, reply) =>
     reply.status(204).send(),
+  );
+  app.get<RefP>('/v1/projects/:ref/branches', async (_req, reply) => reply.send([]));
+  app.get<RefP>('/v1/projects/:ref/read-replicas', async (_req, reply) => reply.send([]));
+  app.get<RefP>('/v1/projects/:ref/upgrade/eligibility', async (_req, reply) =>
+    reply.send({ eligible: false, current_app_version: 'supabase-postgres-15.0.0.55' }),
+  );
+  app.get<RefP>('/v1/projects/:ref/upgrade/status', async (_req, reply) =>
+    reply.send({ status: 'ready' }),
+  );
+  app.get<RefP & { Querystring: { services?: string } }>(
+    '/v1/projects/:ref/health',
+    async (req, reply) => {
+      const services = req.query.services ? req.query.services.split(',') : ['auth', 'rest', 'realtime', 'storage', 'db'];
+      return reply.send(services.map((name) => ({ name, status: 'ACTIVE_HEALTHY', error: null })));
+    },
   );
 
   // Double-v1 fix: Studio IS_PLATFORM=true builds URLs as
