@@ -159,6 +159,117 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(buildOrg(orgRow.id, orgRow.name, user.role === 'admin'));
   });
 
+  // ── Org-scoped project listing ─────────────────────────────────────────────
+  // Studio calls /platform/organizations/:slug/projects to populate the project list.
+  app.get<{ Params: { slug: string }; Querystring: { limit?: string; offset?: string } }>(
+    '/platform/organizations/:slug/projects',
+    async (req, reply) => {
+      const user = app.requireAuth(req);
+      const limit = parseInt(req.query.limit ?? '96', 10);
+      const offset = parseInt(req.query.offset ?? '0', 10);
+      const apex = process.env.SUPASTACK_APEX ?? '';
+
+      const instances = await db()
+        .select({
+          ref: schema.supabaseInstances.ref,
+          name: schema.supabaseInstances.name,
+          status: schema.supabaseInstances.status,
+          portKong: schema.supabaseInstances.portKong,
+          insertedAt: schema.supabaseInstances.createdAt,
+          updatedAt: schema.supabaseInstances.updatedAt,
+          orgId: schema.supabaseInstances.orgId,
+        })
+        .from(schema.supabaseInstances)
+        .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
+        .where(eq(schema.orgMembers.userId, user.id))
+        .limit(limit)
+        .offset(offset);
+
+      const projects = instances.map((inst) => buildProject(inst, apex));
+      return reply.send({ pagination: { count: projects.length, limit, offset }, projects });
+    },
+  );
+
+  // ── Org-scoped stubs ───────────────────────────────────────────────────────
+  type SlugParams = { Params: { slug: string } };
+
+  app.get<SlugParams>('/platform/organizations/:slug/members', async (req, reply) => {
+    const user = app.requireAuth(req);
+    return reply.send([{ gotrue_id: user.id, username: user.email.split('@')[0], primary_email: user.email, role_ids: [1] }]);
+  });
+
+  app.get<SlugParams>('/platform/organizations/:slug/roles', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ org_scoped_roles: [{ id: 1, name: 'Owner', description: null, base_role_id: 1, projects: [] }], project_scoped_roles: [] });
+  });
+
+  app.get<SlugParams>('/platform/organizations/:slug/billing/subscription', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ plan: { id: 'free', name: 'Free' }, billing_via_partner: false, usage_billing_enabled: false, project_addons: [], addons: [] });
+  });
+
+  app.get<SlugParams>('/platform/organizations/:slug/billing/plans', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([{ id: 'free', name: 'Free' }]);
+  });
+
+  app.get<SlugParams>('/platform/organizations/:slug/billing/credits/balance', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ balance: 0 });
+  });
+
+  app.head<SlugParams>('/platform/organizations/:slug/billing/invoices', async (req, reply) => {
+    app.requireAuth(req);
+    reply.header('X-Total-Count', '0');
+    return reply.status(200).send();
+  });
+
+  app.get<SlugParams>('/platform/organizations/:slug/billing/invoices', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.get<SlugParams>('/platform/organizations/:slug/entitlements', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ entitlements: [] });
+  });
+
+  app.get<SlugParams>('/platform/organizations/:slug/usage', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ usage_billing_enabled: false, usages: [] });
+  });
+
+  app.get<SlugParams>('/platform/organizations/:slug/usage/daily', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ usages: [] });
+  });
+
+  app.get<SlugParams>('/platform/organizations/:slug/audit', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ result: [], count: 0 });
+  });
+
+  for (const path of [
+    '/platform/organizations/:slug/sso',
+    '/platform/organizations/:slug/apps',
+    '/platform/organizations/:slug/apps/installations',
+    '/platform/organizations/:slug/oauth/apps',
+    '/platform/organizations/:slug/members/invitations',
+    '/platform/organizations/:slug/members/reached-free-project-limit',
+  ] as const) {
+    app.get(path, async (req, reply) => {
+      app.requireAuth(req);
+      return path.includes('free-project-limit')
+        ? reply.send({ reached_free_project_limit: false })
+        : reply.send([]);
+    });
+  }
+
+  app.get<SlugParams>('/platform/organizations/:slug/members/mfa/enforcement', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ required: false });
+  });
+
   // ── Stripe / billing stubs — self-hosted has no billing ───────────────────
   app.get('/platform/stripe/invoices/overdue', async (req, reply) => {
     app.requireAuth(req);
@@ -170,6 +281,46 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ client_secret: null });
   });
 };
+
+function buildProject(
+  inst: { ref: string; name: string; status: string; portKong: number; insertedAt: Date | null; updatedAt: Date | null; orgId: string },
+  apex: string,
+) {
+  const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
+  return {
+    cloud_provider: 'SUPASTACK',
+    connectionString: '',
+    db_host: apex || 'localhost',
+    dbVersion: '150009',
+    high_availability: false,
+    id: inst.ref,
+    infra_compute_size: 'nano',
+    inserted_at: inst.insertedAt?.toISOString() ?? new Date().toISOString(),
+    integration_source: null,
+    is_branch_enabled: false,
+    is_physical_backups_enabled: false,
+    name: inst.name,
+    organization_id: inst.orgId,
+    parent_project_ref: null,
+    ref: inst.ref,
+    region: 'local',
+    restUrl: `${kongUrl}/rest/v1`,
+    status: inst.status === 'running' ? 'ACTIVE_HEALTHY' : inst.status.toUpperCase(),
+    subscription_id: null,
+    updated_at: inst.updatedAt?.toISOString() ?? new Date().toISOString(),
+    volumeSizeGb: 8,
+    databases: [
+      {
+        cloud_provider: 'SUPASTACK',
+        identifier: inst.ref,
+        infra_compute_size: 'nano',
+        inserted_at: inst.insertedAt?.toISOString() ?? new Date().toISOString(),
+        region: 'local',
+        status: inst.status === 'running' ? 'ACTIVE_HEALTHY' : inst.status.toUpperCase(),
+      },
+    ],
+  };
+}
 
 function buildOrg(id: string, name: string, isOwner: boolean) {
   return {
