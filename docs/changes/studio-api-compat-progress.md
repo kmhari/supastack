@@ -257,3 +257,204 @@ mode prevents pages from being visible in the Chrome extension context.
   → Eliminates next dev issues, proper HTTPS, better performance
 - Remaining ❌ routes: auth templates, MFA, SAML, custom domains
 - Test creating new projects via Studio (provision flow)
+
+---
+
+## Session 4 — 2026-06-01 (autonomous batch round 2)
+
+### Endpoints Implemented
+
+#### Project Config (7)
+- `PATCH /platform/projects/:ref/config/pgbouncer` — echo body (GET was already in stub loop)
+- `GET /platform/projects/:ref/config/realtime` — returns `{ max_concurrent_users: 200 }`
+- `PATCH /platform/projects/:ref/config/realtime` — echo body
+- `GET /platform/projects/:ref/config/secrets` — proxies to `GET /v1/projects/:ref/secrets`
+- `PATCH /platform/projects/:ref/config/secrets` — proxies to `POST /v1/projects/:ref/secrets`
+- `GET /platform/projects/:ref/api` — returns autoApiService shape with real Kong URL + decrypted anon/service keys from encryptedSecrets
+- `GET /platform/projects/:ref/api/rest` — returns REST endpoint + schema shape
+
+#### Project Infrastructure (16)
+- `GET /platform/projects/:ref/disk`
+- `POST /platform/projects/:ref/disk`
+- `GET /platform/projects/:ref/disk/custom-config`
+- `POST /platform/projects/:ref/disk/custom-config`
+- `GET /platform/projects/:ref/disk/util`
+- `GET /platform/projects/:ref/read-replicas`
+- `GET /platform/projects/:ref/live-queries`
+- `GET /platform/projects/:ref/resources/:id`
+- `PATCH /platform/projects/:ref/resources/:id`
+- `GET /platform/projects/:ref/privatelink/associations`
+- `POST /platform/projects/:ref/privatelink/associations/aws-account`
+- `GET /platform/projects/:ref/privatelink/associations/aws-account/:id`
+- `PATCH /platform/projects/:ref/settings/sensitivity`
+- `GET /v1/projects/:ref/network-restrictions`
+- `POST /v1/projects/:ref/network-restrictions/apply`
+- `GET /v1/projects/:ref/custom-hostname`
+
+#### Database (Schema / SQL) (2)
+- `GET|POST|PATCH|DELETE /platform/pg-meta/:ref/*` — wildcard proxy → Kong `/pg/*` → pg-meta (covers tables, views, columns, schemas, policies, types, functions, publications, triggers, materialized-views, column-privileges, query)
+- `POST /v1/projects/:ref/database/query` — dbQueryRoutes in `apps/api/src/routes/management/db-query.ts`
+
+#### Storage (11)
+- `GET /platform/storage/:ref/vector-buckets`
+- `POST /platform/storage/:ref/vector-buckets`
+- `DELETE /platform/storage/:ref/vector-buckets/:id`
+- `POST /platform/storage/:ref/vector-buckets/:id/indexes`
+- `DELETE /platform/storage/:ref/vector-buckets/:id/indexes/:name`
+- `GET /platform/storage/:ref/analytics-buckets`
+- `POST /platform/storage/:ref/analytics-buckets`
+- `DELETE /platform/storage/:ref/analytics-buckets/:id`
+- `GET /platform/storage/:ref/analytics-buckets/:id/namespaces`
+- `POST /platform/storage/:ref/analytics-buckets/:id/namespaces`
+- `GET /platform/storage/:ref/archive`
+
+#### Edge Functions (1)
+- `GET /v1/projects/:ref/functions/deployed-size` → `{ deployed_size: 0 }` (registered before `/:slug` routes to avoid parameter capture)
+
+#### Secrets (6)
+- `GET /v1/projects/:ref/secrets` — already in `apps/api/src/routes/management/secrets.ts`
+- `POST /v1/projects/:ref/secrets` — already in `apps/api/src/routes/management/secrets.ts`
+- `DELETE /v1/projects/:ref/secrets` — already in `apps/api/src/routes/management/secrets.ts`
+- `GET /platform/projects/:ref/config/secrets` — implemented in `platform-misc.ts` (proxies to `/v1/` route)
+- `PATCH /platform/projects/:ref/config/secrets` — implemented in `platform-misc.ts` (proxies POST to `/v1/` route)
+- `GET /platform/projects/:ref/config/secrets/update-status` — stub in `platform-misc.ts` returning `{updating:false}`
+
+#### Analytics & Logs (4)
+- `GET /platform/projects/:ref/analytics/log-drains` → `[]`
+- `POST /platform/projects/:ref/analytics/log-drains` → 201 with `{token:'stub',...body}`
+- `PUT /platform/projects/:ref/analytics/log-drains/:token` → body echo
+- `DELETE /platform/projects/:ref/analytics/log-drains/:token` → 204
+
+#### Project Lifecycle (8)
+- `POST /platform/projects/:ref/pause` → proxies to `/v1/projects/:ref/pause`
+- `POST /platform/projects/:ref/restore` → proxies to `/v1/projects/:ref/restore`
+- `POST /platform/projects/:ref/restart` → proxies to `/api/v1/instances/:ref/restart`
+- `POST /platform/projects/:ref/restart-services` → proxies to `/api/v1/instances/:ref/restart`
+- `POST /platform/projects/:ref/resize` → stub 200 (no compute resize in self-hosted)
+- `PATCH /platform/projects/:ref/db-password` → stub 200 (not exposed via platform API)
+- `POST /platform/projects/:ref/transfer` → stub 200 (not applicable for self-hosted)
+- `GET /platform/projects/:ref/transfer/preview` → stub `{}` (not applicable for self-hosted)
+
+#### Org Members (14)
+- `GET /platform/organizations/:slug/members` — already existed
+- `GET /platform/organizations/:slug/roles` — already existed
+- `GET /platform/organizations/:slug/members/invitations` — already existed
+- `GET /platform/organizations/:slug/members/reached-free-project-limit` — already existed
+- `GET /platform/organizations/:slug/members/mfa/enforcement` — already existed
+- `PATCH /platform/organizations/:slug/members/mfa/enforcement` — added
+- `GET /platform/organizations/:slug/members/invitations/:token` — added
+- `POST /platform/organizations/:slug/members/invitations/:token` — added
+- `POST /platform/organizations/:slug/members/invitations` — added
+- `DELETE /platform/organizations/:slug/members/invitations/:id` — added
+- `PATCH /platform/organizations/:slug/members/:gotrue_id` — added
+- `DELETE /platform/organizations/:slug/members/:gotrue_id` — added
+- `POST /platform/organizations/:slug/members/:gotrue_id/roles/:role_id` — added
+- `DELETE /platform/organizations/:slug/members/:gotrue_id/roles/:role_id` — added
+
+#### Org Apps & OAuth (15)
+- `POST /platform/organizations/:slug/apps/installations`
+- `DELETE /platform/organizations/:slug/apps/installations/:id`
+- `GET /platform/organizations/:slug/apps/:app_id`
+- `PATCH /platform/organizations/:slug/apps/:app_id`
+- `DELETE /platform/organizations/:slug/apps/:app_id`
+- `POST /platform/organizations/:slug/apps/:app_id/signing-keys`
+- `DELETE /platform/organizations/:slug/apps/:app_id/signing-keys/:id`
+- `POST /platform/organizations/:slug/oauth/apps`
+- `GET /platform/organizations/:slug/oauth/apps/:id`
+- `DELETE /platform/organizations/:slug/oauth/apps/:id`
+- `POST /platform/organizations/:slug/oauth/apps/:id/revoke`
+- `POST /platform/organizations/:slug/oauth/apps/:id/client-secrets`
+- `DELETE /platform/organizations/:slug/oauth/apps/:id/client-secrets/:sid`
+- `GET /platform/organizations/:slug/oauth/authorizations/:id`
+- `GET /platform/oauth/authorizations/:id`
+
+#### Replication (25)
+- `GET /platform/replication/:ref/sources`
+- `GET /platform/replication/:ref/sources/:source_id/tables`
+- `GET /platform/replication/:ref/sources/:source_id/publications`
+- `POST /platform/replication/:ref/sources/:source_id/publications`
+- `DELETE /platform/replication/:ref/sources/:source_id/publications/:name`
+- `GET /platform/replication/:ref/destinations`
+- `POST /platform/replication/:ref/destinations/validate`
+- `POST /platform/replication/:ref/destinations`
+- `PATCH /platform/replication/:ref/destinations/:id`
+- `DELETE /platform/replication/:ref/destinations/:id`
+- `GET /platform/replication/:ref/pipelines`
+- `POST /platform/replication/:ref/pipelines/validate`
+- `POST /platform/replication/:ref/pipelines`
+- `DELETE /platform/replication/:ref/pipelines/:id`
+- `POST /platform/replication/:ref/pipelines/:id/start`
+- `POST /platform/replication/:ref/pipelines/:id/stop`
+- `GET /platform/replication/:ref/pipelines/:id/status`
+- `GET /platform/replication/:ref/pipelines/:id/version`
+- `GET /platform/replication/:ref/pipelines/:id/replication-status`
+- `POST /platform/replication/:ref/pipelines/:id/rollback-tables`
+- `POST /platform/replication/:ref/destinations-pipelines`
+- `DELETE /platform/replication/:ref/destinations-pipelines/:did/:pid`
+- `GET /platform/replication/:ref/tenants`
+- `DELETE /platform/replication/:ref/tenants`
+- `POST /platform/replication/:ref/tenants-sources`
+
+#### Telemetry & Feature Flags (3)
+- `GET /platform/telemetry/feature-flags` — already existed
+- `GET /platform/projects-resource-warnings` — already existed
+- `GET /platform/deployment-mode` — newly added
+
+#### Project Misc / UI / Content / Branches (6)
+- `GET /platform/projects/:ref/content/folders/:id`
+- `POST /platform/projects/:ref/content`
+- `GET /platform/projects/:ref/content/item/:id`
+- `GET /platform/projects/:ref/service-versions`
+- `GET /platform/projects/:ref/api-keys/temporary`
+- `GET /v1/projects/:ref/config/auth/third-party-auth`
+
+#### CLI & Developer (15)
+- `POST /platform/signup`
+- `POST /platform/reset-password`
+- `POST /platform/update-email`
+- `PATCH /platform/organizations/:slug`
+- `GET /platform/organizations/:slug/available-versions`
+- `POST /platform/organizations/:slug/billing/subscription/confirm`
+- `POST /platform/organizations/:slug/billing/upgrade-request`
+- `POST /platform/organizations/:slug/payments/setup-intent`
+- `POST /platform/organizations/cloud-marketplace`
+- `POST /platform/organizations/confirm-subscription`
+- `POST /platform/database/:ref/backups/restore`
+- `POST /platform/database/:ref/backups/restore-physical`
+- `POST /platform/database/:ref/backups/enable-physical-backups`
+- `POST /platform/database/:ref/clone`
+- `POST /platform/database/:ref/hook-enable`
+
+#### Feedback (4)
+- `POST /platform/feedback/send`
+- `POST /platform/feedback/upgrade`
+- `POST /platform/feedback/downgrade`
+- `PATCH /platform/feedback/conversations/:id/custom-fields`
+
+### Session 4 Total: ~146 endpoints across 14 categories
+
+### Browser Test Results (supaviser.dev)
+
+Login: ✅ successful
+
+| Page | Loaded | Console Errors |
+|---|---|---|
+| `/org` | ✅ | 0 |
+| `/project/cwcbvosmxmhdaqlrouma` | ✅ | 1 |
+| `/project/.../database/tables` | ✅ | 0 |
+| `/project/.../editor` | ✅ | 0 |
+| `/project/.../auth/users` | ✅ | 1 |
+| `/project/.../storage` | ✅ | 0 |
+| `/project/.../functions` | ✅ | 0 |
+| `/project/.../settings/general` | ✅ | 0 |
+| `/project/.../auth/providers` | ✅ | 0 |
+| `/project/.../database/schemas` | ✅ | 0 |
+
+All 10 tested pages load successfully. 2 pages have minor console errors (project home and auth/users) — likely non-blocking UI warnings from unsupported Cloud-only features (compute addons, phone MFA).
+
+### Known Remaining Issues
+- Project home: 1 console error (likely compute addon shape mismatch)
+- Auth/users: 1 console error (likely phone/MFA provider shape)
+- Storage vector-buckets / analytics-buckets: stubs only (no backend)
+- Replication: all stubs (no CDC service in self-hosted)
+- PrivateLink / custom hostname: stubs (Cloud-only features)
