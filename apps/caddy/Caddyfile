@@ -52,8 +52,9 @@
 	handle /api/get-deployment-commit {
 		reverse_proxy api:3001
 	}
-	# /api/v1/* → Supastack API. Other /api/* (Studio Next.js internal routes)
-	# fall through to Studio.
+	# /api/v1/* → Supastack API (includes /api/v1/v1/* which is handled
+	# internally by the double-v1 Fastify catch-all in server.ts).
+	# Other /api/* paths (Studio Next.js routes) fall through to Studio.
 	handle /api/v1* {
 		reverse_proxy api:3001
 	}
