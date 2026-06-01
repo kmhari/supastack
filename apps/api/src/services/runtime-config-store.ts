@@ -117,6 +117,11 @@ const AUTH_FIELD_STATUS_EXTENSION = Object.freeze(buildAuthFieldStatusExtension(
 
 // ─── Public API ────────────────────────────────────────────────────────────
 
+/** Reveal handler entry-point. Returns the plaintext config with secrets unredacted. */
+export async function getPlaintextConfig(ref: string, surface: ConfigSurface): Promise<ConfigJson> {
+  return loadCurrentPlaintext(ref, surface);
+}
+
 /** GET handler entry-point. Returns the redacted post-merge config. */
 export async function getConfig(ref: string, surface: ConfigSurface): Promise<ConfigJson> {
   const plaintext = await loadCurrentPlaintext(ref, surface);
