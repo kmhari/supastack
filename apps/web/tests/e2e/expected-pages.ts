@@ -90,6 +90,12 @@ const PROJECT_PAGES: ReadonlyArray<ExpectedPage> = [
     sourceFile: 'ProjectAuthUrlConfig.tsx',
   },
   {
+    path: '/dashboard/project/{ref}/auth/hooks',
+    headline: 'Auth Hooks',
+    requiresProject: true,
+    sourceFile: 'ProjectAuthHooks.tsx',
+  },
+  {
     path: '/dashboard/project/{ref}/health',
     headline: 'Health',
     requiresProject: true,
@@ -174,6 +180,7 @@ export const PROJECT_SHELL_GROUPS: ReadonlyArray<SidebarGroup> = [
     items: [
       { label: 'Providers', suffix: '/auth/providers' },
       { label: 'URL Configuration', suffix: '/auth/url-configuration' },
+      { label: 'Hooks', suffix: '/auth/hooks' },
     ],
   },
   {

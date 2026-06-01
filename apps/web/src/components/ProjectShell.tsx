@@ -38,6 +38,7 @@ export function ProjectShell({
       items: [
         { to: `${base}/auth/providers`, label: 'Providers' },
         { to: `${base}/auth/url-configuration`, label: 'URL Configuration' },
+        { to: `${base}/auth/hooks`, label: 'Hooks' },
       ],
     },
     {

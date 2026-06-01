@@ -107,9 +107,9 @@ describe('AUTH_CONFIG_FIELD_STATUS counts (T029)', () => {
     expect(entries.length).toBe(234);
   });
 
-  it('honored count is in target range [160, 170]', () => {
-    expect(honored.length).toBeGreaterThanOrEqual(160);
-    expect(honored.length).toBeLessThanOrEqual(170);
+  it('honored count is in target range [183, 193] (feature 082 added hook fields)', () => {
+    expect(honored.length).toBeGreaterThanOrEqual(183);
+    expect(honored.length).toBeLessThanOrEqual(193);
   });
 
   it('unsupported count is exactly 6 (Cloud-only OAuth server + Nimbus)', () => {
