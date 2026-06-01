@@ -26,7 +26,7 @@ let composeHealthy = true;
 const fetchCalls: Array<{ url: string; method: string }> = [];
 const queueAdds: Array<Record<string, unknown>> = [];
 
-vi.mock('@selfbase/docker-control', () => ({
+vi.mock('@supastack/docker-control', () => ({
   composeUp: vi.fn(async () => {
     dockerCalls.push('composeUp');
   }),
@@ -39,7 +39,7 @@ vi.mock('@selfbase/docker-control', () => ({
   }),
 }));
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     select: (cols?: Record<string, unknown>) => {
       const isOrg = cols && Object.keys(cols).includes('apex');
@@ -67,7 +67,7 @@ vi.mock('@selfbase/db', () => ({
 
 vi.mock('drizzle-orm', () => ({ eq: () => ({ kind: 'eq' }) }));
 
-vi.mock('@selfbase/crypto', () => ({
+vi.mock('@supastack/crypto', () => ({
   decryptJson: () => ({
     jwtSecret: 'j',
     anonKey: 'a',

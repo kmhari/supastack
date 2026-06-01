@@ -3,7 +3,7 @@
  *
  * Shares the same Redis instance the dashboard sessions use; different key namespace.
  *
- *   Key:    selfbase:cli-login:<session_id>
+ *   Key:    supastack:cli-login:<session_id>
  *   Value:  JSON payload (see SessionPayload type)
  *   TTL:    5 minutes (300s)
  *
@@ -22,7 +22,7 @@ export type SessionPayload = {
   user_id: string; // operator who initiated the mint
 };
 
-const KEY_PREFIX = 'selfbase:cli-login:';
+const KEY_PREFIX = 'supastack:cli-login:';
 const TTL_SECONDS = 300;
 
 let _redis: Redis | null = null;

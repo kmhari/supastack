@@ -105,7 +105,7 @@ vi.mock('pg', () => ({
   },
 }));
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => {
     dbCallCount++;
     const value = dbQueue.length > 0 ? dbQueue.shift() : [];
@@ -146,12 +146,12 @@ vi.mock('@selfbase/db', () => ({
   },
 }));
 
-vi.mock('@selfbase/crypto', () => ({
+vi.mock('@supastack/crypto', () => ({
   decryptJson: vi.fn(() => ({ postgresPassword: 'test-pw' })),
   loadMasterKey: vi.fn(() => Buffer.alloc(32)),
 }));
 
-vi.mock('@selfbase/shared', () => ({
+vi.mock('@supastack/shared', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 

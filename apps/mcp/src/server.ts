@@ -1,18 +1,18 @@
 /**
- * selfbase MCP HTTP service — feature 014 US1.
+ * supastack MCP HTTP service — feature 014 US1.
  *
  * Wraps upstream @supabase/mcp-server-supabase as a Streamable HTTP
- * transport at POST /mcp, gated by selfbase OAuth 2.1 bearer tokens.
+ * transport at POST /mcp, gated by supastack OAuth 2.1 bearer tokens.
  *
  * Per Clarifications Q5: single-replica + in-process session map.
  */
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { createSupabaseMcpServer } from '@supabase/mcp-server-supabase';
+import { loadMasterKey } from '@supastack/crypto';
 import Fastify from 'fastify';
 import { Redis } from 'ioredis';
 import { randomUUID } from 'node:crypto';
-import { loadMasterKey } from '@selfbase/crypto';
-import { createSupabaseMcpServer } from '@supabase/mcp-server-supabase';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
 import { AuthError, resolveBearer, wwwAuthenticateHeader } from './bearer-auth.js';
 import { buildPlatform } from './platform-build.js';
@@ -28,8 +28,8 @@ const DEFERRED_TOOLS = new Set([
 
 const PORT = Number(process.env.PORT ?? 3002);
 const HOST = process.env.HOST ?? '0.0.0.0';
-const APEX = process.env.SELFBASE_APEX ?? '';
-const API_URL = process.env.SELFBASE_API_URL ?? 'http://api:3001';
+const APEX = process.env.SUPASTACK_APEX ?? '';
+const API_URL = process.env.SUPASTACK_API_URL ?? 'http://api:3001';
 const SESSION_IDLE_MS = 30 * 60 * 1000; // 30 min
 
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } });
@@ -60,7 +60,7 @@ sweep.unref();
 
 // ─── Routes ────────────────────────────────────────────────────────────────
 
-app.get('/health', async () => ({ ok: true, service: 'selfbase-mcp' }));
+app.get('/health', async () => ({ ok: true, service: 'supastack-mcp' }));
 
 // RFC 9728 — protected-resource metadata for OAuth discovery
 app.get('/.well-known/oauth-protected-resource', async (_req, reply) => {
@@ -184,7 +184,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   app
     .listen({ port: PORT, host: HOST })
     .then(() => {
-      app.log.info({ port: PORT, apex: APEX, apiUrl: API_URL }, 'selfbase mcp listening');
+      app.log.info({ port: PORT, apex: APEX, apiUrl: API_URL }, 'supastack mcp listening');
     })
     .catch((err) => {
       console.error('mcp startup failed:', err);

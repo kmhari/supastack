@@ -1,7 +1,7 @@
-import { randomBytes, createHash } from 'node:crypto';
+import { schema } from '@supastack/db';
 import type { ExtractTablesWithRelations } from 'drizzle-orm';
 import type { NodePgDatabase, NodePgTransaction } from 'drizzle-orm/node-postgres';
-import { schema } from '@selfbase/db';
+import { createHash, randomBytes } from 'node:crypto';
 
 type Schema = typeof schema;
 /** Accepts either the global db() or a transactional client. */
@@ -13,7 +13,7 @@ export type Inserter =
  * The exact regex the upstream Supabase CLI validates tokens against
  * client-side (`apps/cli-go/internal/utils/access_token.go:16`). Tokens
  * that do not match this pattern are rejected before any HTTP call is
- * made. Selfbase only emits the `sbp_<40-hex>` form (no `oauth_` infix);
+ * made. Supastack only emits the `sbp_<40-hex>` form (no `oauth_` infix);
  * the regex here mirrors the CLI's so we can validate symmetrically.
  *
  * Spec: specs/003-supabase-cli-compat-p0/spec.md FR-003a

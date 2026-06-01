@@ -1,12 +1,12 @@
+import { decryptJson, encryptJson, loadMasterKey } from '@supastack/crypto';
+import { db, schema } from '@supastack/db';
 import acme from 'acme-client';
+import { and, eq } from 'drizzle-orm';
+import Redis from 'ioredis';
 import { X509Certificate } from 'node:crypto';
 import { Resolver } from 'node:dns/promises';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { eq, and } from 'drizzle-orm';
-import Redis from 'ioredis';
-import { db, schema } from '@selfbase/db';
-import { encryptJson, decryptJson, loadMasterKey } from '@selfbase/crypto';
 
 let _redisPub: Redis | null = null;
 function getRedisPub(): Redis | null {
@@ -16,7 +16,7 @@ function getRedisPub(): Redis | null {
   return _redisPub;
 }
 
-const CERTS_DIR = process.env.SELFBASE_CERTS_DIR ?? '/var/selfbase/certs';
+const CERTS_DIR = process.env.SUPASTACK_CERTS_DIR ?? '/var/supastack/certs';
 const DIRECTORY_URL = process.env.ACME_DIRECTORY_URL || acme.directory.letsencrypt.production;
 
 export interface InitiateResult {
@@ -420,7 +420,7 @@ export async function issuePerProjectCert(
     try {
       await rpub.connect().catch(() => undefined);
       await rpub.publish(
-        'selfbase:pg-edge-cert:issued',
+        'supastack:pg-edge-cert:issued',
         JSON.stringify({ ref: instanceRef, hostname }),
       );
     } catch {

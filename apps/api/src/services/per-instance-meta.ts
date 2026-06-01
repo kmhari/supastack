@@ -1,5 +1,5 @@
 import { fetch } from 'undici';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import type { InstanceSecrets } from './instance-secrets.js';
 
 /**

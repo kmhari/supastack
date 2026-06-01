@@ -16,7 +16,7 @@
  *   tls_certs                 .key_pem                        (nullable)
  *   pg_edge_certs             .key_pem                        (nullable)
  *
- * Usage (on the VM, inside the selfbase repo):
+ * Usage (on the VM, inside the supastack repo):
  *   OLD_MASTER_KEY=<old 64-hex> \
  *   NEW_MASTER_KEY=<new 64-hex> \
  *   DATABASE_URL=postgres://... \
@@ -26,7 +26,7 @@
  * Dry-run (no writes): DRY_RUN=1 node scripts/rekey-master.mjs
  *
  * After a successful run:
- *   1. Update MASTER_KEY in /opt/selfbase/infra/.env to NEW_MASTER_KEY
+ *   1. Update MASTER_KEY in /opt/supastack/infra/.env to NEW_MASTER_KEY
  *   2. Restart api and worker: sudo docker compose restart api worker
  *   3. Verify a project pause+restore completes without errors
  */
@@ -146,7 +146,7 @@ try {
     await client.query('COMMIT');
     console.log(`\n[rekey] COMMITTED — ${totalRows} blob(s) rotated to new master key`);
     console.log('[rekey] Next steps:');
-    console.log('  1. Update MASTER_KEY in /opt/selfbase/infra/.env');
+    console.log('  1. Update MASTER_KEY in /opt/supastack/infra/.env');
     console.log('  2. sudo docker compose restart api worker');
     console.log('  3. Pause and restore a project to verify decryption works');
   } else {

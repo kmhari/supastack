@@ -1,4 +1,4 @@
-# @selfbase/backup-store
+# @supastack/backup-store
 
 Pluggable backup destination.
 
@@ -31,7 +31,7 @@ written to `org.backup_store_config_encrypted`.
 ## Tests
 
 ```sh
-pnpm --filter @selfbase/backup-store test
+pnpm --filter @supastack/backup-store test
 ```
 
 `LocalDiskStore` round-trip + traversal safety is unit-tested. S3 tests

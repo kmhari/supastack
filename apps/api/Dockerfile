@@ -1,4 +1,4 @@
-# selfbase API image — minimal node + tsx for v1 (no compiled bundle yet).
+# supastack API image — minimal node + tsx for v1 (no compiled bundle yet).
 # A production tsc-built bundle lands in a later phase; v1 ships dev-style.
 FROM node:20-slim AS base
 ENV PNPM_HOME=/pnpm
@@ -11,7 +11,7 @@ FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY apps/api/package.json ./apps/api/
 COPY packages ./packages/
-RUN pnpm install --frozen-lockfile=false --filter @selfbase/api...
+RUN pnpm install --frozen-lockfile=false --filter @supastack/api...
 
 FROM base AS runtime
 COPY --from=deps /app /app

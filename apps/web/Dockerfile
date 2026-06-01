@@ -1,4 +1,4 @@
-# Selfbase web — production build served by a tiny caddy/static server.
+# Supastack web — production build served by a tiny caddy/static server.
 FROM node:20-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
@@ -9,7 +9,7 @@ FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* tsconfig.base.json ./
 COPY apps/web/package.json ./apps/web/
 COPY packages ./packages/
-RUN pnpm install --frozen-lockfile=false --filter @selfbase/web...
+RUN pnpm install --frozen-lockfile=false --filter @supastack/web...
 
 FROM deps AS builder
 COPY apps/web ./apps/web

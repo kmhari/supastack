@@ -2,7 +2,7 @@
  * Per-project Logflare/analytics container forwarder — feature 014 US4.
  *
  * Forwards a SQL-over-logs query to the project's analytics container
- * (`selfbase-<ref>-analytics-1:4000`). Authenticates with the per-project
+ * (`supastack-<ref>-analytics-1:4000`). Authenticates with the per-project
  * `logflarePrivateAccessToken` stored in encrypted secrets.
  *
  * Service → log-table mapping mirrors upstream Cloud (research.md Decision 9):
@@ -12,8 +12,8 @@
  * Spec: 014-mcp-http-oauth — FR-025..028, contracts/logs-endpoint.md.
  */
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
+import { db, schema } from '@supastack/db';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import type { InstanceSecrets } from './instance-secrets.js';
 
 export type LogService = 'api' | 'postgres' | 'edge-function' | 'auth' | 'storage' | 'realtime';
@@ -84,7 +84,7 @@ export async function queryLogs(ref: string, opts: QueryLogsOptions): Promise<Lo
     );
   }
 
-  // Per-project analytics container is on the isolated `selfbase-<ref>_default`
+  // Per-project analytics container is on the isolated `supastack-<ref>_default`
   // Docker network — unreachable from the api container directly. Route through
   // Kong using the host-mapped port_kong + the /analytics/v1/* path. NOTE:
   // operators must uncomment the analytics routes in their per-project

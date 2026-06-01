@@ -120,7 +120,7 @@
 }
 
 /* Health page — soft pulse used on live status dots. */
-@keyframes selfbase-pulse {
+@keyframes supastack-pulse {
   0%,
   100% {
     opacity: 1;
@@ -131,7 +131,7 @@
     transform: scale(1.55);
   }
 }
-@keyframes selfbase-row-in {
+@keyframes supastack-row-in {
   from {
     opacity: 0;
     transform: translateY(4px);
@@ -141,7 +141,7 @@
     transform: translateY(0);
   }
 }
-@keyframes selfbase-shimmer {
+@keyframes supastack-shimmer {
   0% {
     background-position: -200px 0;
   }

@@ -3,14 +3,14 @@
  *
  * Spec: contracts/management-api.yaml `operationId: listOrganizations`
  *
- * Selfbase models a single org per deployment today (the `org` table is a
+ * Supastack models a single org per deployment today (the `org` table is a
  * singleton-ish), but the CLI always sends a list-shaped GET; we comply by
  * returning all orgs the user has a membership in via `org_members`.
  */
+import { db, schema } from '@supastack/db';
+import type { Organization } from '@supastack/shared';
 import { eq } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
-import { db, schema } from '@selfbase/db';
-import type { Organization } from '@selfbase/shared';
 import { orgToOrganization } from '../../services/mgmt-api-mapping.js';
 
 export const organizationsRoutes: FastifyPluginAsync = async (app) => {

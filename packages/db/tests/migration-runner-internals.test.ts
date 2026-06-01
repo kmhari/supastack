@@ -9,9 +9,9 @@
  * Also imports every schema module + the top-level index so coverage credits
  * their drizzle table declarations.
  */
-import { mkdtemp, readdir, writeFile, rm } from 'node:fs/promises';
-import path from 'node:path';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -64,27 +64,27 @@ describe('migration runner internals — pure helpers', () => {
 });
 
 /**
- * pg-gated tests for the runner itself — exercise the SELFBASE_MIGRATIONS_DIR
+ * pg-gated tests for the runner itself — exercise the SUPASTACK_MIGRATIONS_DIR
  * env override and the ENOENT skip branch.
  */
 describe.skipIf(!TEST_DATABASE_URL)('migration runner — env override + ENOENT branch', () => {
   let tmpDir: string;
-  const originalEnv = process.env.SELFBASE_MIGRATIONS_DIR;
+  const originalEnv = process.env.SUPASTACK_MIGRATIONS_DIR;
 
   beforeAll(async () => {
-    tmpDir = await mkdtemp(path.join(os.tmpdir(), 'selfbase-migrations-'));
+    tmpDir = await mkdtemp(path.join(os.tmpdir(), 'supastack-migrations-'));
   });
 
   afterAll(async () => {
-    if (originalEnv === undefined) delete process.env.SELFBASE_MIGRATIONS_DIR;
-    else process.env.SELFBASE_MIGRATIONS_DIR = originalEnv;
+    if (originalEnv === undefined) delete process.env.SUPASTACK_MIGRATIONS_DIR;
+    else process.env.SUPASTACK_MIGRATIONS_DIR = originalEnv;
     if (tmpDir) await rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('SELFBASE_MIGRATIONS_DIR override + ENOENT branch are both successful no-ops once schema exists', async () => {
+  it('SUPASTACK_MIGRATIONS_DIR override + ENOENT branch are both successful no-ops once schema exists', async () => {
     // Prime the DB with the real migration set first so the org table (which
     // the singleton index targets) exists.
-    delete process.env.SELFBASE_MIGRATIONS_DIR;
+    delete process.env.SUPASTACK_MIGRATIONS_DIR;
     const { migrate } = await import('../src/migrate.js');
     await migrate(TEST_DATABASE_URL!);
 
@@ -92,11 +92,11 @@ describe.skipIf(!TEST_DATABASE_URL)('migration runner — env override + ENOENT 
     //    filter yields [], runner skips the loop, singleton index already
     //    exists so CREATE INDEX IF NOT EXISTS is a no-op.
     await writeFile(path.join(tmpDir, 'NOTES.md'), 'not a migration\n');
-    process.env.SELFBASE_MIGRATIONS_DIR = tmpDir;
+    process.env.SUPASTACK_MIGRATIONS_DIR = tmpDir;
     await expect(migrate(TEST_DATABASE_URL!)).resolves.toBeUndefined();
 
     // 2) Override to a non-existent dir → ENOENT branch swallows, loop skipped.
-    process.env.SELFBASE_MIGRATIONS_DIR = path.join(tmpDir, 'does-not-exist-xyz');
+    process.env.SUPASTACK_MIGRATIONS_DIR = path.join(tmpDir, 'does-not-exist-xyz');
     await expect(migrate(TEST_DATABASE_URL!)).resolves.toBeUndefined();
   });
 });

@@ -1,7 +1,7 @@
-# Selfbase Caddy skeleton — boot-time minimum.
+# Supastack Caddy skeleton — boot-time minimum.
 #
 # This file defines what's reachable from the moment Caddy starts, BEFORE the
-# selfbase API has pushed any per-instance routes via the admin API. Two
+# supastack API has pushed any per-instance routes via the admin API. Two
 # critical properties:
 #
 #   1. :80 ALWAYS serves the dashboard in plain HTTP, regardless of whether
@@ -68,11 +68,11 @@
 	}
 }
 
-# mcp.<apex> — selfbase MCP HTTP service (feature 014). Matched BEFORE the
+# mcp.<apex> — supastack MCP HTTP service (feature 014). Matched BEFORE the
 # generic :443 block so it wins for the mcp subdomain. Wildcard cert
 # (*.<apex>) from feature 004 covers it; on-demand TLS still fires the first
 # time if a fresh cert is needed.
-mcp.{$SELFBASE_APEX} {
+mcp.{$SUPASTACK_APEX} {
 	tls {
 		on_demand
 	}

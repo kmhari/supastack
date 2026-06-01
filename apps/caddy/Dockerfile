@@ -1,6 +1,6 @@
-# selfbase Caddy — custom build with caddy-l4 module.
+# supastack Caddy — custom build with caddy-l4 module.
 #
-# This is the FIRST selfbase feature requiring a custom Caddy image. Feature 004
+# This is the FIRST supastack feature requiring a custom Caddy image. Feature 004
 # (wildcard cert via DNS-01) deliberately stayed on stock caddy:2.8-alpine by
 # using acme-client (npm) + tls.certificates.load_files. Feature 005 introduces
 # Postgres SNI routing on :5432 which requires the caddy-l4 module — not part

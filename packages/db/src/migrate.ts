@@ -1,7 +1,7 @@
-import pg from 'pg';
 import { readdir, readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import pg from 'pg';
 
 /**
  * Idempotent migrations runner. Called at API/worker startup and from
@@ -29,7 +29,7 @@ export async function migrate(connectionString: string): Promise<void> {
 
     // Migration files
     const migrationsFolder =
-      process.env.SELFBASE_MIGRATIONS_DIR ??
+      process.env.SUPASTACK_MIGRATIONS_DIR ??
       path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
     let files: string[] = [];

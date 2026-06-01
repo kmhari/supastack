@@ -1,5 +1,5 @@
 {
-  "name": "@selfbase/mcp",
+  "name": "@supastack/mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,10 +11,10 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "@selfbase/crypto": "workspace:*",
-    "@selfbase/db": "workspace:*",
-    "@selfbase/oauth": "workspace:*",
-    "@selfbase/shared": "workspace:*",
+    "@supastack/crypto": "workspace:*",
+    "@supastack/db": "workspace:*",
+    "@supastack/oauth": "workspace:*",
+    "@supastack/shared": "workspace:*",
     "@supabase/mcp-server-supabase": "^0.8.1",
     "fastify": "^4.28.1",
     "ioredis": "^5.4.1"

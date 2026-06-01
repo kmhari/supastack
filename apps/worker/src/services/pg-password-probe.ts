@@ -13,9 +13,9 @@
  */
 import pg from 'pg';
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
-import { logger } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
+import { logger } from '@supastack/shared';
 
 export interface ProbeResult {
   ok: boolean;

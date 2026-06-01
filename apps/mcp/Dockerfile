@@ -1,6 +1,6 @@
-# selfbase MCP HTTP service — feature 014.
+# supastack MCP HTTP service — feature 014.
 # Wraps upstream @supabase/mcp-server-supabase as a Streamable HTTP transport
-# at mcp.<apex>/mcp, gated by selfbase OAuth bearer tokens.
+# at mcp.<apex>/mcp, gated by supastack OAuth bearer tokens.
 FROM node:20-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
@@ -12,7 +12,7 @@ FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY apps/mcp/package.json ./apps/mcp/
 COPY packages ./packages/
-RUN pnpm install --frozen-lockfile=false --filter @selfbase/mcp...
+RUN pnpm install --frozen-lockfile=false --filter @supastack/mcp...
 
 FROM base AS runtime
 COPY --from=deps /app /app

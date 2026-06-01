@@ -1,68 +1,67 @@
-import Fastify, { type FastifyInstance } from 'fastify';
-import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
-import { AppError, errors } from '@selfbase/shared';
-import { loadMasterKey } from '@selfbase/crypto';
-import { makeDb, migrate } from '@selfbase/db';
+import { loadMasterKey } from '@supastack/crypto';
+import { db, makeDb, migrate, schema } from '@supastack/db';
+import { AppError, errors } from '@supastack/shared';
+import { eq } from 'drizzle-orm';
+import Fastify, { type FastifyInstance } from 'fastify';
+import { existsSync } from 'node:fs';
 import { authPlugin } from './plugins/auth.js';
-import { rbacPlugin } from './plugins/rbac.js';
 import { mgmtApiErrorsPlugin } from './plugins/mgmt-api-errors.js';
-import { tlsAskRoutes } from './routes/tls-ask.js';
-import { caddyInternalRoutes } from './routes/caddy-internal.js';
-import { healthRoutes } from './routes/health.js';
-import { setupRoutes } from './routes/setup.js';
-import { authRoutes } from './routes/auth.js';
-import { instancesRoutes } from './routes/instances.js';
-import { backupsRoutes } from './routes/backups.js';
-import { orgRoutes } from './routes/org.js';
-import { apexRoutes } from './routes/apex.js';
-import { membersRoutes } from './routes/members.js';
-import { auditRoutes } from './routes/audit.js';
-import { notImplementedRoutes } from './routes/management/not-implemented.js';
-import { profileRoutes } from './routes/management/profile.js';
-import { organizationsRoutes } from './routes/management/organizations.js';
-import { projectsRoutes } from './routes/management/projects.js';
-import { apiKeysRoutes } from './routes/management/api-keys.js';
-import { functionsRoutes } from './routes/management/functions.js';
-import { secretsRoutes } from './routes/management/secrets.js';
-import { genTypesRoutes } from './routes/management/gen-types.js';
-import { migrationsRoutes } from './routes/management/migrations.js';
-import { cliLoginRoleRoutes } from './routes/management/cli-login-role.js';
-import { dbQueryRoutes } from './routes/management/db-query.js';
-import { dbDumpRoutes } from './routes/management/db-dump.js';
-import { logsRoutes } from './routes/management/logs.js';
-import { storageBucketsRoutes } from './routes/management/storage-buckets.js';
-import { pauseRestoreRoutes } from './routes/management/pause-restore.js';
-import { backupsMgmtRoutes } from './routes/management/backups-mgmt.js';
-import { authConfigRoutes } from './routes/management/auth-config.js';
-import { postgrestConfigRoutes } from './routes/management/postgrest-config.js';
-import { billingAddonsRoutes } from './routes/management/billing-addons.js';
-import { postgresConfigRoutes } from './routes/management/postgres-config.js';
-import { sslEnforcementRoutes } from './routes/management/ssl-enforcement.js';
-import { connectCliRoutes } from './routes/connect-cli.js';
-import { wildcardCertRoutes } from './routes/wildcard-certs.js';
+import { rbacPlugin } from './plugins/rbac.js';
 import { acmeChallengeRoutes } from './routes/acme-challenge.js';
-import { pgEdgeCertInternalRoutes } from './routes/pg-edge-cert-internal.js';
-import { poolerInternalRoutes } from './routes/pooler-internal.js';
-import { poolerReconcilerRunRoutes } from './routes/pooler-reconciler-run.js';
-import { resetPgPasswordRoutes } from './routes/reset-pg-password.js';
-import { poolerStatusRoutes } from './routes/pooler-status.js';
-import { poolerReregisterRoutes } from './routes/pooler-reregister.js';
-import { vaultEnableRoutes } from './routes/vault-enable.js';
-import { secretsDashboardRoutes } from './routes/secrets-dashboard.js';
+import { apexRoutes } from './routes/apex.js';
+import { auditRoutes } from './routes/audit.js';
+import { authRoutes } from './routes/auth.js';
+import { backupsRoutes } from './routes/backups.js';
+import { caddyInternalRoutes } from './routes/caddy-internal.js';
 import { cliLoginRoutes } from './routes/cli-login.js';
-import { platformCliLoginRoutes } from './routes/platform-cli-login.js';
+import { connectCliRoutes } from './routes/connect-cli.js';
+import { healthRoutes } from './routes/health.js';
+import { instancesRoutes } from './routes/instances.js';
+import { apiKeysRoutes } from './routes/management/api-keys.js';
+import { authConfigRoutes } from './routes/management/auth-config.js';
+import { backupsMgmtRoutes } from './routes/management/backups-mgmt.js';
+import { billingAddonsRoutes } from './routes/management/billing-addons.js';
+import { cliLoginRoleRoutes } from './routes/management/cli-login-role.js';
+import { dbDumpRoutes } from './routes/management/db-dump.js';
+import { dbQueryRoutes } from './routes/management/db-query.js';
+import { functionsRoutes } from './routes/management/functions.js';
+import { genTypesRoutes } from './routes/management/gen-types.js';
+import { logsRoutes } from './routes/management/logs.js';
+import { migrationsRoutes } from './routes/management/migrations.js';
+import { notImplementedRoutes } from './routes/management/not-implemented.js';
+import { organizationsRoutes } from './routes/management/organizations.js';
+import { pauseRestoreRoutes } from './routes/management/pause-restore.js';
+import { postgresConfigRoutes } from './routes/management/postgres-config.js';
+import { postgrestConfigRoutes } from './routes/management/postgrest-config.js';
+import { profileRoutes } from './routes/management/profile.js';
+import { projectsRoutes } from './routes/management/projects.js';
+import { secretsRoutes } from './routes/management/secrets.js';
+import { sslEnforcementRoutes } from './routes/management/ssl-enforcement.js';
+import { storageBucketsRoutes } from './routes/management/storage-buckets.js';
+import { membersRoutes } from './routes/members.js';
+import { oauthAuthorizeRoutes } from './routes/oauth/authorize.js';
+import { oauthClientsDashboardRoutes } from './routes/oauth/clients-dashboard.js';
 import { oauthDiscoveryRoutes } from './routes/oauth/discovery.js';
 import { oauthRegisterRoutes } from './routes/oauth/register.js';
-import { oauthAuthorizeRoutes } from './routes/oauth/authorize.js';
 import { oauthTokenRoutes } from './routes/oauth/token.js';
-import { oauthClientsDashboardRoutes } from './routes/oauth/clients-dashboard.js';
+import { orgRoutes } from './routes/org.js';
+import { pgEdgeCertInternalRoutes } from './routes/pg-edge-cert-internal.js';
+import { platformCliLoginRoutes } from './routes/platform-cli-login.js';
+import { poolerInternalRoutes } from './routes/pooler-internal.js';
+import { poolerReconcilerRunRoutes } from './routes/pooler-reconciler-run.js';
+import { poolerReregisterRoutes } from './routes/pooler-reregister.js';
+import { poolerStatusRoutes } from './routes/pooler-status.js';
+import { resetPgPasswordRoutes } from './routes/reset-pg-password.js';
+import { secretsDashboardRoutes } from './routes/secrets-dashboard.js';
+import { setupRoutes } from './routes/setup.js';
+import { tlsAskRoutes } from './routes/tls-ask.js';
+import { vaultEnableRoutes } from './routes/vault-enable.js';
+import { wildcardCertRoutes } from './routes/wildcard-certs.js';
 import { createCertCheckQueue, createCertCheckWorker } from './services/cert-check.js';
 import { startPgEdgeProxy, type PgEdgeProxy } from './services/pg-edge-proxy.js';
-import { existsSync } from 'node:fs';
-import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -96,8 +95,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   // create projects via POST /api/v1/instances without actually spinning up
   // per-instance container stacks. Production builds (env unset) skip this
   // hook entirely; the real dockerode-backed control is used as before.
-  if (process.env.SELFBASE_TEST_FAKE_DOCKER === '1') {
-    (globalThis as { __selfbaseFakeDockerControl?: unknown }).__selfbaseFakeDockerControl = {
+  if (process.env.SUPASTACK_TEST_FAKE_DOCKER === '1') {
+    (globalThis as { __supastackFakeDockerControl?: unknown }).__supastackFakeDockerControl = {
       restart: async (_name: string): Promise<void> => {},
       waitHealthy: async (_name: string, _timeoutMs?: number): Promise<void> => {},
     };
@@ -109,7 +108,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Use Fastify's own pino with LoggerOptions — avoids the v4 instance-type
   // mismatch between our shared logger's full pino.Logger and Fastify's
-  // FastifyBaseLogger interface. Our @selfbase/shared logger remains the
+  // FastifyBaseLogger interface. Our @supastack/shared logger remains the
   // primary structured logger for non-request paths (worker, services).
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? 'info' },
@@ -154,7 +153,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   );
 
   // Uniform error formatter. Dashboard surface (everything except /v1) uses
-  // selfbase's envelope `{error: {code, message}}`; the CLI compat surface
+  // supastack's envelope `{error: {code, message}}`; the CLI compat surface
   // (`/v1/*`) needs the cloud envelope `{message, code, details?}` so the
   // upstream Supabase CLI's generated Go client can parse it.
   //
@@ -236,7 +235,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   //
   // The mgmtApiErrorsPlugin replaces the global error formatter inside this
   // scope (Fastify encapsulation) so responses match the cloud's envelope
-  // `{ message, code?, details? }` instead of selfbase's dashboard shape.
+  // `{ message, code?, details? }` instead of supastack's dashboard shape.
   // Multipart is scoped here too so the existing dashboard routes don't
   // accidentally accept binary uploads. bodyLimit is bumped to 50 MB for
   // the eszip + multipart deploy endpoints.
@@ -295,7 +294,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 async function main(): Promise<void> {
   const app = await buildApp();
   await app.listen({ port: PORT, host: HOST });
-  app.log.info({ port: PORT }, 'selfbase api listening');
+  app.log.info({ port: PORT }, 'supastack api listening');
 
   // Daily cert-check job: sets renewal_due=true on certs within 30 days of expiry.
   if (REDIS_URL) {
@@ -331,7 +330,7 @@ async function maybeStartPgEdgeProxy(app: FastifyInstance): Promise<PgEdgeProxy 
       app.log.info('pg-edge: skipped (no apex configured)');
       return null;
     }
-    const certsDir = process.env.SELFBASE_CERTS_DIR ?? '/var/selfbase/certs';
+    const certsDir = process.env.SUPASTACK_CERTS_DIR ?? '/var/supastack/certs';
     const certPath = `${certsDir}/${apex}/cert.pem`;
     const keyPath = `${certsDir}/${apex}/key.pem`;
     if (!existsSync(certPath) || !existsSync(keyPath)) {

@@ -4,8 +4,8 @@
 # tests/cli-e2e/auth-config-behavioral-parity.sh.
 #
 # Each function is named `assert_<dispatch_key>` and:
-#   - takes no arguments (reads $SELFBASE_APEX, $SELFBASE_PAT,
-#     $SELFBASE_TEST_PROJECT_REF, $FIELD_NAME, $NEW_VALUE from env)
+#   - takes no arguments (reads $SUPASTACK_APEX, $SUPASTACK_PAT,
+#     $SUPASTACK_TEST_PROJECT_REF, $FIELD_NAME, $NEW_VALUE from env)
 #   - returns 0 on PASS, non-zero on FAIL
 #   - emits a one-line `[ASSERT] FIELD=<name> RESULT=<PASS|FAIL>` log
 #
@@ -25,20 +25,20 @@ set -euo pipefail
 # ─── helpers ────────────────────────────────────────────────────────────────
 
 mgmt_url() {
-  echo "https://${SELFBASE_APEX}/v1/projects/${SELFBASE_TEST_PROJECT_REF}/config/auth"
+  echo "https://${SUPASTACK_APEX}/v1/projects/${SUPASTACK_TEST_PROJECT_REF}/config/auth"
 }
 
 inst_url() {
-  echo "https://${SELFBASE_APEX}/api/v1/instances/${SELFBASE_TEST_PROJECT_REF}"
+  echo "https://${SUPASTACK_APEX}/api/v1/instances/${SUPASTACK_TEST_PROJECT_REF}"
 }
 
 provider_authorize_url() {
   local provider="$1"
-  echo "https://${SELFBASE_TEST_PROJECT_REF}.${SELFBASE_APEX}/auth/v1/authorize?provider=${provider}"
+  echo "https://${SUPASTACK_TEST_PROJECT_REF}.${SUPASTACK_APEX}/auth/v1/authorize?provider=${provider}"
 }
 
 container_name() {
-  echo "selfbase-${SELFBASE_TEST_PROJECT_REF}-auth"
+  echo "supastack-${SUPASTACK_TEST_PROJECT_REF}-auth"
 }
 
 # Wait for the per-instance auth container to be healthy (status === 'running'
@@ -47,9 +47,9 @@ wait_for_healthy() {
   local timeout_s=60 elapsed=0 delay=2
   while [ "$elapsed" -lt "$timeout_s" ]; do
     local status
-    status=$(curl -sS -H "Authorization: Bearer ${SELFBASE_PAT}" "$(inst_url)" | jq -r '.status // empty' || true)
+    status=$(curl -sS -H "Authorization: Bearer ${SUPASTACK_PAT}" "$(inst_url)" | jq -r '.status // empty' || true)
     if [ "$status" = "running" ]; then
-      if curl -sSf "https://${SELFBASE_TEST_PROJECT_REF}.${SELFBASE_APEX}/auth/v1/health" >/dev/null 2>&1; then
+      if curl -sSf "https://${SUPASTACK_TEST_PROJECT_REF}.${SUPASTACK_APEX}/auth/v1/health" >/dev/null 2>&1; then
         return 0
       fi
     fi
@@ -63,7 +63,7 @@ wait_for_healthy() {
 patch_field() {
   local field="$1" value_json="$2"
   curl -sSf -X PATCH "$(mgmt_url)" \
-    -H "Authorization: Bearer ${SELFBASE_PAT}" \
+    -H "Authorization: Bearer ${SUPASTACK_PAT}" \
     -H "Content-Type: application/json" \
     -d "{\"${field}\": ${value_json}}" >/dev/null
   wait_for_healthy || return 1
@@ -72,7 +72,7 @@ patch_field() {
 # Read a single env var inside the per-instance auth container.
 exec_get_env() {
   local var="$1"
-  ssh "${SELFBASE_VM_HOST:-ubuntu@148.113.1.164}" \
+  ssh "${SUPASTACK_VM_HOST:-ubuntu@148.113.1.164}" \
     "sudo docker exec $(container_name) printenv ${var}" 2>/dev/null || echo ""
 }
 
@@ -104,8 +104,8 @@ assert_jwt_exp() {
   # Trigger an anonymous sign-in to get a JWT (requires anonymous_users_enabled).
   # If anonymous is disabled, fall back to env-var check.
   local resp
-  resp=$(curl -sS -X POST "https://${SELFBASE_TEST_PROJECT_REF}.${SELFBASE_APEX}/auth/v1/signup" \
-    -H "apikey: ${SELFBASE_TEST_ANON_KEY:-}" \
+  resp=$(curl -sS -X POST "https://${SUPASTACK_TEST_PROJECT_REF}.${SUPASTACK_APEX}/auth/v1/signup" \
+    -H "apikey: ${SUPASTACK_TEST_ANON_KEY:-}" \
     -H "Content-Type: application/json" \
     -d '{"email":"jwtprobe+'$$'@example.com","password":"hunter2hunter2"}' || true)
   local jwt
@@ -144,8 +144,8 @@ assert_rate_limit_429() {
   for i in $(seq 1 "$((limit + 2))"); do
     local code
     code=$(curl -sS -o /dev/null -w '%{http_code}' \
-      -X POST "https://${SELFBASE_TEST_PROJECT_REF}.${SELFBASE_APEX}${endpoint}" \
-      -H "apikey: ${SELFBASE_TEST_ANON_KEY:-}" \
+      -X POST "https://${SUPASTACK_TEST_PROJECT_REF}.${SUPASTACK_APEX}${endpoint}" \
+      -H "apikey: ${SUPASTACK_TEST_ANON_KEY:-}" \
       -H "Content-Type: application/json" \
       -d "{\"email\":\"ratelimit+${i}@example.com\"}" || true)
     if [ "$code" = "429" ]; then seen_429=1; break; fi

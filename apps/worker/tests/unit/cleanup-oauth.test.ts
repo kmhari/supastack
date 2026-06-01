@@ -15,7 +15,7 @@ interface Row {
 const codesStore: Row[] = [];
 const refreshStore: Row[] = [];
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     delete: (table: { __name: string }) => ({
       where: () => ({
@@ -56,7 +56,7 @@ vi.mock('@selfbase/db', () => ({
   },
 }));
 
-vi.mock('@selfbase/shared', () => ({
+vi.mock('@supastack/shared', () => ({
   logger: { info: () => {}, warn: () => {}, error: () => {} },
 }));
 

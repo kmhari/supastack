@@ -1,5 +1,5 @@
 /**
- * Build a SupabasePlatform that points at selfbase's internal management API.
+ * Build a SupabasePlatform that points at supastack's internal management API.
  *
  * Per spec FR-016 + research.md Decision 1: use upstream
  * `@supabase/mcp-server-supabase` AS-IS, but strip operation-group members

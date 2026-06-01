@@ -4,7 +4,7 @@
  * Spec: 014-mcp-http-oauth — FR-005, contracts/oauth-register-endpoint.md.
  */
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
 
 export interface OAuthClient {
   id: string;

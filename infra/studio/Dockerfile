@@ -1,4 +1,4 @@
-# Selfbase Studio image.
+# Supastack Studio image.
 #
 # Builds Supabase Studio from the upstream `supabase/supabase` repo at a pinned
 # commit, with `NEXT_PUBLIC_BASE_PATH=/studio` baked in. Because each managed
@@ -13,7 +13,7 @@
 # Usage (from repo root):
 #   docker build \
 #     --build-arg SUPABASE_COMMIT="$(cat infra/supabase-template/COMMIT)" \
-#     -t selfbase/studio:"$(cat infra/supabase-template/COMMIT)" \
+#     -t supastack/studio:"$(cat infra/supabase-template/COMMIT)" \
 #     -f infra/studio/Dockerfile \
 #     infra/studio
 
@@ -82,8 +82,8 @@ COPY --from=builder /app/apps/studio/.next/static ./apps/studio/.next/static
 
 # Re-declare the build-arg as a runtime label so consumers can see what's baked.
 ARG NEXT_PUBLIC_BASE_PATH=/studio
-LABEL org.selfbase.next-base-path="${NEXT_PUBLIC_BASE_PATH}"
-LABEL org.selfbase.supabase-commit="${SUPABASE_COMMIT:-unknown}"
+LABEL org.supastack.next-base-path="${NEXT_PUBLIC_BASE_PATH}"
+LABEL org.supastack.supabase-commit="${SUPABASE_COMMIT:-unknown}"
 
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=5s --retries=6 \

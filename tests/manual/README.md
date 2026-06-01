@@ -5,7 +5,7 @@ that need real OAuth provider consent, real email/SMS deliverability,
 real CLI device approval, etc. Not runnable in CI.
 
 Each subdirectory ships a single-file harness (HTML / shell script) plus
-documented usage so the operator can spin it up against a live selfbase
+documented usage so the operator can spin it up against a live supastack
 project without standing up extra scaffolding.
 
 ## Index

@@ -46,10 +46,10 @@ __pycache__/
 venv/
 
 # Runtime per-instance data (host bind mounts)
-/var/selfbase/
+/var/supastack/
 volumes/
 # But DO track the supabase-template volumes (functions main/index.ts is
-# selfbase-owned source code, not runtime data — copied to per-instance
+# supastack-owned source code, not runtime data — copied to per-instance
 # volumes at provision time).
 !infra/supabase-template/volumes/
 !infra/supabase-template/volumes/**
@@ -82,7 +82,7 @@ apps/web/tests/e2e/.auth/
 
 # CLI test artifacts
 .supabase_token
-.selfbase
+.supastack
 
 # Local Claude harness state
 .claude/scheduled_tasks.lock

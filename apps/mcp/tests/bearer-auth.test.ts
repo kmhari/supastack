@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { randomBytes } from 'node:crypto';
-import { signAccessToken } from '@selfbase/oauth';
+import { signAccessToken } from '@supastack/oauth';
 import { AuthError, resolveBearer, wwwAuthenticateHeader } from '../src/bearer-auth.js';
 
 /**
@@ -93,7 +93,7 @@ describe('resolveBearer', () => {
 
   it('revoked JWT (jti in Redis) → AuthError 401 invalid_token', async () => {
     const { token, jti } = mint();
-    redis.store.add(`selfbase:oauth:revoked:${jti}`);
+    redis.store.add(`supastack:oauth:revoked:${jti}`);
     await expect(
       resolveBearer({
         authHeader: `Bearer ${token}`,
@@ -142,6 +142,6 @@ describe('wwwAuthenticateHeader', () => {
       `authorization_uri="https://api.${APEX}/.well-known/oauth-authorization-server"`,
     );
     expect(h).toContain('error="invalid_token"');
-    expect(h).toContain('realm="selfbase"');
+    expect(h).toContain('realm="supastack"');
   });
 });

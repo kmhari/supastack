@@ -63,7 +63,7 @@ export function EmailPhoneToggleRow({
 }
 
 export function ComingSoonRow({ provider }: { provider: ComingSoonProvider }): React.ReactElement {
-  const issueUrl = `https://github.com/kmhari/selfbase/issues/${provider.comingSoonIssue}`;
+  const issueUrl = `https://github.com/kmhari/supastack/issues/${provider.comingSoonIssue}`;
   return (
     <a
       href={issueUrl}

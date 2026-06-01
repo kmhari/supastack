@@ -29,7 +29,7 @@ export async function testProjectRef(
     return globalThis.__e2eTestProjectRef;
   }
   // Operator-supplied: skip creation entirely (useful when targeting a
-  // deployed environment with the SELFBASE_TEST_FAKE_DOCKER hook unavailable).
+  // deployed environment with the SUPASTACK_TEST_FAKE_DOCKER hook unavailable).
   if (process.env.PLAYWRIGHT_TEST_PROJECT_REF) {
     globalThis.__e2eTestProjectRef = process.env.PLAYWRIGHT_TEST_PROJECT_REF;
     return process.env.PLAYWRIGHT_TEST_PROJECT_REF;
@@ -62,7 +62,7 @@ export async function testProjectRef(
     const text = await resp.text();
     throw new Error(
       `Could not create test project: HTTP ${resp.status} ${resp.statusText}\n${text}\n` +
-        `Verify SELFBASE_TEST_FAKE_DOCKER=1 is set on the api process.`,
+        `Verify SUPASTACK_TEST_FAKE_DOCKER=1 is set on the api process.`,
     );
   }
   const body = (await resp.json()) as { ref: string };

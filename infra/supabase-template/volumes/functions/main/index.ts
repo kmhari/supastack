@@ -1,4 +1,4 @@
-// selfbase-functions-main:v3
+// supastack-functions-main:v3
 //
 // Vault-backed envVars injection. User-managed secrets live in per-project
 // `vault.secrets` (single source of truth). The runtime fetches them with a
@@ -8,11 +8,11 @@
 // container.
 //
 // Spec: specs/010-secrets-management — research.md Decision 3 + FR-014/015/016.
-// Also continues to support eszip-aware loading from selfbase feature 003 US3.
+// Also continues to support eszip-aware loading from supastack feature 003 US3.
 import * as jose from 'https://deno.land/x/jose@v4.14.4/index.ts'
 import { Client as PgClient } from 'https://deno.land/x/postgres@v0.19.3/mod.ts'
 
-console.log('main function started (selfbase-functions-main:v3 — vault-backed envVars)')
+console.log('main function started (supastack-functions-main:v3 — vault-backed envVars)')
 
 const JWT_SECRET = Deno.env.get('JWT_SECRET')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
@@ -26,8 +26,8 @@ const VERIFY_JWT = Deno.env.get('VERIFY_JWT') === 'true'
 // out at injection time as defense in depth (api also rejects them at write).
 
 const VAULT_DB_URL =
-  Deno.env.get('SELFBASE_VAULT_DB_URL') ?? Deno.env.get('SUPABASE_DB_URL') ?? ''
-const VAULT_TTL_MS = parseInt(Deno.env.get('SELFBASE_VAULT_TTL_MS') ?? '5000', 10)
+  Deno.env.get('SUPASTACK_VAULT_DB_URL') ?? Deno.env.get('SUPABASE_DB_URL') ?? ''
+const VAULT_TTL_MS = parseInt(Deno.env.get('SUPASTACK_VAULT_TTL_MS') ?? '5000', 10)
 const PROJECT_REF = Deno.env.get('SB_REF') ?? 'unknown-ref'
 
 // Load reserved names from JSON materialized by packages/shared/scripts/...
@@ -42,11 +42,11 @@ try {
   const parsed = JSON.parse(reservedRaw) as { reserved: string[] }
   RESERVED_NAMES = new Set(parsed.reserved)
   console.log(
-    `[selfbase-vault] loaded ${RESERVED_NAMES.size} reserved names (will be filtered from vault injection)`,
+    `[supastack-vault] loaded ${RESERVED_NAMES.size} reserved names (will be filtered from vault injection)`,
   )
 } catch (e) {
   console.warn(
-    `[selfbase-vault] reserved-secrets.json not loaded (${(e as Error).message}); reserved-name guard inactive — relying on api write-time guard only`,
+    `[supastack-vault] reserved-secrets.json not loaded (${(e as Error).message}); reserved-name guard inactive — relying on api write-time guard only`,
   )
 }
 
@@ -59,7 +59,7 @@ async function refreshVault(): Promise<Record<string, string>> {
     // No DB URL configured — empty injection, single warning.
     if (!vaultCache) {
       console.warn(
-        `[selfbase-vault] no SELFBASE_VAULT_DB_URL/SUPABASE_DB_URL configured; user secrets unavailable for ${PROJECT_REF}`,
+        `[supastack-vault] no SUPASTACK_VAULT_DB_URL/SUPABASE_DB_URL configured; user secrets unavailable for ${PROJECT_REF}`,
       )
     }
     return {}
@@ -83,7 +83,7 @@ async function refreshVault(): Promise<Record<string, string>> {
     }
     const durationMs = Date.now() - started
     console.log(
-      `[selfbase-vault] refreshed ${res.rows.length} secrets (filtered ${filtered} reserved) for ${PROJECT_REF} in ${durationMs}ms`,
+      `[supastack-vault] refreshed ${res.rows.length} secrets (filtered ${filtered} reserved) for ${PROJECT_REF} in ${durationMs}ms`,
     )
     return fresh
   } finally {
@@ -108,12 +108,12 @@ async function getEnvVars(): Promise<Record<string, string>> {
         const cachedNames = vaultCache ? Object.keys(vaultCache.envVars) : []
         if (vaultCache) {
           console.warn(
-            `[selfbase-vault] refresh failed for ${PROJECT_REF}; serving ${cachedNames.length} cached secrets: ${(err as Error).message}`,
+            `[supastack-vault] refresh failed for ${PROJECT_REF}; serving ${cachedNames.length} cached secrets: ${(err as Error).message}`,
           )
           return vaultCache.envVars
         } else {
           console.error(
-            `[selfbase-vault] refresh failed for ${PROJECT_REF}; no cache; worker will spawn with no user secrets: ${(err as Error).message}`,
+            `[supastack-vault] refresh failed for ${PROJECT_REF}; no cache; worker will spawn with no user secrets: ${(err as Error).message}`,
           )
           return {}
         }
@@ -131,7 +131,7 @@ getEnvVars().catch(() => {/* logged inside */})
 // Test-only export for the unit tests at main.test.ts. Production code
 // shouldn't import this; it's reachable only via `if (Deno.env.get(...))`
 // gates the test runner sets.
-export const __selfbaseTest = { getEnvVars, refreshVault, resetCache: () => { vaultCache = null; inflightRefresh = null } }
+export const __supastackTest = { getEnvVars, refreshVault, resetCache: () => { vaultCache = null; inflightRefresh = null } }
 
 // Create JWKS for ES256/RS256 tokens (newer tokens)
 let SUPABASE_JWT_KEYS: ReturnType<typeof jose.createRemoteJWKSet> | null = null
@@ -240,7 +240,7 @@ Deno.serve(async (req: Request) => {
   // within the TTL window (5s). Without this, edge-runtime pools user
   // workers by servicePath for workerTimeoutMs and the first envVars map
   // sticks for that whole window — defeating vault-driven propagation.
-  // Trade-off: more cold-starts under sustained load. For selfbase's
+  // Trade-off: more cold-starts under sustained load. For supastack's
   // operator-facing secret-rotation UX this is the right call.
   const workerTimeoutMs = 4 * 1000
   const noModuleCache = false
@@ -256,7 +256,7 @@ Deno.serve(async (req: Request) => {
   const merged: Record<string, string> = { ...vaultEnv, ...platformEnv }
   const envVars = Object.keys(merged).map((k) => [k, merged[k]])
 
-  // Per-function meta.json — written by selfbase's function-deploy service.
+  // Per-function meta.json — written by supastack's function-deploy service.
   // Indicates which form the function takes on disk: raw source files vs
   // a single .eszip bundle. Falls back to servicePath-loading if absent.
   let maybeEszip: Uint8Array | undefined = undefined

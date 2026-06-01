@@ -1,7 +1,7 @@
 import { eq, inArray, not } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { logger } from '@selfbase/shared';
-import { composePs } from '@selfbase/docker-control';
+import { db, schema } from '@supastack/db';
+import { logger } from '@supastack/shared';
+import { composePs } from '@supastack/docker-control';
 
 /**
  * Periodic reconciler — honors FR-033. Polls actual container state for every
@@ -59,7 +59,7 @@ async function reconcile(
   ref: string,
   current: 'running' | 'paused' | 'stopped' | 'failed' | 'provisioning',
 ): Promise<void> {
-  const ctx = { projectName: `selfbase-${ref}`, dir: '' };
+  const ctx = { projectName: `supastack-${ref}`, dir: '' };
   const containers = await composePs(ctx);
 
   // If there are no containers at all and the row still claims running, that's

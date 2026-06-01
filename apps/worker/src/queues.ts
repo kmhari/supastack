@@ -1,6 +1,6 @@
 import { Queue, Worker, type QueueOptions, type WorkerOptions } from 'bullmq';
 import { Redis } from 'ioredis';
-import { logger } from '@selfbase/shared';
+import { logger } from '@supastack/shared';
 import { handleCaddyReload } from './jobs/caddy-reload.js';
 import { handleProvision } from './jobs/provision.js';
 import { handleLifecycle } from './jobs/lifecycle.js';
@@ -29,19 +29,19 @@ function workerOpts(): WorkerOptions {
 
 /** All BullMQ queue names. */
 export const QUEUES = {
-  provision: 'selfbase.provision',
-  lifecycle: 'selfbase.lifecycle',
-  backup: 'selfbase.backup',
-  backupScheduler: 'selfbase.backup-scheduler',
-  caddyReload: 'selfbase.caddy-reload',
-  healthReconciler: 'selfbase.health-reconciler',
-  pgEdgeCertIssue: 'selfbase.pg-edge-cert-issue',
-  poolerReconciler: 'selfbase.pooler-reconciler',
-  vaultEnable: 'selfbase.vault-enable',
-  cleanupOauthCodes: 'selfbase.cleanup-oauth-codes',
-  cleanupOauthRefresh: 'selfbase.cleanup-oauth-refresh',
-  restore: 'selfbase.restore',
-  restoreGc: 'selfbase.restore-gc',
+  provision: 'supastack.provision',
+  lifecycle: 'supastack.lifecycle',
+  backup: 'supastack.backup',
+  backupScheduler: 'supastack.backup-scheduler',
+  caddyReload: 'supastack.caddy-reload',
+  healthReconciler: 'supastack.health-reconciler',
+  pgEdgeCertIssue: 'supastack.pg-edge-cert-issue',
+  poolerReconciler: 'supastack.pooler-reconciler',
+  vaultEnable: 'supastack.vault-enable',
+  cleanupOauthCodes: 'supastack.cleanup-oauth-codes',
+  cleanupOauthRefresh: 'supastack.cleanup-oauth-refresh',
+  restore: 'supastack.restore',
+  restoreGc: 'supastack.restore-gc',
 } as const;
 
 export interface Queues {

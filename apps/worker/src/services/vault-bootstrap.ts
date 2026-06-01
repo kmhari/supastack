@@ -75,8 +75,8 @@ export async function bootstrapVault(client: Client): Promise<void> {
      DECLARE sentinel_id uuid;
      BEGIN
        sentinel_id := vault.create_secret(
-         'selfbase-bootstrap-sentinel',
-         '_selfbase_bootstrap_check_' || extract(epoch from now())::bigint::text
+         'supastack-bootstrap-sentinel',
+         '_supastack_bootstrap_check_' || extract(epoch from now())::bigint::text
        );
        PERFORM decrypted_secret FROM vault.decrypted_secrets WHERE id = sentinel_id;
        DELETE FROM vault.secrets WHERE id = sentinel_id;

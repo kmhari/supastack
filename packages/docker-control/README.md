@@ -1,4 +1,4 @@
-# @selfbase/docker-control
+# @supastack/docker-control
 
 Per-instance Compose templater + dockerode wrappers.
 
@@ -11,7 +11,7 @@ Per-instance Compose templater + dockerode wrappers.
 3. Asserts that the typed input struct supplies a value for **every** one
    (anti-Multibase missing-variables regression).
 4. Asserts that no value contains `$`, backtick, backslash, quote, or
-   whitespace via `@selfbase/crypto`'s `assertSafeForEnv`
+   whitespace via `@supastack/crypto`'s `assertSafeForEnv`
    (anti-Multibase `$GINIWZBA8` substitution regression).
 5. Emits a sorted `.env` file.
 6. Round-trips via `docker compose --env-file .env config -q` to confirm
@@ -26,7 +26,7 @@ and dockerode-based inspection (`composePs`, `composeAllHealthy`, `composeExec`,
 ## Tests
 
 ```sh
-pnpm --filter @selfbase/docker-control test
+pnpm --filter @supastack/docker-control test
 ```
 
 Anti-Multibase regression tests live in `tests/compose-template.test.ts`:

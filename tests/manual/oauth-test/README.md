@@ -58,7 +58,7 @@ For a GitHub round-trip:
   (no `?code=`) so the cold-load purge runs.
 - **"Unsupported provider: provider is not enabled" on `/authorize`**:
   the OAuth provider credentials aren't reaching GoTrue. Check the
-  project's auth container env: `docker exec selfbase-<ref>-auth-1 env
+  project's auth container env: `docker exec supastack-<ref>-auth-1 env
 | grep GOTRUE_EXTERNAL_<UPPER>_`. If empty, re-save from the dashboard
   Auth Providers drawer.
 - **Final redirect lands on the project URL instead of localhost**:

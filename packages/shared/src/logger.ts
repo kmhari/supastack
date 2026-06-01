@@ -1,6 +1,6 @@
 import pino, { type Logger, type LoggerOptions } from 'pino';
 
-// Guard `process` access — `@selfbase/shared`'s public surface is consumed by
+// Guard `process` access — `@supastack/shared`'s public surface is consumed by
 // the web SPA (e.g. ProjectSecrets imports RESERVED_SECRETS), and Vite serves
 // these files to a browser context where `process` is undefined. Reading it
 // at module-load throws a ReferenceError that aborts every React render.
@@ -12,7 +12,7 @@ const IS_PROD = _env.NODE_ENV === 'production';
 
 const baseOptions: LoggerOptions = {
   level: LOG_LEVEL,
-  base: { service: _env.SELFBASE_SERVICE ?? 'selfbase' },
+  base: { service: _env.SUPASTACK_SERVICE ?? 'supastack' },
   timestamp: pino.stdTimeFunctions.isoTime,
   redact: {
     paths: [

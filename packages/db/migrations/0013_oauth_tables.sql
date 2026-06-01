@@ -3,7 +3,7 @@
 -- Feature 014 — OAuth 2.1 authorization server.
 --
 -- Four tables backing the authorize/token/refresh/revoke lifecycle. Hot-path
--- revocation lives in Redis (selfbase:oauth:revoked:<jti>); the
+-- revocation lives in Redis (supastack:oauth:revoked:<jti>); the
 -- oauth_revocations table here is an audit-trail / cold-path fallback.
 --
 -- Idempotent — every statement uses IF NOT EXISTS / DO NOTHING patterns so
@@ -62,7 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_oauth_refresh_last_used
 
 -- ─── oauth_revocations ─────────────────────────────────────────────────────
 -- Audit-trail / cold-path lookup for revoked access tokens. Hot-path check
--- is Redis (selfbase:oauth:revoked:<jti>); this table is for forensics +
+-- is Redis (supastack:oauth:revoked:<jti>); this table is for forensics +
 -- a backstop if Redis is unavailable on a future request.
 
 CREATE TABLE IF NOT EXISTS oauth_revocations (

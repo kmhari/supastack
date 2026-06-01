@@ -10,7 +10,7 @@ import {
   type ChallengeRecord,
   type DnsCheck,
 } from '@/lib/api';
-import { getWrapperSnippet, getSelfbaseFileContent } from '@/lib/cli-wrapper';
+import { getWrapperSnippet, getSupastackFileContent } from '@/lib/cli-wrapper';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -132,7 +132,7 @@ function AdminStep({
 }): React.ReactElement {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [orgName, setOrgName] = useState('Selfbase');
+  const [orgName, setOrgName] = useState('Supastack');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -157,7 +157,7 @@ function AdminStep({
       <Wordmark />
       <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">First-time setup</h1>
       <p className="m-0 text-sm text-muted-foreground">
-        Step 1 of 3 — create the super-admin account for this Selfbase install.
+        Step 1 of 3 — create the super-admin account for this Supastack install.
       </p>
       <Field label="Email">
         <Input
@@ -356,15 +356,15 @@ function DomainCertsStep({
           Connect your domain
         </h1>
         <p className="m-0 text-sm text-muted-foreground">
-          Step 2 of 3 — your Selfbase dashboard and instance subdomains will live under this apex.
-          Pick something you control DNS for, like <code>selfbase.example.com</code>.
+          Step 2 of 3 — your Supastack dashboard and instance subdomains will live under this apex.
+          Pick something you control DNS for, like <code>supastack.example.com</code>.
         </p>
         <Field label="Apex domain">
           <Input
             required
             value={apexInput}
             onChange={(e) => setApexInput(e.target.value)}
-            placeholder="selfbase.example.com"
+            placeholder="supastack.example.com"
             autoFocus
           />
         </Field>
@@ -561,7 +561,7 @@ function CliOnboardingStep({
   masterToken: string | null;
   apex: string;
 }): React.ReactElement {
-  const selfbaseContent = getSelfbaseFileContent(masterToken ?? '<your-api-token>', apex);
+  const supastackContent = getSupastackFileContent(masterToken ?? '<your-api-token>', apex);
   const wrapperCode = getWrapperSnippet(apex);
 
   return (
@@ -570,17 +570,17 @@ function CliOnboardingStep({
       <div>
         <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">CLI setup</h1>
         <p className="m-0 mt-1 text-sm text-muted-foreground">
-          Step 3 of 3 — configure your local <code>supabase</code> CLI to work with this Selfbase
+          Step 3 of 3 — configure your local <code>supabase</code> CLI to work with this Supastack
           install.
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
         <h2 className="m-0 text-sm font-medium text-foreground">
-          1. Create a <code>.selfbase</code> file in your project root
+          1. Create a <code>.supastack</code> file in your project root
         </h2>
         <p className="m-0 text-sm text-muted-foreground">
-          This file tells the CLI which Selfbase install to use and authenticates your requests.
+          This file tells the CLI which Supastack install to use and authenticates your requests.
           {!masterToken && (
             <span className="text-warn">
               {' '}
@@ -594,10 +594,10 @@ function CliOnboardingStep({
         </p>
         <div className="relative">
           <pre className="m-0 overflow-x-auto rounded-md border border-border bg-secondary/40 p-3 pr-12 font-mono text-xs leading-relaxed text-foreground">
-            <code>{selfbaseContent}</code>
+            <code>{supastackContent}</code>
           </pre>
           <CopyButton
-            value={selfbaseContent}
+            value={supastackContent}
             label="Copy"
             variant="ghost"
             size="xs"
@@ -605,7 +605,7 @@ function CliOnboardingStep({
           />
         </div>
         <p className="m-0 text-xs text-muted-foreground">
-          Add <code>.selfbase</code> to your <code>.gitignore</code> — it contains your API token.
+          Add <code>.supastack</code> to your <code>.gitignore</code> — it contains your API token.
         </p>
       </div>
 
@@ -614,8 +614,8 @@ function CliOnboardingStep({
           2. Add the shell wrapper to <code>~/.zshrc</code> or <code>~/.bashrc</code>
         </h2>
         <p className="m-0 text-sm text-muted-foreground">
-          This wrapper automatically routes <code>supabase</code> CLI commands to the right Selfbase
-          install based on the <code>.selfbase</code> file in your project.
+          This wrapper automatically routes <code>supabase</code> CLI commands to the right Supastack
+          install based on the <code>.supastack</code> file in your project.
         </p>
         <div className="relative">
           <pre className="m-0 max-h-48 overflow-y-auto overflow-x-auto rounded-md border border-border bg-secondary/40 p-3 pr-12 font-mono text-xs leading-relaxed text-foreground">
@@ -727,7 +727,7 @@ function Wordmark(): React.ReactElement {
   return (
     <div className="mb-2 flex items-center gap-2.5">
       <span aria-hidden className="inline-block size-7 rounded-md bg-success" />
-      <span className="text-base font-medium">Selfbase</span>
+      <span className="text-base font-medium">Supastack</span>
     </div>
   );
 }

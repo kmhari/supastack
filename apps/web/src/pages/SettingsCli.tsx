@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 
 /**
  * /settings/cli — installation + setup instructions for the supabase CLI
- * against this selfbase deployment. Includes a copy-ready profile TOML
+ * against this supastack deployment. Includes a copy-ready profile TOML
  * pre-filled with the apex domain, plus the `~/.supabase/profile` setup
  * needed so plain `supabase login` works without a `--profile` flag each
  * invocation.
@@ -33,22 +33,22 @@ export function SettingsCliPage(): React.ReactElement {
   }
 
   const apex = apexStatus?.apex ?? '<your-apex-domain>';
-  const tomlContent = `name          = "selfbase"
+  const tomlContent = `name          = "supastack"
 api_url       = "https://api.${apex}"
 dashboard_url = "https://${apex}/dashboard"
 project_host  = "${apex}"`;
 
-  const writeTomlCmd = `mkdir -p ~/.config && cat > ~/.config/selfbase.toml <<'EOF'
+  const writeTomlCmd = `mkdir -p ~/.config && cat > ~/.config/supastack.toml <<'EOF'
 ${tomlContent}
 EOF`;
 
-  const setDefaultCmd = `printf '%s' "$HOME/.config/selfbase.toml" > ~/.supabase/profile`;
+  const setDefaultCmd = `printf '%s' "$HOME/.config/supastack.toml" > ~/.supabase/profile`;
 
   const loginCmd = `supabase login`;
 
   const verifyCmd = `supabase projects list`;
 
-  const selfbaseFileCmd = `cat > .selfbase << 'EOF'\ntoken=<your-api-token>\ndomain=${apex}\nEOF`;
+  const supastackFileCmd = `cat > .supastack << 'EOF'\ntoken=<your-api-token>\ndomain=${apex}\nEOF`;
 
   const wrapperSnippet = getWrapperSnippet(apex);
 
@@ -57,7 +57,7 @@ EOF`;
       <SettingsLayout>
         <PageHeader
           title="CLI integration"
-          subtitle="Connect the upstream supabase CLI to this selfbase deployment."
+          subtitle="Connect the upstream supabase CLI to this supastack deployment."
         />
 
         <div className="mt-8 flex flex-col gap-10">
@@ -83,11 +83,11 @@ EOF`;
 
           <Section
             number={2}
-            title="Save the selfbase profile"
+            title="Save the supastack profile"
             body={
               <>
                 The supabase CLI is configured per-deployment via a small TOML profile that tells it
-                where this selfbase install lives. Run this once on each machine you'll use the CLI
+                where this supastack install lives. Run this once on each machine you'll use the CLI
                 from:
               </>
             }
@@ -101,8 +101,8 @@ EOF`;
               <>
                 So every <Code inline>supabase</Code> command uses this deployment automatically (no{' '}
                 <Code inline>--profile</Code> flag needed). This is the simplest path if you only
-                work against one selfbase deployment; see Section 6 for the per-project alternative
-                if you juggle Cloud + selfbase or multiple selfbase deployments.
+                work against one supastack deployment; see Section 6 for the per-project alternative
+                if you juggle Cloud + supastack or multiple supastack deployments.
               </>
             }
             code={setDefaultCmd}
@@ -129,7 +129,7 @@ EOF`;
           <Section
             number={5}
             title="Verify"
-            body={<>Smoke-test that the CLI is now talking to this selfbase deployment:</>}
+            body={<>Smoke-test that the CLI is now talking to this supastack deployment:</>}
             code={verifyCmd}
             note="Expected output: a table listing the projects on this deployment (not Supabase Cloud's)."
           />
@@ -139,20 +139,20 @@ EOF`;
             title="Optional: per-project auto-routing"
             body={
               <>
-                If you work across multiple deployments (Cloud + selfbase, or several selfbase
+                If you work across multiple deployments (Cloud + supastack, or several supastack
                 installs), the global default from Section 3 is awkward. Instead, create a{' '}
-                <Code inline>.selfbase</Code> file at your project&apos;s git root with your token
+                <Code inline>.supastack</Code> file at your project&apos;s git root with your token
                 and domain. Then paste the zsh wrapper below into <Code inline>~/.zshrc</Code> — it
                 walks up to the git root, reads <Code inline>token=</Code> and{' '}
-                <Code inline>domain=</Code> from <Code inline>.selfbase</Code>, auto-generates the
-                per-domain profile under <Code inline>~/.config/selfbase/&lt;domain&gt;.toml</Code>,
+                <Code inline>domain=</Code> from <Code inline>.supastack</Code>, auto-generates the
+                per-domain profile under <Code inline>~/.config/supastack/&lt;domain&gt;.toml</Code>,
                 and passes <Code inline>--profile</Code> to the CLI automatically. The{' '}
                 <Code inline>domain=</Code> line alone is safe to commit — add{' '}
-                <Code inline>.selfbase</Code> to your <Code inline>.gitignore</Code> if the file
+                <Code inline>.supastack</Code> to your <Code inline>.gitignore</Code> if the file
                 contains a token.
               </>
             }
-            code={selfbaseFileCmd}
+            code={supastackFileCmd}
           />
 
           <Section
@@ -166,7 +166,7 @@ EOF`;
               </>
             }
             code={wrapperSnippet}
-            note="On first selfbase invocation, you'll see '✓ Generated selfbase profile (~/.config/selfbase/<apex>.toml)' once. Every subsequent call prints '✓ Using selfbase profile (...)' for visibility. After any successful 'supabase login', the wrapper checks for ~/.supabase/profile (which the upstream CLI writes whenever --profile is passed) and interactively offers to remove it — keeping plain 'supabase login' free for Cloud or other deployments."
+            note="On first supastack invocation, you'll see '✓ Generated supastack profile (~/.config/supastack/<apex>.toml)' once. Every subsequent call prints '✓ Using supastack profile (...)' for visibility. After any successful 'supabase login', the wrapper checks for ~/.supabase/profile (which the upstream CLI writes whenever --profile is passed) and interactively offers to remove it — keeping plain 'supabase login' free for Cloud or other deployments."
           />
 
           <Card className="bg-secondary/20 p-5">
@@ -176,7 +176,7 @@ EOF`;
               default with <Code inline>rm ~/.supabase/profile</Code> and re-run{' '}
               <Code inline>supabase login</Code> (with no <Code inline>--profile</Code>), or — if
               you're using the Section-6 wrapper — just <Code inline>cd</Code> out of any directory
-              containing a <Code inline>.selfbase</Code> file.
+              containing a <Code inline>.supastack</Code> file.
             </p>
           </Card>
         </div>

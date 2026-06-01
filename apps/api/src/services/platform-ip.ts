@@ -1,5 +1,5 @@
-import { request } from 'undici';
 import { Resolver } from 'node:dns';
+import { request } from 'undici';
 
 /**
  * Use public resolvers (Cloudflare + Google + Quad9) instead of the system
@@ -25,12 +25,12 @@ const TTL_MS = 30 * 60 * 1000;
 
 /**
  * Returns the IPv4 the operator should point their apex A record at.
- * Reads SELFBASE_PUBLIC_IP env first; otherwise asks a few public "what's
+ * Reads SUPASTACK_PUBLIC_IP env first; otherwise asks a few public "what's
  * my IP" services. Cached 30 minutes. Lifted from
  * /Users/lord/Code/open-frontend/apps/api/src/services/platform-ip.ts.
  */
 export async function getPlatformIp(): Promise<string | null> {
-  const fromEnv = process.env.SELFBASE_PUBLIC_IP?.trim();
+  const fromEnv = process.env.SUPASTACK_PUBLIC_IP?.trim();
   if (fromEnv) return fromEnv;
   if (cached && Date.now() - cached.at < TTL_MS) return cached.ip;
   for (const url of FALLBACK_LOOKUP_URLS) {

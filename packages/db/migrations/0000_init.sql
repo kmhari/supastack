@@ -1,4 +1,4 @@
--- Selfbase v1 initial schema. Idempotent — safe to run any number of times.
+-- Supastack v1 initial schema. Idempotent — safe to run any number of times.
 -- citext + pgcrypto are installed by migrate.ts before this runs.
 -- The org_singleton partial unique index is added by migrate.ts after this runs.
 

@@ -18,7 +18,7 @@ const TOKEN_ADMIN = process.env.TEST_TOKEN_ADMIN;
 const TOKEN_MEMBER = process.env.TEST_TOKEN_MEMBER;
 const TEST_REF = process.env.TEST_INSTANCE_REF;
 
-const T_NAME = 'SELFBASE_010_TEST_KEY';
+const T_NAME = 'SUPASTACK_010_TEST_KEY';
 const T_VALUE = 'wire-contract-test-value';
 
 describe.skipIf(!API || !TOKEN_ADMIN || !TEST_REF)(

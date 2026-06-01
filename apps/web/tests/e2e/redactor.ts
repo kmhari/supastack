@@ -20,7 +20,7 @@ export interface RedactionPattern {
 }
 
 export const REDACTION_PATTERNS: ReadonlyArray<RedactionPattern> = [
-  // selfbase Personal Access Tokens: `sbp_` + 40 hex chars
+  // supastack Personal Access Tokens: `sbp_` + 40 hex chars
   { pattern: /sbp_[a-f0-9]{40}/g, replacement: 'sbp_REDACTED' },
   // Authorization headers
   { pattern: /Bearer [A-Za-z0-9._-]+/g, replacement: 'Bearer REDACTED' },

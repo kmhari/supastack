@@ -1,6 +1,6 @@
 import { and, eq, isNull, lt, or } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { logger } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { logger } from '@supastack/shared';
 import { enqueueBackup } from './backup-enqueue.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;

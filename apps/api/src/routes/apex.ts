@@ -1,9 +1,9 @@
+import { db, schema } from '@supastack/db';
+import { errors } from '@supastack/shared';
 import type { FastifyPluginAsync } from 'fastify';
-import { db, schema } from '@selfbase/db';
-import { errors } from '@selfbase/shared';
-import { getPlatformIp, resolveA } from '../services/platform-ip.js';
-import { probeHttpsCert, type CertProbeResult } from '../services/cert-probe.js';
 import { reloadCaddy } from '../services/caddy-reload.js';
+import { probeHttpsCert, type CertProbeResult } from '../services/cert-probe.js';
+import { getPlatformIp, resolveA } from '../services/platform-ip.js';
 
 interface ApexStatus {
   apex: string | null;
@@ -29,7 +29,7 @@ interface ApexStatus {
  * registrar's wildcard `*.<apex>` should match this and return the
  * platform IP; a missing wildcard returns NXDOMAIN.
  */
-const WILDCARD_PROBE_LABEL = '_selfbase-wildcard-probe';
+const WILDCARD_PROBE_LABEL = '_supastack-wildcard-probe';
 
 async function buildStatus(): Promise<ApexStatus> {
   const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
@@ -94,7 +94,7 @@ export const apexRoutes: FastifyPluginAsync = async (app) => {
     // runner, no ACME). Returning a "fully configured" status lets the
     // RequireAuth gate fall through to the actual page; otherwise every
     // browser-test navigation is intercepted into the Setup wizard.
-    if (process.env.SELFBASE_TEST_FAKE_DOCKER === '1') {
+    if (process.env.SUPASTACK_TEST_FAKE_DOCKER === '1') {
       const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
       const apex = orgRow?.apex ?? 'test.local';
       return reply.send({

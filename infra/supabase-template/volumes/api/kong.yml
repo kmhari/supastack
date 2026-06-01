@@ -392,7 +392,7 @@ services:
       #    deny: []
 
   ## Studio used to be served on this subdomain via a `/*` catch-all here.
-  ## Selfbase moved Studio to its own subdomain `studio-<ref>.<apex>` (served
+  ## Supastack moved Studio to its own subdomain `studio-<ref>.<apex>` (served
   ## directly by Caddy from the per-instance Studio container) so this
   ## subdomain is reserved exclusively for the data plane (REST/Auth/Realtime/
   ## Storage/Functions/pg-meta — what SDKs and the Supabase CLI hit). Any

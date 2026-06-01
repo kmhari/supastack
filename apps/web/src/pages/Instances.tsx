@@ -158,8 +158,8 @@ export function InstancesPage(): React.ReactElement {
 /**
  * Card click opens Studio at the project's own subdomain
  * (studio-<ref>.<apex>) via a same-tab full-page navigation. Studio is
- * cross-origin from the apex selfbase shell, so we use a plain <a> rather
- * than react-router's <Link>. Falls back to the selfbase admin page if the
+ * cross-origin from the apex supastack shell, so we use a plain <a> rather
+ * than react-router's <Link>. Falls back to the supastack admin page if the
  * API hasn't returned a urls.studio yet (e.g. apex not configured).
  */
 function ProjectCard({ row }: { row: InstanceRow }): React.ReactElement {

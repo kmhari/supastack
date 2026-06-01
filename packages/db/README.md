@@ -1,11 +1,11 @@
-# @selfbase/db
+# @supastack/db
 
 Drizzle schema + idempotent migration runner + transactional port allocator
-for selfbase.
+for supastack.
 
 ## Schema
 
-9 tables. See `specs/001-selfbase-supabase-platform/data-model.md` for the
+9 tables. See `specs/001-supastack-supabase-platform/data-model.md` for the
 authoritative definition.
 
 - `org` — singleton (enforced by a partial unique index over the constant `1`)
@@ -42,5 +42,5 @@ The port-allocator integration test needs a real Postgres. Set
 `TEST_DATABASE_URL=postgres://...` to enable.
 
 ```sh
-TEST_DATABASE_URL=postgres://localhost/scratch pnpm --filter @selfbase/db test
+TEST_DATABASE_URL=postgres://localhost/scratch pnpm --filter @supastack/db test
 ```

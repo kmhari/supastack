@@ -1,24 +1,24 @@
 import { and, desc, eq, inArray, lte, not } from 'drizzle-orm';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { db, schema } from '@selfbase/db';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
+import { db, schema } from '@supastack/db';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import {
   LocalDiskStore,
   S3Store,
   type BackupStore,
   type S3StoreConfig,
-} from '@selfbase/backup-store';
+} from '@supastack/backup-store';
 import type {
   BackupsListResponse,
   RestoreJobResponse,
   RestoreStatusResponse,
-} from '@selfbase/shared';
+} from '@supastack/shared';
 
 const execFileAsync = promisify(execFile);
 
-const BACKUPS_DIR = process.env.BACKUPS_DIR ?? '/var/selfbase/backups';
-const _INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
+const BACKUPS_DIR = process.env.BACKUPS_DIR ?? '/var/supastack/backups';
+const _INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/supastack/instances';
 
 export async function resolveBackupStore(): Promise<{ kind: 'local' | 's3'; store: BackupStore }> {
   const [row] = await db()

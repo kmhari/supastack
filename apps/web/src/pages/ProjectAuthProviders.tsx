@@ -143,7 +143,7 @@ export function ProjectAuthProvidersPage(): React.ReactElement {
                   Configure OAuth/OIDC providers for this project using your own issuer or
                   endpoints. (Tracked in
                   <a
-                    href={`https://github.com/kmhari/selfbase/issues/${p.comingSoonIssue}`}
+                    href={`https://github.com/kmhari/supastack/issues/${p.comingSoonIssue}`}
                     target="_blank"
                     rel="noreferrer"
                     className="ml-1"

@@ -129,7 +129,7 @@ export type FieldStatusEntry =
 
 export interface AuthConfigResponse {
   [field: string]: unknown;
-  _selfbase?: { fieldStatus: Record<string, FieldStatusEntry> };
+  _supastack?: { fieldStatus: Record<string, FieldStatusEntry> };
 }
 
 export const authConfigApi = {
@@ -160,7 +160,7 @@ export const auditApi = {
 
 // ─── connect-cli (Supabase CLI compatibility helpers) ──────────────────────
 export const cliApi = {
-  /** Returns the deployment's selfbase.toml profile snippet as text/plain. */
+  /** Returns the deployment's supastack.toml profile snippet as text/plain. */
   profileToml: () =>
     client
       .get<string>('/cli/profile.toml', { responseType: 'text', transformResponse: (v) => v })

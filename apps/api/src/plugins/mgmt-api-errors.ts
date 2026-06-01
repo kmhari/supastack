@@ -12,10 +12,10 @@
  * encapsulation; only requests inside the scope it's registered under see
  * this error handler).
  */
+import { AppError } from '@supastack/shared';
 import type { FastifyError, FastifyPluginAsync } from 'fastify';
 import fp from 'fastify-plugin';
 import { ZodError } from 'zod';
-import { AppError } from '@selfbase/shared';
 
 /**
  * Domain error type. Routes throw `new ManagementApiError(...)` to emit a
@@ -73,7 +73,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       return;
     }
 
-    // Selfbase's existing AppError shape (used by requireAuth and most
+    // Supastack's existing AppError shape (used by requireAuth and most
     // shared services). Translate the dashboard envelope into the cloud
     // shape so CLI consumers see `{message, code}` instead of `{error: {...}}`.
     if (err instanceof AppError) {

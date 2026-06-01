@@ -14,7 +14,7 @@ const releasedPorts: string[] = [];
 const fetchCalls: Array<{ url: string; method: string }> = [];
 let deletedRowRef: string | null = null;
 
-vi.mock('@selfbase/docker-control', () => ({
+vi.mock('@supastack/docker-control', () => ({
   composeAllHealthy: vi.fn(async () => {
     dockerCalls.push('composeAllHealthy');
     return true;
@@ -39,7 +39,7 @@ vi.mock('@selfbase/docker-control', () => ({
   }),
 }));
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     select: () => ({
       from: () => ({

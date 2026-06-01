@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # E2E: validates the cli-login-role endpoint (feature 012) end-to-end
-# against a live selfbase deployment.
+# against a live supastack deployment.
 #
 # Covers:
 #   1. POST /v1/projects/:ref/cli/login-role { read_only: false }
@@ -23,39 +23,39 @@
 #
 # Run locally with:
 #
-#   SELFBASE_APEX=supaviser.dev \
-#   SELFBASE_PAT=sbp_<40hex> \
-#   SELFBASE_PROJECT_REF=<20-char-ref> \
-#   SELFBASE_DB_SUPERUSER_PASSWORD=<postgres-pw> \
+#   SUPASTACK_APEX=supaviser.dev \
+#   SUPASTACK_PAT=sbp_<40hex> \
+#   SUPASTACK_PROJECT_REF=<20-char-ref> \
+#   SUPASTACK_DB_SUPERUSER_PASSWORD=<postgres-pw> \
 #   bash tests/cli-e2e/login-role.sh
 #
-# Requirements: curl, jq, psql on PATH. Active selfbase deployment.
+# Requirements: curl, jq, psql on PATH. Active supastack deployment.
 #
 # Long-running: includes a 320-second sleep (TTL + 20s grace) for the
 # expiry-test step. Total runtime ≈ 6 minutes.
 
 set -euo pipefail
 
-: "${SELFBASE_APEX:?SELFBASE_APEX required}"
-: "${SELFBASE_PAT:?SELFBASE_PAT required}"
-: "${SELFBASE_PROJECT_REF:?SELFBASE_PROJECT_REF required}"
-: "${SELFBASE_DB_SUPERUSER_PASSWORD:?SELFBASE_DB_SUPERUSER_PASSWORD required (for inspection psql calls)}"
+: "${SUPASTACK_APEX:?SUPASTACK_APEX required}"
+: "${SUPASTACK_PAT:?SUPASTACK_PAT required}"
+: "${SUPASTACK_PROJECT_REF:?SUPASTACK_PROJECT_REF required}"
+: "${SUPASTACK_DB_SUPERUSER_PASSWORD:?SUPASTACK_DB_SUPERUSER_PASSWORD required (for inspection psql calls)}"
 
-API_URL="https://api.${SELFBASE_APEX}/v1/projects/${SELFBASE_PROJECT_REF}/cli/login-role"
-DB_HOST="db.${SELFBASE_PROJECT_REF}.${SELFBASE_APEX}"
-SUPERUSER_URL="postgresql://postgres:${SELFBASE_DB_SUPERUSER_PASSWORD}@${DB_HOST}:5432/postgres"
+API_URL="https://api.${SUPASTACK_APEX}/v1/projects/${SUPASTACK_PROJECT_REF}/cli/login-role"
+DB_HOST="db.${SUPASTACK_PROJECT_REF}.${SUPASTACK_APEX}"
+SUPERUSER_URL="postgresql://postgres:${SUPASTACK_DB_SUPERUSER_PASSWORD}@${DB_HOST}:5432/postgres"
 
-echo "[login-role] target apex=${SELFBASE_APEX} ref=${SELFBASE_PROJECT_REF}"
+echo "[login-role] target apex=${SUPASTACK_APEX} ref=${SUPASTACK_PROJECT_REF}"
 
 # Helper — invoke endpoint, assert HTTP status, dump body to file.
 mint_role() {
   local read_only="$1"
   local out_file="$2"
-  echo "[login-role]   POST /v1/projects/${SELFBASE_PROJECT_REF}/cli/login-role (read_only=${read_only})"
+  echo "[login-role]   POST /v1/projects/${SUPASTACK_PROJECT_REF}/cli/login-role (read_only=${read_only})"
   local status
   status=$(curl -sS -o "$out_file" -w '%{http_code}' \
     -X POST "$API_URL" \
-    -H "Authorization: Bearer ${SELFBASE_PAT}" \
+    -H "Authorization: Bearer ${SUPASTACK_PAT}" \
     -H 'Content-Type: application/json' \
     -d "{\"read_only\": ${read_only}}")
   if [[ "$status" != "201" ]]; then
@@ -66,11 +66,11 @@ mint_role() {
 }
 
 invalidate_roles() {
-  echo "[login-role]   DELETE /v1/projects/${SELFBASE_PROJECT_REF}/cli/login-role"
+  echo "[login-role]   DELETE /v1/projects/${SUPASTACK_PROJECT_REF}/cli/login-role"
   local body
   body=$(curl -sS -w '\n%{http_code}' \
     -X DELETE "$API_URL" \
-    -H "Authorization: Bearer ${SELFBASE_PAT}")
+    -H "Authorization: Bearer ${SUPASTACK_PAT}")
   local status="${body##*$'\n'}"
   local payload="${body%$'\n'*}"
   if [[ "$status" != "200" ]]; then
@@ -163,7 +163,7 @@ echo "[login-role] step 5/7: read_only=true currently returns 501 (deferred — 
 RO_BODY="$WORK/ro.json"
 RO_STATUS=$(curl -sS -o "$RO_BODY" -w '%{http_code}' \
   -X POST "$API_URL" \
-  -H "Authorization: Bearer ${SELFBASE_PAT}" \
+  -H "Authorization: Bearer ${SUPASTACK_PAT}" \
   -H 'Content-Type: application/json' \
   -d '{"read_only": true}')
 if [[ "$RO_STATUS" != '501' ]]; then
@@ -182,7 +182,7 @@ echo "[login-role] ✓ read-only path correctly 501s with code=not_implemented (
 # Block 4 — pg_roles inspection
 # ──────────────────────────────────────────────────────────────────────
 echo "[login-role] step 6/7: pg_roles shows cli_login_postgres (RO role not provisioned — deferred)"
-PGPASSWORD="$SELFBASE_DB_SUPERUSER_PASSWORD" psql "$SUPERUSER_URL" \
+PGPASSWORD="$SUPASTACK_DB_SUPERUSER_PASSWORD" psql "$SUPERUSER_URL" \
   -v ON_ERROR_STOP=1 \
   -A -t \
   -c "SELECT rolname, rolvaliduntil > now() AS active FROM pg_roles WHERE rolname LIKE 'cli_login_%' ORDER BY rolname" \

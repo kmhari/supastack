@@ -21,7 +21,7 @@ See per-service updates below for details.
 
 ### Kong
 
-- Selfbase feature 017: set `KONG_NGINX_WORKER_PROCESSES=2` in `docker-compose.yml`. Default Kong uses `auto`, which on multi-core hosts spawns one nginx worker per host CPU (~120 MiB RSS each). Capping to 2 reduces per-project gateway idle memory from ~1.25 GiB to ~250 MiB on a 12-core host without measurable throughput impact at typical per-project traffic. Apply by recreating each project's `kong` container (`docker compose up -d kong`).
+- Supastack feature 017: set `KONG_NGINX_WORKER_PROCESSES=2` in `docker-compose.yml`. Default Kong uses `auto`, which on multi-core hosts spawns one nginx worker per host CPU (~120 MiB RSS each). Capping to 2 reduces per-project gateway idle memory from ~1.25 GiB to ~250 MiB on a 12-core host without measurable throughput impact at typical per-project traffic. Apply by recreating each project's `kong` container (`docker compose up -d kong`).
 
 ---
 

@@ -1,7 +1,7 @@
 /**
  * Bearer-auth helper for the MCP HTTP transport.
  *
- * Verifies JWT signature + claims via @selfbase/oauth, then checks Redis
+ * Verifies JWT signature + claims via @supastack/oauth, then checks Redis
  * revocation. On any failure, throws an `AuthError` that the HTTP layer
  * translates into 401 + RFC 6750 `WWW-Authenticate` header.
  *
@@ -16,8 +16,8 @@ import {
   InvalidIssuerError,
   InvalidAudienceError,
   MalformedTokenError,
-} from '@selfbase/oauth';
-import type { MinimalRedisClient } from '@selfbase/oauth';
+} from '@supastack/oauth';
+import type { MinimalRedisClient } from '@supastack/oauth';
 
 export class AuthError extends Error {
   constructor(
@@ -70,5 +70,5 @@ export async function resolveBearer(args: ResolveBearerArgs): Promise<OAuthAcces
 
 /** RFC 6750 — Bearer WWW-Authenticate header for 401 responses. */
 export function wwwAuthenticateHeader(apex: string, errorCode: string): string {
-  return `Bearer realm="selfbase", resource="https://mcp.${apex}/mcp", authorization_uri="https://api.${apex}/.well-known/oauth-authorization-server", error="${errorCode}"`;
+  return `Bearer realm="supastack", resource="https://mcp.${apex}/mcp", authorization_uri="https://api.${apex}/.well-known/oauth-authorization-server", error="${errorCode}"`;
 }

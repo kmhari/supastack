@@ -100,13 +100,13 @@ export function SettingsOrgPage(): React.ReactElement {
                   </CardRow>
                   <CardRow
                     label="Apex domain"
-                    hint="e.g. selfbase.example.com — leave blank to clear"
+                    hint="e.g. supastack.example.com — leave blank to clear"
                   >
                     <InputWithCopy
                       noCopy
                       value={apex}
                       onChange={(e) => setApex(e.target.value)}
-                      placeholder="selfbase.example.com"
+                      placeholder="supastack.example.com"
                     />
                   </CardRow>
                 </Card>
@@ -143,7 +143,7 @@ export function SettingsOrgPage(): React.ReactElement {
                 {storeKind === 'local' && (
                   <CardRow label="Path">
                     <div className="text-sm text-muted-foreground">
-                      Backups stored at <code>/var/selfbase/backups/&lt;ref&gt;/</code> on the host.
+                      Backups stored at <code>/var/supastack/backups/&lt;ref&gt;/</code> on the host.
                     </div>
                   </CardRow>
                 )}

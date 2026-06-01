@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
+import type { SupastackDb } from './client.js';
 import { portAllocations } from './schema/instances.js';
-import type { SelfbaseDb } from './client.js';
 
 export const PORT_KINDS = [
   'kong',
@@ -47,7 +47,7 @@ export interface PortAllocatorOptions {
  * inserted the supabase_instances row.
  */
 export async function allocatePorts(
-  db: SelfbaseDb,
+  db: SupastackDb,
   instanceRef: string | null,
   opts: PortAllocatorOptions = {},
 ): Promise<PortAllocation> {
@@ -111,7 +111,7 @@ export async function allocatePorts(
   throw new Error(`port allocator: exhausted ${retries} retries due to contention`);
 }
 
-export async function releasePortsForInstance(db: SelfbaseDb, instanceRef: string): Promise<void> {
+export async function releasePortsForInstance(db: SupastackDb, instanceRef: string): Promise<void> {
   await db.execute(sql`DELETE FROM port_allocations WHERE instance_ref = ${instanceRef}`);
 }
 
@@ -121,7 +121,7 @@ export async function releasePortsForInstance(db: SelfbaseDb, instanceRef: strin
  * flow inside the same transaction.
  */
 export async function assignPortsToInstance(
-  db: SelfbaseDb,
+  db: SupastackDb,
   instanceRef: string,
   ports: PortAllocation,
 ): Promise<void> {

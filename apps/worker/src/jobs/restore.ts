@@ -6,30 +6,30 @@ import { spawn } from 'node:child_process';
 import { eq } from 'drizzle-orm';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
-import { db, schema } from '@selfbase/db';
-import { logger } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { logger } from '@supastack/shared';
 import {
   composeStop,
   composeStart,
   composeAllHealthy,
   type ComposeContext,
-} from '@selfbase/docker-control';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
+} from '@supastack/docker-control';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import {
   LocalDiskStore,
   S3Store,
   type BackupStore,
   type S3StoreConfig,
-} from '@selfbase/backup-store';
+} from '@supastack/backup-store';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://redis:6379';
-const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
-const BACKUPS_DIR = process.env.BACKUPS_DIR ?? '/var/selfbase/backups';
+const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/supastack/instances';
+const BACKUPS_DIR = process.env.BACKUPS_DIR ?? '/var/supastack/backups';
 
 let _gcQueue: Queue | null = null;
 function _useGcQueue(): Queue {
   if (!_gcQueue) {
-    _gcQueue = new Queue('selfbase.restore-gc', {
+    _gcQueue = new Queue('supastack.restore-gc', {
       connection: new Redis(REDIS_URL, { maxRetriesPerRequest: null }),
     });
   }
@@ -84,7 +84,7 @@ export async function handleRestore(payload: { restore_job_id: string }): Promis
 
   const ref = job.instanceRef;
   const ctx: ComposeContext = {
-    projectName: `selfbase-${ref}`,
+    projectName: `supastack-${ref}`,
     dir: path.join(INSTANCES_DIR, ref),
   };
 
@@ -123,7 +123,7 @@ export async function handleRestore(payload: { restore_job_id: string }): Promis
     maybeAbort();
 
     // Step 4: copy dump into the db container
-    const dbContainer = `selfbase-${ref}-db-1`;
+    const dbContainer = `supastack-${ref}-db-1`;
     const containerDump = `/tmp/restore-${restore_job_id}.dump`;
     log.info({ dbContainer }, 'copying dump into db container');
     await spawnAsync('docker', ['cp', tmpBlob, `${dbContainer}:${containerDump}`]);

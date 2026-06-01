@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 /**
  * T010: vault-enable-job unit tests.
  *
- * Mocks: pg.Client, @selfbase/db, @selfbase/crypto, vault-bootstrap.
+ * Mocks: pg.Client, @supastack/db, @supastack/crypto, vault-bootstrap.
  * Verifies: success path updates vault_enabled_at + emits audit; bootstrap
  * failure does NOT update the marker or emit success audit.
  */
@@ -51,7 +51,7 @@ const mockDb = {
   }),
 };
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => mockDb,
   schema: {
     supabaseInstances: { ref: {}, encryptedSecrets: {}, portDbDirect: {}, portPostgres: {} },
@@ -59,7 +59,7 @@ vi.mock('@selfbase/db', () => ({
   },
 }));
 
-vi.mock('@selfbase/crypto', () => ({
+vi.mock('@supastack/crypto', () => ({
   decryptJson: vi.fn().mockReturnValue({ postgresPassword: 'fake-pw' }),
   loadMasterKey: vi.fn().mockReturnValue(Buffer.alloc(32)),
 }));

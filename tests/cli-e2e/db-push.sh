@@ -1,27 +1,27 @@
 #!/usr/bin/env bash
 #
-# E2E: validates all `supabase` CLI database commands against a live selfbase
+# E2E: validates all `supabase` CLI database commands against a live supastack
 # deployment. Dual-pass harness (spec 012 FR-011):
 #
 #   Pass A — WITH_PASSWORD=1: every CLI command receives --password
-#            "$SELFBASE_DB_PASSWORD" + the env var is set. Regression guard
+#            "$SUPASTACK_DB_PASSWORD" + the env var is set. Regression guard
 #            for spec 012 US2 (legacy operators must keep working) and the
 #            pre-feature-012 baseline behaviour of feature 005.
 #
 #   Pass B — WITH_PASSWORD=0: --password dropped from every CLI command,
 #            SUPABASE_DB_PASSWORD unset. Exercises spec 012 US1 path —
 #            the upstream CLI calls POST /v1/projects/:ref/cli/login-role
-#            and selfbase rotates the persistent cli_login_postgres role's
+#            and supastack rotates the persistent cli_login_postgres role's
 #            password to a fresh 5-min-expiring value.
 #
 # CI runs both passes; either failing fails the script.
 #
 # Run locally with:
 #
-#   SELFBASE_APEX=cli-e2e.example.com \
-#   SELFBASE_PAT=sbp_<40hex> \
-#   SELFBASE_PROJECT_REF=<20-char-ref> \
-#   SELFBASE_DB_PASSWORD=<postgres-password> \
+#   SUPASTACK_APEX=cli-e2e.example.com \
+#   SUPASTACK_PAT=sbp_<40hex> \
+#   SUPASTACK_PROJECT_REF=<20-char-ref> \
+#   SUPASTACK_DB_PASSWORD=<postgres-password> \
 #   bash tests/cli-e2e/db-push.sh
 #
 # Requirements: supabase CLI ≥ 2.72.7 on PATH; psql REQUIRED for the
@@ -29,18 +29,18 @@
 
 set -euo pipefail
 
-: "${SELFBASE_APEX:?SELFBASE_APEX required}"
-: "${SELFBASE_PAT:?SELFBASE_PAT required}"
-: "${SELFBASE_PROJECT_REF:?SELFBASE_PROJECT_REF required}"
-: "${SELFBASE_DB_PASSWORD:?SELFBASE_DB_PASSWORD required (used by Pass A; Pass B drops it)}"
+: "${SUPASTACK_APEX:?SUPASTACK_APEX required}"
+: "${SUPASTACK_PAT:?SUPASTACK_PAT required}"
+: "${SUPASTACK_PROJECT_REF:?SUPASTACK_PROJECT_REF required}"
+: "${SUPASTACK_DB_PASSWORD:?SUPASTACK_DB_PASSWORD required (used by Pass A; Pass B drops it)}"
 
 if ! command -v psql >/dev/null 2>&1; then
   echo "FATAL: psql is required for the spec-012 evidence capture + pg_roles assertions" >&2
   exit 1
 fi
 
-DB_HOST="db.${SELFBASE_PROJECT_REF}.${SELFBASE_APEX}"
-DB_URL_SUPER="postgresql://postgres:${SELFBASE_DB_PASSWORD}@${DB_HOST}:5432/postgres"
+DB_HOST="db.${SUPASTACK_PROJECT_REF}.${SUPASTACK_APEX}"
+DB_URL_SUPER="postgresql://postgres:${SUPASTACK_DB_PASSWORD}@${DB_HOST}:5432/postgres"
 
 # Where the dual-pass psql evidence outputs live (T026, L1 remediation).
 # Use an absolute path so files survive when the per-pass tempdir is rm'd.
@@ -73,37 +73,37 @@ run_full_workflow() {
   # Helper that prepends `--password` ONLY when WITH_PASSWORD=1.
   pwd_flag() {
     if [[ "$with_password" = '1' ]]; then
-      printf -- '--password\t%s' "$SELFBASE_DB_PASSWORD"
+      printf -- '--password\t%s' "$SUPASTACK_DB_PASSWORD"
     fi
   }
 
   # Helper that exports SUPABASE_DB_PASSWORD ONLY when WITH_PASSWORD=1.
   pwd_env_set() {
     if [[ "$with_password" = '1' ]]; then
-      export SUPABASE_DB_PASSWORD="$SELFBASE_DB_PASSWORD"
+      export SUPABASE_DB_PASSWORD="$SUPASTACK_DB_PASSWORD"
     else
       unset SUPABASE_DB_PASSWORD || true
     fi
   }
 
-  # --- 1. Write the selfbase profile ----------------------------------
-  cat > "$WORK/selfbase.toml" <<EOF
-name          = "selfbase-db-e2e"
-api_url       = "https://api.${SELFBASE_APEX}"
-dashboard_url = "https://${SELFBASE_APEX}/dashboard"
-project_host  = "${SELFBASE_APEX}"
+  # --- 1. Write the supastack profile ----------------------------------
+  cat > "$WORK/supastack.toml" <<EOF
+name          = "supastack-db-e2e"
+api_url       = "https://api.${SUPASTACK_APEX}"
+dashboard_url = "https://${SUPASTACK_APEX}/dashboard"
+project_host  = "${SUPASTACK_APEX}"
 EOF
 
   # --- 2. supabase login ----------------------------------------------
   echo "[db-push] step 1/9: supabase login"
-  SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-    supabase login --profile "$WORK/selfbase.toml" --token "$SELFBASE_PAT"
+  SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+    supabase login --profile "$WORK/supastack.toml" --token "$SUPASTACK_PAT"
   echo "[db-push] ✓ logged in"
 
   # --- 3. Scaffold a project dir with the throwaway migration ---------
   mkdir -p "$WORK/proj/supabase/migrations"
   cat > "$WORK/proj/supabase/config.toml" <<EOF
-project_id = "$SELFBASE_PROJECT_REF"
+project_id = "$SUPASTACK_PROJECT_REF"
 EOF
   local MIGRATION_VERSION='99999999000000'
   local MIGRATION_FILE="$WORK/proj/supabase/migrations/${MIGRATION_VERSION}_e2e_db_push_test.sql"
@@ -118,7 +118,7 @@ EOF
   # Pre-cleanup: drop any leftover cli_login_* roles, the throwaway table,
   # AND any spurious supabase_migrations.schema_migrations rows from a
   # prior partial run — so each pass starts from a known-clean state.
-  PGPASSWORD="$SELFBASE_DB_PASSWORD" psql "$DB_URL_SUPER" -v ON_ERROR_STOP=1 \
+  PGPASSWORD="$SUPASTACK_DB_PASSWORD" psql "$DB_URL_SUPER" -v ON_ERROR_STOP=1 \
     -c "DO \$\$ BEGIN
           IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cli_login_postgres') THEN
             DROP ROLE cli_login_postgres;
@@ -127,37 +127,37 @@ EOF
             DROP ROLE cli_login_supabase_read_only_user;
           END IF;
         END \$\$;" >/dev/null
-  PGPASSWORD="$SELFBASE_DB_PASSWORD" psql "$DB_URL_SUPER" -v ON_ERROR_STOP=1 \
+  PGPASSWORD="$SUPASTACK_DB_PASSWORD" psql "$DB_URL_SUPER" -v ON_ERROR_STOP=1 \
     -c "DROP TABLE IF EXISTS _e2e_db_push_test;" >/dev/null
   # Clear any prior test-run schema-migration rows (matches our throwaway
   # version + any `db pull`-generated 14-digit timestamp from an earlier
   # partial run).
-  PGPASSWORD="$SELFBASE_DB_PASSWORD" psql "$DB_URL_SUPER" -v ON_ERROR_STOP=1 \
+  PGPASSWORD="$SUPASTACK_DB_PASSWORD" psql "$DB_URL_SUPER" -v ON_ERROR_STOP=1 \
     -c "DELETE FROM supabase_migrations.schema_migrations WHERE version LIKE '99999%' OR version ~ '^2026[0-9]{10}\$';" >/dev/null 2>&1 || true
 
   pwd_env_set
 
   # --- 3b. supabase link ----------------------------------------------
   echo "[db-push] step 2/9: supabase link"
-  SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-    supabase --profile "$WORK/selfbase.toml" link \
-      --project-ref "$SELFBASE_PROJECT_REF" \
-      $([[ "$with_password" = '1' ]] && printf -- '--password\n%s\n' "$SELFBASE_DB_PASSWORD")
+  SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+    supabase --profile "$WORK/supastack.toml" link \
+      --project-ref "$SUPASTACK_PROJECT_REF" \
+      $([[ "$with_password" = '1' ]] && printf -- '--password\n%s\n' "$SUPASTACK_DB_PASSWORD")
   echo "[db-push] ✓ linked"
 
   # --- 4. supabase db push --------------------------------------------
   echo "[db-push] step 3/9: supabase db push"
-  SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-    supabase --profile "$WORK/selfbase.toml" db push --include-all \
-      $([[ "$with_password" = '1' ]] && printf -- '--password\n%s\n' "$SELFBASE_DB_PASSWORD")
-  echo "[db-push] ✓ migration applied at db.${SELFBASE_PROJECT_REF}.${SELFBASE_APEX}:5432"
+  SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+    supabase --profile "$WORK/supastack.toml" db push --include-all \
+      $([[ "$with_password" = '1' ]] && printf -- '--password\n%s\n' "$SUPASTACK_DB_PASSWORD")
+  echo "[db-push] ✓ migration applied at db.${SUPASTACK_PROJECT_REF}.${SUPASTACK_APEX}:5432"
 
   # --- 5. supabase migration list -------------------------------------
   echo "[db-push] step 4/9: supabase migration list"
   local LIST_OUTPUT
-  LIST_OUTPUT=$(SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-    supabase --profile "$WORK/selfbase.toml" migration list \
-      $([[ "$with_password" = '1' ]] && printf -- '--password\n%s\n' "$SELFBASE_DB_PASSWORD"))
+  LIST_OUTPUT=$(SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+    supabase --profile "$WORK/supastack.toml" migration list \
+      $([[ "$with_password" = '1' ]] && printf -- '--password\n%s\n' "$SUPASTACK_DB_PASSWORD"))
   echo "$LIST_OUTPUT" | grep -q "$MIGRATION_VERSION" || {
     echo "FAIL: migration list did not include ${MIGRATION_VERSION}_e2e_db_push_test"
     echo "$LIST_OUTPUT"
@@ -167,16 +167,16 @@ EOF
 
   # --- 5b. supabase migration fetch + repair round-trip (T014b, SC-007)
   echo "[db-push] step 5/9: supabase migration fetch + repair round-trip"
-  SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-    supabase --profile "$WORK/selfbase.toml" migration fetch >/dev/null
+  SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+    supabase --profile "$WORK/supastack.toml" migration fetch >/dev/null
   echo "[db-push]   ✓ migration fetch exit 0"
 
   # repair --status reverted → row removed from supabase_migrations.schema_migrations
-  SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-    supabase --profile "$WORK/selfbase.toml" migration repair \
+  SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+    supabase --profile "$WORK/supastack.toml" migration repair \
       "$MIGRATION_VERSION" --status reverted >/dev/null
   local ROW_COUNT
-  ROW_COUNT=$(PGPASSWORD="$SELFBASE_DB_PASSWORD" psql "$DB_URL_SUPER" -A -t \
+  ROW_COUNT=$(PGPASSWORD="$SUPASTACK_DB_PASSWORD" psql "$DB_URL_SUPER" -A -t \
     -c "SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version = '${MIGRATION_VERSION}'")
   [[ "$ROW_COUNT" = '0' ]] || {
     echo "FAIL: migration repair --status reverted did not remove row (count=$ROW_COUNT)"
@@ -185,10 +185,10 @@ EOF
   echo "[db-push]   ✓ migration repair --status reverted removed the row"
 
   # repair --status applied → row reinserted (round-trip)
-  SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-    supabase --profile "$WORK/selfbase.toml" migration repair \
+  SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+    supabase --profile "$WORK/supastack.toml" migration repair \
       "$MIGRATION_VERSION" --status applied >/dev/null
-  ROW_COUNT=$(PGPASSWORD="$SELFBASE_DB_PASSWORD" psql "$DB_URL_SUPER" -A -t \
+  ROW_COUNT=$(PGPASSWORD="$SUPASTACK_DB_PASSWORD" psql "$DB_URL_SUPER" -A -t \
     -c "SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version = '${MIGRATION_VERSION}'")
   [[ "$ROW_COUNT" = '1' ]] || {
     echo "FAIL: migration repair --status applied did not re-add row (count=$ROW_COUNT)"
@@ -198,8 +198,8 @@ EOF
 
   # --- 6. supabase db diff --linked -----------------------------------
   echo "[db-push] step 6/9: supabase db diff --linked"
-  SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-    supabase --profile "$WORK/selfbase.toml" db diff --linked >/dev/null
+  SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+    supabase --profile "$WORK/supastack.toml" db diff --linked >/dev/null
   echo "[db-push] ✓ db diff exit 0"
 
   # --- 7. supabase db pull --------------------------------------------
@@ -212,9 +212,9 @@ EOF
   echo "[db-push] step 7/9: supabase db pull"
   local DB_PULL_LOG="$WORK/db-pull.log"
   set +e
-  SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-    supabase --profile "$WORK/selfbase.toml" db pull \
-      $([[ "$with_password" = '1' ]] && printf -- '--password\n%s\n' "$SELFBASE_DB_PASSWORD") \
+  SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+    supabase --profile "$WORK/supastack.toml" db pull \
+      $([[ "$with_password" = '1' ]] && printf -- '--password\n%s\n' "$SUPASTACK_DB_PASSWORD") \
       --schema public > "$DB_PULL_LOG" 2>&1
   local PULL_EXIT=$?
   set -e
@@ -231,11 +231,11 @@ EOF
   # call still works for db-credential discovery via SUPABASE_DB_PASSWORD
   # env var (Pass A) or via the new endpoint (Pass B). We invoke `inspect db
   # bloat` as a representative subcommand (any subcommand exercises the
-  # password-resolution path); ignore exit code since selfbase doesn't
+  # password-resolution path); ignore exit code since supastack doesn't
   # expose all extensions inspect needs.
   echo "[db-push] step 8/9: supabase inspect db bloat"
-  SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-    supabase --profile "$WORK/selfbase.toml" inspect db bloat >/dev/null 2>&1 || true
+  SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+    supabase --profile "$WORK/supastack.toml" inspect db bloat >/dev/null 2>&1 || true
   echo "[db-push] ✓ inspect db exit acknowledged"
 
   # --- 9. Per-pass spec-012 assertions on pg_roles --------------------
@@ -247,11 +247,11 @@ EOF
       echo "# Spec 012 SC-002 evidence — Pass A (--password supplied)"
       echo "# Expected: zero cli_login_* roles. The CLI's resolution logic"
       echo "# short-circuited before our endpoint was reached."
-      PGPASSWORD="$SELFBASE_DB_PASSWORD" psql "$DB_URL_SUPER" -A -t \
+      PGPASSWORD="$SUPASTACK_DB_PASSWORD" psql "$DB_URL_SUPER" -A -t \
         -c "SELECT rolname FROM pg_roles WHERE rolname LIKE 'cli_login_%' ORDER BY rolname"
     } > "$SC_002_FILE"
     local PASS_A_COUNT
-    PASS_A_COUNT=$(PGPASSWORD="$SELFBASE_DB_PASSWORD" psql "$DB_URL_SUPER" -A -t \
+    PASS_A_COUNT=$(PGPASSWORD="$SUPASTACK_DB_PASSWORD" psql "$DB_URL_SUPER" -A -t \
       -c "SELECT count(*) FROM pg_roles WHERE rolname LIKE 'cli_login_%'")
     if [[ "$PASS_A_COUNT" != '0' ]]; then
       echo "FAIL: Pass A leaked ${PASS_A_COUNT} cli_login_* row(s) — endpoint was called inadvertently"
@@ -268,19 +268,19 @@ EOF
     # via the DELETE endpoint first, which sets rolvaliduntil to 1970-01-01.
     echo "[db-push]   pre-assert: DELETE /cli/login-role to force rolvaliduntil into the past"
     curl -sS -o /dev/null -X DELETE \
-      "https://api.${SELFBASE_APEX}/v1/projects/${SELFBASE_PROJECT_REF}/cli/login-role" \
-      -H "Authorization: Bearer ${SELFBASE_PAT}"
+      "https://api.${SUPASTACK_APEX}/v1/projects/${SUPASTACK_PROJECT_REF}/cli/login-role" \
+      -H "Authorization: Bearer ${SUPASTACK_PAT}"
 
     {
       echo "# Spec 012 SC-003 evidence — Pass B (password-less)"
       echo "# Expected: cli_login_postgres exists with rolvaliduntil in the past"
       echo "# (DELETE above set it to 1970-01-01 — would otherwise be ~5 min in"
       echo "# the future of the last CLI call)."
-      PGPASSWORD="$SELFBASE_DB_PASSWORD" psql "$DB_URL_SUPER" -A -t \
+      PGPASSWORD="$SUPASTACK_DB_PASSWORD" psql "$DB_URL_SUPER" -A -t \
         -c "SELECT rolname, rolvaliduntil FROM pg_roles WHERE rolname LIKE 'cli_login_%' ORDER BY rolname"
     } > "$SC_003_FILE"
     local PASS_B_HAS_RW
-    PASS_B_HAS_RW=$(PGPASSWORD="$SELFBASE_DB_PASSWORD" psql "$DB_URL_SUPER" -A -t \
+    PASS_B_HAS_RW=$(PGPASSWORD="$SUPASTACK_DB_PASSWORD" psql "$DB_URL_SUPER" -A -t \
       -c "SELECT count(*) FROM pg_roles WHERE rolname = 'cli_login_postgres' AND rolvaliduntil < now()")
     if [[ "$PASS_B_HAS_RW" != '1' ]]; then
       echo "FAIL: Pass B expected exactly one cli_login_postgres row with rolvaliduntil < now(); got count=${PASS_B_HAS_RW}"
@@ -292,7 +292,7 @@ EOF
   fi
 
   # --- 10. Cleanup ----------------------------------------------------
-  PGPASSWORD="$SELFBASE_DB_PASSWORD" psql "$DB_URL_SUPER" -v ON_ERROR_STOP=1 \
+  PGPASSWORD="$SUPASTACK_DB_PASSWORD" psql "$DB_URL_SUPER" -v ON_ERROR_STOP=1 \
     -c "DROP TABLE IF EXISTS _e2e_db_push_test;" >/dev/null
   echo "[db-push] ✓ cleanup complete"
 }
