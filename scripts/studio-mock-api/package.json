@@ -1,0 +1,13 @@
+{
+  "name": "studio-mock-api",
+  "version": "1.0.0",
+  "description": "Mock platform API for Supabase Studio IS_PLATFORM=true exploration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "http-proxy-middleware": "^3.0.3"
+  }
+}
