@@ -248,6 +248,16 @@ export async function buildApp(): Promise<FastifyInstance> {
     reply.send({ eligible: false, current_app_version: 'supabase-postgres-15.0.0.55' }),
   );
   // /legacy is the older Studio path for the same anon+service_role keys
+  app.get<RefP>('/v1/projects/:ref/config/auth/signing-keys/legacy', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const { getProjectByRef } = await import('./services/project-store.js');
+    const { decryptJson, loadMasterKey } = await import('@supastack/crypto');
+    const row = await getProjectByRef(user.id, req.params.ref);
+    if (!row) return reply.status(404).send({ error: 'Project not found' });
+    const secrets = decryptJson(row.encryptedSecrets, loadMasterKey()) as { jwtSecret: string };
+    return reply.send([{ algorithm: 'HS256', status: 'active', secret: secrets.jwtSecret }]);
+  });
+
   app.get<RefP>('/v1/projects/:ref/api-keys/legacy', async (req, reply) => {
     const user = app.requireAuth(req);
     const { getProjectByRef } = await import('./services/project-store.js');

@@ -272,6 +272,30 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ fileSizeLimit: 52428800, features: { imageTransformation: { enabled: true } } });
   });
 
+  // PostgREST config — delegate to existing management route for real data, stub if not found
+  app.get<RefParams>('/platform/projects/:ref/config/postgrest', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/config/postgrest`,
+      headers: req.headers as Record<string, string>,
+    });
+    if (resp.statusCode === 200) return reply.status(200).send(resp.json<unknown>());
+    return reply.send({ db_schema: 'public', db_extra_search_path: 'public, extensions', max_rows: 1000, db_pool: 15 });
+  });
+
+  app.patch<RefParams>('/platform/projects/:ref/config/postgrest', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({
+      method: 'PATCH',
+      url: `/v1/projects/${req.params.ref}/config/postgrest`,
+      headers: req.headers as Record<string, string>,
+      payload: JSON.stringify(req.body),
+    });
+    if (resp.statusCode === 200) return reply.status(200).send(resp.json<unknown>());
+    return reply.send(req.body ?? {});
+  });
+
   // Resource warnings
   app.get('/platform/projects-resource-warnings', async (req, reply) => {
     app.requireAuth(req);
