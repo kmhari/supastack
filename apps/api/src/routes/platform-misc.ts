@@ -404,9 +404,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send([]);
   });
 
+  // Studio does `data.connections` on this response — must return {connections:[]}
   app.get('/platform/integrations/github/connections', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send([]);
+    return reply.send({ connections: [] });
   });
 
   app.get('/platform/integrations/github/authorization', async (req, reply) => {
@@ -970,7 +971,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // PrivateLink associations (not supported in self-hosted)
   app.get<RefParams>('/platform/projects/:ref/privatelink/associations', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ associations: [] });
+    // Studio does `data.private_link_associations` on this response
+    return reply.send({ private_link_associations: [] });
   });
 
   app.post<RefParams>(
@@ -1184,7 +1186,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     '/platform/replication/:ref/sources/:source_id/tables',
     async (req, reply) => {
       app.requireAuth(req);
-      return reply.send([]);
+      // Studio does `data.tables` on this response
+      return reply.send({ tables: [] });
     },
   );
 

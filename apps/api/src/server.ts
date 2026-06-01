@@ -260,6 +260,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     reply.send({ eligible: false, current_app_version: 'supabase-postgres-15.0.0.55' }),
   );
   // /legacy is the older Studio path for the same anon+service_role keys
+  // JIT DB access — Studio does `data.items` on this response
+  app.get<RefP>('/v1/projects/:ref/database/jit/list', async (_req, reply) =>
+    reply.send({ items: [] }),
+  );
+
   app.get<RefP>('/v1/projects/:ref/config/auth/signing-keys/legacy', async (req, reply) => {
     const user = app.requireAuth(req);
     const { getProjectByRef } = await import('./services/project-store.js');
