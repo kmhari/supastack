@@ -61,14 +61,12 @@ export async function buildCaddyConfig(): Promise<unknown> {
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
     {
-      // Stub out Studio's /api/get-deployment-commit at the API level
-      // (returns 404 from Studio dev server).
       match: [{ path: ['/api/get-deployment-commit'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
     {
-      // Only /api/v1* goes to the Supastack API.
-      // Other /api/* paths (Studio Next.js routes) fall through to Studio.
+      // /api/v1/v1/* — double-v1 paths from Studio IS_PLATFORM=true.
+      // Handled by Fastify catch-all that strips the outer /api/v1 internally.
       match: [{ path: ['/api/v1*'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },

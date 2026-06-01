@@ -159,6 +159,164 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(buildOrg(orgRow.id, orgRow.name, user.role === 'admin'));
   });
 
+  // ── Project-level platform routes ─────────────────────────────────────────
+  type RefParams = { Params: { ref: string } };
+
+  // Single project detail
+  app.get<RefParams>('/platform/projects/:ref', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const apex = process.env.SUPASTACK_APEX ?? '';
+    const [inst] = await db()
+      .select({
+        ref: schema.supabaseInstances.ref,
+        name: schema.supabaseInstances.name,
+        status: schema.supabaseInstances.status,
+        portKong: schema.supabaseInstances.portKong,
+        insertedAt: schema.supabaseInstances.createdAt,
+        updatedAt: schema.supabaseInstances.updatedAt,
+        orgId: schema.supabaseInstances.orgId,
+      })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
+      .where(eq(schema.supabaseInstances.ref, req.params.ref) && eq(schema.orgMembers.userId, user.id) as never)
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send(buildProject(inst, apex));
+  });
+
+  app.patch<RefParams>('/platform/projects/:ref', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  // Databases
+  app.get<RefParams>('/platform/projects/:ref/databases', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const apex = process.env.SUPASTACK_APEX ?? '';
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong, insertedAt: schema.supabaseInstances.createdAt })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
+      .where(eq(schema.supabaseInstances.ref, req.params.ref) && eq(schema.orgMembers.userId, user.id) as never)
+      .limit(1);
+    if (!inst) return reply.send([]);
+    const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
+    return reply.send([{
+      cloud_provider: 'SUPASTACK',
+      connectionString: '',
+      connection_string_read_only: null,
+      db_host: apex || 'localhost',
+      db_name: 'postgres',
+      db_port: 5432,
+      identifier: inst.ref,
+      inserted_at: inst.insertedAt?.toISOString() ?? new Date().toISOString(),
+      region: 'local',
+      restUrl: `${kongUrl}`,
+      size: 'micro',
+      status: 'ACTIVE_HEALTHY',
+    }]);
+  });
+
+  // Auth config — proxy to the auth-config management route internally
+  // Studio calls GET/PATCH /platform/auth/:ref/config
+  app.get<RefParams>('/platform/auth/:ref/config', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({ method: 'GET', url: `/api/v1/projects/${req.params.ref}/config/auth`, headers: req.headers as Record<string, string> });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
+  });
+
+  app.patch<RefParams>('/platform/auth/:ref/config', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({ method: 'PATCH', url: `/api/v1/projects/${req.params.ref}/config/auth`, headers: req.headers as Record<string, string>, payload: JSON.stringify(req.body) });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
+  });
+
+  // Billing addons
+  app.get<RefParams>('/platform/projects/:ref/billing/addons', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ available_addons: [], selected_addons: [] });
+  });
+
+  // Storage config
+  app.get<RefParams>('/platform/projects/:ref/config/storage', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ fileSizeLimit: 52428800, features: { imageTransformation: { enabled: true } } });
+  });
+
+  // Resource warnings
+  app.get('/platform/projects-resource-warnings', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  // Integrations (GitHub, etc.)
+  app.get('/platform/integrations', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.get<{ Params: { slug: string } }>('/platform/integrations/:slug', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.get('/platform/integrations/github/connections', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.get('/platform/integrations/github/authorization', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ app: null });
+  });
+
+  app.get('/platform/integrations/github/repositories', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ data: [] });
+  });
+
+  // Misc project stubs
+  for (const path of [
+    '/platform/projects/:ref/settings',
+    '/platform/projects/:ref/members',
+    '/platform/projects/:ref/pause/status',
+    '/platform/projects/:ref/daily-stats',
+    '/platform/projects/:ref/infra-monitoring',
+    '/platform/projects/:ref/config/pgbouncer',
+    '/platform/projects/:ref/config/pgbouncer/status',
+    '/platform/projects/:ref/config/secrets/update-status',
+    '/platform/projects/:ref/notifications/advisor/exceptions',
+    '/platform/projects/:ref/content',
+    '/platform/projects/:ref/content/count',
+    '/platform/projects/:ref/content/folders',
+    '/platform/projects/:ref/restore/versions',
+    '/platform/projects/:ref/run-lints',
+    '/platform/projects/:ref/load-balancers',
+  ] as const) {
+    app.get(path, async (req, reply) => {
+      app.requireAuth(req);
+      const stub: Record<string, unknown> = {
+        'pause/status': { initiated_at: null, status: 'not_pausing' },
+        'daily-stats': { data: [] },
+        'infra-monitoring': { data: [] },
+        'config/pgbouncer': { pool_mode: 'transaction', default_pool_size: 15, ignore_startup_parameters: 'extra_float_digits' },
+        'config/pgbouncer/status': { active: true },
+        'config/secrets/update-status': { updating: false },
+        'notifications/advisor/exceptions': { result: [] },
+        'content': { data: [], cursor: null },
+        'content/count': { count: 0 },
+        'content/folders': { data: [] },
+        'restore/versions': [],
+        'run-lints': [],
+        'load-balancers': [],
+        'members': { members: [] },
+        'settings': {},
+      };
+      const key = path.split('/').pop()!;
+      return reply.send(stub[key] ?? {});
+    });
+  }
+
   // ── Org-scoped project listing ─────────────────────────────────────────────
   // Studio calls /platform/organizations/:slug/projects to populate the project list.
   app.get<{ Params: { slug: string }; Querystring: { limit?: string; offset?: string } }>(

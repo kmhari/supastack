@@ -231,6 +231,32 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.get('/api/get-deployment-commit', async (_req, reply) =>
     reply.send({ commit: 'dev', date: new Date().toISOString() }),
   );
+
+  // Management API stubs for Studio IS_PLATFORM=true — not in the management
+  // plugin so they don't require the mgmt error envelope.
+  app.post<{ Params: { ref: string } }>('/v1/projects/:ref/network-bans/retrieve', async (_req, reply) =>
+    reply.send({ banned_ipv4_addresses: [] }),
+  );
+  app.delete<{ Params: { ref: string } }>('/v1/projects/:ref/network-bans', async (_req, reply) =>
+    reply.status(204).send(),
+  );
+
+  // Double-v1 fix: Studio IS_PLATFORM=true builds URLs as
+  // `${NEXT_PUBLIC_API_URL}/v1/...` = `/api/v1/v1/...`. Re-inject
+  // with the outer `/api/v1` stripped so management routes match.
+  app.all('/api/v1/v1/*', async (req, reply) => {
+    const stripped = req.url.replace(/^\/api\/v1/, '');
+    const resp = await app.inject({
+      method: req.method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+      url: stripped,
+      headers: req.headers as Record<string, string>,
+      payload: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
+    });
+    for (const [k, v] of Object.entries(resp.headers)) {
+      reply.header(k, v as string);
+    }
+    return reply.status(resp.statusCode).send(resp.payload);
+  });
   await app.register(studioGotrueRoutes, { prefix: '/api/v1' }); // GoTrue shim for Studio IS_PLATFORM=true login (feature 025)
   await app.register(oauthDiscoveryRoutes); // /.well-known/oauth-authorization-server (feature 014 FR-006)
   await app.register(oauthClientsDashboardRoutes); // /api/v1/oauth/clients{,/:id} (feature 014 US3)
