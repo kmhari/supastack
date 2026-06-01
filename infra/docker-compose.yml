@@ -17,6 +17,7 @@ volumes:
   caddy-data:
   caddy-config:
   certs-data:
+  studio-node-modules:
 
 services:
   db:
@@ -274,3 +275,27 @@ services:
       NODE_ENV: production
     networks: [internal]
     # web is fronted by Caddy; no public port published.
+
+  studio:
+    # Shared Supabase Studio — IS_PLATFORM=true, serves all projects at https://<apex>/.
+    # Uses next dev (Phase 1); replace with a built standalone image in Phase 2.
+    # Requires the vanilla Supabase Studio checkout at STUDIO_SOURCE_DIR on the host.
+    # node_modules are installed inside the container (named volume) so that
+    # linux/x64 native binaries (SWC) are used instead of the host macOS ones.
+    image: node:22-alpine
+    working_dir: /studio
+    command: >
+      sh -c "apk add --no-cache python3 make g++ &&
+             corepack enable &&
+             pnpm install --frozen-lockfile &&
+             pnpm --filter studio exec next dev -p 3000"
+    volumes:
+      - ${STUDIO_SOURCE_DIR:-/opt/supabase-vanilla}:/studio
+      - studio-node-modules:/studio/node_modules
+    environment:
+      NEXT_PUBLIC_IS_PLATFORM: "true"
+      NEXT_PUBLIC_API_URL: "https://${SUPASTACK_APEX}/api/v1"
+      NEXT_PUBLIC_GOTRUE_URL: "https://${SUPASTACK_APEX}/api/v1"
+    networks: [internal]
+    restart: unless-stopped
+    # Fronted by Caddy catch-all /* — no public port published.

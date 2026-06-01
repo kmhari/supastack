@@ -69,10 +69,9 @@ function instanceUrls(ref: string, apex: string | null) {
   if (!apex) return { kong: null, studio: null };
   return {
     kong: `https://${ref}.${apex}`,
-    // Studio lives on its own subdomain — the data-plane subdomain above is
-    // reserved for SDK + CLI traffic (Kong's `dashboard` catch-all has been
-    // removed from kong.yml).
-    studio: `https://studio-${ref}.${apex}`,
+    // Shared Studio (IS_PLATFORM=true) serves all projects at the apex root.
+    // Feature 025: one Studio container in the control plane replaces N per-project ones.
+    studio: `https://${apex}/project/${ref}`,
   };
 }
 

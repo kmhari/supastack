@@ -55,7 +55,7 @@ export async function mintApiToken(
   tx: Inserter,
   userId: string,
   label: string,
-  source: 'manual' | 'cli' = 'manual',
+  source: 'manual' | 'cli' | 'studio' = 'manual',
 ): Promise<{ raw: string; id: string; prefix: string }> {
   const raw = generateRawToken();
   const prefix = formatTokenPrefix(raw);

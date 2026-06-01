@@ -65,6 +65,12 @@ export async function buildCaddyConfig(): Promise<unknown> {
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
     {
+      // Platform proxy routes (feature 025 — shared Studio IS_PLATFORM=true).
+      // /platform/pg-meta/:ref/*, /platform/storage/:ref/*, etc.
+      match: [{ path: ['/platform/*'] }],
+      handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
+    },
+    {
       match: [{ path: ['/socket.io/*'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
@@ -73,7 +79,13 @@ export async function buildCaddyConfig(): Promise<unknown> {
       handle: [{ handler: 'static_response', status_code: 404 }],
     },
     {
+      // Setup wizard + Supastack-specific admin pages stay on the web SPA.
+      match: [{ path: ['/setup*'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'web:80' }] }],
+    },
+    {
+      // Catch-all: shared Studio serves all remaining paths (feature 025).
+      handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'studio:3000' }] }],
     },
   ];
 

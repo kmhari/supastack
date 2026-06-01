@@ -51,6 +51,10 @@
 	handle /api/* {
 		reverse_proxy api:3001
 	}
+	# Platform proxy routes (feature 025 — shared Studio)
+	handle /platform/* {
+		reverse_proxy api:3001
+	}
 	# WebSockets go to api too
 	@websocket {
 		path /socket.io/*
@@ -62,9 +66,13 @@
 	handle /internal/* {
 		respond 404
 	}
-	# Everything else → the React dashboard
-	handle {
+	# Setup wizard + admin-only Supastack pages stay on the web SPA
+	handle /setup* {
 		reverse_proxy web:80
+	}
+	# Everything else → shared Studio (IS_PLATFORM=true, feature 025)
+	handle {
+		reverse_proxy studio:3000
 	}
 }
 
@@ -91,6 +99,10 @@ mcp.{$SUPASTACK_APEX} {
 	handle /api/* {
 		reverse_proxy api:3001
 	}
+	# Platform proxy routes (feature 025 — shared Studio)
+	handle /platform/* {
+		reverse_proxy api:3001
+	}
 	@websocket {
 		path /socket.io/*
 	}
@@ -100,7 +112,12 @@ mcp.{$SUPASTACK_APEX} {
 	handle /internal/* {
 		respond 404
 	}
-	handle {
+	# Setup wizard + admin-only Supastack pages stay on the web SPA
+	handle /setup* {
 		reverse_proxy web:80
+	}
+	# Everything else → shared Studio (IS_PLATFORM=true, feature 025)
+	handle {
+		reverse_proxy studio:3000
 	}
 }

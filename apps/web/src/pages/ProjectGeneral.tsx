@@ -200,7 +200,7 @@ export function ProjectGeneralPage(): React.ReactElement {
                 hint={`Cert issued by ${data.cert.issuer ?? 'a CA'} · valid until ${data.cert.notAfter ?? '—'}`}
               >
                 <a
-                  href={`${data.urls.kong}/project/default`}
+                  href={data.urls.studio ?? '#'}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1 text-sm text-success no-underline hover:underline"
