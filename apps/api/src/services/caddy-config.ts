@@ -61,7 +61,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
     {
-      match: [{ path: ['/api/get-deployment-commit'] }],
+      match: [{ path: ['/api/get-deployment-commit', '/api/incident-banner'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
     {

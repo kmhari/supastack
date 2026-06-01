@@ -50,7 +50,9 @@
 	# /api/get-deployment-commit — Studio Next.js route that returns 404 in dev
 	# mode; stub it at the API level instead.
 	handle /api/get-deployment-commit {
+	handle /api/incident-banner {
 		reverse_proxy api:3001
+	}		reverse_proxy api:3001
 	}
 	# /api/v1/* → Supastack API (includes /api/v1/v1/* which is handled
 	# internally by the double-v1 Fastify catch-all in server.ts).
@@ -108,7 +110,9 @@ mcp.{$SUPASTACK_APEX} {
 		reverse_proxy api:3001
 	}
 	handle /api/v1* {
+	handle /api/incident-banner {
 		reverse_proxy api:3001
+	}		reverse_proxy api:3001
 	}
 	# Platform proxy routes (feature 025 — shared Studio)
 	handle /platform/* {
