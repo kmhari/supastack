@@ -226,7 +226,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(cliLoginRoutes); // /api/v1/cli/login (feature 011 — dashboard mint)
   await app.register(platformCliLoginRoutes); // /platform/cli/login/:session_id (feature 011 — CLI poll)
   await app.register(platformProxyRoutes); // /platform/{pg-meta,storage,auth,projects}/:ref/* (feature 025 — shared Studio proxy)
-  await app.register(platformMiscRoutes, { prefix: '/api/v1' }); // /api/v1/platform/telemetry/feature-flags (feature 025)
+  await app.register(platformMiscRoutes, { prefix: '/api/v1' }); // /api/v1/platform/* stubs (feature 025)
+  // Studio Next.js API routes that the Supastack API stubs at the root level
+  app.get('/api/get-deployment-commit', async (_req, reply) =>
+    reply.send({ commit: 'dev', date: new Date().toISOString() }),
+  );
   await app.register(studioGotrueRoutes, { prefix: '/api/v1' }); // GoTrue shim for Studio IS_PLATFORM=true login (feature 025)
   await app.register(oauthDiscoveryRoutes); // /.well-known/oauth-authorization-server (feature 014 FR-006)
   await app.register(oauthClientsDashboardRoutes); // /api/v1/oauth/clients{,/:id} (feature 014 US3)
