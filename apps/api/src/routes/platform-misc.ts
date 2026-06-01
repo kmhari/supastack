@@ -1466,9 +1466,15 @@ function buildProject(
   apex: string,
 ) {
   const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
+  // connectionString must be truthy for IS_PLATFORM=true Studio to allow pg-meta calls.
+  // The actual value is stripped by the pg-meta proxy (x-connection-encrypted is in
+  // STRIP_REQUEST_HEADERS), so this only needs to pass Boolean() and URL.parse() gracefully.
+  const connectionString = apex
+    ? `postgresql://postgres:supastack@db.${inst.ref}.${apex}:5432/postgres`
+    : `postgresql://postgres:supastack@localhost:5432/postgres`;
   return {
     cloud_provider: 'SUPASTACK',
-    connectionString: '',
+    connectionString,
     db_host: apex || 'localhost',
     dbVersion: '150009',
     high_availability: false,
