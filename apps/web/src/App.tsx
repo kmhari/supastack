@@ -15,6 +15,7 @@ import { InstanceBackupsPage } from './pages/InstanceBackups.js';
 import { ProjectHealthPage } from './pages/ProjectHealth.js';
 import { ProjectAuthProvidersPage } from './pages/ProjectAuthProviders.js';
 import { ProjectAuthUrlConfigPage } from './pages/ProjectAuthUrlConfig.js';
+import { ProjectAuthHooksPage } from './pages/ProjectAuthHooks.js';
 import { SettingsOrgPage } from './pages/SettingsOrg.js';
 import { SettingsMembersPage } from './pages/SettingsMembers.js';
 import { SettingsAuditPage } from './pages/SettingsAudit.js';
@@ -134,6 +135,14 @@ export function App(): React.ReactElement {
           element={
             <RequireAuth>
               <ProjectAuthUrlConfigPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/dashboard/project/:ref/auth/hooks"
+          element={
+            <RequireAuth>
+              <ProjectAuthHooksPage />
             </RequireAuth>
           }
         />

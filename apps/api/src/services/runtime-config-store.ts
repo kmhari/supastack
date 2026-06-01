@@ -290,6 +290,52 @@ function crossFieldValidate(surface: ConfigSurface, merged: ConfigJson): void {
       details,
     );
   }
+
+  validateHookConfig(merged);
+}
+
+// Exported for unit testing (feature 082).
+export function validateHookConfig(merged: ConfigJson): void {
+  const HOOK_TYPES = [
+    'custom_access_token',
+    'mfa_verification_attempt',
+    'password_verification_attempt',
+    'send_sms',
+    'send_email',
+    'before_user_created',
+    'after_user_created',
+  ] as const;
+
+  for (const hookType of HOOK_TYPES) {
+    const uriField = `hook_${hookType}_uri`;
+    const enabledField = `hook_${hookType}_enabled`;
+    const uri = merged[uriField];
+    const enabled = merged[enabledField];
+
+    if (uri !== null && uri !== undefined && uri !== '') {
+      const uriStr = String(uri);
+      if (!uriStr.startsWith('pg-functions://')) {
+        const isHttp = uriStr.startsWith('https://') || uriStr.startsWith('http://');
+        throw new ManagementApiError(
+          400,
+          isHttp
+            ? 'HTTPS hook URIs are not yet supported. See issue #64 for progress.'
+            : 'Hook URI scheme not supported. Only pg-functions:// is accepted (Phase 1). HTTPS support tracked in issue #64.',
+          'hook_uri_scheme_unsupported',
+          { field: uriField },
+        );
+      }
+    }
+
+    if (enabled === true && (uri === null || uri === undefined || uri === '')) {
+      throw new ManagementApiError(
+        400,
+        'A URI is required when a hook is enabled.',
+        'hook_uri_required',
+        { field: uriField },
+      );
+    }
+  }
 }
 
 function computeChangedFields(current: ConfigJson, merged: ConfigJson): string[] {
