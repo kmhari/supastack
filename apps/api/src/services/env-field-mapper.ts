@@ -17,8 +17,8 @@
  *     diffs the map keys against the upstream OpenAPI snapshot.
  *
  * Counts at merge time (target 165 ± 5; see feature 020 research R-001):
- *   - honored:     169
- *   - stored_only:  59
+ *   - honored:     171
+ *   - stored_only:  57
  *   - unsupported:   6
  *   - total:       234
  *
@@ -56,6 +56,14 @@ function joinComma(v: unknown): string {
   if (v === null || v === undefined) return '';
   if (Array.isArray(v)) return v.join(',');
   return String(v);
+}
+
+/** Convert integer seconds to a Go duration string (e.g. 3600 → "3600s").
+ *  Returns '' for 0/null/undefined — triggers removeEnvEntry so GoTrue sees
+ *  nil (*time.Duration) which means "no limit", its compiled default. */
+function secondsToDuration(v: unknown): string {
+  const n = Number(v);
+  return n > 0 ? `${n}s` : '';
 }
 
 // ─── Auth-config: explicit honored entries — already-honored (feature 009 + T010a) ─
@@ -407,15 +415,24 @@ const MAILER_HONORED: Record<string, FieldStatus> = {
 // ─── Sessions / password / webauthn-rp / passkey / api / db / smtp-misc (T025) — 19 fields ─
 
 const SESSIONS_PW_ETC_HONORED: Record<string, FieldStatus> = {
-  // Sessions — `sessions_timebox` and `sessions_inactivity_timeout` are
-  // intentionally NOT honored: GoTrue rejects empty/zero durations, but
-  // compose's `${VAR:-}` always emits an env line. Promotion blocked on
-  // env_file: rework (#76). The other two session fields are safe.
+  // Sessions — all four session fields now honored. timebox and
+  // inactivity_timeout use env_file: pass-through (feature 024 / #77):
+  // absent .env line → absent container var → GoTrue nil → no limit.
   sessions_single_per_user: {
     kind: 'honored',
     envName: 'GOTRUE_SESSIONS_SINGLE_PER_USER',
   },
   sessions_tags: { kind: 'honored', envName: 'GOTRUE_SESSIONS_TAGS', transform: joinComma },
+  sessions_timebox: {
+    kind: 'honored',
+    envName: 'GOTRUE_SESSIONS_TIMEBOX',
+    transform: secondsToDuration,
+  },
+  sessions_inactivity_timeout: {
+    kind: 'honored',
+    envName: 'GOTRUE_SESSIONS_INACTIVITY_TIMEOUT',
+    transform: secondsToDuration,
+  },
   // Password
   password_hibp_enabled: { kind: 'honored', envName: 'GOTRUE_PASSWORD_HIBP_ENABLED' },
   password_min_length: { kind: 'honored', envName: 'GOTRUE_PASSWORD_MIN_LENGTH' },
@@ -496,12 +513,6 @@ ADD_STORED('external_web3_', 'Web3 wallet sign-in — tracked in #72');
 // sms_autoconfirm is actually honored — remove it from the stored_only set.
 delete STORED_ONLY_REASONS['sms_autoconfirm'];
 
-// Sessions duration fields can't be cleanly honored under compose `${VAR:-}` —
-// GoTrue rejects both empty and zero durations. Honor blocked on env_file rework.
-STORED_ONLY_REASONS['sessions_timebox'] =
-  'GoTrue rejects empty/zero duration; needs env_file rework — tracked in #77';
-STORED_ONLY_REASONS['sessions_inactivity_timeout'] =
-  'GoTrue rejects empty/zero duration; needs env_file rework — tracked in #77';
 
 // ─── Unsupported (T028) — Cloud-only OAuth server / Nimbus ─────────────────
 

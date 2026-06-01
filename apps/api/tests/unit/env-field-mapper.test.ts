@@ -50,9 +50,19 @@ describe('env-field-mapper inventory', () => {
     // writes). docker-compose either consumes it as `${envName}` interpolation
     // or, less commonly, declares it directly. Either occurrence is acceptable
     // — what matters is that the container has *some* binding for the var.
+    //
+    // Exception: vars wired via `env_file: .env` only (feature 024 / #77).
+    // These intentionally do NOT appear in the `environment:` block — the
+    // container picks them up directly from the .env file. An absent line
+    // means GoTrue sees nil (*time.Duration), its "no limit" compiled default.
+    const ENV_FILE_ONLY = new Set([
+      'GOTRUE_SESSIONS_TIMEBOX',
+      'GOTRUE_SESSIONS_INACTIVITY_TIMEOUT',
+    ]);
     for (const [field, mapping] of Object.entries(AUTH_CONFIG_HONORED)) {
       if (mapping.kind !== 'honored') continue;
       const envName = mapping.envName;
+      if (ENV_FILE_ONLY.has(envName)) continue;
       // Token-anywhere match (key, `${...}`, comment) — surrounded by non-word
       // chars or string boundaries so we don't accept a substring like
       // GOOGLE_SECRET inside GOOGLE_SECRET_KEY (none of our names collide

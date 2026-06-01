@@ -56,12 +56,14 @@ export function AppleForm({
   );
   const [revealed, setRevealed] = useState(false);
   const [revealing, setRevealing] = useState(false);
+  const [revealError, setRevealError] = useState<string | null>(null);
 
-  const hasSavedSecret = Boolean(authConfig[fm.secret!]);
+  const hasSavedSecret = authConfig[fm.secret!] !== null && authConfig[fm.secret!] !== undefined;
   const callbackUrl = buildCallbackUrl(projectRef, apex);
 
   async function handleReveal(): Promise<void> {
     setRevealing(true);
+    setRevealError(null);
     try {
       const cfg = await instancesApi.revealAuthConfig(projectRef);
       const val = cfg[fm.secret!] as string | null;
@@ -69,6 +71,8 @@ export function AppleForm({
         setSecret(val);
         setRevealed(true);
       }
+    } catch {
+      setRevealError('Failed to load secret. Try again.');
     } finally {
       setRevealing(false);
     }
@@ -159,6 +163,9 @@ export function AppleForm({
               autoComplete="off"
             />
           </InputWithSuffix>
+          {revealError && (
+            <p className="m-0 mt-1 text-sm text-destructive">{revealError}</p>
+          )}
           <p className="m-0 text-xs text-muted-foreground">
             The signed JWT secret generated from your Apple Developer signing key. Leave blank to
             keep the saved value.

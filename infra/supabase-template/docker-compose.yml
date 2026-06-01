@@ -150,6 +150,12 @@ services:
       db:
         # Disable this if you are using an external Postgres database
         condition: service_healthy
+    # env_file passes .env lines directly to the container at runtime.
+    # Absent lines → absent env vars → GoTrue sees nil for optional duration
+    # fields (sessions_timebox, sessions_inactivity_timeout) rather than "".
+    # environment: entries take precedence over env_file for any duplicate key.
+    env_file:
+      - .env
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
@@ -406,15 +412,14 @@ services:
       GOTRUE_MAILER_TEMPLATES_REAUTHENTICATION_CONTENT: ${GOTRUE_MAILER_TEMPLATES_REAUTHENTICATION_CONTENT:-}
       GOTRUE_MAILER_TEMPLATES_RECOVERY_CONTENT: ${GOTRUE_MAILER_TEMPLATES_RECOVERY_CONTENT:-}
 
-      # Sessions / password / webauthn-rp / passkey / api / db / smtp misc (T025 — 19 fields)
+      # Sessions / password / webauthn-rp / passkey / api / db / smtp misc (T025 — 21 fields)
       # NUMERIC / DURATION fields use GoTrue's compiled defaults rather than
       # empty-string because envconfig.Process rejects empty values for these
       # types. String fields use empty-string default. Toggle fields use 'false'.
-      # NOTE: sessions_timebox and sessions_inactivity_timeout are intentionally
-      # omitted from the env block — GoTrue rejects both empty AND zero durations
-      # for these specific keys (must be positive-when-set). Compose's `${VAR:-}`
-      # always emits an env line, which becomes either "" (rejected) or "0"
-      # (rejected). Promoting these requires the env_file: rework tracked in #77.
+      # sessions_timebox and sessions_inactivity_timeout are omitted from
+      # environment: intentionally — they flow via env_file: only (feature 024
+      # / #77). An absent .env line means GoTrue sees nil (*time.Duration)
+      # which is the "no limit" compiled default.
       GOTRUE_SESSIONS_SINGLE_PER_USER: ${GOTRUE_SESSIONS_SINGLE_PER_USER:-false}
       GOTRUE_SESSIONS_TAGS: ${GOTRUE_SESSIONS_TAGS:-}
       GOTRUE_PASSWORD_HIBP_ENABLED: ${GOTRUE_PASSWORD_HIBP_ENABLED:-false}

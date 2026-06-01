@@ -2,6 +2,7 @@ import { logger } from '@supastack/shared';
 import { loadMasterKey } from '@supastack/crypto';
 import { makeDb } from '@supastack/db';
 import { connectQueues, startWorkers, stopWorkers } from './queues.js';
+import { runMigrateAuthEnvFile } from './jobs/migrate-auth-env-file.js';
 
 const DATABASE_URL = process.env.DATABASE_URL ?? '';
 const REDIS_URL = process.env.REDIS_URL ?? '';
@@ -62,6 +63,12 @@ async function main(): Promise<void> {
   );
 
   logger.info({ queues: Object.keys(queues) }, 'worker started');
+
+  // Feature 024 (#77) — one-shot: re-up auth for all running instances to
+  // pick up the new env_file: .env directive in the compose template.
+  runMigrateAuthEnvFile().catch((err) =>
+    logger.error({ err }, 'migrate-auth-env-file: boot migration failed'),
+  );
 
   const shutdown = async (sig: string): Promise<void> => {
     logger.info({ sig }, 'worker stopping');
