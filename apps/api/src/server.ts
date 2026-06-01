@@ -247,6 +247,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.get<RefP>('/v1/projects/:ref/upgrade/eligibility', async (_req, reply) =>
     reply.send({ eligible: false, current_app_version: 'supabase-postgres-15.0.0.55' }),
   );
+  app.get<RefP>('/v1/projects/:ref/api-keys/legacy', async (_req, reply) => reply.send([]));
+  app.get<RefP>('/v1/projects/:ref/config/auth/signing-keys', async (_req, reply) =>
+    reply.send({ signing_keys: [] }),
+  );
   app.get<RefP>('/v1/projects/:ref/upgrade/status', async (_req, reply) =>
     reply.send({ status: 'ready' }),
   );
