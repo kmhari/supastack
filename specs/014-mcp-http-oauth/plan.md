@@ -4,7 +4,7 @@
 
 ## Summary
 
-A hosted multi-project MCP server at `mcp.<apex>/mcp` backed by an OAuth 2.1 authorization server built into the existing `apps/api` Fastify process. Operators paste one URL into any MCP client (Claude Code, Cursor, Windsurf, Claude Desktop), authorize in the browser using their existing dashboard session, and immediately drive their selfbase deployment through LLM tool calls — same UX as Cloud's `mcp.supabase.com/mcp`.
+A hosted multi-project MCP server at `mcp.<apex>/mcp` backed by an OAuth 2.1 authorization server built into the existing `apps/api` Fastify process. Operators paste one URL into any MCP client (Claude Code, Cursor, Windsurf, Claude Desktop), authorize in the browser using their existing dashboard session, and immediately drive their supastack deployment through LLM tool calls — same UX as Cloud's `mcp.supabase.com/mcp`.
 
 Implementation pivots on a key insight: **the upstream `@supabase/mcp-server-supabase` package (Apache 2.0) is the same code Cloud runs**, with a `SupabasePlatform` abstraction designed to swap underlying APIs. So the MCP-server side of this feature is ~150 LoC of Fastify glue around the upstream library. The OAuth 2.1 server is the bulk of new domain logic: authorize UI + token + DCR + discovery metadata, all signed via HKDF-derived JWTs and revoked via Redis.
 
@@ -16,7 +16,7 @@ Six in-scope MCP tools beyond the OAuth+host plumbing: `list_projects`/`get_proj
 
 **Primary Dependencies**:
 - New: `@supabase/mcp-server-supabase@^0.8.1` (Apache 2.0 upstream MCP server library), `@modelcontextprotocol/sdk` (peer dep, for `StreamableHTTPServerTransport`)
-- New shared workspace package `@selfbase/oauth` (under `packages/oauth/`): houses `oauth-jwt.ts` (HKDF sign/verify) + `oauth-revocation.ts` (Redis revocation check). Consumed by BOTH `apps/api` (auth plugin) AND `apps/mcp` (bearer-auth). Avoids cross-app source imports + duplicate-implementation drift. Per analysis remediation I1.
+- New shared workspace package `@supastack/oauth` (under `packages/oauth/`): houses `oauth-jwt.ts` (HKDF sign/verify) + `oauth-revocation.ts` (Redis revocation check). Consumed by BOTH `apps/api` (auth plugin) AND `apps/mcp` (bearer-auth). Avoids cross-app source imports + duplicate-implementation drift. Per analysis remediation I1.
 - Existing: Fastify (api + new mcp service), Drizzle ORM (control-plane DB: new tables `oauth_clients`, `oauth_codes`, `oauth_refresh_tokens`, `oauth_revocations`)
 - Existing: `ioredis` (already in api stack — reused for revocation list and the existing session store)
 
@@ -43,7 +43,7 @@ Six in-scope MCP tools beyond the OAuth+host plumbing: `list_projects`/`get_proj
 - Wire-shape lock: every OAuth endpoint MUST conform to RFC 6749 / RFC 7591 / RFC 8414 / RFC 9728 byte-for-byte so any MCP client auto-discovers and uses them without per-client configuration
 - The existing PAT auth path MUST keep working without any regression — every `/v1/*` endpoint accepts both `sbp_…` PATs AND OAuth-issued JWTs as Bearer credentials
 - Single-replica MCP service (Clarifications Q5); sessions in process memory
-- HKDF signing key derivation labeled `selfbase-oauth-jwt-v1` (Clarifications Q2); no separate operator-managed secret
+- HKDF signing key derivation labeled `supastack-oauth-jwt-v1` (Clarifications Q2); no separate operator-managed secret
 - The deferred MCP tool groups (`get_advisors`, `get_storage_config`/`update_storage_config`, `create_project`/`get_cost`/`confirm_cost`, all branching) MUST be omitted at platform-construction time so the LLM never sees them in `tools/list`
 
 **Scale/Scope**:
@@ -121,9 +121,9 @@ apps/
       SettingsMcpClients.tsx                    # NEW — list authorized clients + revoke action (US3, FR-020)
       OAuthAuthorize.tsx                        # NEW — consent UI rendered by the authorize endpoint (FR-003)
 infra/
-  docker-compose.yml                            # MODIFIED — add selfbase-mcp service
+  docker-compose.yml                            # MODIFIED — add supastack-mcp service
   caddy/
-    Caddyfile                                   # MODIFIED — add mcp.<apex> reverse proxy to selfbase-mcp:3002
+    Caddyfile                                   # MODIFIED — add mcp.<apex> reverse proxy to supastack-mcp:3002
 packages/
   db/
     src/schema/oauth.ts                         # NEW — Drizzle schemas for the 4 OAuth tables
@@ -131,7 +131,7 @@ packages/
   shared/
     src/oauth-schemas.ts                        # NEW — Zod schemas for OAuth wire shapes (authorize/token/register requests + responses)
     src/rbac.ts                                 # (potentially MODIFIED if we add an `oauth.client.revoke` action — TBD in tasks)
-  oauth/                                        # NEW workspace package — @selfbase/oauth
+  oauth/                                        # NEW workspace package — @supastack/oauth
     package.json
     src/
       jwt.ts                                    # NEW — HKDF signing key derive + JWT sign/verify (consumed by api auth plugin + mcp bearer-auth)
@@ -169,7 +169,7 @@ tests/
     mcp-roundtrip.sh                           # NEW — extends /tmp/mcp-smoke.mjs to use OAuth bearer instead of PAT
 ```
 
-**Structure Decision**: Extends the selfbase monorepo with two main pieces: (1) a substantial set of new files under `apps/api/src/routes/oauth/` + `apps/api/src/services/oauth-*` for the OAuth 2.1 server (lives in the existing api process; reuses existing auth plugin, error envelope, audit logging), and (2) an entirely new `apps/mcp/` compose service that runs the upstream MCP library as an HTTP server. The new mgmt-API endpoints (`/v1/.../analytics/...`, `/v1/.../storage/buckets`, `/v1/.../pause`, `/v1/.../restore`) live under the existing `apps/api/src/routes/management/` to match the convention from features 003/006/013.
+**Structure Decision**: Extends the supastack monorepo with two main pieces: (1) a substantial set of new files under `apps/api/src/routes/oauth/` + `apps/api/src/services/oauth-*` for the OAuth 2.1 server (lives in the existing api process; reuses existing auth plugin, error envelope, audit logging), and (2) an entirely new `apps/mcp/` compose service that runs the upstream MCP library as an HTTP server. The new mgmt-API endpoints (`/v1/.../analytics/...`, `/v1/.../storage/buckets`, `/v1/.../pause`, `/v1/.../restore`) live under the existing `apps/api/src/routes/management/` to match the convention from features 003/006/013.
 
 The MCP service is kept as a SEPARATE compose service (not embedded in api) for three reasons:
 1. **Memory isolation** — upstream `@supabase/mcp-server-supabase` instantiates a per-session MCP server; 20 concurrent sessions could spike memory. Isolating from api prevents OOM cascade.

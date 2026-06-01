@@ -2,7 +2,7 @@
 
 ## User Story 1 — packages/shared (target ≥80% statements)
 
-**Command**: `pnpm --filter @selfbase/shared exec vitest run --coverage`
+**Command**: `pnpm --filter @supastack/shared exec vitest run --coverage`
 
 **Wall-clock**: 1.78s (real) — 190 tests across 7 files
 
@@ -89,7 +89,7 @@ Per feature 015 hard-rule #2 ("Do NOT add new dependencies … if not installed,
 
 ## User Story 4 — packages/db (target ≥70% statements)
 
-**Command**: `TEST_DATABASE_URL=postgres://… pnpm --filter @selfbase/db exec vitest run --coverage`
+**Command**: `TEST_DATABASE_URL=postgres://… pnpm --filter @supastack/db exec vitest run --coverage`
 **Wall-clock**: 2.04s (real) — 17 tests across 3 files
 **Date**: 2026-05-26
 
@@ -223,7 +223,7 @@ Files created (T040–T047):
 - apps/worker/tests/unit/jobs/cleanup-oauth-refresh.test.ts (3 tests)
 
 Notes:
-- Mocks are placed at the import seam (`@selfbase/docker-control`, `@selfbase/db`, `@selfbase/crypto`, `undici`, `pg`, `bullmq`, `ioredis`, `child_process`). The units under test (`handleProvision`, `runFullReconcile`, `handleLifecycle`, etc.) are never mocked.
+- Mocks are placed at the import seam (`@supastack/docker-control`, `@supastack/db`, `@supastack/crypto`, `undici`, `pg`, `bullmq`, `ioredis`, `child_process`). The units under test (`handleProvision`, `runFullReconcile`, `handleLifecycle`, etc.) are never mocked.
 - All 7 drift classes have fixture pairs + remediation assertions (SC-004): `consistent`, `missing_pooler_row`, `missing_in_supavisor`, `failed_stale`, `instance_gone`, `orphan_in_supavisor`, `pg_password_drift`. `instance_gone` is driven through `runSingleInstanceReconcile` because `runFullReconcile` skips deleting instances before classifying.
 - Uncovered residue is concentrated in `main.ts`, `queues.ts`, `backup-enqueue.ts`, `backup-scheduler.ts`, `health-reconciler.ts`, and `sync-functions-main.ts` — all entry-point/wiring code that's not the subject of US3.
 
@@ -270,7 +270,7 @@ Integration tests (Fastify `inject()`, gated by `hasTestEnv`):
 Notes:
 - Coverage is computed against a denominator that includes the test files themselves (vitest default — no exclude pattern added per FR "no soft CI gate"). The lift comes from new tests (a) executing previously-dead routes and services and (b) adding their own statements to the denominator at 100%.
 - Test environment requirements (`TEST_DATABASE_URL`, `TEST_REDIS_URL`, `TEST_MASTER_KEY`) gate all integration tests via `hasTestEnv` in `apps/api/tests/helpers/mgmt-api.ts`. Without these env vars the integration tests skip and coverage falls back to the unit-only floor (~40%).
-- For local validation: `docker run -d --name selfbase-test-redis -p 16379:6379 redis:7-alpine` + `psql -p 54322 -c 'CREATE DATABASE selfbase_test'` against an existing local postgres (port 54322 here is the Supabase-CLI-local pg container).
+- For local validation: `docker run -d --name supastack-test-redis -p 16379:6379 redis:7-alpine` + `psql -p 54322 -c 'CREATE DATABASE supastack_test'` against an existing local postgres (port 54322 here is the Supabase-CLI-local pg container).
 - 6 pre-existing integration tests are flaky/failing in this env (secrets-set, secrets-list, secrets-delete, openapi-conformance, functions-errors, cli-login-role 2-of-20) — they depend on docker-control / vault enablement at runtime. Not in scope for US2; tracked separately. With `--coverage.reportOnFailure` set, their partial executions still contribute to coverage.
 - Pre-existing dense test files (`auth-plugin-dual.test.ts`, mgmt-api integration suite, `db-query.test.ts`, etc.) remain untouched. New files at the task-mandated paths coexist with their predecessors.
 - No production source modified; no new dependencies added.

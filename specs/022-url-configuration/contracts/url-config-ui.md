@@ -167,7 +167,7 @@ Other fields in the auth-config payload are not touched.
 
 ## i18n contract
 
-English-only for v1 (matches Cloud and rest of selfbase). All strings are inline; if i18n is ever added, this page is a candidate for the first sweep.
+English-only for v1 (matches Cloud and rest of supastack). All strings are inline; if i18n is ever added, this page is a candidate for the first sweep.
 
 ---
 
@@ -179,4 +179,4 @@ No new events. The PATCH endpoint already logs audit entries for auth-config cha
 
 ## Browser support
 
-Same envelope as the rest of selfbase web: modern evergreen browsers (Chromium ≥ 110, Firefox ≥ 110, Safari ≥ 16). WHATWG `URL` available everywhere.
+Same envelope as the rest of supastack web: modern evergreen browsers (Chromium ≥ 110, Firefox ≥ 110, Safari ≥ 16). WHATWG `URL` available everywhere.

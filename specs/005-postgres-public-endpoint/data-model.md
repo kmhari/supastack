@@ -6,9 +6,9 @@
 
 ## New Entities
 
-### 1. pooler_tenants (selfbase's tracking table)
+### 1. pooler_tenants (supastack's tracking table)
 
-Selfbase's own bookkeeping for which instances have public Postgres endpoints. Separate from supavisor's internal `_supavisor.tenants` table — owned and maintained by selfbase.
+Supastack's own bookkeeping for which instances have public Postgres endpoints. Separate from supavisor's internal `_supavisor.tenants` table — owned and maintained by supastack.
 
 ```sql
 CREATE TABLE IF NOT EXISTS pooler_tenants (
@@ -94,20 +94,20 @@ CREATE INDEX IF NOT EXISTS pooler_events_external_idx ON pooler_events (external
 
 ### `_supavisor` schema (Ecto-managed)
 
-Created by supavisor on first boot. Selfbase pre-creates the empty schema for organization:
+Created by supavisor on first boot. Supastack pre-creates the empty schema for organization:
 
 ```sql
 -- 0004_supavisor_schema.sql
 CREATE SCHEMA IF NOT EXISTS _supavisor;
 ```
 
-Tables supavisor creates inside `_supavisor` (FOR REFERENCE ONLY — managed by supavisor, not by selfbase):
+Tables supavisor creates inside `_supavisor` (FOR REFERENCE ONLY — managed by supavisor, not by supastack):
 - `tenants` — external_id, db_host, db_port, db_database, default_pool_size, default_max_clients, sni_hostname, auth_query, ...
 - `users` — db_user, db_password (encrypted by supavisor's VAULT_ENC_KEY), pool_size, mode_type, ...
 - `cluster_tenants` — cluster routing config (we don't use cluster mode)
 - `oban_*` — Ecto background job tables (supavisor's internal scheduler)
 
-**Selfbase NEVER writes to these tables directly.** All tenant ops go through supavisor's HTTP admin API. This protects supavisor's internal invariants (encryption, schema version, foreign keys).
+**Supastack NEVER writes to these tables directly.** All tenant ops go through supavisor's HTTP admin API. This protects supavisor's internal invariants (encryption, schema version, foreign keys).
 
 ---
 
@@ -143,7 +143,7 @@ Invariants:
 
 ---
 
-## Selfbase Drizzle Schema
+## Supastack Drizzle Schema
 
 **New file**: `packages/db/src/schema/pooler.ts`
 
@@ -171,7 +171,7 @@ The per-instance `docker-compose.yml` template (`infra/supabase-template/docker-
 ```yaml
 db:
   ports:
-    - ${POSTGRES_DIRECT_HOST_PORT}:5432   # SELFBASE PATCH (feature 005)
+    - ${POSTGRES_DIRECT_HOST_PORT}:5432   # SUPASTACK PATCH (feature 005)
 ```
 
 ---

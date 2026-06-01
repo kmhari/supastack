@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# E2E: wire-level OAuth 2.1 dance against the deployed selfbase api.
+# E2E: wire-level OAuth 2.1 dance against the deployed supastack api.
 #
 # Performs the full flow WITHOUT a browser, by:
 #   1. POST /v1/oauth/register (DCR) → client_id
 #   2. Mint a fresh dashboard session via the existing test helper
-#      (or use SELFBASE_SESSION_COOKIE env if set)
+#      (or use SUPASTACK_SESSION_COOKIE env if set)
 #   3. POST /v1/oauth/authorize with consent → authorization code
 #   4. POST /v1/oauth/token → access_token (JWT) + refresh_token
 #   5. Use the access_token to call /v1/profile — must succeed
@@ -14,18 +14,18 @@
 # Spec: 014-mcp-http-oauth — quickstart.md US1 + US2.
 #
 # Run with:
-#   SELFBASE_APEX=supaviser.dev \
-#   SELFBASE_SESSION_COOKIE='xoZCpM5Q...' \
+#   SUPASTACK_APEX=supaviser.dev \
+#   SUPASTACK_SESSION_COOKIE='xoZCpM5Q...' \
 #   bash tests/cli-e2e/oauth-dance.sh
 #
 # Requirements: curl, jq, openssl (for PKCE verifier+challenge generation).
 
 set -euo pipefail
 
-: "${SELFBASE_APEX:?SELFBASE_APEX required}"
-: "${SELFBASE_SESSION_COOKIE:?SELFBASE_SESSION_COOKIE required — paste sb_sid cookie value from browser}"
+: "${SUPASTACK_APEX:?SUPASTACK_APEX required}"
+: "${SUPASTACK_SESSION_COOKIE:?SUPASTACK_SESSION_COOKIE required — paste sb_sid cookie value from browser}"
 
-API="https://api.${SELFBASE_APEX}"
+API="https://api.${SUPASTACK_APEX}"
 
 echo "==> [1] DCR register"
 REG_BODY='{"client_name":"e2e-test-client","redirect_uris":["http://localhost:56831/callback"]}'
@@ -44,7 +44,7 @@ STATE=$(openssl rand -hex 16)
 echo "==> [3] POST consent to /v1/oauth/authorize (Authorize)"
 # Note: the consent submit is a POST with form-urlencoded body
 CONSENT_RES=$(curl -sk -X POST "${API}/v1/oauth/authorize" \
-  -H "Cookie: sb_sid=${SELFBASE_SESSION_COOKIE}" \
+  -H "Cookie: sb_sid=${SUPASTACK_SESSION_COOKIE}" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   --data-urlencode "response_type=code" \
   --data-urlencode "client_id=${CLIENT_ID}" \

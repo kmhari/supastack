@@ -22,7 +22,7 @@ import {
  * "Connect a Supabase CLI" page — landing surface for new CLI users.
  *
  * Spec: FR-002. Shows three steps:
- *   1. Save the selfbase.toml profile
+ *   1. Save the supastack.toml profile
  *   2. Mint a PAT (revealed ONCE)
  *   3. Run the three canonical commands
  *
@@ -39,7 +39,7 @@ export function ConnectCliPage(): React.ReactElement {
     queryFn: () => apexApi.status(),
   });
   const apex = apexStatus?.apex ?? '<your-apex-domain>';
-  const selfbaseFileCmd = `echo '${apex}' > .selfbase`;
+  const supastackFileCmd = `echo '${apex}' > .supastack`;
   const supabaseTokenCmd = `echo '<paste-token-here>' > .supabase_token`;
 
   const [tokenOpen, setTokenOpen] = useState(false);
@@ -66,7 +66,7 @@ export function ConnectCliPage(): React.ReactElement {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'selfbase.toml';
+    a.download = 'supastack.toml';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -78,7 +78,7 @@ export function ConnectCliPage(): React.ReactElement {
     <Shell>
       <PageHeader
         title="Connect a Supabase CLI"
-        subtitle="Use the unmodified upstream supabase CLI against this selfbase deployment."
+        subtitle="Use the unmodified upstream supabase CLI against this supastack deployment."
       />
 
       {/* Step 1 */}
@@ -89,7 +89,7 @@ export function ConnectCliPage(): React.ReactElement {
         <p className="mb-3 text-sm text-muted-foreground">
           Save the snippet below to a stable location on your machine (e.g.
           <code className="mx-1 rounded bg-secondary px-1 py-0.5 font-mono text-xs">
-            ~/.supabase/profiles/selfbase.toml
+            ~/.supabase/profiles/supastack.toml
           </code>
           ). The CLI selects it later with <code className="mx-1 font-mono text-xs">--profile</code>
           .
@@ -102,7 +102,7 @@ export function ConnectCliPage(): React.ReactElement {
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={downloadToml} disabled={!toml}>
             <Download className="size-3.5" />
-            Download selfbase.toml
+            Download supastack.toml
           </Button>
           {toml && <CopyButton value={toml} label="Copy" />}
         </div>
@@ -138,7 +138,7 @@ export function ConnectCliPage(): React.ReactElement {
         </p>
         <div className="flex flex-col gap-3">
           <CliCommandBlock
-            command="supabase login --profile ~/.supabase/profiles/selfbase.toml"
+            command="supabase login --profile ~/.supabase/profiles/supastack.toml"
             caption="Paste the token from Step 2 when prompted. Stores it in the OS keyring."
           />
           <CliCommandBlock
@@ -182,7 +182,7 @@ export function ConnectCliPage(): React.ReactElement {
           <AlertDescription>
             Append <code className="mx-1 font-mono text-xs">--use-api</code> to
             <code className="mx-1 font-mono text-xs">functions deploy</code> and
-            <code className="mx-1 font-mono text-xs">functions download</code>. Selfbase supports
+            <code className="mx-1 font-mono text-xs">functions download</code>. Supastack supports
             both paths.
           </AlertDescription>
         </Alert>
@@ -194,7 +194,7 @@ export function ConnectCliPage(): React.ReactElement {
           Optional &mdash; Per-project auto-routing
         </h2>
         <p className="mb-3 text-sm text-muted-foreground">
-          Working across multiple deployments (Cloud + selfbase, or several selfbase installs)? Drop
+          Working across multiple deployments (Cloud + supastack, or several supastack installs)? Drop
           these two files at your project's git root and the{' '}
           <a href="/settings/cli" className="underline">
             zsh wrapper at /settings/cli
@@ -202,15 +202,15 @@ export function ConnectCliPage(): React.ReactElement {
           handles profile + token routing automatically — no{' '}
           <code className="mx-1 font-mono text-xs">--profile</code> flag on every command, no stale{' '}
           <code className="mx-1 font-mono text-xs">~/.supabase/profile</code> to clean up. The{' '}
-          <code className="mx-1 font-mono text-xs">.selfbase</code> file is safe to commit; the
+          <code className="mx-1 font-mono text-xs">.supastack</code> file is safe to commit; the
           wrapper auto-gitignores <code className="mx-1 font-mono text-xs">.supabase_token</code>.
         </p>
         <div className="flex flex-col gap-3">
           <CliCommandBlock
-            command={selfbaseFileCmd}
+            command={supastackFileCmd}
             caption={
               apexStatus?.apex
-                ? 'Tells the wrapper this project routes to your selfbase apex.'
+                ? 'Tells the wrapper this project routes to your supastack apex.'
                 : 'Apex not configured yet — replace <your-apex-domain> with the apex once /setup is finished.'
             }
           />

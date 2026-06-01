@@ -93,7 +93,7 @@ There is no DROP transition during normal operation. The only DROP path is via p
 
 ### Relationships
 
-- **Role membership**: each CLI role is a member of exactly one target role (`postgres` or `supabase_read_only_user`) via the `IN ROLE` clause. The target role itself is selfbase-managed (created by the upstream PG image's init scripts) and is unchanged by this feature.
+- **Role membership**: each CLI role is a member of exactly one target role (`postgres` or `supabase_read_only_user`) via the `IN ROLE` clause. The target role itself is supastack-managed (created by the upstream PG image's init scripts) and is unchanged by this feature.
 - **No relationship to control-plane entities**: the api container does NOT store a foreign key from any control-plane table to these roles. Knowledge that they exist comes only from the SQL idempotency check at endpoint-call time.
 
 ---
@@ -133,12 +133,12 @@ PAT id (not IP) because PAT identity is the rate-limit subject (spec Q3).
 ### Operations
 
 - `tryConsume(key) → boolean` — returns `true` if the request is allowed (incrementing `count`); returns `false` if the key has already reached LIMIT in the current window.
-- **Lazy eviction**: on any `tryConsume`, opportunistically evict entries whose `windowStart < now - IDLE_EVICTION_MS`. No background sweeper. Bounded memory: at most ~ (PATs × active-projects) entries, expected ≪1000 on a real selfbase deployment.
+- **Lazy eviction**: on any `tryConsume`, opportunistically evict entries whose `windowStart < now - IDLE_EVICTION_MS`. No background sweeper. Bounded memory: at most ~ (PATs × active-projects) entries, expected ≪1000 on a real supastack deployment.
 
 ### Concurrency
 
 - The `Map` operations under a single Node event loop are atomic (no parallelism within one process). No explicit lock needed.
-- If selfbase ever scales to multiple api replicas, this swaps for a Redis token bucket using `INCR + EXPIRE` — same interface. Out of scope for this feature.
+- If supastack ever scales to multiple api replicas, this swaps for a Redis token bucket using `INCR + EXPIRE` — same interface. Out of scope for this feature.
 
 ### Validation
 

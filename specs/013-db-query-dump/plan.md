@@ -11,7 +11,7 @@ Two new Management API endpoints matching upstream Supabase byte-for-byte:
 
 Both endpoints require admin PAT (same RBAC as `reset-pg-password`). Connect to the per-project Postgres as `postgres` (SUPERUSER) via `host.docker.internal:<port_db_direct>`, reusing the connection pattern established by `vault-client.ts`. Dump shells `pg_dump` inside the per-instance `db` container via Docker socket exec (pattern from `pg-password-reset.ts`).
 
-One shipped endpoint (`database/query`) unblocks 3 MCP tools (`execute_sql`, `list_tables`, fully-correct `apply_migration`) per companion [issue #37](https://github.com/kmhari/selfbase/issues/37) — SC-007 in the spec makes this explicit.
+One shipped endpoint (`database/query`) unblocks 3 MCP tools (`execute_sql`, `list_tables`, fully-correct `apply_migration`) per companion [issue #37](https://github.com/kmhari/supastack/issues/37) — SC-007 in the spec makes this explicit.
 
 ## Technical Context
 
@@ -25,7 +25,7 @@ One shipped endpoint (`database/query`) unblocks 3 MCP tools (`execute_sql`, `li
 
 **Testing**: Vitest unit tests for the SQL helpers + route handlers (mocked pg.Client + mocked Docker socket); live-VM shell script in `tests/cli-e2e/` for the end-to-end happy path through both endpoints.
 
-**Target Platform**: Single Linux VM Docker compose stack. Same as the rest of selfbase. VM: `ubuntu@148.113.1.164`, apex `supaviser.dev`.
+**Target Platform**: Single Linux VM Docker compose stack. Same as the rest of supastack. VM: `ubuntu@148.113.1.164`, apex `supaviser.dev`.
 
 **Project Type**: Web application monorepo — extends `apps/api`. No web/worker changes.
 
@@ -102,7 +102,7 @@ tests/
     db-query-dump.sh                    # NEW — live-VM end-to-end: run a query, dump --dry-run, restore data-only round-trip
 ```
 
-**Structure Decision**: Selfbase monorepo, existing layout extended. The two route files live under `apps/api/src/routes/management/` (matching the existing convention for `/v1/*` surface). Service layer split deliberately:
+**Structure Decision**: Supastack monorepo, existing layout extended. The two route files live under `apps/api/src/routes/management/` (matching the existing convention for `/v1/*` surface). Service layer split deliberately:
 
 - `with-project-pg.ts` separate from `vault-client.ts` because vault-client uses `supabase_admin` (PG SUPERUSER but scoped for vault-specific operations); db-query needs `postgres` (PG SUPERUSER, the canonical superuser role). Same connection pattern, different role — separate helper avoids accidental cross-use.
 - `pg-dump-exec.ts` separate from `pg-password-reset.ts` because dump streams whereas reset is single-shot; different output handling.

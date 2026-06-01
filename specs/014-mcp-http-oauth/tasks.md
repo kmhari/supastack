@@ -19,10 +19,10 @@
 
 **Purpose**: Add new dependencies, create new compose service skeleton, scaffold the OAuth+MCP file layout.
 
-- [X] T001 [P] Add `@supabase/mcp-server-supabase@^0.8.1` and `@modelcontextprotocol/sdk` to `apps/mcp/package.json` (new file). Also add `fastify`, `ioredis`, `@selfbase/shared`, `@selfbase/db` as workspace deps.
+- [X] T001 [P] Add `@supabase/mcp-server-supabase@^0.8.1` and `@modelcontextprotocol/sdk` to `apps/mcp/package.json` (new file). Also add `fastify`, `ioredis`, `@supastack/shared`, `@supastack/db` as workspace deps.
 - [X] T002 [P] Create `apps/mcp/Dockerfile` based on `node:20-slim` with the same monorepo build pattern as `apps/api/Dockerfile` (corepack + pnpm install + tsc build).
-- [X] T003 [P] Add new compose service `selfbase-mcp` to `infra/docker-compose.yml` — depends on api + redis; exposes port 3002 internally only (not host-mapped); env vars `DATABASE_URL`, `REDIS_URL`, `MASTER_KEY`, `SELFBASE_API_URL=http://api:3001`, `SELFBASE_APEX=<from-org>`.
-- [-] T004 [P] **DEFERRED to US1 runtime registration** (boot-time Caddyfile is minimal; per-host routes including mcp.<apex> are pushed at runtime by `caddy-reload.ts` — landed in Phase 3 US1) — Add Caddy route `mcp.<apex>` → `selfbase-mcp:3002` in `infra/caddy/Caddyfile`. Wildcard cert (`*.<apex>` from feature 004) already covers it — no new cert provisioning.
+- [X] T003 [P] Add new compose service `supastack-mcp` to `infra/docker-compose.yml` — depends on api + redis; exposes port 3002 internally only (not host-mapped); env vars `DATABASE_URL`, `REDIS_URL`, `MASTER_KEY`, `SUPASTACK_API_URL=http://api:3001`, `SUPASTACK_APEX=<from-org>`.
+- [-] T004 [P] **DEFERRED to US1 runtime registration** (boot-time Caddyfile is minimal; per-host routes including mcp.<apex> are pushed at runtime by `caddy-reload.ts` — landed in Phase 3 US1) — Add Caddy route `mcp.<apex>` → `supastack-mcp:3002` in `infra/caddy/Caddyfile`. Wildcard cert (`*.<apex>` from feature 004) already covers it — no new cert provisioning.
 - [X] T005 Create the idempotent DB migration `packages/db/migrations/0NNN-oauth-tables.sql` with the 4 OAuth tables per `data-model.md` (CREATE TABLE IF NOT EXISTS oauth_clients, oauth_codes, oauth_refresh_tokens, oauth_revocations + their indices). Each statement uses IF NOT EXISTS / IF NOT EXISTS conditions per CLAUDE.md convention. **Per remediation A1**: resolve the `0NNN` prefix at impl time by `ls packages/db/migrations/ | sort | tail -1` and incrementing.
 - [X] T006 [P] Add Drizzle schema for the 4 OAuth tables in `packages/db/src/schema/oauth.ts`. Export from `packages/db/src/schema.ts` index.
 
@@ -32,13 +32,13 @@
 
 **Purpose**: Crypto primitives + Zod schemas + DB accessors + Redis revocation helper. Every user story depends on these. All unit-testable in isolation.
 
-### Shared @selfbase/oauth package (per remediation I1)
+### Shared @supastack/oauth package (per remediation I1)
 
-- [X] T006a [P] Scaffold new workspace package `packages/oauth/` with `package.json` (name: `@selfbase/oauth`, depends on `@selfbase/crypto`, `ioredis`, `node:crypto`). Add to root `pnpm-workspace.yaml`. Wire TypeScript project references.
+- [X] T006a [P] Scaffold new workspace package `packages/oauth/` with `package.json` (name: `@supastack/oauth`, depends on `@supastack/crypto`, `ioredis`, `node:crypto`). Add to root `pnpm-workspace.yaml`. Wire TypeScript project references.
 
 ### Crypto + PKCE primitives
 
-- [X] T007 [P] Create `packages/oauth/src/jwt.ts` (was `apps/api/src/services/oauth-jwt.ts` in earlier draft — moved per remediation I1). Exports: `signAccessToken(payload: { sub, azp, aud, scope }, ttlSec): { token, jti }` (HKDF derives HS256 key from `loadMasterKey()` with label `selfbase-oauth-jwt-v1`; emits FULL claim set sub/azp/aud/scope/jti/iat/exp/iss per FR-008), `verifyAccessToken(token): { sub, azp, aud, scope, jti, exp }` (validates signature + exp + iss + aud). Re-export from `packages/oauth/src/index.ts`.
+- [X] T007 [P] Create `packages/oauth/src/jwt.ts` (was `apps/api/src/services/oauth-jwt.ts` in earlier draft — moved per remediation I1). Exports: `signAccessToken(payload: { sub, azp, aud, scope }, ttlSec): { token, jti }` (HKDF derives HS256 key from `loadMasterKey()` with label `supastack-oauth-jwt-v1`; emits FULL claim set sub/azp/aud/scope/jti/iat/exp/iss per FR-008), `verifyAccessToken(token): { sub, azp, aud, scope, jti, exp }` (validates signature + exp + iss + aud). Re-export from `packages/oauth/src/index.ts`.
 - [X] T008 [P] [TDD] Unit test `packages/oauth/tests/jwt.test.ts`:
   - HKDF derivation is deterministic (same master key → same signing key)
   - sign + verify roundtrip yields original claims + fresh jti
@@ -62,7 +62,7 @@
 ### DB accessors
 
 - [X] T013 [P] Create `apps/api/src/services/oauth-clients-store.ts` with: `registerClient(metadata, ip): Promise<OAuthClient>`, `getClientById(client_id): Promise<OAuthClient | null>`, `validateRedirectUri(client, uri): boolean` (exact match).
-- [X] T014 [P] [TDD] Unit test `apps/api/tests/unit/oauth-clients-store.test.ts` — mock `db()` from `@selfbase/db`:
+- [X] T014 [P] [TDD] Unit test `apps/api/tests/unit/oauth-clients-store.test.ts` — mock `db()` from `@supastack/db`:
   - registerClient inserts row, returns full client
   - getClientById returns null on miss
   - validateRedirectUri: exact match → true; substring match → false; trailing-slash mismatch → false
@@ -85,7 +85,7 @@
 
 ### Redis revocation helper
 
-- [X] T019 [P] Create `packages/oauth/src/revocation.ts` (moved into shared `@selfbase/oauth` per remediation I1) with: `revoke(redis, jti, remainingSec): Promise<void>` (Redis `SET selfbase:oauth:revoked:<jti> "1" EX <ttl>`), `isRevoked(redis, jti): Promise<boolean>` (Redis `EXISTS`). Takes the redis client as a param (caller-injected) so the package stays redis-driver-agnostic.
+- [X] T019 [P] Create `packages/oauth/src/revocation.ts` (moved into shared `@supastack/oauth` per remediation I1) with: `revoke(redis, jti, remainingSec): Promise<void>` (Redis `SET supastack:oauth:revoked:<jti> "1" EX <ttl>`), `isRevoked(redis, jti): Promise<boolean>` (Redis `EXISTS`). Takes the redis client as a param (caller-injected) so the package stays redis-driver-agnostic.
 - [X] T020 [P] [TDD] Unit test `packages/oauth/tests/revocation.test.ts` with the same in-memory FakeRedis pattern used in `apps/api/tests/unit/cli-login-routes.test.ts`:
   - revoke then isRevoked → true within 100ms
   - After TTL elapses → isRevoked → false
@@ -94,7 +94,7 @@
 
 ### Auth plugin (dual-credential) + status mapper
 
-- [X] T021 Modify `apps/api/src/plugins/auth.ts` to accept BOTH `sbp_…` PAT bearers AND OAuth JWT bearers (per FR-010). Detection: PAT prefix `sbp_` (existing path); else attempt JWT verify via `@selfbase/oauth` `verifyAccessToken` → fall through to PAT path on failure for backward compat. On JWT path, perform Redis revocation check via `@selfbase/oauth` `isRevoked` BEFORE returning the user. **Per remediation C1 (SC-007)**: after JWT verify + Redis check, re-fetch the `users` row by `sub` claim and reject (401 `user_inactive`) if the row is missing, `removed_at IS NOT NULL`, or any equivalent inactive marker. Resolved user_id is identical between credential types for downstream code.
+- [X] T021 Modify `apps/api/src/plugins/auth.ts` to accept BOTH `sbp_…` PAT bearers AND OAuth JWT bearers (per FR-010). Detection: PAT prefix `sbp_` (existing path); else attempt JWT verify via `@supastack/oauth` `verifyAccessToken` → fall through to PAT path on failure for backward compat. On JWT path, perform Redis revocation check via `@supastack/oauth` `isRevoked` BEFORE returning the user. **Per remediation C1 (SC-007)**: after JWT verify + Redis check, re-fetch the `users` row by `sub` claim and reject (401 `user_inactive`) if the row is missing, `removed_at IS NOT NULL`, or any equivalent inactive marker. Resolved user_id is identical between credential types for downstream code.
 - [X] T022 [P] [TDD] Unit test `apps/api/tests/unit/auth-plugin-dual.test.ts`:
   - Valid PAT → resolves to user (existing behavior)
   - Valid OAuth JWT → resolves to same user_id structure
@@ -104,8 +104,8 @@
   - Missing bearer → 401
   - **Per remediation C1**: Valid OAuth JWT whose `sub` references a removed/inactive user → 401 `user_inactive`. (Covers SC-007 propagation < 60s — happens on the NEXT request after member removal.)
   - Existing PAT-only tests still pass (regression)
-- [X] T023 [P] Create `apps/api/src/services/project-status-mapper.ts` per research.md Decision 8. Exports `mapSelfbaseStatusToCloud(s: string): string` with the documented mapping. Unit-test inline if simple enough.
-- [X] T024 [P] [TDD] Unit test `apps/api/tests/unit/project-status-mapper.test.ts` — every selfbase status maps to the documented Cloud enum; unknown input → `UNKNOWN`.
+- [X] T023 [P] Create `apps/api/src/services/project-status-mapper.ts` per research.md Decision 8. Exports `mapSupastackStatusToCloud(s: string): string` with the documented mapping. Unit-test inline if simple enough.
+- [X] T024 [P] [TDD] Unit test `apps/api/tests/unit/project-status-mapper.test.ts` — every supastack status maps to the documented Cloud enum; unknown input → `UNKNOWN`.
 
 ### Cleanup worker jobs (per remediation C2 + FR-024a)
 
@@ -162,13 +162,13 @@
 ### MCP service skeleton + auth + multi-project surface
 
 - [X] T034 [US1] Create `apps/mcp/src/server.ts` — Fastify app, mounts `POST /mcp` + `GET /.well-known/oauth-protected-resource` per `contracts/oauth-discovery-endpoints.md`. Listen on port 3002.
-- [X] T035 [US1] Create `apps/mcp/src/bearer-auth.ts` — extracts `Authorization: Bearer <jwt>`, verifies via `@selfbase/api`'s `oauth-jwt.ts` helper (or duplicate the verify logic in mcp service if cross-package import is awkward — see plan.md for package boundary call). On invalid/expired/revoked: 401 + `WWW-Authenticate: Bearer ...` header per RFC 6750. Performs Redis `oauth-revocation.isRevoked` check.
+- [X] T035 [US1] Create `apps/mcp/src/bearer-auth.ts` — extracts `Authorization: Bearer <jwt>`, verifies via `@supastack/api`'s `oauth-jwt.ts` helper (or duplicate the verify logic in mcp service if cross-package import is awkward — see plan.md for package boundary call). On invalid/expired/revoked: 401 + `WWW-Authenticate: Bearer ...` header per RFC 6750. Performs Redis `oauth-revocation.isRevoked` check.
 - [X] T036 [P] [US1] [TDD] Unit test `apps/mcp/tests/unit/bearer-auth.test.ts`:
   - Valid JWT → returns resolved user_id
   - Expired → 401 + WWW-Authenticate header includes `authorization_uri`
   - Revoked (jti in fake Redis) → 401 + invalid_token error in body
   - Missing bearer → 401
-- [X] T037 [US1] Create `apps/mcp/src/platform-build.ts` — exports `buildPlatform(accessToken: string): SupabasePlatform`. Calls upstream `createSupabaseApiPlatform({ accessToken, apiUrl: process.env.SELFBASE_API_URL })`. Strips deferred operation groups: `delete platform.debugging?.getAdvisors; delete platform.storage?.getStorageConfig; delete platform.storage?.updateStorageConfig; delete platform.account?.createProject; delete platform.account?.getCost; delete platform.account?.confirmCost; delete platform.branching;` **Per remediation I3**: at the top of this file, add a TypeScript const block that imports the upstream operation-group types (`AccountOperations`, `DebuggingOperations`, `StorageOperations` from `@supabase/mcp-server-supabase/platform`) and references each property name being stripped (e.g. `const _typecheck: keyof AccountOperations = 'createProject'`). This compile-time-fails if upstream renames a property.
+- [X] T037 [US1] Create `apps/mcp/src/platform-build.ts` — exports `buildPlatform(accessToken: string): SupabasePlatform`. Calls upstream `createSupabaseApiPlatform({ accessToken, apiUrl: process.env.SUPASTACK_API_URL })`. Strips deferred operation groups: `delete platform.debugging?.getAdvisors; delete platform.storage?.getStorageConfig; delete platform.storage?.updateStorageConfig; delete platform.account?.createProject; delete platform.account?.getCost; delete platform.account?.confirmCost; delete platform.branching;` **Per remediation I3**: at the top of this file, add a TypeScript const block that imports the upstream operation-group types (`AccountOperations`, `DebuggingOperations`, `StorageOperations` from `@supabase/mcp-server-supabase/platform`) and references each property name being stripped (e.g. `const _typecheck: keyof AccountOperations = 'createProject'`). This compile-time-fails if upstream renames a property.
 - [X] T038 [P] [US1] [TDD] Unit test `apps/mcp/tests/unit/platform-build.test.ts`:
   - Returns a platform object
   - `platform.branching` is undefined
@@ -185,7 +185,7 @@
 
 ### Dashboard consent UI (server-rendered HTML for v1)
 
-- [X] T041 [US1] In `apps/api/src/routes/oauth/authorize.ts`, embed a minimal inline HTML template for the consent page. Includes: client_name, requested scope label, operator identity (from session), Authorize + Deny form buttons (POST to same endpoint). CSP-safe (no inline JS); pure form submission. Use existing selfbase brand colors via inline style sheet.
+- [X] T041 [US1] In `apps/api/src/routes/oauth/authorize.ts`, embed a minimal inline HTML template for the consent page. Includes: client_name, requested scope label, operator identity (from session), Authorize + Deny form buttons (POST to same endpoint). CSP-safe (no inline JS); pure form submission. Use existing supastack brand colors via inline style sheet.
 
 ### Live-VM end-to-end smoke
 
@@ -222,7 +222,7 @@
 - [X] T047 [US3] Create `apps/api/src/routes/oauth/client-revoke.ts` — `DELETE /api/v1/oauth/clients/:client_id` (dashboard route). RBAC: only the operator who authorized this grant (no admin override needed for v1). Flow:
   1. Delete all `oauth_refresh_tokens` for (user, client) — capture jtis of most-recent grants
   2. INSERT `oauth_revocations` audit rows for each captured jti
-  3. Redis: `SET selfbase:oauth:revoked:<jti> "1" EX <remaining_seconds>` for each captured jti
+  3. Redis: `SET supastack:oauth:revoked:<jti> "1" EX <remaining_seconds>` for each captured jti
   4. Audit `oauth.token.revoked` with reason `operator_action`
   5. Return 200 `{ revoked: <count> }`
 - [X] T048 [P] [US3] [TDD] Unit test `apps/api/tests/unit/oauth-revocation.test.ts` (extends T020) — full revoke flow:
@@ -249,7 +249,7 @@
 
 **Independent test**: see quickstart.md US4 section + `contracts/logs-endpoint.md` test obligations.
 
-- [X] T053 [US4] Create `apps/api/src/services/logflare-client.ts` — `queryLogs(ref, { service, iso_timestamp_start, iso_timestamp_end, sql? }): Promise<Array<Record<string, unknown>>>`. Resolves analytics container address (`selfbase-<ref>-analytics-1:4000`); decrypts `logflareApiKey` via existing master-key helpers; constructs SQL from service+time-range OR forwards `sql` verbatim; HTTP POST to Logflare API; returns rows.
+- [X] T053 [US4] Create `apps/api/src/services/logflare-client.ts` — `queryLogs(ref, { service, iso_timestamp_start, iso_timestamp_end, sql? }): Promise<Array<Record<string, unknown>>>`. Resolves analytics container address (`supastack-<ref>-analytics-1:4000`); decrypts `logflareApiKey` via existing master-key helpers; constructs SQL from service+time-range OR forwards `sql` verbatim; HTTP POST to Logflare API; returns rows.
 - [X] T054 [P] [US4] [TDD] Unit test `apps/api/tests/unit/logflare-client.test.ts` — mock fetch:
   - service=api → constructs SELECT from edge_logs with time-range
   - service=postgres → constructs SELECT from postgres_logs
@@ -282,7 +282,7 @@
   - Second call within 24h returns cached token (verify via secret-decrypt call count)
   - After 24h, fresh mint
   - Different ref → different JWT (no cache cross-contamination)
-- [X] T061 [US5] Create `apps/api/src/services/storage-buckets-proxy.ts` — `listBuckets(ref): Promise<BucketRow[]>`. Mints service-role JWT, fetches `http://selfbase-<ref>-storage-1:5000/bucket` with that JWT as Bearer, returns the bare-array response.
+- [X] T061 [US5] Create `apps/api/src/services/storage-buckets-proxy.ts` — `listBuckets(ref): Promise<BucketRow[]>`. Mints service-role JWT, fetches `http://supastack-<ref>-storage-1:5000/bucket` with that JWT as Bearer, returns the bare-array response.
 - [X] T062 [US5] Create `apps/api/src/routes/management/storage-buckets.ts` — `GET /v1/projects/:ref/storage/buckets`. Auth + RBAC (`instance.read`). Project status check. Calls `storage-buckets-proxy.listBuckets()`. Returns bare-array per `contracts/storage-buckets-endpoint.md`.
 - [X] T063 [P] [US5] [TDD] Unit test `apps/api/tests/unit/storage-buckets.test.ts`:
   - Happy path → 200 + bare-array of buckets
@@ -302,7 +302,7 @@
 
 **Independent test**: see quickstart.md US6 section + `contracts/pause-restore-endpoints.md` test obligations.
 
-- [X] T065 [US6] Create `apps/api/src/routes/management/pause-restore.ts` — `POST /v1/projects/:ref/pause` + `POST /v1/projects/:ref/restore`. Auth + RBAC (`instance.pause` / `instance.resume`). Idempotent state checks per contract. Enqueue lifecycle-pause / lifecycle-resume worker jobs via existing `enqueueLifecycleJob` helper (or whatever the existing pattern is — inspect `apps/worker/src/jobs/lifecycle.ts`). UPDATE `supabase_instances.status`. Return project JSON with status mapped via `mapSelfbaseStatusToCloud`.
+- [X] T065 [US6] Create `apps/api/src/routes/management/pause-restore.ts` — `POST /v1/projects/:ref/pause` + `POST /v1/projects/:ref/restore`. Auth + RBAC (`instance.pause` / `instance.resume`). Idempotent state checks per contract. Enqueue lifecycle-pause / lifecycle-resume worker jobs via existing `enqueueLifecycleJob` helper (or whatever the existing pattern is — inspect `apps/worker/src/jobs/lifecycle.ts`). UPDATE `supabase_instances.status`. Return project JSON with status mapped via `mapSupastackStatusToCloud`.
 - [X] T066 [P] [US6] [TDD] Unit test `apps/api/tests/unit/pause-restore.test.ts`:
   - Pause running project → 200 + status `INACTIVE`; worker enqueue called
   - Pause paused project → 200 + status `INACTIVE`; worker NOT called (idempotent)
@@ -312,7 +312,7 @@
   - Unknown ref → 404
   - Audit `instance.pause` / `instance.resume` emitted
   - **Per remediation C3**: pause-during-backup → mock a `backup_jobs` row with status `running` for the target ref → assert 409 `backup_in_progress` returned + worker NOT enqueued + status row unchanged
-- [X] T067 [US6] Apply `mapSelfbaseStatusToCloud` to the existing `GET /v1/projects` + `GET /v1/projects/:ref` handlers in `apps/api/src/routes/management/projects.ts` (per FR-036 + Decision 8). Update existing tests for `projects.ts` to expect the Cloud-shape enum values.
+- [X] T067 [US6] Apply `mapSupastackStatusToCloud` to the existing `GET /v1/projects` + `GET /v1/projects/:ref` handlers in `apps/api/src/routes/management/projects.ts` (per FR-036 + Decision 8). Update existing tests for `projects.ts` to expect the Cloud-shape enum values.
 - [X] T068 [P] [US6] [TDD] Extend `apps/api/tests/contract/instances-list-get.test.ts` or `apps/api/tests/unit/mgmt-api-mapping.test.ts` to assert every project response (list + single get) uses Cloud-enum status values.
 - [X] T069 [US6] Register `pause-restore` routes in `apps/api/src/server.ts`.
 - [X] T070 [P] [US6] Extend `tests/cli-e2e/mcp-roundtrip.sh` with pause + restore round-trip via MCP: pause → wait → status=INACTIVE; restore → poll until status=ACTIVE_HEALTHY; assert SC-013 timings.
@@ -324,8 +324,8 @@
 - [X] T071 [P] Create operator runbook `docs/changes/014-mcp-http-oauth.md`: what changed (OAuth login + hosted MCP), how operators configure their MCP client, the OAuth dance walkthrough with screenshots, the revoke workflow, the new in-scope tools (get_logs, list_storage_buckets, pause/restore), deferred tools and where to track them (features 016/017/018 + issue #41), troubleshooting (DCR rate-limit, JWT verification failures, Redis revocation propagation).
 - [X] T072 [P] Update `CLAUDE.md` "What's shipped" table with a row for feature 014 once merged. Update the "Active feature plan" pointer.
 - [X] T073 [P] **POST-DEPLOY** — Multi-MCP-client smoke (SC-005): authorize Claude Code + Cursor + Windsurf simultaneously against the deployed VM; verify each gets a unique client_id via DCR; verify each can run `execute_sql` concurrently without cross-talk. Capture screenshots for the PR.
-- [X] T074 [P] **POST-DEPLOY** — Memory ceiling check (SC-009): drive 20 concurrent OAuth sessions via the smoke script in a loop; `docker stats selfbase-mcp-1` peak RSS MUST stay <150 MiB.
-- [X] T075 [P] **POST-DEPLOY** — Log-leak grep (SC-008): after the full quickstart, `docker logs --since 10m selfbase-api-1 selfbase-mcp-1 | grep -cE 'sbp_[0-9a-f]{40}|eyJ[A-Za-z0-9_-]{60,}'` → 0.
+- [X] T074 [P] **POST-DEPLOY** — Memory ceiling check (SC-009): drive 20 concurrent OAuth sessions via the smoke script in a loop; `docker stats supastack-mcp-1` peak RSS MUST stay <150 MiB.
+- [X] T075 [P] **POST-DEPLOY** — Log-leak grep (SC-008): after the full quickstart, `docker logs --since 10m supastack-api-1 supastack-mcp-1 | grep -cE 'sbp_[0-9a-f]{40}|eyJ[A-Za-z0-9_-]{60,}'` → 0.
 - [ ] T076 [P] **POST-DEPLOY** — Setup-doc clarity check (SC-010): hand the runbook to an operator who hasn't seen the feature; have them self-onboard end-to-end from scratch (DNS check → MCP client config → OAuth dance → first tool call). Capture friction points; iterate the runbook if anything is unclear.
 - [ ] T077 [P] **POST-DEPLOY** — Token-refresh transparency check (SC-003): authorize an MCP client; wait 65 minutes; trigger a tools/call from the LLM; verify the call succeeds without browser intervention (silent refresh worked).
 - [ ] T078 [P] **POST-DEPLOY (Per remediation C4)** — Master-key-rotation regression: schedule a master-key rotation on a non-production project + pause/restore that project + assert containers come up cleanly (encrypted_secrets re-decrypt with the new key). Document the procedure in `docs/changes/014-mcp-http-oauth.md` troubleshooting section.

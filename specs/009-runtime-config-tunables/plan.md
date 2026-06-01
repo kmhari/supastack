@@ -18,7 +18,7 @@ Replace the catch-all `501 not_implemented` response for four Management API sur
 
 **Testing**: vitest (unit) for `.env` upsert/remove edge cases, redaction sentinel logic, validation rejection cases, and OpenAPI-derived bounds. CLI E2E shell scripts under `tests/cli-e2e/` for the live-VM contract.
 
-**Target Platform**: Linux server (Docker) — selfbase control-plane stack.
+**Target Platform**: Linux server (Docker) — supastack control-plane stack.
 
 **Project Type**: web-service (api + worker + per-instance Supabase stacks)
 

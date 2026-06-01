@@ -21,7 +21,7 @@ createLoginSessionQuery := "?session_id=" + params.SessionId + "&token_name=" + 
 createLoginSessionUrl := utils.GetSupabaseDashboardURL() + createLoginSessionPath + createLoginSessionQuery
 ```
 
-**For selfbase**: `<dashboard_url>` = `https://<apex>/dashboard`, so the full URL is `https://<apex>/dashboard/cli/login?session_id=…&token_name=…&public_key=…`. Note: NOT url-encoded by the CLI; the raw values are appended directly. Our dashboard MUST tolerate unencoded `+`, `@`, `_`, etc. in `token_name`.
+**For supastack**: `<dashboard_url>` = `https://<apex>/dashboard`, so the full URL is `https://<apex>/dashboard/cli/login?session_id=…&token_name=…&public_key=…`. Note: NOT url-encoded by the CLI; the raw values are appended directly. Our dashboard MUST tolerate unencoded `+`, `@`, `_`, etc. in `token_name`.
 
 ## Polling URL
 
@@ -38,7 +38,7 @@ urlWithQuery := fmt.Sprintf("%s?device_code=%s", url, deviceCode)
 resp, err := client.Send(ctx, http.MethodGet, urlWithQuery, nil)
 ```
 
-**For selfbase**: `<api_url>` = `https://api.<apex>`. The CLI uses the api_url from its profile, polls with `GET`. No request body, no auth header.
+**For supastack**: `<api_url>` = `https://api.<apex>`. The CLI uses the api_url from its profile, polls with `GET`. No request body, no auth header.
 
 ## Response shape (CLI expects exactly this)
 

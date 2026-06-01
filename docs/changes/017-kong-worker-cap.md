@@ -32,11 +32,11 @@ No measurable latency or throughput change at current traffic.
 
 ## How to roll out
 
-1. Pull the latest commit on the VM so `/opt/selfbase/infra/supabase-template/docker-compose.yml` reflects the change.
-2. For each project under `/opt/selfbase/instances/<ref>/`:
-   - Regenerate the per-project compose file from the template (normal selfbase template-application path).
+1. Pull the latest commit on the VM so `/opt/supastack/infra/supabase-template/docker-compose.yml` reflects the change.
+2. For each project under `/opt/supastack/instances/<ref>/`:
+   - Regenerate the per-project compose file from the template (normal supastack template-application path).
    - `sudo docker compose up -d kong` — recreates the container with the new env var.
-3. Verify with `sudo docker top selfbase-<ref>-kong-1 | grep -c 'nginx: worker'` → should print `2`.
+3. Verify with `sudo docker top supastack-<ref>-kong-1 | grep -c 'nginx: worker'` → should print `2`.
 4. Verify with `sudo docker stats --no-stream | grep <ref>-kong` → RSS should be under 300 MiB at idle.
 5. Smoke-test gateway routes (`/rest/v1/`, `/auth/v1/settings`, `/storage/v1/bucket`) — see [`quickstart.md`](../../specs/017-kong-worker-cap/quickstart.md) for the curl recipe.
 6. Stagger across projects (~30s between rolls) to avoid simultaneous gateway downtime windows. Each roll is a normal container restart — a few seconds of dropped/retried requests per project.

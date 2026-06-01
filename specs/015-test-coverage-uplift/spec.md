@@ -16,7 +16,7 @@ A maintainer adds a new admin endpoint or modifies the RBAC matrix. They need co
 
 **Why this priority**: The shared package (RBAC matrix + zod schemas) gates every endpoint in the platform. A regression here silently weakens authorization for all projects on a VM. It currently has zero automated tests.
 
-**Independent Test**: Run `pnpm --filter @selfbase/shared test:coverage` and confirm the RBAC matrix and zod schemas are exercised by unit tests covering every defined action and every documented schema, with statement coverage ≥80%.
+**Independent Test**: Run `pnpm --filter @supastack/shared test:coverage` and confirm the RBAC matrix and zod schemas are exercised by unit tests covering every defined action and every documented schema, with statement coverage ≥80%.
 
 **Acceptance Scenarios**:
 
@@ -62,7 +62,7 @@ A maintainer adds a migration or touches the port allocator. They need certainty
 
 **Why this priority**: `packages/db` is at 24% statements. Idempotent migrations are a documented invariant of this repo; the port allocator is the source of truth for per-instance port assignment.
 
-**Independent Test**: Run `pnpm --filter @selfbase/db test:coverage` and confirm migration runner and port allocator reach ≥70% statement coverage including concurrent allocation and re-run scenarios.
+**Independent Test**: Run `pnpm --filter @supastack/db test:coverage` and confirm migration runner and port allocator reach ≥70% statement coverage including concurrent allocation and re-run scenarios.
 
 **Acceptance Scenarios**:
 

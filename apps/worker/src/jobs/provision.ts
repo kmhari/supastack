@@ -1,28 +1,28 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import { eq } from 'drizzle-orm';
-import { fetch } from 'undici';
-import pg from 'pg';
-import { db, schema } from '@selfbase/db';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
-import { logger } from '@selfbase/shared';
-import { Queue } from 'bullmq';
-import { Redis } from 'ioredis';
-import { QUEUES } from '../queues.js';
-import { probeAuthWithStoredPassword } from '../services/pg-password-probe.js';
-import { handleVaultEnable } from './vault-enable-job.js';
-import { applyProvisionDefaults } from '../services/pg-provision-defaults.js';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
+import { db, schema } from '@supastack/db';
 import {
-  composeUp,
   composeAllHealthy,
+  composeUp,
   writeInstanceStack,
   type ComposeContext,
-} from '@selfbase/docker-control';
+} from '@supastack/docker-control';
+import { logger } from '@supastack/shared';
+import { Queue } from 'bullmq';
+import { eq } from 'drizzle-orm';
+import { Redis } from 'ioredis';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import pg from 'pg';
+import { fetch } from 'undici';
+import { QUEUES } from '../queues.js';
+import { probeAuthWithStoredPassword } from '../services/pg-password-probe.js';
+import { applyProvisionDefaults } from '../services/pg-provision-defaults.js';
+import { handleVaultEnable } from './vault-enable-job.js';
 
 const TEMPLATE_DIR = process.env.SUPABASE_TEMPLATE_DIR ?? '/app/infra/supabase-template';
-const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
-const STUDIO_IMAGE = process.env.STUDIO_IMAGE ?? 'selfbase/studio:latest';
-const API_URL = process.env.SELFBASE_API_URL ?? 'http://api:3001';
+const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/supastack/instances';
+const STUDIO_IMAGE = process.env.STUDIO_IMAGE ?? 'supastack/studio:latest';
+const API_URL = process.env.SUPASTACK_API_URL ?? 'http://api:3001';
 const HEALTH_TIMEOUT_MS = 180_000; // 3 min
 
 /**
@@ -33,7 +33,7 @@ const HEALTH_TIMEOUT_MS = 180_000; // 3 min
  *   2. Read apex domain from org row (needed for URL fields in .env)
  *   3. Render .env via packages/docker-control compose-template — completeness
  *      assertion + char-safety + docker compose config -q round-trip
- *   4. docker compose -p selfbase-<ref> up -d
+ *   4. docker compose -p supastack-<ref> up -d
  *   5. Poll docker compose ps until all containers healthy or HEALTH_TIMEOUT_MS
  *   6. Trigger Caddy reload via API internal endpoint
  *   7. Set status=running
@@ -88,7 +88,7 @@ export async function handleProvision(payload: { ref: string }): Promise<void> {
     // SMTP password decrypt (if configured)
     let smtpPassword: string | undefined;
     if (row.createSmtpPassEncrypted) {
-      const { decryptJson: dj } = await import('@selfbase/crypto');
+      const { decryptJson: dj } = await import('@supastack/crypto');
       smtpPassword = dj<{ password: string }>(
         row.createSmtpPassEncrypted,
         loadMasterKey(),
@@ -135,7 +135,7 @@ export async function handleProvision(payload: { ref: string }): Promise<void> {
     });
 
     // 4. Compose up
-    const ctx: ComposeContext = { projectName: `selfbase-${ref}`, dir: outDir };
+    const ctx: ComposeContext = { projectName: `supastack-${ref}`, dir: outDir };
     log.info({ projectName: ctx.projectName }, 'docker compose up -d');
     await composeUp(ctx);
 

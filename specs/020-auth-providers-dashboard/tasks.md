@@ -38,7 +38,7 @@ description: "Task list for feature 020 — Auth Providers Dashboard + Behaviora
 **Purpose**: The data structures and UI primitives every user story depends on. Nothing here is operator-visible; finishing this phase unblocks US1/US2/US3/US4/US5 in parallel.
 
 - [X] T005 In `apps/api/src/services/env-field-mapper.ts`, replace the current `AUTH_CONFIG_HONORED` export with the new tagged-union type from data-model.md §1. Added `AUTH_CONFIG_FIELD_STATUS: Record<string, FieldStatus>` as the new source of truth; re-derived `AUTH_CONFIG_HONORED` from it. 24 existing honored entries unchanged; non-honored fields auto-populated with `{ kind: 'stored_only', reason: 'pending classification — see #21' }` placeholder; 6 unsupported fields classified with #63 reason
-- [X] T006 Compile-time exhaustiveness: the build path adopted is `buildFieldStatus()` which uses `ALL_AUTH_CONFIG_FIELDS` (re-exported from `@selfbase/shared`) to ensure every key is present at runtime. Drift is caught by T007 contract test (build-time `satisfies` was redundant given runtime check + contract test)
+- [X] T006 Compile-time exhaustiveness: the build path adopted is `buildFieldStatus()` which uses `ALL_AUTH_CONFIG_FIELDS` (re-exported from `@supastack/shared`) to ensure every key is present at runtime. Drift is caught by T007 contract test (build-time `satisfies` was redundant given runtime check + contract test)
 - [X] T007 Created `apps/api/tests/contract/upstream-auth-config-snapshot.test.ts` — 3 assertions: every upstream field is classified, no extras in map, snapshot has exactly 234 fields. PASSES against current snapshot
 - [X] T008 [P] Created `apps/web/src/components/ui/sheet.tsx` — Radix-Dialog-based right-side slide-in drawer, mirrors `dialog.tsx` patterns
 - [X] T009 [P] Added new sidebar group `Authentication` in `apps/web/src/components/ProjectShell.tsx` with `Providers` entry pointing at `${base}/auth/providers`
@@ -57,7 +57,7 @@ description: "Task list for feature 020 — Auth Providers Dashboard + Behaviora
 
 ### US1 Implementation
 
-- [X] T011 [US1] Added `authConfigApi.get/patch` to `apps/web/src/lib/api.ts`. Uses a separate `mgmtApiClient` (root host, no `/api/v1` prefix) so it hits the Management API surface directly. `AuthConfigResponse` type includes the `_selfbase.fieldStatus` extension (US4 fills it server-side)
+- [X] T011 [US1] Added `authConfigApi.get/patch` to `apps/web/src/lib/api.ts`. Uses a separate `mgmtApiClient` (root host, no `/api/v1` prefix) so it hits the Management API surface directly. `AuthConfigResponse` type includes the `_supastack.fieldStatus` extension (US4 fills it server-side)
 - [X] T012 [US1] Created `apps/web/src/pages/auth-providers/callback-url.ts` — `buildCallbackUrl(ref, apex)` returns `https://${ref}.${apex}/auth/v1/callback`, falls back to placeholder if apex unknown
 - [X] T013 [US1] Created `apps/web/src/pages/auth-providers/use-restart-toast.ts` — full toast/poll/refetch/retry orchestration per plan §C4
 - [X] T014 [US1] Created `apps/web/src/pages/auth-providers/provider-registry.ts` — 3 entries (Email, Phone, Google); typed `ProviderDef` discriminated union; `findProviderByDisplayName` helper for deep-link
@@ -101,7 +101,7 @@ description: "Task list for feature 020 — Auth Providers Dashboard + Behaviora
 ### US3 Implementation — behavioral parity test harness
 
 - [X] T035 [US3] Created `tests/cli-e2e/helpers/auth-config-assertions.sh` with helpers (`mgmt_url`, `wait_for_healthy`, `patch_field`, `exec_get_env`) + 4 typed assertions (`assert_env_var_present`, `assert_jwt_exp`, `assert_oauth_authorize_redirects`, `assert_rate_limit_429`). Bash syntax-checked
-- [X] T036 [US3] Created `tests/cli-e2e/auth-config-behavioral-parity.sh` — reads `_selfbase.fieldStatus` from the Management API as the source of honored fields (auto-stays-in-sync with the backend), dispatches per pattern (jwt_exp / external_*_enabled / rate_limit_email_sent / fallback to env-var presence), emits `[BEHAVIORAL] FIELD=<name> STATUS=<PASS|FAIL|SKIP>` per field + summary line
+- [X] T036 [US3] Created `tests/cli-e2e/auth-config-behavioral-parity.sh` — reads `_supastack.fieldStatus` from the Management API as the source of honored fields (auto-stays-in-sync with the backend), dispatches per pattern (jwt_exp / external_*_enabled / rate_limit_email_sent / fallback to env-var presence), emits `[BEHAVIORAL] FIELD=<name> STATUS=<PASS|FAIL|SKIP>` per field + summary line
 - [X] T037 [US3] Created `apps/api/tests/unit/env-field-mapper-coverage.test.ts` — verifies the runner script references required helpers + asserts no honored field would be skipped at dispatch (every honored field has an envName so the fallback applies). 3 PASS
 - [ ] T038 [US3] Run `bash tests/cli-e2e/auth-config-behavioral-parity.sh` against a fresh test project on supaviser.dev. *(deferred — requires deployed feature; pending operator)*
 
@@ -136,7 +136,7 @@ description: "Task list for feature 020 — Auth Providers Dashboard + Behaviora
 
 ## Phase 6: US4 — Per-field transparency in Management API responses (Priority: P2)
 
-**Goal**: GET `/v1/projects/:ref/config/auth` includes a `_selfbase.fieldStatus` extension classifying every field as honored/stored_only/unsupported with reason text. CLI users and SREs can tell from one GET whether a field they set will take effect.
+**Goal**: GET `/v1/projects/:ref/config/auth` includes a `_supastack.fieldStatus` extension classifying every field as honored/stored_only/unsupported with reason text. CLI users and SREs can tell from one GET whether a field they set will take effect.
 
 **Independent Test**: PATCH a known stored-only field; GET; assert the response contains the extension with the correct classification + reason. Repeat for honored and unsupported. Unmodified `supabase` CLI continues to work.
 
@@ -146,8 +146,8 @@ description: "Task list for feature 020 — Auth Providers Dashboard + Behaviora
 
 - [X] T049 [US4] In `apps/api/src/services/runtime-config-store.ts`, added `buildAuthFieldStatusExtension()` (exported for testability), composed at module-init (`AUTH_FIELD_STATUS_EXTENSION` const), injected into `getConfig` return when `surface === 'auth'`. Honored entries project to `{ status, envName, secret? }`; stored_only/unsupported project to `{ status, reason }`
 - [X] T050 [US4] Postgrest surface is untouched — the extension injection is gated by `surface === 'auth'` check; existing 481 API tests confirm no regressions on postgrest GET
-- [X] T051 [US4] Created `apps/api/tests/unit/auth-config-response-shape.test.ts` — 6 assertions: count=234, honored shape, stored_only shape + issue ref, unsupported shape + issue ref, representative samples (jwt_exp / external_google_secret / saml_enabled / oauth_server_enabled), CLI back-compat (no field named `_selfbase` in upstream shape). 6/6 PASS
-- [ ] T052 [US4] CLI-compat assertion in `tests/cli-e2e/cli-compat.sh` *(deferred — requires deployed feature; T051's "no `_selfbase` field collision" assertion is the unit-level proxy)*
+- [X] T051 [US4] Created `apps/api/tests/unit/auth-config-response-shape.test.ts` — 6 assertions: count=234, honored shape, stored_only shape + issue ref, unsupported shape + issue ref, representative samples (jwt_exp / external_google_secret / saml_enabled / oauth_server_enabled), CLI back-compat (no field named `_supastack` in upstream shape). 6/6 PASS
+- [ ] T052 [US4] CLI-compat assertion in `tests/cli-e2e/cli-compat.sh` *(deferred — requires deployed feature; T051's "no `_supastack` field collision" assertion is the unit-level proxy)*
 - [X] T053 [US4] Created `apps/api/tests/unit/env-field-mapper-reason-text.test.ts` — 3 assertions: every non-honored reason references `#NNN`; every referenced issue is in the allowed set `{21, 61, 62, 63, 64, 65, 66, 70, 72, 73}`; no entry retains the foundational placeholder reason. 3/3 PASS
 - [ ] T054 [US4] Run quickstart §Smoke 3 against supaviser.dev *(deferred — requires deployed feature)*
 
@@ -178,10 +178,10 @@ description: "Task list for feature 020 — Auth Providers Dashboard + Behaviora
 
 **Purpose**: Operator documentation, final regression sweep, deploy.
 
-- [X] T059 [P] Wrote `docs/changes/020-auth-providers.md` — operator tour (sidebar + global toggles + 25-row taxonomy + per-provider drawer + after-Save flow), per-IdP setup links (Google/GitHub/Discord/Apple/Azure/Facebook/GitLab/Keycloak/Slack/WorkOS), SRE section on `_selfbase.fieldStatus` reading, troubleshooting (callback-URL mismatch is #1 cause), out-of-scope list with follow-up issue links
+- [X] T059 [P] Wrote `docs/changes/020-auth-providers.md` — operator tour (sidebar + global toggles + 25-row taxonomy + per-provider drawer + after-Save flow), per-IdP setup links (Google/GitHub/Discord/Apple/Azure/Facebook/GitLab/Keycloak/Slack/WorkOS), SRE section on `_supastack.fieldStatus` reading, troubleshooting (callback-URL mismatch is #1 cause), out-of-scope list with follow-up issue links
 - [X] T060 [P] Updated `CLAUDE.md` — added "What's shipped" row for #21+#34/feature 020 with links to runbook + summary of 17 OAuth promotions + 169-field honored count; updated SPECKIT pointer block to reflect completion + 490 API + 81 web tests passing
 - [ ] T061 Run the full quickstart.md (all 10 smokes) against supaviser.dev end-to-end. *(deferred — requires deployed feature; pending operator)*
-- [X] T062 `pnpm --filter @selfbase/api test` → 490 PASS / 33 skipped. `pnpm --filter @selfbase/web test` → 81 PASS. Includes all 5 new feature-020 test files (T007 contract, T029 + T037 coverage, T051 response shape, T053 reason text, T021 page smoke + T047 registry)
+- [X] T062 `pnpm --filter @supastack/api test` → 490 PASS / 33 skipped. `pnpm --filter @supastack/web test` → 81 PASS. Includes all 5 new feature-020 test files (T007 contract, T029 + T037 coverage, T051 response shape, T053 reason text, T021 page smoke + T047 registry)
 - [X] T063 `pnpm tsc --noEmit` PASS for api, web, and shared packages
 - [ ] T064 Close issues #21 and #34 via the PR description. *(pending PR creation by operator)*
 

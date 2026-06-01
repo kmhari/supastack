@@ -15,7 +15,7 @@ interface ErrorEnvelope {
 }
 ```
 
-## Status codes selfbase emits
+## Status codes supastack emits
 
 | Status | Code (suggested) | When |
 |---|---|---|
@@ -27,7 +27,7 @@ interface ErrorEnvelope {
 | `413` | `payload_too_large` | Upload exceeded the 50 MB cap. |
 | `422` | `validation` | Slug regex failed; entrypoint_path didn't match any file part; secret name regex failed. |
 | `500` | `internal` / `deploy_rolled_back` | Disk write failed; container restart timed out and was rolled back. |
-| `501` | `not_implemented` | Endpoint exists upstream but selfbase P0 doesn't implement it. |
+| `501` | `not_implemented` | Endpoint exists upstream but supastack P0 doesn't implement it. |
 
 ## Examples
 
@@ -112,7 +112,7 @@ HTTP/1.1 501 Not Implemented
 Content-Type: application/json
 
 {
-  "message": "This management endpoint is not implemented in selfbase. The 'branches' API is cloud-only. See https://supaviser.dev/docs/cli-compat for the supported subset.",
+  "message": "This management endpoint is not implemented in supastack. The 'branches' API is cloud-only. See https://supaviser.dev/docs/cli-compat for the supported subset.",
   "code": "not_implemented",
   "details": {
     "path": "/v1/projects/abcdefghijklmnopqrst/branches",

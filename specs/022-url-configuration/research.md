@@ -46,12 +46,12 @@ function looksLikeValidUrl(input: string): boolean {
 
 **Rationale**:
 - We have no self-hosted docs site.
-- Cloud's docs are correct for selfbase too — wildcard syntax and SITE_URL semantics are GoTrue behavior, identical between Cloud and self-hosted.
+- Cloud's docs are correct for supastack too — wildcard syntax and SITE_URL semantics are GoTrue behavior, identical between Cloud and self-hosted.
 - Matching the link target also matches the visual (the rendered button is identical).
 
 **Alternatives considered**:
 - *Omit the Docs link entirely*: rejected — Cloud has it, visual parity requires us to have it.
-- *Link to a selfbase-specific runbook*: nothing to write yet; we'd be creating a docs page just to satisfy this link.
+- *Link to a supastack-specific runbook*: nothing to write yet; we'd be creating a docs page just to satisfy this link.
 
 ---
 
@@ -73,7 +73,7 @@ function looksLikeValidUrl(input: string): boolean {
 **Decision**: Use the WHATWG `URL` constructor (built into modern browsers and Node). No new dependency.
 
 **Rationale**:
-- Already used elsewhere in selfbase web code.
+- Already used elsewhere in supastack web code.
 - Zero install cost.
 - The wildcard-tolerance trick (R1 placeholder replacement) lets us reuse it without modification.
 
@@ -89,7 +89,7 @@ function looksLikeValidUrl(input: string): boolean {
 **Decision**: Comma-separated string with leading/trailing whitespace trimmed per entry. Match GoTrue's env-var consumption format exactly.
 
 **Rationale**:
-- GoTrue reads `GOTRUE_URI_ALLOW_LIST` as a comma-separated string. Selfbase env-field-mapper writes `ADDITIONAL_REDIRECT_URLS` (compose maps to `GOTRUE_URI_ALLOW_LIST`) as the same comma-separated string. Anything fancier (JSON array, newline-separated) would require backend changes.
+- GoTrue reads `GOTRUE_URI_ALLOW_LIST` as a comma-separated string. Supastack env-field-mapper writes `ADDITIONAL_REDIRECT_URLS` (compose maps to `GOTRUE_URI_ALLOW_LIST`) as the same comma-separated string. Anything fancier (JSON array, newline-separated) would require backend changes.
 - URLs in the allow list are operator-typed and operator-readable; commas inside path/query segments are usually percent-encoded in real-world URLs. The breakage envelope for unencoded commas is narrow and known.
 
 **Edge case**: `uri_allow_list = ""` (empty string) — split yields `[""]`, after `filter(Boolean)` yields `[]`. Round-trips correctly.
@@ -112,7 +112,7 @@ function looksLikeValidUrl(input: string): boolean {
 
 **Decision**: Reaffirmed — do not seed, do not migrate, do not auto-fill `site_url`. Empty Site URL input is the correct state on first page load for any project that has never set it. The operator types their app URL once.
 
-**Rationale**: `site_url` is the operator's frontend application URL (e.g. `https://app.example.com`). Selfbase cannot guess it. Auto-defaulting to the project's kong URL would silently break email-confirmation links by sending users to the supaviser.dev kong host instead of the operator's app.
+**Rationale**: `site_url` is the operator's frontend application URL (e.g. `https://app.example.com`). Supastack cannot guess it. Auto-defaulting to the project's kong URL would silently break email-confirmation links by sending users to the supaviser.dev kong host instead of the operator's app.
 
 ---
 

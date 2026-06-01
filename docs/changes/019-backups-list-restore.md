@@ -22,8 +22,8 @@ Tracks one restore job per project. Partial unique index enforces at-most-one in
 
 ### New BullMQ workers
 
-- **`selfbase.restore`** — full state machine: stop stack → snapshot data dir → extract backup → start stack → verify → success or rollback.
-- **`selfbase.restore-gc`** — fires 24h after success; deletes the pre-restore snapshot.
+- **`supastack.restore`** — full state machine: stop stack → snapshot data dir → extract backup → start stack → verify → success or rollback.
+- **`supastack.restore-gc`** — fires 24h after success; deletes the pre-restore snapshot.
 
 ### Disk-space pre-flight
 
@@ -48,8 +48,8 @@ If the worker fails or times out at any point after snapshotting the data dir, i
 ## E2E test
 
 ```bash
-SELFBASE_APEX=supaviser.dev \
-SELFBASE_PAT='<admin PAT>' \
-SELFBASE_TEST_PROJECT_REF='<ref>' \
+SUPASTACK_APEX=supaviser.dev \
+SUPASTACK_PAT='<admin PAT>' \
+SUPASTACK_TEST_PROJECT_REF='<ref>' \
 bash tests/cli-e2e/backups-restore.sh
 ```

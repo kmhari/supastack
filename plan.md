@@ -1,4 +1,4 @@
-# Selfbase — Self-Hosted Supabase Cloud
+# Supastack — Self-Hosted Supabase Cloud
 
 ## Context
 
@@ -7,7 +7,7 @@ You want a Supabase Cloud–style control plane for self-hosted Supabase: one pl
 - **SupaConsole** has no LICENSE and ships a *fake* JWT signer (`generateJWT()` uses a random 43-char string as the signature) — instances created by it have non-functional API keys.
 - **Multibase** is MIT but the dashboard provisioner is broken in three concrete ways we observed in this session: (a) `dashboard/frontend/src/lib/` is gitignored so the API client file is missing from the repo, (b) `launch.sh` writes the dev's own home dir (`/home/osobh/...`) into the backend `.env`, (c) UI-created instances generate `.env` files missing ~20 variables that the CLI-created ones have, plus passwords containing `$VAR`-shaped substrings that Docker Compose interprets as variable substitutions (e.g., `huntvox/.env: POSTGRES_PASSWORD=...$GINIWZBA8`).
 
-Intended outcome: a focused new project, **selfbase**, that mirrors the patterns of `/Users/lord/Code/open-frontend` (Fastify + Drizzle + BullMQ + Caddy with HTTP-01 per-subdomain TLS) and provisions Supabase instances correctly the first time. Single VM, single org with invited collaborators, admin-grade dashboard.
+Intended outcome: a focused new project, **supastack**, that mirrors the patterns of `/Users/lord/Code/open-frontend` (Fastify + Drizzle + BullMQ + Caddy with HTTP-01 per-subdomain TLS) and provisions Supabase instances correctly the first time. Single VM, single org with invited collaborators, admin-grade dashboard.
 
 This plan is the v1 implementation blueprint.
 
@@ -15,7 +15,7 @@ This plan is the v1 implementation blueprint.
 
 | Axis | Decision |
 |---|---|
-| Project name | **selfbase** |
+| Project name | **supastack** |
 | Relationship to open-frontend | New repo, copy patterns (no shared code, no runtime dep) |
 | Control-plane DB | Plain Postgres (not self-hosted Supabase) |
 | Multi-host | **Single-host only**, no `host_id` in schema |
@@ -41,7 +41,7 @@ This plan is the v1 implementation blueprint.
 ## Repo Layout
 
 ```
-selfbase/
+supastack/
 ├── apps/
 │   ├── api/                  # Fastify control-plane API
 │   │   └── src/
@@ -69,7 +69,7 @@ selfbase/
 │   ├── docker-control/       # dockerode wrappers + compose-template engine
 │   └── backup-store/         # BackupStore interface + LocalDiskStore + S3Store
 ├── infra/
-│   ├── docker-compose.yml    # selfbase stack: postgres, redis, caddy, api, worker, web
+│   ├── docker-compose.yml    # supastack stack: postgres, redis, caddy, api, worker, web
 │   └── supabase-template/    # vendored copy of supabase/docker/* (the stack we template per instance)
 ├── install.sh                # one-shot installer (similar to /Users/lord/Code/superbase/install.sh)
 ├── package.json              # pnpm workspace root
@@ -90,7 +90,7 @@ Read these files in open-frontend during implementation as reference:
 | Wildcard cert flow (skip in v1) | `apps/api/src/routes/wildcard-cert.ts` | reference only — we use HTTP-01 per-sub, no wildcards |
 | Schema patterns | `packages/db/schema/identity.ts`, `domains.ts` | users / orgs / orgMembers / apiTokens / domains |
 
-**Do not import from open-frontend.** Copy the patterns; selfbase has no runtime dependency on open-frontend running.
+**Do not import from open-frontend.** Copy the patterns; supastack has no runtime dependency on open-frontend running.
 
 ## Schema (Drizzle, Postgres)
 
@@ -169,7 +169,7 @@ Migrations are idempotent (per your global rule). Use Drizzle's `migrate()` on b
 Worker `provision` handler (`apps/worker/src/jobs/provision.ts`):
 
 1. Read row, decrypt secrets.
-2. Create `/var/selfbase/instances/<ref>/` directory.
+2. Create `/var/supastack/instances/<ref>/` directory.
 3. Copy `infra/supabase-template/*` into it.
 4. Generate `.env` from a **complete** template (catch-all for every variable upstream uses — referenced from a known-good `.env.example` pinned to the Supabase version). Specifically:
    - All generated secrets
@@ -182,7 +182,7 @@ Worker `provision` handler (`apps/worker/src/jobs/provision.ts`):
    - **`DOCKER_SOCKET_LOCATION=/var/run/docker.sock`** (the var Multibase forgot)
    - All `MAILER_URLPATHS_*`, `ENABLE_*`, `PGRST_DB_SCHEMAS`, `POOLER_*` — every var the upstream compose references must be set, even if empty-string
    - SMTP values from create-time form (encrypted at rest, decrypted only when writing this `.env`)
-5. `docker compose -p selfbase-<ref> --env-file .env up -d`.
+5. `docker compose -p supastack-<ref> --env-file .env up -d`.
 6. Poll `docker compose ps` until all containers are healthy or 3-minute timeout.
 7. Register two routes via Caddy admin API (atomic config replace, see below):
    - `<ref>.<apex>` → `127.0.0.1:<port_kong>` with `handle /studio*` → `127.0.0.1:<port_studio>` and `handle /*` → Kong
@@ -230,7 +230,7 @@ This is **identical in shape** to open-frontend's TLS-ask, so HTTP-01 per-subdom
 
 The user picked "path-rewrite with per-instance Studio image", but a useful simplification: **because every instance has its own subdomain, the Studio basePath is the same constant (`/studio`) for every instance.** No per-instance image build needed.
 
-- **Build Studio image once** during selfbase setup: `NEXT_PUBLIC_BASE_PATH=/studio` baked in at build time.
+- **Build Studio image once** during supastack setup: `NEXT_PUBLIC_BASE_PATH=/studio` baked in at build time.
 - Pin to a known-good upstream Studio commit.
 - Reference that image in `infra/supabase-template/docker-compose.yml`.
 - Caddy routes `<ref>.<apex>/studio/*` to the per-instance Studio container; everything else to Kong.
@@ -252,12 +252,12 @@ export interface BackupStore {
 ```
 
 Impls in v1:
-- `LocalDiskStore({ root: '/var/selfbase/backups' })` → writes to `<root>/<ref>/<timestamp>.dump`.
+- `LocalDiskStore({ root: '/var/supastack/backups' })` → writes to `<root>/<ref>/<timestamp>.dump`.
 - `S3Store({ bucket, region, accessKeyId, secretAccessKey })` → `s3://<bucket>/<ref>/<timestamp>.dump`.
 
 Worker `backup` job (`apps/worker/src/jobs/backup.ts`):
 1. Insert `backups` row, status='running'.
-2. `docker exec selfbase-<ref>-db pg_dump -U postgres -Fc postgres` → stream into chosen `BackupStore`.
+2. `docker exec supastack-<ref>-db pg_dump -U postgres -Fc postgres` → stream into chosen `BackupStore`.
 3. Update row status='completed' with size + key, or 'failed' with error.
 
 Worker `backup-scheduler` (`apps/worker/src/jobs/backup-scheduler.ts`):
@@ -271,9 +271,9 @@ Mirrors open-frontend's `/api/v1/setup` exactly:
 
 1. Operator runs `install.sh`:
    - Installs Docker / Compose if missing
-   - Clones selfbase repo to `/opt/selfbase`
+   - Clones supastack repo to `/opt/supastack`
    - Generates `MASTER_KEY=$(openssl rand -hex 32)`, `SESSION_SECRET=$(openssl rand -hex 32)`, control-DB password
-   - Writes `/opt/selfbase/.env`
+   - Writes `/opt/supastack/.env`
    - `docker compose pull && docker compose up -d`
    - Prints: "Open http://<host>/setup"
 
@@ -360,7 +360,7 @@ Rough ordering. Each step ships something demoable.
 10. **Lifecycle worker jobs**: pause / resume / restart / delete / upgrade.
 11. **Backup pipeline**: `BackupStore` interface + LocalDiskStore + S3Store + on-demand + daily scheduler.
 12. **Web dashboard pages**: Instances list, detail, backups, settings. Theme-lift from supabase/studio.
-13. **`install.sh`** on a fresh VM: end-to-end smoke (provision selfbase → setup → create instance → reach Studio).
+13. **`install.sh`** on a fresh VM: end-to-end smoke (provision supastack → setup → create instance → reach Studio).
 
 Roughly 2–3 weeks of focused work for one person. Steps 1–6 are pure infrastructure (~1 week). Steps 7–10 are the value (~1 week). Steps 11–13 are polish (~3–5 days).
 
@@ -379,7 +379,7 @@ End-to-end smoke test after `install.sh` completes on a fresh VM:
    ```
    Expect a `200` with `{ "swagger": ... }`. Confirms Kong + PostgREST + signed JWT validation all work — this is the SupaConsole test that would fail.
 7. Open `https://<ref>.<apex>/studio` — Studio loads with all assets served under `/studio` correctly (no 404s on JS/CSS).
-8. Trigger an on-demand backup. Wait. Confirm a `.dump` file appears at `/var/selfbase/backups/<ref>/<timestamp>.dump`. `pg_restore --list` against it lists the public schema.
+8. Trigger an on-demand backup. Wait. Confirm a `.dump` file appears at `/var/supastack/backups/<ref>/<timestamp>.dump`. `pg_restore --list` against it lists the public schema.
 9. Toggle daily auto off, confirm scheduler skips it. Toggle back on, confirm scheduler picks it up within the next hourly tick.
 10. Pause the instance. Containers `Exit 0`. Resume. They come back. Volume data intact.
 11. Open a second browser, invite a Member via dashboard. Accept invite via the emailed (or logged) one-time link. Confirm Member can see the instance list but can't see the Delete button.

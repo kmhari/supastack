@@ -1,18 +1,18 @@
 /**
- * Pure mappers from selfbase entities to the cloud Supabase Management API
+ * Pure mappers from supastack entities to the cloud Supabase Management API
  * response shapes. No I/O, no Fastify imports — safe to unit-test (T003a).
  *
  * Spec: specs/003-supabase-cli-compat-p0/data-model.md ↔
  *       specs/003-supabase-cli-compat-p0/contracts/management-api.yaml
  */
-import type { schema } from '@selfbase/db';
+import type { schema } from '@supastack/db';
 import type {
   ApiKey,
   FunctionRecord,
   Organization,
   Project,
   SecretListEntry,
-} from '@selfbase/shared';
+} from '@supastack/shared';
 import type { InstanceSecrets } from './instance-secrets.js';
 
 type InstanceRow = typeof schema.supabaseInstances.$inferSelect;
@@ -21,11 +21,11 @@ type FunctionRow = typeof schema.projectFunctions.$inferSelect;
 type SecretRow = typeof schema.projectSecrets.$inferSelect;
 
 /**
- * Synthetic region label. Selfbase doesn't model AWS regions; the cloud CLI
+ * Synthetic region label. Supastack doesn't model AWS regions; the cloud CLI
  * uses `region` only for display in `supabase projects list` and a few
  * status views, so any stable string suffices.
  */
-const SELFBASE_REGION = 'selfbase';
+const SUPASTACK_REGION = 'supastack';
 
 const STATUS_MAP: Record<string, Project['status']> = {
   running: 'ACTIVE_HEALTHY',
@@ -40,11 +40,11 @@ export function instanceToProject(
   row: Pick<InstanceRow, 'ref' | 'name' | 'orgId' | 'status' | 'createdAt'>,
 ): Project {
   return {
-    id: row.ref, // cloud uses uuid `id` distinct from short `ref`; selfbase has only `ref`, reuse
+    id: row.ref, // cloud uses uuid `id` distinct from short `ref`; supastack has only `ref`, reuse
     ref: row.ref,
     name: row.name,
     organization_id: row.orgId,
-    region: SELFBASE_REGION,
+    region: SUPASTACK_REGION,
     created_at: row.createdAt.toISOString(),
     status: STATUS_MAP[row.status] ?? 'UNKNOWN',
   };

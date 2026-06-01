@@ -115,7 +115,7 @@ The Playwright suite executes as a CI job triggered on every pull request that t
 ### Measurable Outcomes
 
 - **SC-001**: A developer making a change that removes a sidebar navigation entry sees the test fail in their local pre-merge run within 5 minutes of running the suite.
-- **SC-002**: A pull request touching files under `apps/web/`, `infra/`, or `apps/api/src/routes/` triggers the browser-test CI job automatically; the job appears in the PR's check list when GitHub Actions provisions a runner (typically within 5 minutes on `ubuntu-latest`). The 5-minute window is a runner-availability observation, not a selfbase-enforceable contract.
+- **SC-002**: A pull request touching files under `apps/web/`, `infra/`, or `apps/api/src/routes/` triggers the browser-test CI job automatically; the job appears in the PR's check list when GitHub Actions provisions a runner (typically within 5 minutes on `ubuntu-latest`). The 5-minute window is a runner-availability observation, not a supastack-enforceable contract.
 - **SC-003**: On a clean run against an up-to-date `main`, the suite passes 100% of tests in under 5 minutes total wall-clock.
 - **SC-004**: For every dashboard page reachable via the project shell sidebar or settings sidebar, at least one browser-test assertion exists in the suite at merge time, enforced by the lint step.
 - **SC-005**: On a failing test, a developer can reproduce the failure locally using only the information in the CI artifact bundle, without consulting the test source code.
@@ -146,7 +146,7 @@ The Playwright suite executes as a CI job triggered on every pull request that t
 - Multi-browser coverage. The suite targets Chromium-equivalent only at first; Firefox/WebKit can be added later if specific bugs justify it.
 - Accessibility (a11y) audits. Worth doing eventually but a separate effort.
 - Mobile / responsive layout testing. The dashboard is desktop-only by current design.
-- Browser-level testing of the per-instance Supabase Studio. Studio is upstream and not selfbase's surface to test.
+- Browser-level testing of the per-instance Supabase Studio. Studio is upstream and not supastack's surface to test.
 - End-to-end testing of OAuth provider IdP roundtrips with real Google/GitHub/etc. Network-bound, slow, and depends on external services; manual smoke remains the source of truth for that path.
 - Backfilling 10 historical regression tests in this feature. SC-006 is a 60-day target; the initial ship lands the harness + US1 + US2 + US3 coverage.
 - A nightly workflow targeting the live VM (`supaviser.dev`). Tracked separately in plan.md §D2 / tasks.md T034; not part of v1.

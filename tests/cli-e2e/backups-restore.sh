@@ -11,10 +11,10 @@
 #   6. Negative: non-admin restore → 403
 #
 # Usage:
-#   SELFBASE_APEX=supaviser.dev \
-#   SELFBASE_PAT='<operator PAT>' \
-#   SELFBASE_MEMBER_PAT='<member PAT>' \
-#   SELFBASE_TEST_PROJECT_REF='<ref>' \
+#   SUPASTACK_APEX=supaviser.dev \
+#   SUPASTACK_PAT='<operator PAT>' \
+#   SUPASTACK_MEMBER_PAT='<member PAT>' \
+#   SUPASTACK_TEST_PROJECT_REF='<ref>' \
 #   bash tests/cli-e2e/backups-restore.sh
 #
 # Requirements: curl, jq, a completed backup for the test project.
@@ -22,13 +22,13 @@
 
 set -euo pipefail
 
-: "${SELFBASE_APEX:?SELFBASE_APEX required}"
-: "${SELFBASE_PAT:?SELFBASE_PAT required}"
-: "${SELFBASE_TEST_PROJECT_REF:?SELFBASE_TEST_PROJECT_REF required}"
+: "${SUPASTACK_APEX:?SUPASTACK_APEX required}"
+: "${SUPASTACK_PAT:?SUPASTACK_PAT required}"
+: "${SUPASTACK_TEST_PROJECT_REF:?SUPASTACK_TEST_PROJECT_REF required}"
 
-API="https://api.${SELFBASE_APEX}"
-REF="${SELFBASE_TEST_PROJECT_REF}"
-MEMBER_PAT="${SELFBASE_MEMBER_PAT:-}"
+API="https://api.${SUPASTACK_APEX}"
+REF="${SUPASTACK_TEST_PROJECT_REF}"
+MEMBER_PAT="${SUPASTACK_MEMBER_PAT:-}"
 T_START=$(date -u +%s)
 
 _elapsed() { echo "$(( $(date -u +%s) - T_START ))s"; }
@@ -44,7 +44,7 @@ _fail() {
 
 # ── STEP 1: list backups ──────────────────────────────────────────────────────
 LIST_OUT=$(curl -sf \
-  -H "Authorization: Bearer ${SELFBASE_PAT}" \
+  -H "Authorization: Bearer ${SUPASTACK_PAT}" \
   "${API}/v1/projects/${REF}/database/backups") || _fail "list_request_failed" "step1_list" ""
 
 echo "$LIST_OUT" | jq -e '.backups | type == "array"' > /dev/null \
@@ -80,7 +80,7 @@ fi
 # ── STEP 3: initiate restore (admin) ─────────────────────────────────────────
 RESTORE_OUT=$(curl -sf \
   -X POST \
-  -H "Authorization: Bearer ${SELFBASE_PAT}" \
+  -H "Authorization: Bearer ${SUPASTACK_PAT}" \
   -H "Content-Type: application/json" \
   -d "{\"backup_id\":\"${BACKUP_ID}\"}" \
   "${API}/v1/projects/${REF}/database/backups/restore-pitr") \
@@ -94,7 +94,7 @@ _step "restore_initiated" "ok (job=${JOB_ID})"
 # ── STEP 4: concurrent restore → 409 ─────────────────────────────────────────
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST \
-  -H "Authorization: Bearer ${SELFBASE_PAT}" \
+  -H "Authorization: Bearer ${SUPASTACK_PAT}" \
   -H "Content-Type: application/json" \
   -d "{\"backup_id\":\"${BACKUP_ID}\"}" \
   "${API}/v1/projects/${REF}/database/backups/restore-pitr")
@@ -109,7 +109,7 @@ FINAL_STATUS=""
 
 while [ $ELAPSED -lt $MAX_WAIT ]; do
   STATUS_OUT=$(curl -sf \
-    -H "Authorization: Bearer ${SELFBASE_PAT}" \
+    -H "Authorization: Bearer ${SUPASTACK_PAT}" \
     "${API}/v1/projects/${REF}/database/backups/restore-status") \
     || { sleep $POLL_INTERVAL; ELAPSED=$((ELAPSED + POLL_INTERVAL)); continue; }
 
@@ -138,7 +138,7 @@ _step "status_shape" "ok"
 
 # ── STEP 7: project should be running again ───────────────────────────────────
 PROJ_OUT=$(curl -sf \
-  -H "Authorization: Bearer ${SELFBASE_PAT}" \
+  -H "Authorization: Bearer ${SUPASTACK_PAT}" \
   "${API}/v1/projects/${REF}") || _fail "project_read_failed" "step7_project_status" ""
 PROJ_STATUS=$(echo "$PROJ_OUT" | jq -r '.status')
 [ "$PROJ_STATUS" = "ACTIVE_HEALTHY" ] \

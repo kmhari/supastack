@@ -1,5 +1,5 @@
 {
-  "name": "@selfbase/oauth",
+  "name": "@supastack/oauth",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@selfbase/crypto": "workspace:*"
+    "@supastack/crypto": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

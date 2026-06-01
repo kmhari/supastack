@@ -1,23 +1,23 @@
-import { createHash } from 'node:crypto';
-import { and, eq, isNull } from 'drizzle-orm';
-import fp from 'fastify-plugin';
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifySession from '@fastify/session';
-import { Redis } from 'ioredis';
-import RedisStore from 'connect-redis';
-import { db, schema } from '@selfbase/db';
-import { errors, type Role } from '@selfbase/shared';
-import { loadMasterKey } from '@selfbase/crypto';
+import { loadMasterKey } from '@supastack/crypto';
+import { db, schema } from '@supastack/db';
 import {
-  verifyAccessToken,
-  isRevoked,
   ExpiredTokenError,
-  InvalidSignatureError,
-  InvalidIssuerError,
   InvalidAudienceError,
+  InvalidIssuerError,
+  InvalidSignatureError,
+  isRevoked,
   MalformedTokenError,
-} from '@selfbase/oauth';
+  verifyAccessToken,
+} from '@supastack/oauth';
+import { errors, type Role } from '@supastack/shared';
+import RedisStore from 'connect-redis';
+import { and, eq, isNull } from 'drizzle-orm';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import fp from 'fastify-plugin';
+import { Redis } from 'ioredis';
+import { createHash } from 'node:crypto';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -81,12 +81,12 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
     cookieName: 'sb_sid',
     cookie: { httpOnly: true, sameSite: 'lax', secure: cookieSecure },
     saveUninitialized: false,
-    store: new RedisStore({ client: redis, prefix: 'selfbase:sess:' }),
+    store: new RedisStore({ client: redis, prefix: 'supastack:sess:' }),
   });
 
   // Feature 014 — OAuth 2.1 JWT bearer support. Lazily resolved so tests
   // without OAuth env vars don't error at plugin load time.
-  const apex = process.env.SELFBASE_APEX;
+  const apex = process.env.SUPASTACK_APEX;
   const oauthIssuer = apex ? `https://api.${apex}` : null;
   const oauthAudience = apex ? `https://mcp.${apex}/mcp` : null;
 

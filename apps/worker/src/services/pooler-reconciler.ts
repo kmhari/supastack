@@ -20,9 +20,9 @@ import { and, eq, lt, sql } from 'drizzle-orm';
 import crypto from 'node:crypto';
 import { fetch } from 'undici';
 import pg from 'pg';
-import { db, schema } from '@selfbase/db';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
-import { logger } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
+import { logger } from '@supastack/shared';
 
 type Classification =
   | 'consistent'
@@ -65,7 +65,7 @@ function supavisorJwt(): string {
     Buffer.from(
       JSON.stringify({
         role: 'admin',
-        iss: 'selfbase',
+        iss: 'supastack',
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + 300,
       }),

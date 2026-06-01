@@ -9,10 +9,10 @@
 **Pre-condition**: Wildcard cert active, supavisor running, at least one provisioned project.
 
 ```bash
-export SELFBASE_APEX=selfbase.example.com
-export SELFBASE_PAT=sbp_...
-export SELFBASE_PROJECT_REF=abcdefghijklmnopqrst
-export SELFBASE_DB_PASSWORD=<from-Studio-or-instance-secrets>
+export SUPASTACK_APEX=supastack.example.com
+export SUPASTACK_PAT=sbp_...
+export SUPASTACK_PROJECT_REF=abcdefghijklmnopqrst
+export SUPASTACK_DB_PASSWORD=<from-Studio-or-instance-secrets>
 
 bash tests/cli-e2e/db-push.sh
 ```
@@ -25,10 +25,10 @@ Expected: all 7 steps emit ✓, script exits 0. The `db push` step uses NO `--db
 
 Same env as above:
 ```bash
-supabase --profile selfbase.toml migration list --project-ref "$SELFBASE_PROJECT_REF"
-supabase --profile selfbase.toml db diff        --project-ref "$SELFBASE_PROJECT_REF"
-supabase --profile selfbase.toml db pull        --project-ref "$SELFBASE_PROJECT_REF" -f /tmp/schema.sql
-supabase --profile selfbase.toml inspect db     --project-ref "$SELFBASE_PROJECT_REF"
+supabase --profile supastack.toml migration list --project-ref "$SUPASTACK_PROJECT_REF"
+supabase --profile supastack.toml db diff        --project-ref "$SUPASTACK_PROJECT_REF"
+supabase --profile supastack.toml db pull        --project-ref "$SUPASTACK_PROJECT_REF" -f /tmp/schema.sql
+supabase --profile supastack.toml inspect db     --project-ref "$SUPASTACK_PROJECT_REF"
 ```
 
 All exit 0. `db pull` produces a non-empty schema.sql.
@@ -71,7 +71,7 @@ pgbench -h db.<ref>.<apex> -p 5432 -U postgres -d postgres -c 50 -T 60 \
   -P 5 -S --connect <<<"$PASSWORD"
 
 # In another shell on the VM:
-docker exec selfbase-<ref>-db-1 \
+docker exec supastack-<ref>-db-1 \
   psql -U postgres -d postgres -c "SELECT count(*) FROM pg_stat_activity WHERE state='active'"
 ```
 
@@ -99,8 +99,8 @@ After deploying this feature for the first time:
 
 ```bash
 # On VM, after `docker compose up -d`:
-docker exec selfbase-api-1 \
-  pnpm --filter @selfbase/api exec tsx scripts/backfill-pooler-tenants.ts
+docker exec supastack-api-1 \
+  pnpm --filter @supastack/api exec tsx scripts/backfill-pooler-tenants.ts
 ```
 
 Expected output:
@@ -122,16 +122,16 @@ psql "postgresql://postgres:$EXISTING_PWD@db.<existing-ref>.<apex>:5432/postgres
 
 ```bash
 # Manually delete a pooler_tenants row (simulating drift):
-docker exec selfbase-db-1 \
-  psql -U selfbase -d selfbase -c "DELETE FROM pooler_tenants WHERE external_id='abcdefghijklmnopqrst'"
+docker exec supastack-db-1 \
+  psql -U supastack -d supastack -c "DELETE FROM pooler_tenants WHERE external_id='abcdefghijklmnopqrst'"
 
 # Trigger reconciler manually (or wait for next 3 AM cron):
-docker exec selfbase-api-1 \
-  pnpm --filter @selfbase/api exec tsx -e 'import { runReconciler } from "./src/services/pooler-reconciler.js"; runReconciler()'
+docker exec supastack-api-1 \
+  pnpm --filter @supastack/api exec tsx -e 'import { runReconciler } from "./src/services/pooler-reconciler.js"; runReconciler()'
 
 # Verify row recreated:
-docker exec selfbase-db-1 \
-  psql -U selfbase -d selfbase -c "SELECT external_id, status FROM pooler_tenants WHERE external_id='abcdefghijklmnopqrst'"
+docker exec supastack-db-1 \
+  psql -U supastack -d supastack -c "SELECT external_id, status FROM pooler_tenants WHERE external_id='abcdefghijklmnopqrst'"
 ```
 
 Expected: row exists again with status='active'.
@@ -155,9 +155,9 @@ docker compose start supavisor
 
 Verify atomicity:
 ```bash
-docker exec selfbase-db-1 psql -U selfbase -d selfbase -c "SELECT count(*) FROM supabase_instances WHERE ref='<the-failed-ref>'"
+docker exec supastack-db-1 psql -U supastack -d supastack -c "SELECT count(*) FROM supabase_instances WHERE ref='<the-failed-ref>'"
 # → 0
-docker exec selfbase-db-1 psql -U selfbase -d selfbase -c "SELECT count(*) FROM pooler_tenants WHERE external_id='<the-failed-ref>'"
+docker exec supastack-db-1 psql -U supastack -d supastack -c "SELECT count(*) FROM pooler_tenants WHERE external_id='<the-failed-ref>'"
 # → 0
 ```
 

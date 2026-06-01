@@ -29,7 +29,7 @@ Pattern reference: `apps/worker/tests/unit/pg-password-probe.test.ts`
 
 **Purpose**: Create the test file shell with all `vi.mock` calls, dynamic SUT import, and fixture helper functions. No test cases yet — just the wiring that all phases depend on.
 
-- [X] T001 Create `apps/worker/tests/unit/pooler-reconciler.test.ts` with the full `vi.mock` setup: mock `@selfbase/db` (chainable builder returning configurable arrays), `undici` (`fetch` named export), `pg` (`pg.Client` constructor), `drizzle-orm` (`eq`, `lt`, `and`, `sql` as identity stubs), `@selfbase/crypto` (`decryptJson`, `loadMasterKey`), `@selfbase/shared` (`logger`). Dynamically import `{ startRun, runFullReconcile, runSingleInstanceReconcile, ReconcilerInFlightError }` from `../../src/services/pooler-reconciler.js` after mocks are wired. Add fixture helper functions: `makeInst(ref, status)`, `makePoolerRow(ref, status, updatedAt)`, `makeSvTenant(externalId)`. See `pg-password-probe.test.ts` for the established pattern.
+- [X] T001 Create `apps/worker/tests/unit/pooler-reconciler.test.ts` with the full `vi.mock` setup: mock `@supastack/db` (chainable builder returning configurable arrays), `undici` (`fetch` named export), `pg` (`pg.Client` constructor), `drizzle-orm` (`eq`, `lt`, `and`, `sql` as identity stubs), `@supastack/crypto` (`decryptJson`, `loadMasterKey`), `@supastack/shared` (`logger`). Dynamically import `{ startRun, runFullReconcile, runSingleInstanceReconcile, ReconcilerInFlightError }` from `../../src/services/pooler-reconciler.js` after mocks are wired. Add fixture helper functions: `makeInst(ref, status)`, `makePoolerRow(ref, status, updatedAt)`, `makeSvTenant(externalId)`. See `pg-password-probe.test.ts` for the established pattern.
 
 ---
 
@@ -37,7 +37,7 @@ Pattern reference: `apps/worker/tests/unit/pg-password-probe.test.ts`
 
 **Purpose**: Implement the `db()` mock's builder-chain helper so each test can configure what the database returns without copy-paste. This is the most complex mock and all user story phases depend on it.
 
-- [X] T002 In `apps/worker/tests/unit/pooler-reconciler.test.ts`, implement `makeDbMock(calls: unknown[][])` — a factory that wraps the `@selfbase/db` mock so each successive `db()` call (`.select().from()...`, `.update().set().where()`, `.insert().values().returning()`, `.execute()`) resolves to the values in `calls[n]` in order. Add a `beforeEach` that resets all mocks and restores the db mock to a safe no-op default (resolves empty arrays) so tests that don't configure the db explicitly don't throw. Verify the helper works by writing a trivial sanity check (not a test case — just `vi.fn()` call counts).
+- [X] T002 In `apps/worker/tests/unit/pooler-reconciler.test.ts`, implement `makeDbMock(calls: unknown[][])` — a factory that wraps the `@supastack/db` mock so each successive `db()` call (`.select().from()...`, `.update().set().where()`, `.insert().values().returning()`, `.execute()`) resolves to the values in `calls[n]` in order. Add a `beforeEach` that resets all mocks and restores the db mock to a safe no-op default (resolves empty arrays) so tests that don't configure the db explicitly don't throw. Verify the helper works by writing a trivial sanity check (not a test case — just `vi.fn()` call counts).
 
 **Checkpoint**: after T001 + T002, the file compiles and `pnpm -C apps/worker test pooler-reconciler` runs (0 test cases, 0 failures).
 

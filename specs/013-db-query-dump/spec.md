@@ -13,10 +13,10 @@
 - Q: How should multi-statement queries (`SELECT 1; SELECT 2;`) be handled? → A: **Reject with 400 `multi_statement_not_supported`.** Matches upstream Cloud's behavior; predictable error beats silent "first wins" / "last wins" confusion. Operators wrap in a function or split client-side.
 - Q: What's the default schema list for `db dump`? → A: **All non-internal schemas** (public, auth, storage, realtime, etc.) — skip only `pg_*` and `information_schema`. Restoring this gets you a working clone. `--schemas public` is supported for narrower dumps.
 - Q: Should the audit log record the SQL text? → A: **Yes, full SQL text by default.** Auditability beats PII risk for a single-operator deployment. The actor already has admin PAT — knowing WHAT was done is the whole point. Revisit if multi-org / compliance ever lands.
-- Q: Should per-request statement timeout override be allowed? → A: **No per-request override** — matches upstream Cloud (verified against the OpenAPI spec for `V1RunQueryBody` — no timeout field). Default behavior is the project's Postgres `statement_timeout` GUC, which operators can already set via `supabase postgres-config update --statement-timeout=…` (feature 009). Selfbase will provision new projects with a sensible default (8s) in a separate small follow-up.
+- Q: Should per-request statement timeout override be allowed? → A: **No per-request override** — matches upstream Cloud (verified against the OpenAPI spec for `V1RunQueryBody` — no timeout field). Default behavior is the project's Postgres `statement_timeout` GUC, which operators can already set via `supabase postgres-config update --statement-timeout=…` (feature 009). Supastack will provision new projects with a sensible default (8s) in a separate small follow-up.
 - (Discovery, not Q&A): The upstream `V1RunQueryBody` includes `parameters: any[]` (parameterized queries) and `read_only: boolean` (rejects writes when true). FR-002 updated to include both for wire compatibility. Response status is **201 Created**, not 200, per the upstream spec.
 
-**Input**: Filed as [issue #36](https://github.com/kmhari/selfbase/issues/36). The upstream supabase CLI exposes two database-shaped commands that selfbase doesn't implement today — `supabase db query --linked "<SQL>"` and `supabase db dump --linked [--data-only|--schema-only] [--dry-run]`. Both currently return `501 not_implemented` against selfbase. Operators fall back to ssh + `docker exec selfbase-<ref>-db-1 psql …` (for query) or `docker exec … pg_dump …` (for dump), which leaks VM-shell access to anyone who needs to inspect data and breaks the "manage your project from your laptop" expectation that the CLI sets. The same `database/query` endpoint also unblocks 3 MCP tools (`execute_sql`, `list_tables`, fully-correct `apply_migration`) tracked in companion [issue #37](https://github.com/kmhari/selfbase/issues/37).
+**Input**: Filed as [issue #36](https://github.com/kmhari/supastack/issues/36). The upstream supabase CLI exposes two database-shaped commands that supastack doesn't implement today — `supabase db query --linked "<SQL>"` and `supabase db dump --linked [--data-only|--schema-only] [--dry-run]`. Both currently return `501 not_implemented` against supastack. Operators fall back to ssh + `docker exec supastack-<ref>-db-1 psql …` (for query) or `docker exec … pg_dump …` (for dump), which leaks VM-shell access to anyone who needs to inspect data and breaks the "manage your project from your laptop" expectation that the CLI sets. The same `database/query` endpoint also unblocks 3 MCP tools (`execute_sql`, `list_tables`, fully-correct `apply_migration`) tracked in companion [issue #37](https://github.com/kmhari/supastack/issues/37).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -32,7 +32,7 @@ The CLI prints a tabular result of the 10 most recent failed jobs. No ssh. No `d
 
 **Why this priority**: This is the single highest-impact gap in the management surface for day-to-day operator workflows. It also unblocks 3 separate MCP tools that AI editors (Claude Code etc.) use, multiplying the value beyond CLI alone.
 
-**Independent Test**: With selfbase deployed and a project linked, an operator with an admin PAT runs `supabase db query --linked "SELECT 1 as one, 'hello' as greeting"` and sees a 1-row result with columns `one=1`, `greeting=hello`. They run a malformed query and see the Postgres error message verbatim. They run a query as a member-role user and see a 403 forbidden.
+**Independent Test**: With supastack deployed and a project linked, an operator with an admin PAT runs `supabase db query --linked "SELECT 1 as one, 'hello' as greeting"` and sees a 1-row result with columns `one=1`, `greeting=hello`. They run a malformed query and see the Postgres error message verbatim. They run a query as a member-role user and see a 403 forbidden.
 
 **Acceptance Scenarios**:
 
@@ -86,7 +86,7 @@ Two variants matter:
 - **Operator queries a system catalog (`pg_*` tables)**: Allowed. Some MCP tools (`list_tables`) explicitly need this.
 - **Concurrent `db query` from multiple operators**: Independent — each gets its own short-lived Postgres connection. No serialization needed.
 - **Project is paused or in `provisioning` state**: API returns 409 `project_not_runnable`; CLI surfaces it.
-- **Operator passes credentials in SQL** (e.g., `SELECT 'sbp_…'`): Result lands in CLI stdout. Not selfbase's job to redact arbitrary string values; operators should not paste secrets into queries.
+- **Operator passes credentials in SQL** (e.g., `SELECT 'sbp_…'`): Result lands in CLI stdout. Not supastack's job to redact arbitrary string values; operators should not paste secrets into queries.
 
 ## Requirements *(mandatory)*
 
@@ -100,7 +100,7 @@ Two variants matter:
 - **FR-004**: The endpoint MUST enforce admin-only access (or equivalent existing privileged action like the one used for `reset-pg-password`). Non-admin PATs MUST return 403 `forbidden`.
 - **FR-005**: On success the endpoint MUST return **201 Created** (matches upstream Management API spec) with a JSON body containing the result rows. The body shape MUST match the upstream Management API's response so the unmodified `supabase` CLI and the upstream Supabase MCP server consume it without modification.
 - **FR-006**: On Postgres errors (syntax, permission, missing table, etc.) the endpoint MUST return 400 with the Postgres error message in the response so operators can debug their SQL without needing the raw API response. The error details shape is pinned in `contracts/db-query-endpoint.md` (`{ severity, code, position?, hint? }`).
-- **FR-007**: The endpoint MUST honor the project's Postgres `statement_timeout` GUC for the duration of the query. There is NO per-request timeout override (matches upstream Cloud). Operators wanting different timeouts use `supabase postgres-config update --statement-timeout=…` (feature 009). New projects SHOULD be provisioned with a sensible default (8 seconds — covers typical ad-hoc queries while preventing runaway holds) in a separate follow-up to selfbase's provision flow (tracked as deferred task T025). Existing projects keep their current GUC.
+- **FR-007**: The endpoint MUST honor the project's Postgres `statement_timeout` GUC for the duration of the query. There is NO per-request timeout override (matches upstream Cloud). Operators wanting different timeouts use `supabase postgres-config update --statement-timeout=…` (feature 009). New projects SHOULD be provisioned with a sensible default (8 seconds — covers typical ad-hoc queries while preventing runaway holds) in a separate follow-up to supastack's provision flow (tracked as deferred task T025). Existing projects keep their current GUC.
 - **FR-008**: When the project is not in a queryable state (paused, stopped, deleting, provisioning, failed) the endpoint MUST return 409 `project_not_runnable` without touching the project's Postgres.
 - **FR-009**: The endpoint MUST emit an audit log entry on every successful invocation. The log MUST include the actor PAT id, the ref, AND the full SQL text (including `parameters` if supplied, with values hex-truncated if any single param exceeds 256 bytes to bound row size). The log MUST NOT include result-set rows (could be unbounded; could leak PII via result columns). Audit action: `instance.db.query.executed`.
 
@@ -124,7 +124,7 @@ Two variants matter:
 ### Key Entities
 
 - **Query result** (transient response shape, no persistence): an array of row objects keyed by column name, with PG types coerced to JSON-compatible scalars (timestamps as ISO8601 strings, numerics as numbers, etc.). Matches upstream Management API shape.
-- **Dump output** (streamed, no persistence): UTF-8 text matching `pg_dump` output for the requested mode. No new storage on the selfbase side.
+- **Dump output** (streamed, no persistence): UTF-8 text matching `pg_dump` output for the requested mode. No new storage on the supastack side.
 - **Audit log entries** (new action values): `instance.db.query.executed`, `instance.db.dump`. Extend the existing audit_log table; no schema change required (the existing `action` column is unconstrained `text`).
 
 ## Success Criteria *(mandatory)*
@@ -137,17 +137,17 @@ Two variants matter:
 - **SC-004**: An operator can run `supabase db dump --linked --data-only` against a project with 100MB+ of data and receive the dump as a continuously streamed response — the api process memory MUST NOT spike above 200MB during the dump. (US2, FR-013)
 - **SC-005**: For 100% of `--dry-run` invocations, no actual dump bytes leave the api process; the response is a JSON summary returned within 30 seconds. (US2)
 - **SC-006**: Non-admin PATs receive 403 for both endpoints in 100% of attempts; no SQL is executed, no dump bytes are produced. (FR-004, FR-012)
-- **SC-007**: The 3 MCP tools that depend on `database/query` (`execute_sql`, `list_tables`, fully-correct `apply_migration`) work against selfbase via the upstream Supabase MCP server with NO changes to that server — they hit the new endpoint and Just Work. (cross-feature, [issue #37](https://github.com/kmhari/selfbase/issues/37))
+- **SC-007**: The 3 MCP tools that depend on `database/query` (`execute_sql`, `list_tables`, fully-correct `apply_migration`) work against supastack via the upstream Supabase MCP server with NO changes to that server — they hit the new endpoint and Just Work. (cross-feature, [issue #37](https://github.com/kmhari/supastack/issues/37))
 - **SC-008**: Zero plaintext PAT values or SQL result data appear in api or web logs across a full query → dump workflow, verified by inspecting log output for `sbp_[0-9a-f]{40}` and other secret-pattern matches. (FR-009)
 
 ## Assumptions
 
-- The upstream Supabase Management API's `POST /v1/projects/<ref>/database/query` request/response shape is stable and selfbase mirrors it byte-for-byte. Any deviation breaks the unmodified upstream CLI + MCP server, which is the whole point of feature 003's cli-compat surface.
+- The upstream Supabase Management API's `POST /v1/projects/<ref>/database/query` request/response shape is stable and supastack mirrors it byte-for-byte. Any deviation breaks the unmodified upstream CLI + MCP server, which is the whole point of feature 003's cli-compat surface.
 - The per-project Postgres `postgres` role is SUPERUSER (verified during feature 010 work — confirmed in `supabase/postgres:15.8.1.085` image). The endpoint uses it directly. No new role provisioning.
 - The query endpoint connects via `host.docker.internal:<port_db_direct>` (the per-instance Postgres port already exposed for tools like supavisor). Reuses the connection pattern established by `vault-client.ts` / `pg-password-reset.ts`.
 - The dump endpoint shells `pg_dump` inside the per-instance `db` container via Docker socket exec (same pattern as `pg-password-reset.ts`). Avoids needing pg_dump in the api container's image.
-- Statement timeout is sourced from the project's Postgres `statement_timeout` GUC (no per-request override; matches upstream Cloud). Default of 8 seconds for new projects is provisioned via a separate follow-up to selfbase's provision flow. Operators already needing different timeouts can use `supabase postgres-config update --statement-timeout=…` shipped in feature 009.
-- No tabular formatting on the CLI side — the upstream CLI already handles printing the result; selfbase just returns JSON in the shape it expects.
+- Statement timeout is sourced from the project's Postgres `statement_timeout` GUC (no per-request override; matches upstream Cloud). Default of 8 seconds for new projects is provisioned via a separate follow-up to supastack's provision flow. Operators already needing different timeouts can use `supabase postgres-config update --statement-timeout=…` shipped in feature 009.
+- No tabular formatting on the CLI side — the upstream CLI already handles printing the result; supastack just returns JSON in the shape it expects.
 - Audit log retention follows existing project conventions; no special retention for query/dump entries.
 - Out of scope: a soft-guard or confirmation prompt for destructive queries (`DROP TABLE`, `TRUNCATE`); operators with admin PATs already have superuser-equivalent power via existing endpoints (e.g., `reset-pg-password`).
 - Out of scope: streaming query results (i.e., `EXPLAIN ANALYZE` of huge result sets) — v1 buffers result rows in memory before returning. Acceptable because admins use targeted queries with `LIMIT`.

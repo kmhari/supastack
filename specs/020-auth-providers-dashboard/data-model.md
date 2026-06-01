@@ -59,8 +59,8 @@ export const AUTH_CONFIG_FIELD_STATUS: Record<string, FieldStatus>;
   "external_google_secret": null,  // masked
   // ... 230+ more fields per upstream UpdateAuthConfigBody ...
 
-  // ─── selfbase extension (new) ────────────────────────────────────
-  "_selfbase": {
+  // ─── supastack extension (new) ────────────────────────────────────
+  "_supastack": {
     "fieldStatus": {
       "jwt_exp":            { "status": "honored",     "envName": "JWT_EXPIRY" },
       "external_google_secret": { "status": "honored", "envName": "GOOGLE_SECRET", "secret": true },
@@ -72,9 +72,9 @@ export const AUTH_CONFIG_FIELD_STATUS: Record<string, FieldStatus>;
 ```
 
 **Invariants**:
-- The `_selfbase` key is always present.
-- `_selfbase.fieldStatus` covers every field in `Object.keys(UpdateAuthConfigBody)` — no gaps, no extras.
-- The CLI compatibility test asserts that stripping `_selfbase` from the response yields a payload identical to what feature 009 returned pre-feature.
+- The `_supastack` key is always present.
+- `_supastack.fieldStatus` covers every field in `Object.keys(UpdateAuthConfigBody)` — no gaps, no extras.
+- The CLI compatibility test asserts that stripping `_supastack` from the response yields a payload identical to what feature 009 returned pre-feature.
 
 ---
 

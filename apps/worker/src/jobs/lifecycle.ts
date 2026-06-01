@@ -1,8 +1,4 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import { eq } from 'drizzle-orm';
-import { db, schema, releasePortsForInstance } from '@selfbase/db';
-import { logger } from '@selfbase/shared';
+import { db, releasePortsForInstance, schema } from '@supastack/db';
 import {
   composeAllHealthy,
   composeDown,
@@ -13,10 +9,14 @@ import {
   composeStop,
   composeUp,
   type ComposeContext,
-} from '@selfbase/docker-control';
+} from '@supastack/docker-control';
+import { logger } from '@supastack/shared';
+import { eq } from 'drizzle-orm';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import { enqueueBackup } from './backup-enqueue.js';
 
-const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
+const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/supastack/instances';
 
 export type LifecycleAction = 'pause' | 'resume' | 'restart' | 'restart-db' | 'delete' | 'upgrade';
 
@@ -43,7 +43,7 @@ export async function handleLifecycle(
   }
 
   const ctx: ComposeContext = {
-    projectName: `selfbase-${ref}`,
+    projectName: `supastack-${ref}`,
     dir: path.join(INSTANCES_DIR, ref),
   };
 
@@ -77,7 +77,7 @@ export async function handleLifecycle(
       // Unregister pooler tenant before dropping the instance row (feature 005).
       // Non-fatal: reconciler will sweep stragglers.
       try {
-        const apiUrl = process.env.SELFBASE_API_URL ?? 'http://api:3001';
+        const apiUrl = process.env.SUPASTACK_API_URL ?? 'http://api:3001';
         const res = await fetch(`${apiUrl}/internal/pooler/tenants/${ref}`, { method: 'DELETE' });
         if (!res.ok && res.status !== 404) {
           log.warn({ status: res.status }, 'pooler tenant unregister non-2xx; non-fatal');

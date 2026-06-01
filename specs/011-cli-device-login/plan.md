@@ -4,7 +4,7 @@
 
 ## Summary
 
-Implement the supabase CLI's PKCE-style browser login against selfbase. New dashboard page at `/dashboard/cli/login` reads `session_id`/`token_name`/`public_key` from query string, auto-mints a PAT for the signed-in user, encrypts it with the client's ECDH-P256 public key via AES-256-GCM, stores the bundle in Redis under the session_id for 5 minutes, and displays an 8-hex verification code. New unauthenticated endpoint `GET /platform/cli/login/:session_id?device_code=…` on the api host returns the encrypted bundle for the CLI to decrypt + save. Single-use: Redis entry deleted on successful poll. Logged-out visitors bounce to `/login?next=…`. Replay attempts hit a deterministic error page. CLI-minted tokens go in the existing `api_tokens` table with a new `source = 'cli'` column; dashboard's tokens page renders a small `cli` badge next to them.
+Implement the supabase CLI's PKCE-style browser login against supastack. New dashboard page at `/dashboard/cli/login` reads `session_id`/`token_name`/`public_key` from query string, auto-mints a PAT for the signed-in user, encrypts it with the client's ECDH-P256 public key via AES-256-GCM, stores the bundle in Redis under the session_id for 5 minutes, and displays an 8-hex verification code. New unauthenticated endpoint `GET /platform/cli/login/:session_id?device_code=…` on the api host returns the encrypted bundle for the CLI to decrypt + save. Single-use: Redis entry deleted on successful poll. Logged-out visitors bounce to `/login?next=…`. Replay attempts hit a deterministic error page. CLI-minted tokens go in the existing `api_tokens` table with a new `source = 'cli'` column; dashboard's tokens page renders a small `cli` badge next to them.
 
 ## Technical Context
 
@@ -13,12 +13,12 @@ Implement the supabase CLI's PKCE-style browser login against selfbase. New dash
 **Primary Dependencies**: Fastify (api), `@fastify/session` + `connect-redis` (existing session store — reuse for the CLI-login Redis namespace), Node 20 stdlib `node:crypto` (`createECDH('prime256v1')`, `createCipheriv('aes-256-gcm', …)`, `randomBytes`, `randomUUID`), Drizzle ORM (control-plane DB), React Router 6 + shadcn/ui (web), Vitest (tests)
 
 **Storage**:
-- **Redis** (existing `selfbase:sess:*` connect-redis instance) — new key namespace `selfbase:cli-login:<session_id>` with 300s TTL holds the encrypted bundle
+- **Redis** (existing `supastack:sess:*` connect-redis instance) — new key namespace `supastack:cli-login:<session_id>` with 300s TTL holds the encrypted bundle
 - **Control-plane Postgres** — existing `api_tokens` table, adds one new nullable column `source` (`'manual' | 'cli'`, default `'manual'`)
 
 **Testing**: Vitest unit tests for the crypto helpers (`cli-login-crypto.ts`) + the route handlers (mocked Redis + DB); existing pattern. Live-VM E2E shell script under `tests/cli-e2e/` to drive an actual `supabase login` round-trip via expect-style scripted input.
 
-**Target Platform**: Same as the rest of selfbase — single VM Docker compose. VM: `ubuntu@148.113.1.164`, apex `supaviser.dev`.
+**Target Platform**: Same as the rest of supastack — single VM Docker compose. VM: `ubuntu@148.113.1.164`, apex `supaviser.dev`.
 
 **Project Type**: Web application monorepo — extends existing `apps/api`, `apps/web`, `packages/db`, `packages/shared`.
 
@@ -111,7 +111,7 @@ packages/
       mgmt-api-schemas.ts             # MODIFIED — add CliLoginResponse Zod schema for wire-shape validation
 ```
 
-**Structure Decision**: Selfbase monorepo, existing layout extended. Crypto goes in its own `cli-login-crypto.ts` service module (pure functions, easily testable in isolation) rather than in `packages/crypto/` because it's specific to this feature's wire contract — moving it to shared would tempt other features to misuse the ECDH-P256 / AES-GCM combo for unrelated purposes. The Redis store wrapper is similarly local to the api app rather than shared because the key namespace + payload shape is feature-specific.
+**Structure Decision**: Supastack monorepo, existing layout extended. Crypto goes in its own `cli-login-crypto.ts` service module (pure functions, easily testable in isolation) rather than in `packages/crypto/` because it's specific to this feature's wire contract — moving it to shared would tempt other features to misuse the ECDH-P256 / AES-GCM combo for unrelated purposes. The Redis store wrapper is similarly local to the api app rather than shared because the key namespace + payload shape is feature-specific.
 
 The `/dashboard/cli/login` and `/login` page modifications stay in `apps/web/src/pages/`. The post-login bounce-with-`?next=` logic uses the existing session-cookie behavior (no new auth plugin work).
 

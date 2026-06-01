@@ -30,7 +30,7 @@ Stored in the existing Redis instance (the same one `connect-redis` uses for das
 
 | Aspect | Value |
 |---|---|
-| Key pattern | `selfbase:cli-login:<session_id>` where `session_id` is a UUID v4 |
+| Key pattern | `supastack:cli-login:<session_id>` where `session_id` is a UUID v4 |
 | Value | JSON-encoded object (UTF-8 string) — see payload below |
 | TTL | 300 seconds (5 minutes); set via `SET … EX 300` |
 | Lifecycle | Created at dashboard mint time; deleted either on first successful CLI poll OR on TTL expiry, whichever first |
@@ -72,7 +72,7 @@ Generated fresh on each `POST /api/v1/cli/login` call:
 
 Lives ONLY in the Node process for the duration of the mint handler. Used to compute the shared secret with the client's public key, then immediately discarded. NOT stored in Redis or anywhere else.
 
-### Wire response (CliLoginResponse Zod schema in `@selfbase/shared`)
+### Wire response (CliLoginResponse Zod schema in `@supastack/shared`)
 
 ```ts
 export const CliLoginResponseSchema = z.object({
@@ -101,7 +101,7 @@ api process
   │   api_tokens table  ────────────────►  /settings/tokens (existing UI, +badge)
   │
   ├─ encrypts PAT plaintext with AES-256-GCM (shared secret, random nonce)
-  └─ stores encrypted bundle in Redis at selfbase:cli-login:<session_id>, TTL 300s
+  └─ stores encrypted bundle in Redis at supastack:cli-login:<session_id>, TTL 300s
         │
         │ (later)
         ▼

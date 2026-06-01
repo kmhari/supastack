@@ -1,6 +1,6 @@
-import { logger } from '@selfbase/shared';
+import { logger } from '@supastack/shared';
 
-const API_URL = process.env.SELFBASE_API_URL ?? 'http://api:3001';
+const API_URL = process.env.SUPASTACK_API_URL ?? 'http://api:3001';
 
 /**
  * Worker job that triggers per-project cert issuance via the api's internal

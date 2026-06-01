@@ -8,7 +8,7 @@
 
 Before: every `/v1/*` Supabase Management API endpoint outside the P0 subset (login, link, functions, secrets) returned `501 not_implemented`. So `supabase gen types typescript`, `supabase migration list`, etc. failed.
 
-After: two more CLI command groups work fully against selfbase:
+After: two more CLI command groups work fully against supastack:
 
 - `supabase gen types typescript --project-id <ref>` — generates byte-compatible TS types via per-instance pg-meta
 - `supabase migration list/repair/fetch` — round-trip migration history management with lazy `supabase_migrations` schema bootstrap (`migration up` already worked via feature 005's pooler)
@@ -46,7 +46,7 @@ supabase migration fetch            # NEW — pulls remote history to local file
 
 | US                           | Issue | Why deferred                                                                                                                                                                                                                                                                                                                  |
 | ---------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **US3** snippets             | #13   | Selfbase Studio stores snippets in browser localStorage, not in `user_content.content` on the per-project PG. The Cloud `/v1/snippets` endpoint is backed by Supabase's proprietary platform DB. Needs either a control-plane snippet store + Studio integration, or wait for upstream OSS Studio to add server-side support. |
+| **US3** snippets             | #13   | Supastack Studio stores snippets in browser localStorage, not in `user_content.content` on the per-project PG. The Cloud `/v1/snippets` endpoint is backed by Supabase's proprietary platform DB. Needs either a control-plane snippet store + Studio integration, or wait for upstream OSS Studio to add server-side support. |
 | **US4** backups list/restore | #14   | Heaviest piece of the original spec — new `restore_jobs` entity, async BullMQ restore worker (stop → swap data dir → restart → verify), filesystem-snapshot rollback, GC, RBAC gate, dynamic timeout. ~11 tasks. Warrants its own implementation session.                                                                     |
 
 ## Tier 1 siblings (low-priority follow-ups, NOT in this PR)

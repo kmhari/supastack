@@ -1,12 +1,12 @@
 # Quickstart — 011 CLI device-code login
 
-End-to-end smoke for the live VM after deploy. Assumes the feature is fully implemented and rsync'd to `/opt/selfbase`.
+End-to-end smoke for the live VM after deploy. Assumes the feature is fully implemented and rsync'd to `/opt/supastack`.
 
 ## Setup (one-time)
 
 ```bash
 # On VM
-cd /opt/selfbase
+cd /opt/supastack
 sudo docker compose build api web
 sudo docker compose up -d api web
 ```
@@ -15,7 +15,7 @@ Migration `0012_api_tokens_source.sql` runs automatically on api startup.
 
 ## US1 — Plain `supabase login` round-trip
 
-On your laptop, with the selfbase profile already wired (see Sept-25 chat or `~/.supabase/profile` pointing at `~/.config/selfbase.toml`):
+On your laptop, with the supastack profile already wired (see Sept-25 chat or `~/.supabase/profile` pointing at `~/.config/supastack.toml`):
 
 ```bash
 # 1. (Setup) Make sure you're signed into the dashboard in your browser at https://supaviser.dev/dashboard
@@ -38,7 +38,7 @@ supabase login
 
 # Verify
 supabase projects list
-# → lists your selfbase projects (no --token, no env var)
+# → lists your supastack projects (no --token, no env var)
 ```
 
 **Time budget**: under 30 seconds end-to-end (SC-001).
@@ -57,7 +57,7 @@ URL='https://supaviser.dev/dashboard/cli/login?session_id=…&token_name=…&pub
 ## US2 — Logged-out bounce
 
 ```bash
-# 1. Open an incognito window (no selfbase session)
+# 1. Open an incognito window (no supastack session)
 # 2. Paste a fresh CLI-login URL (re-run `supabase login` to get one if needed)
 # Expected: bounce to /login?next=<url-encoded-cli-login-url>
 # 3. Sign in
@@ -98,8 +98,8 @@ curl -s 'https://api.supaviser.dev/platform/cli/login/aaaaaaaa-aaaa-aaaa-aaaa-aa
 
 ```bash
 # After running US1 end-to-end:
-ssh ubuntu@148.113.1.164 'sudo docker logs --tail 200 selfbase-api-1 2>&1 | grep -E "sbp_[0-9a-f]{40}" || echo "no leaks ✓"'
-ssh ubuntu@148.113.1.164 'sudo docker logs --tail 200 selfbase-web-1 2>&1 | grep -E "sbp_[0-9a-f]{40}" || echo "no leaks ✓"'
+ssh ubuntu@148.113.1.164 'sudo docker logs --tail 200 supastack-api-1 2>&1 | grep -E "sbp_[0-9a-f]{40}" || echo "no leaks ✓"'
+ssh ubuntu@148.113.1.164 'sudo docker logs --tail 200 supastack-web-1 2>&1 | grep -E "sbp_[0-9a-f]{40}" || echo "no leaks ✓"'
 ```
 
 Both should print `no leaks ✓`.

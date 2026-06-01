@@ -31,6 +31,6 @@
 
 ## Notes
 
-- All four user stories are P1 and each is independently testable, but Stories 2/3/4 depend on Story 1 being in place for the CLI to reach selfbase at all. The dependency is acknowledged in each story's "Independent Test" paragraph.
+- All four user stories are P1 and each is independently testable, but Stories 2/3/4 depend on Story 1 being in place for the CLI to reach supastack at all. The dependency is acknowledged in each story's "Independent Test" paragraph.
 - The spec uses upstream-CLI terminology ("profile", "link", "project reference", "secrets") because these are the user-facing nouns the target user already knows; this is not implementation detail leakage.
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`.

@@ -14,8 +14,8 @@ psql "postgresql://postgres:<password>@db.<ref>.<apex>:5432/postgres" \
 ### 2. Verify MCP tool filter (US2)
 
 ```bash
-SELFBASE_APEX=supaviser.dev \
-SELFBASE_OAUTH_JWT='<mint-via-oauth-dance.sh>' \
+SUPASTACK_APEX=supaviser.dev \
+SUPASTACK_OAUTH_JWT='<mint-via-oauth-dance.sh>' \
 bash tests/cli-e2e/mcp-roundtrip.sh
 # Expected: "[2] tools/list" step prints "WARN: deferred tools still in tools/list" → should be absent after 016
 ```
@@ -30,7 +30,7 @@ Quick manual check:
 
 ```bash
 # After worker restart (which triggers the kong-analytics-patch job):
-curl -sk "https://api.$SELFBASE_APEX/v1/projects/$REF/analytics/endpoints/logs.all?service=api" \
+curl -sk "https://api.$SUPASTACK_APEX/v1/projects/$REF/analytics/endpoints/logs.all?service=api" \
   -H "Authorization: Bearer $JWT"
 # Expected: 200 (with log data) or 503 (analytics container not running)
 # NOT: 404 or 502 (which indicate missing Kong route)
@@ -50,9 +50,9 @@ If the boot-time job doesn't run (e.g., worker was already running):
 
 ```bash
 # On the VM, restart the worker to trigger the one-shot job:
-sudo docker compose -f /opt/selfbase/infra/docker-compose.yml restart worker
+sudo docker compose -f /opt/supastack/infra/docker-compose.yml restart worker
 # Watch logs:
-sudo docker compose -f /opt/selfbase/infra/docker-compose.yml logs -f worker | grep kong-analytics
+sudo docker compose -f /opt/supastack/infra/docker-compose.yml logs -f worker | grep kong-analytics
 ```
 
 ## Existing project statement_timeout (opt-in)

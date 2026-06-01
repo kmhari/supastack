@@ -44,7 +44,7 @@ When `req.body.read_only === true`: immediately after connect, execute `SET defa
 ```ts
 {
   socketPath: '/var/run/docker.sock',
-  container: `selfbase-${ref}-db-1`,
+  container: `supastack-${ref}-db-1`,
   cmd: ['pg_dump',
         '-h', '127.0.0.1',
         '-U', 'postgres',

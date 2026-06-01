@@ -7,6 +7,6 @@
 -- pre-cutover rows during early ops). Decision to actually run this lives
 -- with the operator in a separate PR.
 --
--- Idempotent (matches selfbase migration convention).
+-- Idempotent (matches supastack migration convention).
 
 -- DROP TABLE IF EXISTS project_secrets CASCADE;

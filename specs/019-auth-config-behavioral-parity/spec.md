@@ -12,7 +12,7 @@
 
 ### User Story 1 — Operators can see which auth settings actually work (Priority: P1)
 
-An operator using the CLI or dashboard sets an auth-config field and reads it back. The response makes it unambiguous whether the value they set will change runtime behavior, is accepted-but-inert (stored only), or is explicitly not supported on this selfbase deployment.
+An operator using the CLI or dashboard sets an auth-config field and reads it back. The response makes it unambiguous whether the value they set will change runtime behavior, is accepted-but-inert (stored only), or is explicitly not supported on this supastack deployment.
 
 **Why this priority**: This is the single most user-visible defect of the current behavior. Without it, operators silently believe they have configured something (SAML, a webhook secret, a captcha key) when in fact the running auth container is unchanged. This destroys trust in the Management API. It can be shipped without any new GoTrue wiring — it is a pure transparency change layered on top of feature 009.
 
@@ -22,14 +22,14 @@ An operator using the CLI or dashboard sets an auth-config field and reads it ba
 
 1. **Given** the operator PATCHes a field known to be wired into the GoTrue template (e.g. `jwt_exp`), **When** they GET the auth config, **Then** the response marks that field as `honored` and the new value is reflected.
 2. **Given** the operator PATCHes a field that is accepted by the schema but not wired into the template (e.g. `hook_custom_access_token_uri`), **When** they GET the auth config, **Then** the response marks that field as `stored-only` with a short reason.
-3. **Given** the operator PATCHes a field selfbase has explicitly chosen never to support (e.g. a Cloud-internal field), **When** they GET the auth config, **Then** the response marks that field as `unsupported` with a short reason.
+3. **Given** the operator PATCHes a field supastack has explicitly chosen never to support (e.g. a Cloud-internal field), **When** they GET the auth config, **Then** the response marks that field as `unsupported` with a short reason.
 4. **Given** an unmodified `supabase` CLI client that ignores unknown response fields, **When** it consumes the GET response, **Then** existing CLI workflows continue to work unchanged.
 
 ---
 
 ### User Story 2 — Behavioral parity is provable, not assumed (Priority: P2)
 
-For every field selfbase claims to honor, an automated test mutates the field and asserts the runtime auth container actually behaves differently. Promoting a field from stored-only to honored requires its assertion to be added to the test suite as part of the same change.
+For every field supastack claims to honor, an automated test mutates the field and asserts the runtime auth container actually behaves differently. Promoting a field from stored-only to honored requires its assertion to be added to the test suite as part of the same change.
 
 **Why this priority**: Without this, the honored/stored-only/unsupported labels can drift from reality the next time the template or pinned GoTrue image changes. Operators get a false sense of safety. This is high-value but lower urgency than US1 because it protects future correctness rather than fixing today's silent failures.
 
@@ -54,24 +54,24 @@ For each currently stored-only field, an explicit per-field decision is recorded
 **Acceptance Scenarios**:
 
 1. **Given** a field is promoted from stored-only to honored, **When** the operator PATCHes it and triggers the runtime check, **Then** the per-instance auth container picks up the new value within the same provisioning window as other auth-config edits.
-2. **Given** a field is deliberately kept as stored-only, **When** the operator reads the operator runbook, **Then** they see a one-line explanation of why selfbase does not wire it.
+2. **Given** a field is deliberately kept as stored-only, **When** the operator reads the operator runbook, **Then** they see a one-line explanation of why supastack does not wire it.
 
 ---
 
 ### Edge Cases
 
-- A field is present in the upstream Zod schema but missing from selfbase's status map (e.g. after an upstream snapshot refresh). The system must fail loudly rather than silently default to `stored-only`.
+- A field is present in the upstream Zod schema but missing from supastack's status map (e.g. after an upstream snapshot refresh). The system must fail loudly rather than silently default to `stored-only`.
 - A field's runtime check requires a container restart (typical for env-var-driven settings). The behavioral parity test must wait for the per-instance auth container's healthcheck, not merely for the PATCH response.
 - A field is wired into the template but the pinned GoTrue image does not yet support it. The status map must reflect the runtime truth (`stored-only`), not the template intent.
 - An operator PATCHes a field marked `unsupported`. The system must still accept and persist it (to preserve CLI compatibility) but the response must clearly indicate it has no effect.
-- The selfbase extension surface on the GET response must not collide with any future upstream field name. The extension is namespaced so unmodified upstream clients ignore it.
+- The supastack extension surface on the GET response must not collide with any future upstream field name. The extension is namespaced so unmodified upstream clients ignore it.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: The auth-config GET response MUST surface a per-field status indicator that classifies each field as `honored`, `stored-only`, or `unsupported`.
-- **FR-002**: The per-field status indicator MUST be exposed under a selfbase-namespaced extension key in the response (so unmodified upstream clients ignore it).
+- **FR-002**: The per-field status indicator MUST be exposed under a supastack-namespaced extension key in the response (so unmodified upstream clients ignore it).
 - **FR-003**: PATCH MUST continue to accept every field present in the upstream `UpdateAuthConfigBody` shape, including `stored-only` and `unsupported` fields, to preserve CLI compatibility (feature 009 Q4 clarification stands).
 - **FR-004**: For fields classified as `stored-only` or `unsupported`, the GET response MUST include a short, human-readable reason (e.g. "no SAML keypair infrastructure", "requires hook dispatcher not shipped").
 - **FR-005**: The classification of every field in the upstream schema MUST be enumerable from a single source of truth in the codebase (a status map). Drift from the upstream snapshot MUST be caught by a contract test, not by runtime behavior.
@@ -118,7 +118,7 @@ For each currently stored-only field, an explicit per-field decision is recorded
 ## Out of Scope
 
 - SAML SSO support (requires keypair generation, metadata endpoint, GoTrue SAML flags) — tracked separately.
-- Auth webhook / "hook_*" support (requires a hook dispatcher service selfbase does not ship) — tracked separately.
+- Auth webhook / "hook_*" support (requires a hook dispatcher service supastack does not ship) — tracked separately.
 - MFA fields requiring a newer GoTrue image than the currently pinned per-instance image — tracked separately, gated on an image bump.
 - Any change to PATCH validation behavior (continues to accept the full upstream shape).
 - Any change to the dashboard UI for auth-config (this feature is API-surface-only; dashboard adoption of the new status indicator is a follow-up).

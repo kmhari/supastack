@@ -33,10 +33,10 @@ Brief (<300ms typical). Shows a centered spinner or skeleton.
 │                                     │
 │       [terminal icon] ⇄ [logo]      │
 │                                     │
-│      Authorize selfbase CLI         │
+│      Authorize supastack CLI         │
 │                                     │
 │  Enter this verification code in    │
-│   selfbase CLI to finish signing in │
+│   supastack CLI to finish signing in │
 │                                     │
 │   ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐  │
 │   │9│ │1│ │c│ │b│ │a│ │e│ │4│ │c│  │
@@ -74,10 +74,10 @@ Brief (<300ms typical). Shows a centered spinner or skeleton.
 │     Unable to create CLI sign-in    │
 │                                     │
 │   Retry the sign-in command from    │
-│          selfbase CLI               │
+│          supastack CLI               │
 │                                     │
 │   ┌─────────────────────────────┐   │
-│   │ ⚠  selfbase could not       │   │
+│   │ ⚠  supastack could not       │   │
 │   │    create the CLI sign-in   │   │
 │   │    session.                 │   │
 │   │                             │   │

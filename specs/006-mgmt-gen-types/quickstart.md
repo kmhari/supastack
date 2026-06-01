@@ -2,11 +2,11 @@
 
 **Feature**: 006-mgmt-gen-types
 
-Validation walkthrough for the four CLI surfaces against a fresh selfbase install. Run on the test VM (`ubuntu@148.113.1.164`) against the `huntvox` (ENZY) project unless noted.
+Validation walkthrough for the four CLI surfaces against a fresh supastack install. Run on the test VM (`ubuntu@148.113.1.164`) against the `huntvox` (ENZY) project unless noted.
 
 ## Prerequisites
 
-- selfbase main branch deployed with feature 006 changes applied.
+- supastack main branch deployed with feature 006 changes applied.
 - One running project (`enzyxdtrbosuwjwzkmvl`).
 - A PAT minted for the operator account (existing `connect-cli` flow).
 - Local machine has the upstream `supabase` CLI ≥ v1.215.0 installed.

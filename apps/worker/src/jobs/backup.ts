@@ -1,23 +1,23 @@
 import { spawn } from 'node:child_process';
 import type { Readable } from 'node:stream';
 import { eq, desc, and } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
-import { logger } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
+import { logger } from '@supastack/shared';
 import {
   LocalDiskStore,
   S3Store,
   type BackupStore,
   type S3StoreConfig,
-} from '@selfbase/backup-store';
+} from '@supastack/backup-store';
 
-const BACKUPS_DIR = process.env.BACKUPS_DIR ?? '/var/selfbase/backups';
+const BACKUPS_DIR = process.env.BACKUPS_DIR ?? '/var/supastack/backups';
 
 /**
  * On-demand or scheduled backup job. Pipeline:
  *   1. Insert backups row with status='running'
  *   2. Resolve BackupStore from org.backup_store_kind + decrypted config
- *   3. docker exec selfbase-<ref>-db pg_dump -U postgres -Fc postgres
+ *   3. docker exec supastack-<ref>-db pg_dump -U postgres -Fc postgres
  *   4. Stream stdout into BackupStore.put(ref, stream)
  *   5. On success: update row → completed + size, run retention sweep
  *   6. On failure: update row → failed + error
@@ -57,7 +57,7 @@ export async function handleBackup(payload: {
 
   try {
     log.info('starting pg_dump');
-    const stream = pgDumpStream(`selfbase-${ref}-db`);
+    const stream = pgDumpStream(`supastack-${ref}-db`);
     const put = await store.put(ref, stream);
     await db()
       .update(schema.backups)

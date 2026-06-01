@@ -1,5 +1,5 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const auditCalls: Array<{ action: string }> = [];
 
@@ -49,20 +49,20 @@ vi.mock('../../src/services/oauth-pkce.js', () => ({
   verifyChallenge: () => verifyChallengeResult,
 }));
 
-vi.mock('@selfbase/oauth', () => ({
+vi.mock('@supastack/oauth', () => ({
   signAccessToken: () => ({ token: 'mock-access-token', jti: 'mock-jti' }),
 }));
 
-vi.mock('@selfbase/crypto', () => ({
+vi.mock('@supastack/crypto', () => ({
   loadMasterKey: () => Buffer.alloc(32),
 }));
 
-vi.mock('@selfbase/shared', async (orig) => {
+vi.mock('@supastack/shared', async (orig) => {
   const actual = (await orig()) as Record<string, unknown>;
   return { ...actual, logger: { warn: () => {}, info: () => {}, error: () => {} } };
 });
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     insert: () => ({
       values: async (vals: { action: string }) => {
@@ -110,7 +110,7 @@ beforeEach(() => {
   };
   rotateResult = { ok: true, userId: 'u1', scope: 'platform', newToken: 'new-refresh-token-xyz' };
   verifyChallengeResult = true;
-  process.env.SELFBASE_APEX = 'test.local';
+  process.env.SUPASTACK_APEX = 'test.local';
 });
 
 describe('POST /v1/oauth/token — authorization_code', () => {

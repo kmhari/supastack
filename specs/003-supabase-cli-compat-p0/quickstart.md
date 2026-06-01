@@ -1,27 +1,27 @@
-# Quickstart: Supabase CLI ↔ Selfbase
+# Quickstart: Supabase CLI ↔ Supastack
 
 A runnable verification walkthrough of every P0 acceptance scenario. Each block
 maps directly to spec.md's "Acceptance Scenarios". Replace `<apex>` with your
-selfbase deployment's apex (e.g. `supaviser.dev`) and `<ref>` with a real
+supastack deployment's apex (e.g. `supaviser.dev`) and `<ref>` with a real
 project reference from your dashboard.
 
 ## Prerequisites
 
 - An unmodified upstream Supabase CLI ≥ 2.72.7 installed. Verify: `supabase --version`.
-- A working selfbase deployment with this feature shipped (i.e. the `/v1/*` management surface live behind a valid TLS cert on `https://api.<apex>`).
-- A selfbase user account with at least one provisioned project.
-- Docker running on the developer's machine. The CLI's stock `supabase functions deploy` uses a local Docker container to bundle each function into an eszip before upload. On machines without Docker (some CI runners, minimal Linux setups), append `--use-api` to every `functions deploy` and `functions download` command shown below — selfbase supports both paths.
+- A working supastack deployment with this feature shipped (i.e. the `/v1/*` management surface live behind a valid TLS cert on `https://api.<apex>`).
+- A supastack user account with at least one provisioned project.
+- Docker running on the developer's machine. The CLI's stock `supabase functions deploy` uses a local Docker container to bundle each function into an eszip before upload. On machines without Docker (some CI runners, minimal Linux setups), append `--use-api` to every `functions deploy` and `functions download` command shown below — supastack supports both paths.
 
-## Story 1 — Connect the CLI to selfbase
+## Story 1 — Connect the CLI to supastack
 
 ```bash
 # 1. Download our profile snippet (or paste the TOML from the dashboard's Connect-CLI page).
 mkdir -p ~/.supabase/profiles
-curl -fsSL https://<apex>/api/v1/cli/profile.toml > ~/.supabase/profiles/selfbase.toml
+curl -fsSL https://<apex>/api/v1/cli/profile.toml > ~/.supabase/profiles/supastack.toml
 
-cat ~/.supabase/profiles/selfbase.toml
+cat ~/.supabase/profiles/supastack.toml
 # Should print:
-#   name          = "selfbase"
+#   name          = "supastack"
 #   api_url       = "https://api.<apex>"
 #   dashboard_url = "https://<apex>/dashboard"
 #   project_host  = "<apex>"
@@ -29,14 +29,14 @@ cat ~/.supabase/profiles/selfbase.toml
 # 2. Generate a PAT in the dashboard at https://<apex>/settings/tokens. Copy the
 #    plaintext (shown once). It MUST match ^sbp_[a-f0-9]{40}$.
 
-# 3. Log in with the selfbase profile.
-supabase login --profile ~/.supabase/profiles/selfbase.toml
+# 3. Log in with the supastack profile.
+supabase login --profile ~/.supabase/profiles/supastack.toml
 # Prompts for the PAT. After it accepts, ~/.supabase/profile contains the
 # absolute path to our TOML.
 
 # Verify routing:
 supabase projects list
-# Expected: a table of your selfbase projects with refs matching the dashboard.
+# Expected: a table of your supastack projects with refs matching the dashboard.
 
 # Optional sanity check that cloud routing isn't broken:
 supabase --profile supabase projects list
@@ -82,7 +82,7 @@ supabase link --project-ref <ref2>
 # Create a minimal function:
 mkdir -p supabase/functions/hello
 cat > supabase/functions/hello/index.ts <<'EOF'
-Deno.serve(() => new Response('hi from selfbase'));
+Deno.serve(() => new Response('hi from supastack'));
 EOF
 
 # Deploy with the stock command (default eszip-via-Docker path):
@@ -95,14 +95,14 @@ supabase functions deploy hello
 # Confirm it's serving:
 curl -fsS "https://<ref>.<apex>/functions/v1/hello" \
   -H "Authorization: Bearer <anon-key-from-dashboard>"
-# Expected: "hi from selfbase"
+# Expected: "hi from supastack"
 
 # Edit and redeploy (Story 3 scenario 3, SC-004 ≤10s budget):
-sed -i.bak 's/hi from selfbase/hi from selfbase v2/' supabase/functions/hello/index.ts
+sed -i.bak 's/hi from supastack/hi from supastack v2/' supabase/functions/hello/index.ts
 time supabase functions deploy hello
 # Expected: success in ≤10s, then:
 curl -fsS "https://<ref>.<apex>/functions/v1/hello" -H "Authorization: Bearer <anon-key>"
-# Expected: "hi from selfbase v2"
+# Expected: "hi from supastack v2"
 
 # Multi-function deploy:
 mkdir -p supabase/functions/world
@@ -201,7 +201,7 @@ rm -rf supabase/functions/big
 
 # Not-implemented endpoint (cloud-only path):
 supabase branches list --project-ref <ref> 2>&1 | grep -i 'not implemented\|not supported'
-# Expected: 501 with the "not implemented in selfbase" envelope.
+# Expected: 501 with the "not implemented in supastack" envelope.
 ```
 
 **Verifies**: spec.md Edge Cases section.
@@ -215,7 +215,7 @@ supabase branches list --project-ref <ref> 2>&1 | grep -i 'not implemented\|not 
 | SC-004 | "repeat deploy ≤10s" | `time supabase functions deploy hello` on an already-deployed slug. |
 | SC-005 | "secret propagation ≤5s, no redeploy" | `supabase secrets set FOO=X && sleep 5 && curl <fn>` — assert response reflects new value. |
 | SC-006 | "95% of CLI runs succeed without shape errors" | Run the entire script above 20 times against a healthy deployment; expect zero "Try rerunning with --debug" or "json: cannot unmarshal" output. |
-| SC-007 | "no selfbase-specific docs needed beyond Connect-CLI page" | The instructions in this quickstart use only upstream CLI commands and selfbase's dashboard. No source patches, no custom binaries. |
+| SC-007 | "no supastack-specific docs needed beyond Connect-CLI page" | The instructions in this quickstart use only upstream CLI commands and supastack's dashboard. No source patches, no custom binaries. |
 
 ## E2E test harness (CI-runnable subset)
 
@@ -225,19 +225,19 @@ supabase branches list --project-ref <ref> 2>&1 | grep -i 'not implemented\|not 
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${SELFBASE_APEX:?SELFBASE_APEX required}"
-: "${SELFBASE_PAT:?SELFBASE_PAT required}"
-: "${SELFBASE_PROJECT_REF:?SELFBASE_PROJECT_REF required}"
+: "${SUPASTACK_APEX:?SUPASTACK_APEX required}"
+: "${SUPASTACK_PAT:?SUPASTACK_PAT required}"
+: "${SUPASTACK_PROJECT_REF:?SUPASTACK_PROJECT_REF required}"
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 # Write profile.
-cat > "$WORK/selfbase.toml" <<EOF
-name          = "selfbase-e2e"
-api_url       = "https://api.${SELFBASE_APEX}"
-dashboard_url = "https://${SELFBASE_APEX}/dashboard"
-project_host  = "${SELFBASE_APEX}"
+cat > "$WORK/supastack.toml" <<EOF
+name          = "supastack-e2e"
+api_url       = "https://api.${SUPASTACK_APEX}"
+dashboard_url = "https://${SUPASTACK_APEX}/dashboard"
+project_host  = "${SUPASTACK_APEX}"
 EOF
 
 # Minimal project.
@@ -247,20 +247,20 @@ Deno.serve(() => new Response('e2e-ok-$(date +%s)'));
 EOF
 
 cd "$WORK/proj"
-SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-  supabase --profile "$WORK/selfbase.toml" functions deploy "e2e-$$" \
-    --project-ref "$SELFBASE_PROJECT_REF"
+SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+  supabase --profile "$WORK/supastack.toml" functions deploy "e2e-$$" \
+    --project-ref "$SUPASTACK_PROJECT_REF"
 
 # Confirm serving (anon key endpoint needed if VERIFY_JWT=true; test functions
 # can set verify_jwt=false in metadata, but for now we expect a 401 or 200).
-curl -sf "https://${SELFBASE_PROJECT_REF}.${SELFBASE_APEX}/functions/v1/e2e-$$" \
-  -H "Authorization: Bearer ${SELFBASE_ANON_KEY:-fake}" \
+curl -sf "https://${SUPASTACK_PROJECT_REF}.${SUPASTACK_APEX}/functions/v1/e2e-$$" \
+  -H "Authorization: Bearer ${SUPASTACK_ANON_KEY:-fake}" \
   || echo "(verify_jwt may be on; deploy itself succeeded)"
 
 # Cleanup.
-SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-  supabase --profile "$WORK/selfbase.toml" functions delete "e2e-$$" \
-    --project-ref "$SELFBASE_PROJECT_REF"
+SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+  supabase --profile "$WORK/supastack.toml" functions delete "e2e-$$" \
+    --project-ref "$SUPASTACK_PROJECT_REF"
 
 echo "E2E PASS"
 ```

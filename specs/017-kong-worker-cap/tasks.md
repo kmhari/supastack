@@ -21,7 +21,7 @@ description: "Task list for feature 017-kong-worker-cap"
 
 ## Path Conventions
 
-Selfbase repo layout. Only one file under `infra/supabase-template/` is modified.
+Supastack repo layout. Only one file under `infra/supabase-template/` is modified.
 
 ---
 
@@ -45,7 +45,7 @@ Selfbase repo layout. Only one file under `infra/supabase-template/` is modified
 
 **Goal**: Each per-project Kong gateway runs with 2 nginx worker processes (cap), regardless of host CPU count, dropping per-project idle RSS from ~1.25 GiB to < 300 MiB.
 
-**Independent Test**: After deploy, `sudo docker top selfbase-<ref>-kong-1 | grep -c 'nginx: worker'` returns **2** for every project, and `docker stats --no-stream` shows each kong container at < 300 MiB RSS at idle. REST/Auth/Storage smoke calls through `<ref>.<apex>` return expected status codes (FR-006).
+**Independent Test**: After deploy, `sudo docker top supastack-<ref>-kong-1 | grep -c 'nginx: worker'` returns **2** for every project, and `docker stats --no-stream` shows each kong container at < 300 MiB RSS at idle. REST/Auth/Storage smoke calls through `<ref>.<apex>` return expected status codes (FR-006).
 
 ### Implementation tasks
 
@@ -55,8 +55,8 @@ Selfbase repo layout. Only one file under `infra/supabase-template/` is modified
 
 ### Deploy + verify on VM
 
-- [X] T004 [US1] Rsync `infra/supabase-template/docker-compose.yml` to `/opt/selfbase/infra/supabase-template/docker-compose.yml` on `ubuntu@148.113.1.164`. *(scp'd 2026-05-27; line 119 confirms `KONG_NGINX_WORKER_PROCESSES: "2"`.)*
-- [X] T005 [US1] For each project in `/var/selfbase/instances/<ref>/`: edit per-project compose in place to add the env var, then `sudo docker compose -p selfbase-<ref> up -d kong`. *(Path is `/var/selfbase/instances/`, not `/opt/selfbase/instances/` — corrected during rollout. Rolled xbeg → hpeo → uygn sequentially with health-gated verification between each. All went healthy in seconds.)*
+- [X] T004 [US1] Rsync `infra/supabase-template/docker-compose.yml` to `/opt/supastack/infra/supabase-template/docker-compose.yml` on `ubuntu@148.113.1.164`. *(scp'd 2026-05-27; line 119 confirms `KONG_NGINX_WORKER_PROCESSES: "2"`.)*
+- [X] T005 [US1] For each project in `/var/supastack/instances/<ref>/`: edit per-project compose in place to add the env var, then `sudo docker compose -p supastack-<ref> up -d kong`. *(Path is `/var/supastack/instances/`, not `/opt/supastack/instances/` — corrected during rollout. Rolled xbeg → hpeo → uygn sequentially with health-gated verification between each. All went healthy in seconds.)*
 - [X] T006 [US1] Run the smoke checks against each rolled project (`/rest/v1/`, `/auth/v1/settings`). *(All returned 401 with bogus apikey, confirming Kong + auth-plugin chain routing correctly. Skipped `/storage/v1/bucket` for the same reason — auth-chain behaviour is what we needed to verify, not authenticated payloads.)*
 - [X] T007 [US1] Capture `free -h` and total kong-container RSS sum before and after rollout. *(Before: 14 GiB used, 3.73 GiB total kong. After: 10 GiB used, 0.39 GiB total kong. Saved 3.34 GiB — exceeds SC-002 threshold of 2.5 GiB.)*
 

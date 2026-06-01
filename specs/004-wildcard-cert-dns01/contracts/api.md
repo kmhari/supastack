@@ -34,15 +34,15 @@ Authentication: all wildcard-cert endpoints require `org.update` permission (adm
 **Response 201**:
 ```json
 {
-  "apex": "selfbase.example.com",
+  "apex": "supastack.example.com",
   "status": "awaiting_dns",
   "challengeRecords": [
     {
-      "name": "_acme-challenge.selfbase.example.com",
+      "name": "_acme-challenge.supastack.example.com",
       "value": "abc123base64urlvalue1"
     },
     {
-      "name": "_acme-challenge.selfbase.example.com",
+      "name": "_acme-challenge.supastack.example.com",
       "value": "def456base64urlvalue2"
     }
   ],
@@ -73,7 +73,7 @@ Authentication: all wildcard-cert endpoints require `org.update` permission (adm
 5. Call `acme-client`: recreate account (idempotent) → `getOrder(orderUrl)` → `getAuthorizations` → per-authz `completeChallenge` + `waitForValidStatus`
 6. `acme.crypto.createCsr({ commonName: apex, altNames: [apex, *.apex] })`
 7. `finalizeOrder` → `getCertificate` → PEM chain
-8. Write `cert.pem` + `key.pem` to `/var/selfbase/certs/<apex>/`
+8. Write `cert.pem` + `key.pem` to `/var/supastack/certs/<apex>/`
 9. Update `wildcard_certs`: `status='issued'`, `cert_pem`, `key_pem` (encrypted), `not_before`, `not_after`, `issued_at`, `last_error=null`
 10. Update `cert_renewal_events`: `outcome='success'`, `cert_not_after`, `finished_at`
 11. Insert audit log `tls.issued`
@@ -85,8 +85,8 @@ Authentication: all wildcard-cert endpoints require `org.update` permission (adm
 {
   "status": "awaiting_dns",
   "dnsChecks": [
-    { "name": "_acme-challenge.selfbase.example.com", "value": "abc123...", "found": true },
-    { "name": "_acme-challenge.selfbase.example.com", "value": "def456...", "found": false }
+    { "name": "_acme-challenge.supastack.example.com", "value": "abc123...", "found": true },
+    { "name": "_acme-challenge.supastack.example.com", "value": "def456...", "found": false }
   ],
   "allDnsReady": false
 }
@@ -96,7 +96,7 @@ Authentication: all wildcard-cert endpoints require `org.update` permission (adm
 ```json
 {
   "status": "issued",
-  "apex": "selfbase.example.com",
+  "apex": "supastack.example.com",
   "notBefore": "2026-05-23T12:00:00Z",
   "notAfter": "2026-08-21T12:00:00Z"
 }
@@ -133,11 +133,11 @@ Authentication: all wildcard-cert endpoints require `org.update` permission (adm
 ```json
 {
   "cert": {
-    "apex": "selfbase.example.com",
+    "apex": "supastack.example.com",
     "status": "awaiting_dns",
     "challengeRecords": [
-      { "name": "_acme-challenge.selfbase.example.com", "value": "abc123...", "found": false },
-      { "name": "_acme-challenge.selfbase.example.com", "value": "def456...", "found": false }
+      { "name": "_acme-challenge.supastack.example.com", "value": "abc123...", "found": false },
+      { "name": "_acme-challenge.supastack.example.com", "value": "def456...", "found": false }
     ],
     "allDnsReady": false,
     "lastError": null
@@ -149,7 +149,7 @@ Authentication: all wildcard-cert endpoints require `org.update` permission (adm
 ```json
 {
   "cert": {
-    "apex": "selfbase.example.com",
+    "apex": "supastack.example.com",
     "status": "issued",
     "notBefore": "2026-05-23T12:00:00Z",
     "notAfter": "2026-08-21T12:00:00Z",
@@ -202,7 +202,7 @@ Authentication: all wildcard-cert endpoints require `org.update` permission (adm
 {
   "id": "...",
   "name": "Acme Corp",
-  "apexDomain": "selfbase.example.com",
+  "apexDomain": "supastack.example.com",
   "backupStoreKind": "local",
   "hasCert": false
 }
@@ -239,8 +239,8 @@ After `POST /wildcard-certs/verify` succeeds, the API calls `reloadCaddy()` whic
     "tls": {
       "certificates": {
         "load_files": [{
-          "certificate": "/var/selfbase/certs/apex.com/cert.pem",
-          "key": "/var/selfbase/certs/apex.com/key.pem",
+          "certificate": "/var/supastack/certs/apex.com/cert.pem",
+          "key": "/var/supastack/certs/apex.com/key.pem",
           "tags": ["wildcard:apex.com"]
         }]
       },

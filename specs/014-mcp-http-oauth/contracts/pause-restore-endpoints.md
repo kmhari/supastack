@@ -101,7 +101,7 @@ Single helper used by these endpoints + by `GET /v1/projects` + `GET /v1/project
 
 ```ts
 // apps/api/src/services/project-status-mapper.ts
-const SELFBASE_TO_CLOUD: Record<string, string> = {
+const SUPASTACK_TO_CLOUD: Record<string, string> = {
   running: 'ACTIVE_HEALTHY',
   paused: 'INACTIVE',
   stopped: 'INACTIVE',
@@ -110,8 +110,8 @@ const SELFBASE_TO_CLOUD: Record<string, string> = {
   failed: 'UNKNOWN',
   deleting: 'REMOVED',
 };
-export function mapSelfbaseStatusToCloud(s: string): string {
-  return SELFBASE_TO_CLOUD[s] ?? 'UNKNOWN';
+export function mapSupastackStatusToCloud(s: string): string {
+  return SUPASTACK_TO_CLOUD[s] ?? 'UNKNOWN';
 }
 ```
 

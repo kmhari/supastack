@@ -34,7 +34,7 @@ mcp-session-id: <UUID, optional on first call>
 1. Extract `Authorization: Bearer <token>`. Missing → 401 + `WWW-Authenticate` (per `oauth-discovery-endpoints.md`).
 2. Verify JWT signature via HS256 + HKDF-derived key. Bad signature → 401.
 3. Verify claims: `exp` > now, `iss` matches our issuer, `aud` matches our resource. Else → 401.
-4. Redis EXISTS `selfbase:oauth:revoked:<jti>` → if 1, 401 `invalid_token` (revoked).
+4. Redis EXISTS `supastack:oauth:revoked:<jti>` → if 1, 401 `invalid_token` (revoked).
 5. Resolve `user_id` from `sub` claim.
 6. If `mcp-session-id` header present and session is in-memory map → reuse session's MCP server + transport.
 7. Else → mint a new session: build `createSupabaseApiPlatform({ accessToken: <bearer>, apiUrl: 'http://api:3001' })`, strip deferred operation groups, call `createSupabaseMcpServer({ platform })`, wrap in new `StreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() })`. Store in session map.

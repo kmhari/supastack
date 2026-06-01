@@ -44,7 +44,7 @@ CREATE INDEX IF NOT EXISTS api_tokens_prefix_idx ON api_tokens (prefix)
 
 #### `project_functions` — deployed-function metadata per instance
 
-Tracks every edge function deployed by any client (CLI or future dashboard UI) to a per-instance volume. The bundle itself lives on the host filesystem at `/var/selfbase/instances/<ref>/volumes/functions/<slug>/`; this table is the canonical index.
+Tracks every edge function deployed by any client (CLI or future dashboard UI) to a per-instance volume. The bundle itself lives on the host filesystem at `/var/supastack/instances/<ref>/volumes/functions/<slug>/`; this table is the canonical index.
 
 ```sql
 CREATE TABLE IF NOT EXISTS project_functions (
@@ -113,7 +113,7 @@ CREATE INDEX IF NOT EXISTS function_deploys_instance_idx
 
 #### `project_secrets` — secret index + encrypted values
 
-Source of truth for which secrets are configured per project, encrypted at rest. The live runtime value lives in `/var/selfbase/instances/<ref>/.env`; this table lets us rebuild that file after a restore and lets the dashboard list secret names without re-reading the disk.
+Source of truth for which secrets are configured per project, encrypted at rest. The live runtime value lives in `/var/supastack/instances/<ref>/.env`; this table lets us rebuild that file after a restore and lets the dashboard list secret names without re-reading the disk.
 
 ```sql
 CREATE TABLE IF NOT EXISTS project_secrets (
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS project_secrets (
   instance_ref      text        NOT NULL REFERENCES supabase_instances(ref) ON DELETE CASCADE,
   name              text        NOT NULL,
   encrypted_value   bytea       NOT NULL,
-                                  -- @selfbase/crypto encryptJson({value}, masterKey)
+                                  -- @supastack/crypto encryptJson({value}, masterKey)
   value_sha256      text        NOT NULL,
                                   -- SHA-256 hex digest of plaintext value
   created_at        timestamptz NOT NULL DEFAULT now(),
@@ -173,7 +173,7 @@ CREATE TABLE IF NOT EXISTS project_secrets (
 [LIVE] ──DELETE──► [absent] ──restart-ok──► [GONE]
 ```
 
-**Atomicity rule**: the DB transaction wraps the .env file edit; on rollback we restore the file from a backup copy taken at the start of the request. Concurrent CLI calls are serialized by a per-instance lock (Redis `SETNX` with 30s TTL, key `selfbase:secret-lock:<ref>`).
+**Atomicity rule**: the DB transaction wraps the .env file edit; on rollback we restore the file from a backup copy taken at the start of the request. Concurrent CLI calls are serialized by a per-instance lock (Redis `SETNX` with 30s TTL, key `supastack:secret-lock:<ref>`).
 
 ---
 
@@ -182,7 +182,7 @@ CREATE TABLE IF NOT EXISTS project_secrets (
 | Field | Rule | Enforced by |
 |---|---|---|
 | `apiTokens.prefix` | First 12 chars of plaintext token | `mintApiToken` service |
-| plaintext PAT | `^sbp_[a-f0-9]{40}$` | `mintApiToken` service (selfbase) AND CLI client-side regex (validated externally) |
+| plaintext PAT | `^sbp_[a-f0-9]{40}$` | `mintApiToken` service (supastack) AND CLI client-side regex (validated externally) |
 | `project_functions.slug` | `^[a-z0-9][a-z0-9-]{0,47}$` | `function-deploy.ts` service |
 | `project_secrets.name` | `^[A-Z][A-Z0-9_]{0,63}$` AND NOT IN reserved list | `secret-store.ts` service |
 | function bundle size | ≤ 50 MB per upload | `@fastify/multipart` config |
@@ -214,7 +214,7 @@ CREATE TABLE IF NOT EXISTS project_secrets (
                  │  (per-instance      │
                  │  edge-runtime       │
                  │  container +        │
-                 │  /var/selfbase/.../ │
+                 │  /var/supastack/.../ │
                  │  volumes/functions/ │
                  │  + .env)            │
                  └─────────────────────┘

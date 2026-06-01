@@ -1,20 +1,20 @@
-import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { decryptJson, generateRef, loadMasterKey, verifyPassword } from '@supastack/crypto';
+import { allocatePorts, assignPortsToInstance, db, schema } from '@supastack/db';
+import { composePs } from '@supastack/docker-control';
+import { canTransition, errors, schemas, type InstanceState } from '@supastack/shared';
 import { Queue } from 'bullmq';
-import { Redis } from 'ioredis';
 import { and, desc, eq, inArray, not } from 'drizzle-orm';
-import { db, schema, allocatePorts, assignPortsToInstance } from '@selfbase/db';
-import { generateRef, decryptJson, loadMasterKey, verifyPassword } from '@selfbase/crypto';
-import { schemas, errors, canTransition, type InstanceState } from '@selfbase/shared';
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { Redis } from 'ioredis';
+import path from 'node:path';
+import { probeHttpsCert } from '../services/cert-probe.js';
 import {
   encryptInstanceSecrets,
   generateInstanceSecrets,
   type InstanceSecrets,
 } from '../services/instance-secrets.js';
-import { probeHttpsCert } from '../services/cert-probe.js';
-import { composePs } from '@selfbase/docker-control';
-import path from 'node:path';
 
-const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
+const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/supastack/instances';
 
 const SUPABASE_VERSION_DEFAULT = process.env.SUPABASE_VERSION ?? '2026.05.01';
 const REDIS_URL = process.env.REDIS_URL!;
@@ -22,7 +22,7 @@ const REDIS_URL = process.env.REDIS_URL!;
 let _provisionQueue: Queue | null = null;
 function provisionQueue(): Queue {
   if (!_provisionQueue) {
-    _provisionQueue = new Queue('selfbase.provision', {
+    _provisionQueue = new Queue('supastack.provision', {
       connection: new Redis(REDIS_URL, { maxRetriesPerRequest: null }),
     });
   }
@@ -32,7 +32,7 @@ function provisionQueue(): Queue {
 let _lifecycleQueue: Queue | null = null;
 function lifecycleQueue(): Queue {
   if (!_lifecycleQueue) {
-    _lifecycleQueue = new Queue('selfbase.lifecycle', {
+    _lifecycleQueue = new Queue('supastack.lifecycle', {
       connection: new Redis(REDIS_URL, { maxRetriesPerRequest: null }),
     });
   }
@@ -137,7 +137,7 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
     // reveal can target only the SMTP field.
     let smtpPassEncrypted: Buffer | null = null;
     if (body.smtp) {
-      const { encryptJson } = await import('@selfbase/crypto');
+      const { encryptJson } = await import('@supastack/crypto');
       smtpPassEncrypted = encryptJson({ password: body.smtp.password }, loadMasterKey());
     }
 
@@ -186,7 +186,7 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
     // makes every project-shell page render an empty/error state and fails
     // every browser-test assertion against a project ref). Flip status to
     // `running` synchronously and skip the queue.
-    if (process.env.SELFBASE_TEST_FAKE_DOCKER === '1') {
+    if (process.env.SUPASTACK_TEST_FAKE_DOCKER === '1') {
       await db()
         .update(schema.supabaseInstances)
         .set({ status: 'running' })
@@ -269,7 +269,7 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
     let containers: Awaited<ReturnType<typeof composePs>> = [];
     try {
       containers = await composePs({
-        projectName: `selfbase-${row.ref}`,
+        projectName: `supastack-${row.ref}`,
         dir: path.join(INSTANCES_DIR, row.ref),
       });
     } catch {

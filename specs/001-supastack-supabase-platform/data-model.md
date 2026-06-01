@@ -1,6 +1,6 @@
 # Phase 1 — Data Model
 
-Single Postgres database backing the selfbase control plane. All migrations are idempotent (Drizzle `migrate()` + idempotent SQL). Naming uses `snake_case`; types reflect Drizzle column kinds.
+Single Postgres database backing the supastack control plane. All migrations are idempotent (Drizzle `migrate()` + idempotent SQL). Naming uses `snake_case`; types reflect Drizzle column kinds.
 
 ```text
        ┌─────────┐        ┌──────────────┐
@@ -29,7 +29,7 @@ Single Postgres database backing the selfbase control plane. All migrations are 
 |---|---|---|
 | `id` | uuid PK | `gen_random_uuid()` |
 | `name` | text NOT NULL | display name |
-| `apex_domain` | text NULL UNIQUE | the configured apex (e.g., `selfbase.example.com`) |
+| `apex_domain` | text NULL UNIQUE | the configured apex (e.g., `supastack.example.com`) |
 | `backup_store_kind` | text NOT NULL DEFAULT `'local'` | enum `('local','s3')` via check constraint |
 | `backup_store_config_encrypted` | bytea NULL | AES-GCM blob: `{ endpoint?, bucket?, region?, accessKeyId?, secretAccessKey? }` |
 | `created_at` | timestamptz NOT NULL DEFAULT `now()` |

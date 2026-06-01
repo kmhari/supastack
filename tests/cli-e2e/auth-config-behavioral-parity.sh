@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 #
 # auth-config-behavioral-parity.sh — drives PATCH+assert cycles for every
-# honored field in AUTH_CONFIG_FIELD_STATUS against a live selfbase project.
+# honored field in AUTH_CONFIG_FIELD_STATUS against a live supastack project.
 #
 # Spec: specs/020-auth-providers-dashboard/spec.md US3, FR-006, SC-004
 # Plan: specs/020-auth-providers-dashboard/plan.md §B1
 # Task: T036
 #
 # Strategy: read the honored field set from the Management API GET response's
-# `_selfbase.fieldStatus` extension (US4) — that's the source of truth and
+# `_supastack.fieldStatus` extension (US4) — that's the source of truth and
 # auto-stays-in-sync with the backend. For each honored field, PATCH a known
 # new value, wait for the container restart, and run a corresponding assertion
 # from the helper library. Fields without a dedicated assertion fall back to
 # `assert_env_var_present` (container-level env grep).
 #
 # Env (required):
-#   SELFBASE_APEX=supaviser.dev
-#   SELFBASE_PAT=sbp_xxxxx                 (admin PAT)
-#   SELFBASE_TEST_PROJECT_REF=<20-char>    (a project to mutate)
+#   SUPASTACK_APEX=supaviser.dev
+#   SUPASTACK_PAT=sbp_xxxxx                 (admin PAT)
+#   SUPASTACK_TEST_PROJECT_REF=<20-char>    (a project to mutate)
 # Env (optional):
-#   SELFBASE_VM_HOST=ubuntu@148.113.1.164  (for `docker exec` env checks)
-#   SELFBASE_TEST_ANON_KEY=eyJ...          (for endpoints that require apikey)
+#   SUPASTACK_VM_HOST=ubuntu@148.113.1.164  (for `docker exec` env checks)
+#   SUPASTACK_TEST_ANON_KEY=eyJ...          (for endpoints that require apikey)
 #
 # Output:
 #   Per-field: [BEHAVIORAL] FIELD=<name> STATUS=<PASS|FAIL|SKIP> ELAPSED=<s>s
@@ -29,21 +29,21 @@
 
 set -euo pipefail
 
-: "${SELFBASE_APEX:?SELFBASE_APEX required}"
-: "${SELFBASE_PAT:?SELFBASE_PAT required}"
-: "${SELFBASE_TEST_PROJECT_REF:?SELFBASE_TEST_PROJECT_REF required}"
+: "${SUPASTACK_APEX:?SUPASTACK_APEX required}"
+: "${SUPASTACK_PAT:?SUPASTACK_PAT required}"
+: "${SUPASTACK_TEST_PROJECT_REF:?SUPASTACK_TEST_PROJECT_REF required}"
 
 # shellcheck source=helpers/auth-config-assertions.sh
 source "$(dirname "$0")/helpers/auth-config-assertions.sh"
 
-MGMT_URL="https://${SELFBASE_APEX}/v1/projects/${SELFBASE_TEST_PROJECT_REF}/config/auth"
+MGMT_URL="https://${SUPASTACK_APEX}/v1/projects/${SUPASTACK_TEST_PROJECT_REF}/config/auth"
 START_TS=$(date +%s)
 
-echo "[BEHAVIORAL] start ref=${SELFBASE_TEST_PROJECT_REF}"
+echo "[BEHAVIORAL] start ref=${SUPASTACK_TEST_PROJECT_REF}"
 
 # Pull the field-status extension (US4 must be deployed for this to work).
-status_json=$(curl -sSf -H "Authorization: Bearer ${SELFBASE_PAT}" "$MGMT_URL")
-honored_fields=$(echo "$status_json" | jq -r '._selfbase.fieldStatus | to_entries[] | select(.value.status=="honored") | .key')
+status_json=$(curl -sSf -H "Authorization: Bearer ${SUPASTACK_PAT}" "$MGMT_URL")
+honored_fields=$(echo "$status_json" | jq -r '._supastack.fieldStatus | to_entries[] | select(.value.status=="honored") | .key')
 total=$(echo "$honored_fields" | wc -l | tr -d ' ')
 echo "[BEHAVIORAL] honored_count=$total"
 
@@ -94,7 +94,7 @@ choose_assertion() {
     *)
       # Look up the field's envName and fall back to env-var presence.
       local envname
-      envname=$(echo "$status_json" | jq -r --arg f "$field" '._selfbase.fieldStatus[$f].envName // empty')
+      envname=$(echo "$status_json" | jq -r --arg f "$field" '._supastack.fieldStatus[$f].envName // empty')
       if [ -n "$envname" ]; then
         echo "assert_env_var_present ${envname} STRINGIFIED"
       else

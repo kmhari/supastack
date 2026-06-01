@@ -21,13 +21,13 @@ No mutations to `supabase_instances` from this feature.
 **Kong analytics block** (managed by US3):
 
 ```
-/var/selfbase/instances/<ref>/volumes/api/kong.yml
+/var/supastack/instances/<ref>/volumes/api/kong.yml
   └── analytics-v1-api service block (lines ~312-318)
         state: commented (needs patch) | uncommented (already patched)
 ```
 
 State transitions:
-- `commented` → `uncommented`: patch applied, `docker restart selfbase-<ref>-kong-1`
+- `commented` → `uncommented`: patch applied, `docker restart supastack-<ref>-kong-1`
 - `uncommented` → no-op: idempotent, no restart
 
 **Template file** (managed by US3, new projects):
@@ -48,4 +48,4 @@ A `Set<string>` of tool names to exclude from `tools/list`. Lives in `apps/mcp/s
 
 ### `statement_timeout` GUC value (US1)
 
-`8000` (milliseconds). Set as a database-level GUC via `ALTER DATABASE postgres SET statement_timeout = 8000`. Stored in per-project Postgres's `pg_db_role_setting` system catalog. No selfbase DB change.
+`8000` (milliseconds). Set as a database-level GUC via `ALTER DATABASE postgres SET statement_timeout = 8000`. Stored in per-project Postgres's `pg_db_role_setting` system catalog. No supastack DB change.

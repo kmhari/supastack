@@ -1,4 +1,4 @@
-# Selfbase
+# Supastack
 
 A self-hosted Supabase Cloud — provision and manage multiple full-stack
 Supabase instances on your own Linux host through a web dashboard, with
@@ -8,7 +8,7 @@ Built because every existing OSS option was broken in production:
 SupaConsole ships a fake JWT signer (instances produced with it have
 non-functional API keys), and Multibase's dashboard provisioner emits
 `.env` files with missing variables and `$`-shaped passwords that Docker
-Compose silently mangles. Selfbase ships the regression tests for both.
+Compose silently mangles. Supastack ships the regression tests for both.
 
 ## What you get
 
@@ -31,13 +31,13 @@ Compose silently mangles. Selfbase ships the regression tests for both.
 - **Audit log** of destructive actions (delete, member-remove, secret
   reveal).
 - **Supabase CLI compatibility** — the unmodified upstream `supabase` CLI
-  (≥ 2.72.7) drives selfbase end-to-end: login with a personal access
+  (≥ 2.72.7) drives supastack end-to-end: login with a personal access
   token, link a local project, `supabase functions deploy`, `supabase
 secrets set`, etc. No fork, no patch, no shim. See
   [`docs/supabase-cli.md`](docs/supabase-cli.md) for the connect-and-go
   guide.
 
-See [`specs/001-selfbase-supabase-platform/spec.md`](specs/001-selfbase-supabase-platform/spec.md)
+See [`specs/001-supastack-supabase-platform/spec.md`](specs/001-supastack-supabase-platform/spec.md)
 for the full functional requirements and success criteria.
 
 ## Quickstart
@@ -45,21 +45,21 @@ for the full functional requirements and success criteria.
 On a fresh Ubuntu 22.04+ VM with a public IP:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/<you>/selfbase/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/<you>/supastack/main/install.sh | bash
 ```
 
 Or clone first and run locally:
 
 ```sh
-git clone https://github.com/<you>/selfbase /opt/selfbase
-cd /opt/selfbase
+git clone https://github.com/<you>/supastack /opt/supastack
+cd /opt/supastack
 ./install.sh
 ```
 
 The installer:
 
 1. Installs Docker if missing.
-2. Generates `MASTER_KEY` + `SESSION_SECRET` + DB password into `/opt/selfbase/.env`.
+2. Generates `MASTER_KEY` + `SESSION_SECRET` + DB password into `/opt/supastack/.env`.
 3. Builds the per-instance Studio image once (~3–5 min).
 4. Starts the control-plane stack (`docker compose up -d`).
 5. Prints the dashboard URL.
@@ -67,7 +67,7 @@ The installer:
 Then point your apex DNS at the host, open the URL, and follow `/setup`.
 
 The full step-by-step walkthrough lives in
-[`specs/001-selfbase-supabase-platform/quickstart.md`](specs/001-selfbase-supabase-platform/quickstart.md).
+[`specs/001-supastack-supabase-platform/quickstart.md`](specs/001-supastack-supabase-platform/quickstart.md).
 
 ## Architecture
 
@@ -81,12 +81,12 @@ The full step-by-step walkthrough lives in
                │    └──→ <ref>.<apex>/studio  →  per-instance Studio
                ↓        <ref>.<apex>          →  per-instance Kong
        ┌──────────────┐
-       │ Selfbase Web │   React + Vite dashboard
+       │ Supastack Web │   React + Vite dashboard
        └──────┬───────┘
               │
               ↓                       ┌─────────────────────────────────┐
-       ┌──────────────┐        ┌─────→│ selfbase-<ref> compose project  │
-       │ Selfbase API │←──┐    │      │ db + auth + rest + realtime +  │
+       ┌──────────────┐        ┌─────→│ supastack-<ref> compose project  │
+       │ Supastack API │←──┐    │      │ db + auth + rest + realtime +  │
        │ (Fastify)    │   │    │      │ storage + studio + kong + ...  │
        └──────┬───────┘   │    │      └─────────────────────────────────┘
               │           │    │                  (one per managed instance)
@@ -104,7 +104,7 @@ The full step-by-step walkthrough lives in
               │                │
               ↓                │
        ┌──────────────────────┴───────┐
-       │ Selfbase Worker (BullMQ)     │
+       │ Supastack Worker (BullMQ)     │
        │  provision  lifecycle        │
        │  backup     backup-scheduler │
        │  caddy-reload  health-recon  │
@@ -113,7 +113,7 @@ The full step-by-step walkthrough lives in
 
 ## Management API compatibility
 
-Selfbase implements a subset of Supabase's Management API at `/v1/*` so the upstream `supabase` CLI works against a self-hosted instance for the workflows we back. The canonical source of truth for endpoint shapes, validation bounds, and field lists is the upstream OpenAPI spec:
+Supastack implements a subset of Supabase's Management API at `/v1/*` so the upstream `supabase` CLI works against a self-hosted instance for the workflows we back. The canonical source of truth for endpoint shapes, validation bounds, and field lists is the upstream OpenAPI spec:
 
 **[https://api.supabase.com/api/v1-json](https://api.supabase.com/api/v1-json)**
 
@@ -138,7 +138,7 @@ Endpoints we haven't implemented return a structured `501 not_implemented` envel
 | `packages/backup-store/`                | `BackupStore` interface + LocalDiskStore + S3Store                             |
 | `packages/shared/`                      | RBAC matrix + zod schemas + error types + pino logger                          |
 | `install.sh`                            | One-shot installer                                                             |
-| `specs/001-selfbase-supabase-platform/` | Speckit spec + plan + research + contracts + tasks                             |
+| `specs/001-supastack-supabase-platform/` | Speckit spec + plan + research + contracts + tasks                             |
 
 ## Development
 

@@ -18,8 +18,8 @@
 #  10. Print [T077] PASS with timestamps → exit 0
 #
 # Usage:
-#   SELFBASE_APEX=supaviser.dev \
-#   SELFBASE_SESSION_COOKIE='<sb_sid cookie value>' \
+#   SUPASTACK_APEX=supaviser.dev \
+#   SUPASTACK_SESSION_COOKIE='<sb_sid cookie value>' \
 #   bash tests/cli-e2e/t077-silent-refresh.sh
 #
 # Requirements: curl, jq, openssl
@@ -28,10 +28,10 @@
 
 set -euo pipefail
 
-: "${SELFBASE_APEX:?SELFBASE_APEX required (e.g. supaviser.dev)}"
-: "${SELFBASE_SESSION_COOKIE:?SELFBASE_SESSION_COOKIE required — paste sb_sid cookie value from browser}"
+: "${SUPASTACK_APEX:?SUPASTACK_APEX required (e.g. supaviser.dev)}"
+: "${SUPASTACK_SESSION_COOKIE:?SUPASTACK_SESSION_COOKIE required — paste sb_sid cookie value from browser}"
 
-API="https://api.${SELFBASE_APEX}"
+API="https://api.${SUPASTACK_APEX}"
 RUN_START=$(date +%s)
 
 _step() {
@@ -63,7 +63,7 @@ _step "pkce_setup" "ok"
 
 # ── Step 3: POST consent to /v1/oauth/authorize ───────────────────────────────
 CONSENT_RES=$(curl -sk -X POST "${API}/v1/oauth/authorize" \
-  -H "Cookie: sb_sid=${SELFBASE_SESSION_COOKIE}" \
+  -H "Cookie: sb_sid=${SUPASTACK_SESSION_COOKIE}" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   --data-urlencode "response_type=code" \
   --data-urlencode "client_id=${CLIENT_ID}" \

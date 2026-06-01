@@ -26,9 +26,9 @@ redir @studio_secrets https://<apex>/dashboard/project/{re.studio_ref.ref}/secre
 
 ## Auth boundary
 
-The redirect is unconditional (no Caddy-level auth check). The selfbase dashboard's `/dashboard/project/<ref>/secrets` route applies normal session-cookie auth — unauthenticated visitors bounce to `/login?next=/dashboard/...` per the existing pattern.
+The redirect is unconditional (no Caddy-level auth check). The supastack dashboard's `/dashboard/project/<ref>/secrets` route applies normal session-cookie auth — unauthenticated visitors bounce to `/login?next=/dashboard/...` per the existing pattern.
 
-Studio and the selfbase dashboard share a session-cookie scope (both under `<apex>`), so an authenticated Studio user lands on the secrets page without re-auth.
+Studio and the supastack dashboard share a session-cookie scope (both under `<apex>`), so an authenticated Studio user lands on the secrets page without re-auth.
 
 ## Manual verification
 

@@ -39,7 +39,7 @@ All require `Authorization: Bearer <PAT>`. Restore is admin-only (Decision 10).
 ```
 - `backups[]` is sorted by `inserted_at` descending.
 - `physical_backup_data` is derived (min/max of `inserted_at` for COMPLETED rows). `null` keys when no backups.
-- `pitr_enabled`, `walg_enabled` are always `false` (selfbase doesn't have WAL streaming) — included for CLI shape compat.
+- `pitr_enabled`, `walg_enabled` are always `false` (supastack doesn't have WAL streaming) — included for CLI shape compat.
 - `status` values: `COMPLETED`, `MISSING` (blob deleted from underlying storage), `FAILED`.
 
 ### Behavior
@@ -138,7 +138,7 @@ The CLI sends `{ "recovery_time_target": "2026-05-23T03:00:00Z" }` — the api a
 2. UPDATE `restore_jobs.status = 'running', started_at = now()`.
 3. Fetch the backup blob to `/tmp/restore-<job_id>.tar.gz`. Verify SHA-256 if recorded; else continue.
 4. `docker compose stop` for the WHOLE per-instance stack (db + auth + rest + storage + realtime + meta + functions + analytics + vector + imgproxy + studio + kong). FR-025 — sibling services must not run against an inconsistent / mid-restore Postgres.
-5. Take pre-restore snapshot: `mv /var/selfbase/instances/<ref>/volumes/db/data /var/selfbase/instances/<ref>/volumes/db/data.pre-restore-<job_id>`. Record path in `restore_jobs.pre_restore_dir`.
+5. Take pre-restore snapshot: `mv /var/supastack/instances/<ref>/volumes/db/data /var/supastack/instances/<ref>/volumes/db/data.pre-restore-<job_id>`. Record path in `restore_jobs.pre_restore_dir`.
 6. Extract blob into the now-empty `db/data` location.
 7. `docker compose start` for the WHOLE per-instance stack.
 8. Wait for db healthcheck (5 min window, part of overall budget).

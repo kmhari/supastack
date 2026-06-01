@@ -90,7 +90,7 @@ export function Shell({
         <div className="flex items-center gap-7">
           <Link to="/dashboard" className="flex items-center gap-2.5 text-foreground no-underline">
             <span aria-hidden className="inline-block size-[22px] rounded bg-success" />
-            <strong className="text-sm font-medium">Selfbase</strong>
+            <strong className="text-sm font-medium">Supastack</strong>
           </Link>
           <div className="flex items-center gap-1">
             <NavTab to="/dashboard" label="Projects" active={isProjectsActive} />

@@ -247,7 +247,7 @@ These live at `apps/web/src/components/*` (NOT under `ui/`), and consume `ui/*` 
 
 **Public API**: `<StatusPill status="running" | "paused" | "stopped" | "provisioning" | "failed" | "deleting" | "completed" />`
 
-**Composes**: `<Badge variant={tints[status]}>`. The mapping from selfbase status string to shadcn-Badge variant lives here, in one place.
+**Composes**: `<Badge variant={tints[status]}>`. The mapping from supastack status string to shadcn-Badge variant lives here, in one place.
 
 ### `CopyButton`
 

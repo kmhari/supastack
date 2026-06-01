@@ -7,8 +7,8 @@
  * Codes are ≤60s lived; this job keeps the table small.
  */
 import { sql } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { logger } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { logger } from '@supastack/shared';
 
 export interface CleanupResult {
   deletedCount: number;

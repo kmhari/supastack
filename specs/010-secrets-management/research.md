@@ -37,11 +37,11 @@ All clarifications resolved during `/speckit-clarify` (see spec.md → Clarifica
 
 ## Decision 3 — Edge runtime TTL cache implementation
 
-**Decision**: In the per-project `main/index.ts` (templated by selfbase, replacing the upstream stub), maintain a single module-level cache object:
+**Decision**: In the per-project `main/index.ts` (templated by supastack, replacing the upstream stub), maintain a single module-level cache object:
 
 ```ts
 let cache: { ts: number; envVars: Record<string, string> } | null = null;
-const TTL_MS = parseInt(Deno.env.get('SELFBASE_VAULT_TTL_MS') ?? '5000', 10);
+const TTL_MS = parseInt(Deno.env.get('SUPASTACK_VAULT_TTL_MS') ?? '5000', 10);
 const PROJECT_REF = Deno.env.get('SB_REF') ?? '';
 const RESERVED = new Set([...]); // baked in from packages/shared/reserved-secrets at image build
 
@@ -60,7 +60,7 @@ async function getEnvVars(): Promise<Record<string, string>> {
     cache = { ts: now, envVars: fresh };
     return fresh;
   } catch (err) {
-    console.error(`[selfbase-vault] refresh failed for ${PROJECT_REF}: ${(err as Error).message}`);
+    console.error(`[supastack-vault] refresh failed for ${PROJECT_REF}: ${(err as Error).message}`);
     return cache?.envVars ?? {}; // FR-016 fallback
   }
 }
@@ -122,7 +122,7 @@ SELECT extname FROM pg_extension WHERE extname IN ('pgsodium','supabase_vault');
 DO $$
 DECLARE sentinel_id uuid;
 BEGIN
-  sentinel_id := (SELECT vault.create_secret('selfbase-bootstrap-sentinel', '_selfbase_bootstrap_check'));
+  sentinel_id := (SELECT vault.create_secret('supastack-bootstrap-sentinel', '_supastack_bootstrap_check'));
   PERFORM decrypted_secret FROM vault.decrypted_secrets WHERE id = sentinel_id;
   DELETE FROM vault.secrets WHERE id = sentinel_id;
 END $$;
@@ -152,7 +152,7 @@ redir @studio_secrets https://<apex>/dashboard/project/{re.studio_ref.ref}/secre
 
 The `<apex>` placeholder is substituted at Caddyfile render time (the existing template mechanism). Query strings and sub-paths preserved via the `{uri}` machinery; tested manually with `?preset=foo` (acceptance scenario 2 of US4).
 
-**Rationale**: Path-prefix-precise (FR-022); same-config-for-all-projects (FR-025); zero per-project state. Matches the existing Caddy hostname routing convention in selfbase.
+**Rationale**: Path-prefix-precise (FR-022); same-config-for-all-projects (FR-025); zero per-project state. Matches the existing Caddy hostname routing convention in supastack.
 
 **Alternatives considered**:
 - **Studio container modification**: Touches upstream image; rebuilds on every Studio version bump. Rejected.
@@ -184,7 +184,7 @@ All clarifications from the spec (Session 2026-05-25) are resolved:
 
 | Clarification | Resolution |
 |---|---|
-| TTL default | 5 seconds (Decision 3 uses `SELFBASE_VAULT_TTL_MS=5000` default) |
+| TTL default | 5 seconds (Decision 3 uses `SUPASTACK_VAULT_TTL_MS=5000` default) |
 | Cache invalidation strategy | Passive TTL only (Decision 3 — no Redis, no HTTP poke) |
 | `project_secrets` migration | None — operators re-enter (no migration code in this plan) |
 | DB-unreachable fallback | Spawn with no user secrets, log (Decision 3 — `catch` returns `cache?.envVars ?? {}`) |

@@ -1,8 +1,8 @@
+import { logger } from '@supastack/shared';
 import { fetch } from 'undici';
-import { logger } from '@selfbase/shared';
 
 const CADDY_ADMIN_URL = process.env.CADDY_ADMIN_URL ?? 'http://caddy:2019';
-const API_URL = process.env.SELFBASE_API_URL ?? 'http://api:3001';
+const API_URL = process.env.SUPASTACK_API_URL ?? 'http://api:3001';
 
 /**
  * Debounced caddy reload. Multiple instance-state changes within DEBOUNCE_MS

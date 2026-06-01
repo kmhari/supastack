@@ -18,7 +18,7 @@ Four follow-up improvements to feature 014 (Hosted MCP + OAuth 2.1) that were de
 
 ### User Story 1 — Statement Timeout Default at Provision (Priority: P1)
 
-An operator provisions a new selfbase project. Without any manual configuration, every SQL query run through the MCP `execute_sql` tool, `supabase db query --linked`, or any other query path is protected by an 8-second statement timeout. Runaway queries cannot hold per-project Postgres indefinitely.
+An operator provisions a new supastack project. Without any manual configuration, every SQL query run through the MCP `execute_sql` tool, `supabase db query --linked`, or any other query path is protected by an 8-second statement timeout. Runaway queries cannot hold per-project Postgres indefinitely.
 
 **Why this priority**: Directly prevents a class of operational incidents (long-running MCP queries holding locks or exhausting connections). Low implementation risk, high safety value. The spec originally stated this as MUST (FR-007).
 

@@ -28,7 +28,7 @@ All paths are relative to repository root (`/Users/lord/Code/superbase/`). The m
 
 **Purpose**: Install dependencies, wire Tailwind v4, drop CSS variables, set up shadcn CLI. After this phase, Tailwind utility classes work in any TSX file while existing inline styles continue rendering unchanged.
 
-- [X] T001 Capture pre-migration bundle size baseline (run `docker exec selfbase-web-1 sh -c 'cat /srv/assets/index-*.js | wc -c' > /tmp/web-baseline-size.txt`) and record the value in `specs/002-shadcn-tailwind-migration/research.md` (append at bottom) for the SC-007 ≤20% growth gate.
+- [X] T001 Capture pre-migration bundle size baseline (run `docker exec supastack-web-1 sh -c 'cat /srv/assets/index-*.js | wc -c' > /tmp/web-baseline-size.txt`) and record the value in `specs/002-shadcn-tailwind-migration/research.md` (append at bottom) for the SC-007 ≤20% growth gate.
 - [X] T002 Bump and add deps in `apps/web/package.json`: bump `tailwindcss` and `@tailwindcss/vite` from `^4.0.0-beta.4` to the current GA `^4` release; add `lucide-react`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate`. Run `pnpm install` to refresh the lockfile.
 - [X] T003 Wire the Tailwind plugin in `apps/web/vite.config.ts`: import `tailwindcss` from `@tailwindcss/vite` and add it to the `plugins` array. Also add a `resolve.alias` entry mapping `@` to `./src` (shadcn assumes this alias).
 - [X] T004 Add the matching `@/*` path alias in `apps/web/tsconfig.json` under `compilerOptions.paths` so TypeScript and the IDE resolve `@/components/ui/button` correctly.
@@ -38,7 +38,7 @@ All paths are relative to repository root (`/Users/lord/Code/superbase/`). The m
 - [X] T008 Update `apps/web/index.html`: set `<html lang="en" class="dark">`, remove the entire inline `<style>…</style>` block (moved to `index.css` in T006), and keep the Inter Google Fonts `<link>` tags.
 - [X] T009 [P] Create `apps/web/components.json` with the shadcn CLI configuration from research.md Decision 2 (`style: "new-york"`, `baseColor: "slate"`, `cssVariables: true`, alias `@/components`).
 - [X] T010 [P] Create `apps/web/scripts/check-inline-styles.sh` containing the two grep guards from research.md Decision 9 (`grep -E 'style=\{\{[^}]*#[0-9a-fA-F]'` and `grep 'from .*theme/components'`), both with `! …` so a match exits non-zero. Make it executable (`chmod +x`).
-- [X] T011 Verify the foundation: run `pnpm --filter @selfbase/web typecheck && pnpm --filter @selfbase/web build`, deploy to the VM (`rsync` + `docker compose build --no-cache web && up -d web`), then visit `http://148.113.1.164/login` and confirm the existing inline-style design still renders pixel-identically. **Gate**: zero typecheck errors, zero visual regression.
+- [X] T011 Verify the foundation: run `pnpm --filter @supastack/web typecheck && pnpm --filter @supastack/web build`, deploy to the VM (`rsync` + `docker compose build --no-cache web && up -d web`), then visit `http://148.113.1.164/login` and confirm the existing inline-style design still renders pixel-identically. **Gate**: zero typecheck errors, zero visual regression.
 
 ---
 
@@ -68,7 +68,7 @@ All paths are relative to repository root (`/Users/lord/Code/superbase/`). The m
 - [X] T031 Extend `apps/web/src/components/ui/badge.tsx` variants: add `success`, `warn`, `info` cva entries on top of the shadcn-default `default`, `secondary`, `outline`, `destructive`. The visual contract is per contracts/primitives.md (uppercase, monospace, 10–11px, dashed border on neutral statuses).
 - [X] T032 Extend `apps/web/src/components/ui/alert.tsx` variants: add `warn` (yellow tints) and `info` (blue tints) on top of the shadcn-default `default` and `destructive`.
 - [X] T033 Mount the global `<Toaster />` in `apps/web/src/App.tsx`: import from `@/components/ui/toaster` and render once at the root level after `<Routes>`.
-- [X] T034 Verify foundation: `pnpm --filter @selfbase/web typecheck && build`. The bundle now includes shadcn primitives but no page consumes them yet — the existing inline-style design still renders identically. **Gate**: zero typecheck errors, build succeeds, visual parity preserved.
+- [X] T034 Verify foundation: `pnpm --filter @supastack/web typecheck && build`. The bundle now includes shadcn primitives but no page consumes them yet — the existing inline-style design still renders identically. **Gate**: zero typecheck errors, build succeeds, visual parity preserved.
 
 ---
 
@@ -118,7 +118,7 @@ All paths are relative to repository root (`/Users/lord/Code/superbase/`). The m
 - [X] T053 [US2] Run a final verification that NO live file imports from the dead tree: `grep -rn "from ['\"].*theme/components" apps/web/src apps/web/index.html` — must return zero hits. Also check for require paths and dynamic imports.
 - [X] T054 [US2] Delete `apps/web/src/theme/` entire directory (`rm -rf apps/web/src/theme`) — this includes `theme/components/`, `theme/tailwind/`, and `theme/README.md`.
 - [X] T055 [US2] Delete `apps/web/src/lib/theme.ts` — tokens now live in `apps/web/src/index.css`. No file may import it post-migration; verify with `! grep -rn "from .*lib/theme" apps/web/src`.
-- [X] T056 [US2] Rerun `pnpm --filter @selfbase/web typecheck && build`, deploy, walk every page from quickstart.md sections 2–7. **Gate**: builds succeed and zero visual or behavioral regression.
+- [X] T056 [US2] Rerun `pnpm --filter @supastack/web typecheck && build`, deploy, walk every page from quickstart.md sections 2–7. **Gate**: builds succeed and zero visual or behavioral regression.
 
 ---
 
@@ -137,7 +137,7 @@ All paths are relative to repository root (`/Users/lord/Code/superbase/`). The m
 **Purpose**: CI guards, bundle budget verification, accessibility sanity, final walkthrough.
 
 - [X] T058 Wire the inline-style + dead-tree grep guard into the repo's pre-commit / CI runner so a regression fails the build immediately. Concretely: add a `.specify/extensions/git/scripts/bash/pre-commit-ui-guard.sh` entry or extend an existing CI script to invoke `apps/web/scripts/check-inline-styles.sh`.
-- [X] T059 Capture post-migration bundle size on the VM (`docker exec selfbase-web-1 sh -c 'cat /srv/assets/index-*.js | wc -c'`) and compare with the T001 baseline. **Gate**: growth ≤ 20% (SC-007). If over budget, lazy-load Dialog/DropdownMenu/Select per-route via `React.lazy` and recapture.
+- [X] T059 Capture post-migration bundle size on the VM (`docker exec supastack-web-1 sh -c 'cat /srv/assets/index-*.js | wc -c'`) and compare with the T001 baseline. **Gate**: growth ≤ 20% (SC-007). If over budget, lazy-load Dialog/DropdownMenu/Select per-route via `React.lazy` and recapture.
 - [X] T060 Open the Projects dashboard in Chrome DevTools, run Lighthouse + the axe DevTools accessibility audit. **Gate**: zero serious or critical accessibility violations; perf score ≥ 85.
 - [X] T061 Final keyboard-only walkthrough per quickstart.md section 9: unplug the mouse, drive every flow using Tab / Shift+Tab / Enter / Space / Escape / arrows only. Every interactive element reachable, focus-visible ring on every focused element, dialogs trap focus, ESC dismisses.
 - [X] T062 Update the project's main `plan.md` (root) to note the new frontend stack (Tailwind v4 + shadcn-ui), so future contributors don't re-derive it.

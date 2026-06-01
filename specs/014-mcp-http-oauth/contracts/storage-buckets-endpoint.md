@@ -51,8 +51,8 @@ Bare array (matches storage container's native `/storage/v1/bucket` response sha
 4. Mint per-project service-role JWT (cached for 24h per Decision 10):
    - Decrypt `encryptedSecrets.jwtSecret` via `loadMasterKey()`.
    - Sign HS256 with claims `{ role: "service_role", iss: "supabase", iat, exp = now + 24h }`.
-5. `fetch('http://selfbase-<ref>-storage-1:5000/bucket', { headers: { 'Authorization': 'Bearer <service_role_jwt>' } })`.
-6. Forward storage's JSON response verbatim. If storage returns 4xx/5xx, translate to selfbase error envelope.
+5. `fetch('http://supastack-<ref>-storage-1:5000/bucket', { headers: { 'Authorization': 'Bearer <service_role_jwt>' } })`.
+6. Forward storage's JSON response verbatim. If storage returns 4xx/5xx, translate to supastack error envelope.
 
 ## Validation rules
 

@@ -35,7 +35,7 @@
 
 ## Decision 3 — Kong analytics patch delivery mechanism (US3)
 
-**Decision**: Template-only fix. Uncomment the analytics block in `infra/supabase-template/volumes/api/kong.yml` so new projects get it automatically. The single existing test project is patched manually once on deploy (uncomment kong.yml + `docker restart selfbase-<ref>-kong-1`).
+**Decision**: Template-only fix. Uncomment the analytics block in `infra/supabase-template/volumes/api/kong.yml` so new projects get it automatically. The single existing test project is patched manually once on deploy (uncomment kong.yml + `docker restart supastack-<ref>-kong-1`).
 
 **Rationale**: This is a single-operator test machine, not a multi-project production deployment. An automated worker job to iterate all existing projects is unnecessary complexity for a one-project deployment. The manual op is a one-liner documented in `docs/changes/014-mcp-http-oauth.md` (already exists). Template fix is what matters for ongoing correctness.
 
@@ -48,20 +48,20 @@
 **Decision**: Follow the exact pattern of `apps/api/tests/unit/oauth-register.test.ts` — `vi.hoisted` + `vi.mock` for all external dependencies, `Fastify.inject()` for request/response assertions, no live DB or Redis.
 
 **Mocks needed for authorize.test.ts**:
-- `@selfbase/db`: `db().select().from().where().limit()` → returns user row with email
+- `@supastack/db`: `db().select().from().where().limit()` → returns user row with email
 - `../../src/services/oauth-clients-store.js`: `getClientById`, `validateRedirectUri`
 - `../../src/services/oauth-codes-store.js`: `issueCode`
-- `@selfbase/shared`: `logger` stub
+- `@supastack/shared`: `logger` stub
 - Session: `req.session` is accessed via Fastify decorator; inject a `decorate('session', ...)` in the test app builder
 
 **Mocks needed for token.test.ts**:
 - `../../src/services/oauth-codes-store.js`: `consumeCode`
 - `../../src/services/oauth-refresh-store.js`: `issueRefresh`, `rotateRefresh`
 - `../../src/services/oauth-pkce.js`: `verifyChallenge`
-- `@selfbase/oauth`: `signAccessToken`
-- `@selfbase/crypto`: `loadMasterKey`
-- `@selfbase/shared`: `logger` stub, `OAuthTokenRequestSchema` (real, from module)
-- `process.env.SELFBASE_APEX`: set in `beforeEach`
+- `@supastack/oauth`: `signAccessToken`
+- `@supastack/crypto`: `loadMasterKey`
+- `@supastack/shared`: `logger` stub, `OAuthTokenRequestSchema` (real, from module)
+- `process.env.SUPASTACK_APEX`: set in `beforeEach`
 
 **Authorize route session mock pattern**:
 ```ts

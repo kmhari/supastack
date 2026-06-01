@@ -44,7 +44,7 @@ User-Agent: SupabaseCLI/2.101.0
 
 **Field shape MUST match** the upstream CLI's `AccessTokenResponse` Go struct (verified against `apps/cli-go/internal/login/login.go` lines 38–44).
 
-**Side effect**: Redis DEL `selfbase:cli-login:<session_id>` immediately after the response is serialized. Single-use; second poll returns 404.
+**Side effect**: Redis DEL `supastack:cli-login:<session_id>` immediately after the response is serialized. Single-use; second poll returns 404.
 
 ### `404 Not Found` — uniform error for all failure modes
 

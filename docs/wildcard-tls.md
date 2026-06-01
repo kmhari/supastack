@@ -1,6 +1,6 @@
 # Wildcard TLS Certificates
 
-Selfbase can issue a single `*.<apex>` + `<apex>` wildcard certificate from Let's Encrypt using
+Supastack can issue a single `*.<apex>` + `<apex>` wildcard certificate from Let's Encrypt using
 the ACME DNS-01 challenge. This eliminates per-subdomain certificate issuance delays (the 3-5s
 penalty on first HTTPS request to a new project subdomain) and the per-subdomain rate-limit
 pressure at scale.
@@ -59,7 +59,7 @@ The certificate covers:
 
 ## Renewal
 
-The wildcard certificate is valid for 90 days. Selfbase alerts you 30 days before expiry via a
+The wildcard certificate is valid for 90 days. Supastack alerts you 30 days before expiry via a
 dashboard banner.
 
 To renew:
@@ -70,7 +70,7 @@ To renew:
 4. Click **Issue Certificate** → new cert replaces the old one.
 
 > **Automated renewal** (without manual TXT step) is planned for a future release once Cloudflare
-> API credentials are supported. See [issue #6](https://github.com/kmhari/selfbase/issues/6).
+> API credentials are supported. See [issue #6](https://github.com/kmhari/supastack/issues/6).
 
 ---
 
@@ -107,7 +107,7 @@ you hit this during testing, use the ACME staging environment:
 ACME_DIRECTORY_URL=https://acme-staging-v02.api.letsencrypt.org/directory
 ```
 
-Set this in `/opt/selfbase/.env` (or the docker-compose env). Staging certs show "Fake LE" as
+Set this in `/opt/supastack/.env` (or the docker-compose env). Staging certs show "Fake LE" as
 the issuer — browsers will warn, but the issuance flow is identical.
 
 **Cert shows self-signed after issuance**

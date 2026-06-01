@@ -1,8 +1,8 @@
 # Wire format: function deploy
 
-The upstream CLI has **two distinct deploy paths**. Selfbase implements both in P0:
+The upstream CLI has **two distinct deploy paths**. Supastack implements both in P0:
 
-| Path | Trigger | Body | Selfbase status |
+| Path | Trigger | Body | Supastack status |
 |---|---|---|---|
 | Eszip (default) | Docker running on the dev machine, no flag | Raw eszip bytes, `Content-Type: application/vnd.denoland.eszip` | §2 below — P0 |
 | `--use-api` | User passes `--use-api` OR Docker is missing | Multipart with metadata + raw source files | §1 below — P0 |
@@ -26,7 +26,7 @@ POST /v1/projects/<ref>/functions/deploy?slug=<slug>[&bundleOnly=true]
 
 - `<ref>` — project reference (path segment matching `^[a-z0-9]{20,32}$`).
 - `slug` query param — function identifier, required. Matches `^[a-z0-9][a-z0-9-]{0,47}$`.
-- `bundleOnly=true` — present on the per-function step of a multi-function deploy. Selfbase treats it as advisory; behavior is identical.
+- `bundleOnly=true` — present on the per-function step of a multi-function deploy. Supastack treats it as advisory; behavior is identical.
 
 ## Headers
 
@@ -79,7 +79,7 @@ Field semantics (from `FunctionDeployMetadata` in `pkg/function/api.go:17`):
 | `verify_jwt`      | boolean  | Default true on the CLI side. Whether the runtime should verify JWT on incoming requests. |
 | `sha256`          | string   | Set by the CLI **only on the eszip path** (`--use-docker`). Ignored on the API path. |
 
-**Permissive parsing**: any field selfbase doesn't model should be ignored, not
+**Permissive parsing**: any field supastack doesn't model should be ignored, not
 rejected. New CLI versions may add fields.
 
 ### Part 1..N — `file` (repeated)
@@ -96,14 +96,14 @@ type and doesn't transform contents.
 **Filename semantics**:
 - POSIX-style, relative to cwd, e.g. `supabase/functions/hello/index.ts`.
 - Windows backslashes are normalized to slashes by the CLI before send.
-- Selfbase MUST preserve relative structure when writing to disk: strip the
+- Supastack MUST preserve relative structure when writing to disk: strip the
   `supabase/functions/<slug>/` prefix and write the remainder under
-  `/var/selfbase/instances/<ref>/volumes/functions/<slug>/`. Example:
+  `/var/supastack/instances/<ref>/volumes/functions/<slug>/`. Example:
   - Filename `supabase/functions/hello/index.ts` → disk `volumes/functions/hello/index.ts`
   - Filename `supabase/functions/hello/lib/util.ts` → disk `volumes/functions/hello/lib/util.ts`
   - Filename `supabase/functions/_shared/cors.ts` → disk `volumes/functions/_shared/cors.ts` (shared imports — note: the slug is `hello`, but the file is outside the slug directory; preserve it as-is)
 - Reject any filename that escapes the working tree via `..` or absolute paths
-  (`/var/selfbase` blast-radius hardening).
+  (`/var/supastack` blast-radius hardening).
 
 ## Response
 
@@ -136,7 +136,7 @@ Recommended additional fields (used by skip-no-change logic on subsequent deploy
 
 `created_at` and `updated_at` are **Unix epoch milliseconds as int64**, not ISO 8601. This is a cloud-API convention specific to function endpoints.
 
-`status` is one of `ACTIVE | REMOVED | THROTTLED`; selfbase only ever emits `ACTIVE` on this endpoint.
+`status` is one of `ACTIVE | REMOVED | THROTTLED`; supastack only ever emits `ACTIVE` on this endpoint.
 
 ### Errors
 
@@ -147,17 +147,17 @@ All error responses use the envelope at `contracts/error-envelope.md`.
 | `400` | Malformed multipart, malformed metadata JSON, missing required fields. |
 | `401` | Missing/expired/invalid PAT. |
 | `404` | Project ref doesn't exist. |
-| `413` | Bundle exceeds 50 MB hard cap (selfbase-configured). |
+| `413` | Bundle exceeds 50 MB hard cap (supastack-configured). |
 | `422` | Slug fails regex; `entrypoint_path` doesn't match any uploaded `file` part; file path escapes the working tree. |
-| `500` | Disk write failed, container restart failed (in which case selfbase rolls back the file and the function remains at its prior version). |
+| `500` | Disk write failed, container restart failed (in which case supastack rolls back the file and the function remains at its prior version). |
 
-## Implementation notes for selfbase (`--use-api` path)
+## Implementation notes for supastack (`--use-api` path)
 
 1. **Streaming parse**. `@fastify/multipart` configured with `limits: { fileSize: 50 * 1024 * 1024, files: 100 }`.
-2. **Stream files to tempdir**. `/tmp/selfbase-uploads/<request-id>/<filename>` mirroring the part's relative structure.
-3. **Validate before move**. After all parts parsed, run the regex/path-escape checks; only then `mv` the staging tree into `/var/selfbase/instances/<ref>/volumes/functions/`.
+2. **Stream files to tempdir**. `/tmp/supastack-uploads/<request-id>/<filename>` mirroring the part's relative structure.
+3. **Validate before move**. After all parts parsed, run the regex/path-escape checks; only then `mv` the staging tree into `/var/supastack/instances/<ref>/volumes/functions/`.
 4. **Backup prior version**. If `volumes/functions/<slug>/` exists, snapshot to a sibling `volumes/functions/.deploy-rollback/<slug>-<ts>/` before overwriting. Keep for one rollback cycle; the worker GCs after 60s.
-5. **Restart trigger**. After the move + DB row insert/update, `dockerControl.restart('selfbase-<ref>-functions-1')` with `waitHealthy(5s)`.
+5. **Restart trigger**. After the move + DB row insert/update, `dockerControl.restart('supastack-<ref>-functions-1')` with `waitHealthy(5s)`.
 6. **Rollback on restart failure**. Move the new files aside, restore the backup, restart again, return `500` with `code: deploy_rolled_back`.
 7. **Compute `ezbr_sha256`**. SHA-256 of a stable concatenation of `(filename, contents)` pairs sorted by filename. Used to support the CLI's skip-no-change optimization on re-deploys.
 8. **`created_at` / `updated_at`**. Emit `Date.now()` (milliseconds since epoch).
@@ -167,7 +167,7 @@ All error responses use the envelope at `contracts/error-envelope.md`.
 
 ## §2 — Eszip path
 
-The default flow when Docker is available on the developer's machine. The CLI bundles locally, then ships the raw eszip bytes to selfbase via two endpoint variants depending on whether the function exists.
+The default flow when Docker is available on the developer's machine. The CLI bundles locally, then ships the raw eszip bytes to supastack via two endpoint variants depending on whether the function exists.
 
 ### Sequence
 
@@ -220,11 +220,11 @@ The eszip is produced by the same `supabase/edge-runtime` binary that consumes i
 
 ### Response — `201 Created` (POST) / `200 OK` (PATCH)
 
-Same `DeployFunctionResponse` shape as the `--use-api` path (§1). The eszip path additionally MUST set `ezbr_sha256` in the response (recomputed by selfbase from the bytes-on-disk) so the CLI can use it as the change-detection baseline on the next deploy.
+Same `DeployFunctionResponse` shape as the `--use-api` path (§1). The eszip path additionally MUST set `ezbr_sha256` in the response (recomputed by supastack from the bytes-on-disk) so the CLI can use it as the change-detection baseline on the next deploy.
 
-### Implementation notes for selfbase (eszip path)
+### Implementation notes for supastack (eszip path)
 
-1. **Stream the raw body** directly to `/tmp/selfbase-uploads/<request-id>/bundle.eszip` — no multipart parsing. Cap at 50 MB via Fastify's `bodyLimit`. Use `application/vnd.denoland.eszip` and `application/octet-stream` as acceptable content-types (some CLI versions may send the latter).
+1. **Stream the raw body** directly to `/tmp/supastack-uploads/<request-id>/bundle.eszip` — no multipart parsing. Cap at 50 MB via Fastify's `bodyLimit`. Use `application/vnd.denoland.eszip` and `application/octet-stream` as acceptable content-types (some CLI versions may send the latter).
 2. **Validate the magic header** before persisting. Reject with `422` and `code: invalid_eszip` if the first bytes don't start with `ESZIP`.
 3. **Validate `ezbr_sha256` query param** against the streamed bytes' actual SHA-256. Reject with `422` and `code: ezbr_mismatch` on mismatch (defensive — protects against truncated chunked uploads).
 4. **Backup + atomic move + restart + rollback**: identical to §1's steps 4–6. The unit of replacement is `volumes/functions/<slug>/bundle.eszip` (single file) plus `volumes/functions/<slug>/meta.json` (single file). Existing source files in the directory are removed when transitioning from `--use-api` deploys to eszip deploys for the same slug.

@@ -1,7 +1,7 @@
 /**
  * T047 — cleanup-oauth-codes tests.
  *
- * Mocks @selfbase/db's delete chain. Asserts the job:
+ * Mocks @supastack/db's delete chain. Asserts the job:
  *   - issues exactly one DELETE
  *   - returns the count returned by the DB layer
  *   - logs only when count > 0
@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 let returningRows: Array<{ code: string }> = [];
 const deleteCalls: unknown[] = [];
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     delete: (_t: unknown) => ({
       where: (_w: unknown) => ({

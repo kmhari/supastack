@@ -91,7 +91,7 @@ On success:
    - `source` = `'cli'`
 2. **Server ECDH-P256 keypair generated** (ephemeral, in-memory only)
 3. **AES-256-GCM** with `(shared_secret, random_nonce)` encrypts the PAT plaintext; auth tag concatenated to ciphertext
-4. **Redis SET** `selfbase:cli-login:<session_id>` to the JSON payload (see data-model.md) with `EX 300`
+4. **Redis SET** `supastack:cli-login:<session_id>` to the JSON payload (see data-model.md) with `EX 300`
 
 Audit-log row written? **No** — the existing PAT-create audit-log entry covers it; no need for a separate `cli.session.created` event in v1.
 

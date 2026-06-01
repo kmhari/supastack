@@ -6,8 +6,8 @@
  * via the revocations table — they're DB-cheap and forensically useful.
  */
 import { sql, isNull, and, lt } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { logger } from '@selfbase/shared';
+import { db, schema } from '@supastack/db';
+import { logger } from '@supastack/shared';
 
 export interface CleanupResult {
   deletedCount: number;

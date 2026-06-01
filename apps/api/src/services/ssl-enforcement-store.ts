@@ -1,15 +1,15 @@
 /**
  * SSL enforcement store — GET/PUT /v1/projects/:ref/ssl-enforcement.
  *
- * SSL enforcement in selfbase means whether external TCP connections to the
+ * SSL enforcement in supastack means whether external TCP connections to the
  * per-instance Postgres must use TLS. It is controlled by the `host` vs
  * `hostssl` record type in pg_hba.conf for the external address ranges.
  *
  * GET: inspects the current pg_hba.conf to determine if SSL is enforced.
  * PUT: rewrites the external connection lines (host ↔ hostssl) and reloads.
  *
- * The external address lines managed by selfbase are identified by the
- * SELFBASE_SSL_MARKER comment inserted alongside them. If the marker is
+ * The external address lines managed by supastack are identified by the
+ * SUPASTACK_SSL_MARKER comment inserted alongside them. If the marker is
  * absent (e.g. a user-customised pg_hba.conf), we fall back to scanning
  * for lines matching the RFC1918 + 0.0.0.0/0 pattern.
  *
@@ -18,16 +18,16 @@
  *
  * Feature 026 — supabase config push compat.
  */
+import { composeExec } from '@supastack/docker-control';
 import path from 'node:path';
-import { composeExec } from '@selfbase/docker-control';
 import { ManagementApiError } from '../plugins/mgmt-api-errors.js';
 import {
-  withPerInstancePg,
   InstanceNotFoundError,
   InstanceNotRunningError,
+  withPerInstancePg,
 } from './per-instance-pg.js';
 
-const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
+const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/supastack/instances';
 const PG_HBA_PATH = '/etc/postgresql/pg_hba.conf';
 
 // Lines we manage: host/hostssl + all + all + <addr> + scram-sha-256
@@ -95,7 +95,7 @@ export async function putSslEnforcement(
 
 function composeCtx(ref: string) {
   return {
-    projectName: `selfbase-${ref}`,
+    projectName: `supastack-${ref}`,
     dir: path.join(INSTANCES_DIR, ref),
   };
 }

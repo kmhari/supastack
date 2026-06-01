@@ -6,7 +6,7 @@
 
 ## Summary
 
-Extend selfbase's `/setup` wizard with a DNS-01 certificate step: the wizard displays TXT records the operator manually adds at their DNS registrar, validates propagation via public DNS resolvers, then uses `acme-client` (npm) to complete the ACME challenge with Let's Encrypt and issue a `*.<apex>` + `<apex>` wildcard certificate. Caddy loads the cert from a shared Docker volume via `tls.certificates.load_files` — no custom Caddy build required. Renewal is operator-initiated (dashboard alert 30 days before expiry). Automated Cloudflare API renewal deferred to issue #6.
+Extend supastack's `/setup` wizard with a DNS-01 certificate step: the wizard displays TXT records the operator manually adds at their DNS registrar, validates propagation via public DNS resolvers, then uses `acme-client` (npm) to complete the ACME challenge with Let's Encrypt and issue a `*.<apex>` + `<apex>` wildcard certificate. Caddy loads the cert from a shared Docker volume via `tls.certificates.load_files` — no custom Caddy build required. Renewal is operator-initiated (dashboard alert 30 days before expiry). Automated Cloudflare API renewal deferred to issue #6.
 
 Reference implementation: `open-frontend/apps/api/src/services/acme-manual.ts` + `open-frontend/apps/edge/src/reload.ts`.
 
@@ -17,7 +17,7 @@ Reference implementation: `open-frontend/apps/api/src/services/acme-manual.ts` +
 **Primary Dependencies**:
 - `acme-client` npm — ACME protocol client for DNS-01 challenge (new dep in `apps/api/package.json`)
 - `drizzle-orm` + `pg` — existing DB layer; two new tables
-- `@selfbase/crypto` — existing `encryptJson`/`loadMasterKey` for account key + cert key encryption
+- `@supastack/crypto` — existing `encryptJson`/`loadMasterKey` for account key + cert key encryption
 - `bullmq` — existing job queue; new `cert-check` daily cron job
 - Node.js `dns/promises.Resolver` — TXT record DNS verification (no new dep)
 
@@ -109,19 +109,19 @@ volumes:
 services:
   api:
     volumes:
-      - /var/selfbase/instances:/var/selfbase/instances
-      - /var/selfbase/backups:/var/selfbase/backups
+      - /var/supastack/instances:/var/supastack/instances
+      - /var/supastack/backups:/var/supastack/backups
       - /var/run/docker.sock:/var/run/docker.sock
-      - certs-data:/var/selfbase/certs    # ← NEW (read-write)
+      - certs-data:/var/supastack/certs    # ← NEW (read-write)
     environment:
-      SELFBASE_CERTS_DIR: /var/selfbase/certs   # ← NEW env
+      SUPASTACK_CERTS_DIR: /var/supastack/certs   # ← NEW env
 
   caddy:
     volumes:
       - ../apps/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-      - certs-data:/var/selfbase/certs:ro   # ← NEW (read-only)
+      - certs-data:/var/supastack/certs:ro   # ← NEW (read-only)
 ```
 
 ### 2. DB Migration (0003_wildcard_cert.sql — idempotent)
@@ -167,10 +167,10 @@ CREATE INDEX IF NOT EXISTS cert_renewal_events_cert_idx ON cert_renewal_events (
 
 ### 3. ACME Service (apps/api/src/services/acme.ts)
 
-Adapted directly from `open-frontend/apps/api/src/services/acme-manual.ts`. Key changes for selfbase:
+Adapted directly from `open-frontend/apps/api/src/services/acme-manual.ts`. Key changes for supastack:
 - DB calls use drizzle `db()` (not open-frontend's schema)
-- Encryption uses `encryptJson`/`loadMasterKey` from `@selfbase/crypto`
-- Certs dir from `process.env.SELFBASE_CERTS_DIR ?? '/var/selfbase/certs'`
+- Encryption uses `encryptJson`/`loadMasterKey` from `@supastack/crypto`
+- Certs dir from `process.env.SUPASTACK_CERTS_DIR ?? '/var/supastack/certs'`
 - ACME staging via `process.env.ACME_DIRECTORY_URL`
 
 ```ts
@@ -227,7 +227,7 @@ const httpsServer = {
 
 ### 5. Route Handler (apps/api/src/routes/wildcard-certs.ts)
 
-Pattern from `open-frontend/apps/api/src/routes/wildcard-cert.ts`, adapted for selfbase auth model:
+Pattern from `open-frontend/apps/api/src/routes/wildcard-cert.ts`, adapted for supastack auth model:
 
 ```ts
 export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {

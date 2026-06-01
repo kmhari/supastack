@@ -8,7 +8,7 @@
  * Spec: specs/009-runtime-config-tunables/research.md R-003, R-007.
  */
 import { writeFile, rename } from 'node:fs/promises';
-import { composeUpService } from '@selfbase/docker-control';
+import { composeUpService } from '@supastack/docker-control';
 import { ManagementApiError } from '../plugins/mgmt-api-errors.js';
 import { getDockerControl } from './docker-control-adapter.js';
 

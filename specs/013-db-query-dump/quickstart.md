@@ -1,12 +1,12 @@
 # Quickstart — 013 db query + db dump
 
-End-to-end smoke for the live VM after deploy. Assumes the feature is fully implemented and rsync'd to `/opt/selfbase`.
+End-to-end smoke for the live VM after deploy. Assumes the feature is fully implemented and rsync'd to `/opt/supastack`.
 
 ## Setup (one-time)
 
 ```bash
 # On VM
-cd /opt/selfbase
+cd /opt/supastack
 sudo docker compose build api
 sudo docker compose up -d api
 ```
@@ -16,8 +16,8 @@ No migration; no new schema. `audit_log.action` is unconstrained text — the ne
 ## US1 — Operator runs ad-hoc SQL from laptop
 
 ```bash
-# Assuming the selfbase profile + supabase login from feature 011 are wired
-cd ~/some-selfbase-project   # has .selfbase containing the apex
+# Assuming the supastack profile + supabase login from feature 011 are wired
+cd ~/some-supastack-project   # has .supastack containing the apex
 
 # Simple query
 supabase db query --linked "SELECT 1 as one, 'hello' as greeting"
@@ -65,9 +65,9 @@ supabase db dump --linked --schema-only > /tmp/schema.sql
 grep -c "CREATE TABLE" /tmp/schema.sql
 # Expected: > 0
 
-# Restore round-trip on a fresh project (manual; provision a new selfbase project first)
+# Restore round-trip on a fresh project (manual; provision a new supastack project first)
 NEW_REF=<freshly-provisioned-ref>
-NEW_PASSWORD=<the new project's postgres password from /var/selfbase/instances/<NEW_REF>/.env>
+NEW_PASSWORD=<the new project's postgres password from /var/supastack/instances/<NEW_REF>/.env>
 psql "postgresql://postgres:${NEW_PASSWORD}@db.${NEW_REF}.supaviser.dev:5432/postgres" -f /tmp/full-dump.sql
 # Expected: psql replays the dump; row counts in NEW match the original
 
@@ -76,7 +76,7 @@ supabase db dump --linked > /tmp/big-dump.sql &
 sleep 1
 kill %1
 # Verify no zombie pg_dump on the VM
-ssh ubuntu@148.113.1.164 "sudo docker exec selfbase-<REF>-db-1 pgrep pg_dump"
+ssh ubuntu@148.113.1.164 "sudo docker exec supastack-<REF>-db-1 pgrep pg_dump"
 # Expected: empty (no zombie within ~5s of the disconnect)
 ```
 
@@ -84,7 +84,7 @@ ssh ubuntu@148.113.1.164 "sudo docker exec selfbase-<REF>-db-1 pgrep pg_dump"
 
 ```bash
 # In a Claude Code / MCP-aware editor session pointed at api.supaviser.dev
-# (assuming the upstream Supabase MCP server is configured with the selfbase PAT)
+# (assuming the upstream Supabase MCP server is configured with the supastack PAT)
 
 # execute_sql should now work
 mcp__supabase__execute_sql({ query: "SELECT 1" })
@@ -101,7 +101,7 @@ If both work without modifications to the MCP server, SC-007 is satisfied.
 
 ```bash
 # After running a few queries, check audit_log on the control plane
-ssh ubuntu@148.113.1.164 "sudo docker exec selfbase-db-1 psql -U selfbase -d selfbase \
+ssh ubuntu@148.113.1.164 "sudo docker exec supastack-db-1 psql -U supastack -d supastack \
   -c \"SELECT action, target_id, payload->'query' AS sql, payload->'row_count' AS rows, created_at \
        FROM audit_log \
        WHERE action LIKE 'instance.db.%' \
@@ -116,7 +116,7 @@ ssh ubuntu@148.113.1.164 "sudo docker exec selfbase-db-1 psql -U selfbase -d sel
 
 ```bash
 # After running the US1/US2 quickstart steps
-ssh ubuntu@148.113.1.164 "sudo docker logs --since 5m selfbase-api-1 2>&1 | grep -cE 'sbp_[0-9a-f]{40}'"
+ssh ubuntu@148.113.1.164 "sudo docker logs --since 5m supastack-api-1 2>&1 | grep -cE 'sbp_[0-9a-f]{40}'"
 # Expected: 0 (no plaintext PAT leakage)
 ```
 

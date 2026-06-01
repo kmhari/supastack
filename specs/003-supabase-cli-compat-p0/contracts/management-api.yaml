@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: Selfbase Management API (P0 subset)
+  title: Supastack Management API (P0 subset)
   version: 0.1.0
   description: |
-    The subset of Supabase's Management API that selfbase implements for upstream
+    The subset of Supabase's Management API that supastack implements for upstream
     CLI compatibility (`supabase functions deploy/list/delete/download`, `supabase
     secrets set/list/unset`, `supabase login`, `supabase link`).
 
@@ -12,12 +12,12 @@ info:
     Request schemas use permissive parsing (extra fields ignored).
 
     Authentication: every authenticated path requires `Authorization: Bearer
-    sbp_<40 hex>`. The CLI hard-validates the token format client-side; selfbase
+    sbp_<40 hex>`. The CLI hard-validates the token format client-side; supastack
     issues tokens matching `^sbp_[a-f0-9]{40}$`.
 
 servers:
   - url: https://api.{apex}
-    description: Per-deployment selfbase API surface
+    description: Per-deployment supastack API surface
     variables:
       apex:
         default: supaviser.dev
@@ -102,7 +102,7 @@ paths:
       operationId: listApiKeys
       summary: Per-instance anon/service_role JWTs
       description: |
-        Returns the legacy HS256-signed JWTs (anon, service_role) selfbase mints
+        Returns the legacy HS256-signed JWTs (anon, service_role) supastack mints
         when it provisions each instance. Matches the cloud's "legacy" API keys
         shape. Newer publishable/secret keys are not yet supported.
       responses:
@@ -146,7 +146,7 @@ paths:
         The default `supabase functions deploy` path when Docker is available
         on the developer's machine. The CLI bundles the function locally into
         an eszip via its `supabase/edge-runtime` container, then PUTs the raw
-        bytes here. Selfbase writes the eszip to the per-instance volume; the
+        bytes here. Supastack writes the eszip to the per-instance volume; the
         edge-runtime loads it via `EdgeRuntime.userWorkers.create({ maybeEszip })`.
         See [contracts/functions-deploy.md](functions-deploy.md) §2 for the wire format.
       parameters:
@@ -211,7 +211,7 @@ paths:
       operationId: bulkUpdateFunctions
       summary: Bulk-update functions (multi-deploy finalize)
       description: |
-        Called by the CLI as the last step of a multi-function deploy. Selfbase
+        Called by the CLI as the last step of a multi-function deploy. Supastack
         accepts the array and returns it back unchanged; the per-function POSTs
         have already persisted each function.
       requestBody:
@@ -253,7 +253,7 @@ paths:
         required: false
         description: |
           Set by the CLI to true during the per-function step of a multi-function
-          deploy. Selfbase treats it as advisory; behavior is identical.
+          deploy. Supastack treats it as advisory; behavior is identical.
         schema:
           type: boolean
     post:
@@ -261,7 +261,7 @@ paths:
       summary: Deploy a single edge function (raw source upload)
       description: |
         The `--use-api` CLI path. Uploads raw source files via chunked multipart;
-        selfbase writes them to the per-instance volume and restarts the
+        supastack writes them to the per-instance volume and restarts the
         functions container. See [contracts/functions-deploy.md](functions-deploy.md)
         for the wire format details.
       requestBody:
@@ -312,7 +312,7 @@ paths:
       description: |
         Called by the CLI on subsequent deploys when the function already
         exists. Body shape and query params identical to the create variant
-        (`POST /v1/projects/{ref}/functions`). Selfbase atomically replaces
+        (`POST /v1/projects/{ref}/functions`). Supastack atomically replaces
         the prior `bundle.eszip`, snapshotting the old one for rollback.
       parameters:
         - name: verify_jwt
@@ -519,7 +519,7 @@ components:
       name: ref
       in: path
       required: true
-      description: Per-instance project reference (selfbase short id)
+      description: Per-instance project reference (supastack short id)
       schema:
         type: string
         pattern: '^[a-z0-9]{20,32}$'
@@ -566,13 +566,13 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorEnvelope'
     NotImplemented:
-      description: Endpoint exists upstream but not in selfbase P0
+      description: Endpoint exists upstream but not in supastack P0
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorEnvelope'
           example:
-            message: 'This management endpoint is not implemented in selfbase. See https://supaviser.dev/docs/cli-compat for the supported subset.'
+            message: 'This management endpoint is not implemented in supastack. See https://supaviser.dev/docs/cli-compat for the supported subset.'
             code: not_implemented
             details:
               path: '/v1/projects/{ref}/branches'
@@ -628,8 +628,8 @@ components:
           type: string
         region:
           type: string
-          description: Always returned; selfbase uses a synthetic value (e.g. "selfbase")
-          default: selfbase
+          description: Always returned; supastack uses a synthetic value (e.g. "supastack")
+          default: supastack
         created_at:
           type: string
           format: date-time
@@ -700,7 +700,7 @@ components:
       type: object
       description: |
         Multipart body. The CLI sends exactly one `metadata` part and one or
-        more `file` parts; selfbase emits the same shape on download.
+        more `file` parts; supastack emits the same shape on download.
       required: [metadata, file]
       properties:
         metadata:
@@ -765,10 +765,10 @@ components:
             SHA-256 hex digest of the plain value (the cloud's redaction
             convention). Never the plaintext.
 
-x-selfbase-compat-policy:
+x-supastack-compat-policy:
   request_parsing: permissive
   response_emission: conservative
   description: |
     Request schemas use Zod `.passthrough()` so the CLI can add new optional
-    fields without selfbase regressing. Response schemas omit unsupported
+    fields without supastack regressing. Response schemas omit unsupported
     optional fields rather than emitting stub values.

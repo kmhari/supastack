@@ -1,7 +1,7 @@
 # Contract: MCP tools/list filtered response (US2)
 
 **Endpoint**: `POST /mcp` (MCP JSON-RPC `tools/list` method)
-**Service**: `selfbase-mcp` (apps/mcp)
+**Service**: `supastack-mcp` (apps/mcp)
 
 ## Expected tool surface after feature 016
 
@@ -47,7 +47,7 @@ The `tools/list` response MUST contain exactly the in-scope tools and MUST NOT c
 ## Verification
 
 ```bash
-TOOLS=$(curl -sk -X POST "https://mcp.$SELFBASE_APEX/mcp" \
+TOOLS=$(curl -sk -X POST "https://mcp.$SUPASTACK_APEX/mcp" \
   -H "Authorization: Bearer $JWT" \
   -H "Content-Type: application/json" \
   -H "mcp-session-id: $SESSION_ID" \

@@ -35,7 +35,7 @@ No cross-story blockers — all four user stories are fully independent. Proceed
 - [X] T004 [US1] Modify `apps/worker/src/jobs/provision.ts` — after `await handleVaultEnable({ ref, source: 'provision' })` (~line 187), open a `pg.Client` connection (same pattern as `vault-enable-job.ts`: `host.docker.internal`, `portDbDirect ?? portPostgres`, `supabase_admin`, decrypted `postgresPassword`), call `applyProvisionDefaults`, close client; import `applyProvisionDefaults` from `../services/pg-provision-defaults.js`
 - [X] T005 [US1] Update `apps/worker/tests/unit/jobs/provision.test.ts` — add mock for `../../../src/services/pg-provision-defaults.js` (`applyProvisionDefaults: vi.fn()`); assert it is called once in the happy-path test; assert it is NOT called when instance status is not `provisioning`
 
-**Checkpoint**: `pnpm --filter @selfbase/worker test` green; new mock assertion passes.
+**Checkpoint**: `pnpm --filter @supastack/worker test` green; new mock assertion passes.
 
 ---
 
@@ -51,7 +51,7 @@ No cross-story blockers — all four user stories are fully independent. Proceed
 - [X] T007 [US2] Modify `apps/mcp/src/server.ts` — inside the `else` branch (new session creation, after `const server = createSupabaseMcpServer({ platform })`), capture `const origListTools = (server as any)._requestHandlers?.get('tools/list')` then call `server.setRequestHandler(ListToolsRequestSchema, async (req, extra) => { const r = await origListTools(req, extra); return { ...r, tools: (r.tools ?? []).filter((t: { name: string }) => !DEFERRED_TOOLS.has(t.name)) }; })` — only install if `origListTools` is truthy
 - [X] T008 [US2] Update `apps/mcp/tests/platform-build.test.ts` — add a test that calls `buildPlatform` and verifies none of the 7 deferred tool names appear in the tool schemas (import `createToolSchemas` from `@supabase/mcp-server-supabase` and pass the filtered platform; assert `Object.keys(schemas)` excludes all DEFERRED_TOOLS names)
 
-**Checkpoint**: `pnpm --filter @selfbase/mcp test` green; run `mcp-roundtrip.sh` and confirm no deferred tool warnings.
+**Checkpoint**: `pnpm --filter @supastack/mcp test` green; run `mcp-roundtrip.sh` and confirm no deferred tool warnings.
 
 ---
 
@@ -64,7 +64,7 @@ No cross-story blockers — all four user stories are fully independent. Proceed
 ### Implementation
 
 - [X] T009 [P] [US3] Edit `infra/supabase-template/volumes/api/kong.yml` — uncomment the `analytics-v1-api` service block (lines ~312–319): remove the `  # ` prefix from each line of the block (`  # - name: analytics-v1-api`, `  #   _comment:`, `  #   url:`, `  #   routes:`, `  #     - name:`, `  #       strip_path:`, `  #       paths:`, `  #         - /analytics/v1/api/endpoints/`)
-- [X] T010 [P] [US3] Edit `docs/changes/014-mcp-http-oauth.md` — replace the "One-time per-project op required for `get_logs`" section with a short note: template is now uncommented by default for new projects; existing projects need the one-liner `docker restart selfbase-<ref>-kong-1` after manually uncommenting their kong.yml (remove the Python heredoc script)
+- [X] T010 [P] [US3] Edit `docs/changes/014-mcp-http-oauth.md` — replace the "One-time per-project op required for `get_logs`" section with a short note: template is now uncommented by default for new projects; existing projects need the one-liner `docker restart supastack-<ref>-kong-1` after manually uncommenting their kong.yml (remove the Python heredoc script)
 
 **Checkpoint**: `grep "analytics-v1-api" infra/supabase-template/volumes/api/kong.yml` shows uncommented YAML (no leading `#`).
 
@@ -74,7 +74,7 @@ No cross-story blockers — all four user stories are fully independent. Proceed
 
 **Goal**: 14 route-level tests covering `GET/POST /v1/oauth/authorize` (7 cases) and `POST /v1/oauth/token` (7 cases) — catching per-error-path regressions in CI without a live VM.
 
-**Independent Test**: `pnpm --filter @selfbase/api test -- oauth-authorize oauth-token` → 14 tests pass.
+**Independent Test**: `pnpm --filter @supastack/api test -- oauth-authorize oauth-token` → 14 tests pass.
 
 ### Implementation
 
@@ -87,7 +87,7 @@ No cross-story blockers — all four user stories are fully independent. Proceed
   6. POST `decision=authorize` → 302 to `redirect_uri?code=...&state=...`; audit `oauth.code.issued` emitted
   7. POST `decision=deny` → 302 to `redirect_uri?error=access_denied`; audit `oauth.consent.denied` emitted
 
-  Mocks needed: `@selfbase/db` (user row select), `../../src/services/oauth-clients-store.js` (`getClientById`, `validateRedirectUri`), `../../src/services/oauth-codes-store.js` (`issueCode`), `@selfbase/shared` (logger). Session: decorate test app with `app.decorate('session', { userId: 'u1' })` for authed cases and `app.decorate('session', null)` for no-session case.
+  Mocks needed: `@supastack/db` (user row select), `../../src/services/oauth-clients-store.js` (`getClientById`, `validateRedirectUri`), `../../src/services/oauth-codes-store.js` (`issueCode`), `@supastack/shared` (logger). Session: decorate test app with `app.decorate('session', { userId: 'u1' })` for authed cases and `app.decorate('session', null)` for no-session case.
 
 - [X] T012 [US4] Create `apps/api/tests/unit/oauth-token.test.ts` with 7 cases:
   1. `authorization_code` happy path → 200 + `access_token` (string) + `refresh_token` + `expires_in: 3600`; audit `oauth.token.issued` emitted
@@ -98,9 +98,9 @@ No cross-story blockers — all four user stories are fully independent. Proceed
   6. `refresh_token` happy path → 200 + new JWT + new refresh token; `rotateRefresh` called
   7. Refresh token reuse → 400 `invalid_grant` + `rotateRefresh` called with reuse flag
 
-  Mocks needed: `../../src/services/oauth-codes-store.js` (`consumeCode`), `../../src/services/oauth-refresh-store.js` (`issueRefresh`, `rotateRefresh`), `../../src/services/oauth-pkce.js` (`verifyChallenge`), `@selfbase/oauth` (`signAccessToken`), `@selfbase/crypto` (`loadMasterKey`), `@selfbase/shared` (logger). Set `process.env.SELFBASE_APEX = 'test.local'` in `beforeEach`.
+  Mocks needed: `../../src/services/oauth-codes-store.js` (`consumeCode`), `../../src/services/oauth-refresh-store.js` (`issueRefresh`, `rotateRefresh`), `../../src/services/oauth-pkce.js` (`verifyChallenge`), `@supastack/oauth` (`signAccessToken`), `@supastack/crypto` (`loadMasterKey`), `@supastack/shared` (logger). Set `process.env.SUPASTACK_APEX = 'test.local'` in `beforeEach`.
 
-**Checkpoint**: `pnpm --filter @selfbase/api test` green with 14 new passing cases.
+**Checkpoint**: `pnpm --filter @supastack/api test` green with 14 new passing cases.
 
 ---
 
@@ -108,7 +108,7 @@ No cross-story blockers — all four user stories are fully independent. Proceed
 
 - [X] T013 [P] Mark T025, T030, T032 complete in `specs/014-mcp-http-oauth/tasks.md` (these are the tasks that were deferred and are now done in this feature)
 - [X] T014 [P] Update `docs/changes/014-mcp-http-oauth.md` — update "Known limitations" section: remove item 1 (`tools/list` includes 4 deferred tools) and item 2 (`get_logs` requires manual Kong patch) since both are resolved by 016
-- [X] T015 Run `pnpm --filter @selfbase/api test && pnpm --filter @selfbase/worker test && pnpm --filter @selfbase/mcp test` — confirm full test suite green
+- [X] T015 Run `pnpm --filter @supastack/api test && pnpm --filter @supastack/worker test && pnpm --filter @supastack/mcp test` — confirm full test suite green
 
 ---
 
@@ -136,7 +136,7 @@ Within US3: T009 and T010 can be done in parallel (different files).
 
 1. T001–T002 (Setup checks)
 2. T003–T005 (US1 — statement_timeout)
-3. Validate: `pnpm --filter @selfbase/worker test` green
+3. Validate: `pnpm --filter @supastack/worker test` green
 4. Can deploy immediately — no risk, 100% additive
 
 ### Full delivery order (recommended)

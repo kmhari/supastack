@@ -17,7 +17,7 @@ Open questions and decisions made during plan construction. Each item carries a 
 
 ## 2. Studio embedding with a non-root basePath
 
-**Decision**: Build a single Studio image at selfbase install time with `NEXT_PUBLIC_BASE_PATH=/studio`. Every instance's Compose stack references the same image. Each instance serves Studio at `https://<ref>.<apex>/studio` via its own Studio container.
+**Decision**: Build a single Studio image at supastack install time with `NEXT_PUBLIC_BASE_PATH=/studio`. Every instance's Compose stack references the same image. Each instance serves Studio at `https://<ref>.<apex>/studio` via its own Studio container.
 
 **Rationale**:
 - Confirmed by reading `supabase/supabase` `apps/studio/next.config.ts`: `basePath: process.env.NEXT_PUBLIC_BASE_PATH`. Next.js consumes `basePath` at build time only.
@@ -84,7 +84,7 @@ Open questions and decisions made during plan construction. Each item carries a 
 
 ## 7. Backup storage abstraction
 
-**Decision**: `BackupStore` interface in `packages/backup-store` with `put`, `get`, `list`, `delete`. Implementations: `LocalDiskStore({ root: '/var/selfbase/backups' })` and `S3Store({ endpoint, bucket, region, accessKeyId, secretAccessKey })`. The `endpoint` parameter lets `S3Store` target S3-compatible services (MinIO, Cloudflare R2, Backblaze B2). Org-level config picks one impl.
+**Decision**: `BackupStore` interface in `packages/backup-store` with `put`, `get`, `list`, `delete`. Implementations: `LocalDiskStore({ root: '/var/supastack/backups' })` and `S3Store({ endpoint, bucket, region, accessKeyId, secretAccessKey })`. The `endpoint` parameter lets `S3Store` target S3-compatible services (MinIO, Cloudflare R2, Backblaze B2). Org-level config picks one impl.
 
 **Rationale**:
 - Lets v1 ship local-disk for solo operators and S3 for those who care, without two API code paths.
@@ -96,7 +96,7 @@ Open questions and decisions made during plan construction. Each item carries a 
 
 ## 8. Backup mechanism (`pg_dump`)
 
-**Decision**: For each backup job, run `docker exec selfbase-<ref>-db pg_dump -U postgres -Fc postgres` and stream stdout directly into the chosen `BackupStore.put()`. Format is custom (`-Fc`) — gives compression + selective restore + `pg_restore --list` introspection. The instance must be `running` (or temporarily resumed) — implementation transitions the state cleanly when needed.
+**Decision**: For each backup job, run `docker exec supastack-<ref>-db pg_dump -U postgres -Fc postgres` and stream stdout directly into the chosen `BackupStore.put()`. Format is custom (`-Fc`) — gives compression + selective restore + `pg_restore --list` introspection. The instance must be `running` (or temporarily resumed) — implementation transitions the state cleanly when needed.
 
 **Rationale**:
 - Custom format is the standard idiom; restorable with `pg_restore`.
@@ -155,9 +155,9 @@ Open questions and decisions made during plan construction. Each item carries a 
 - **Clone upstream at install time (SupaConsole pattern)**: pins behaviour to whatever HEAD looked like at install, hard to upgrade.
 - **Generate compose from scratch**: Multibase did this — 55 KB of inline templates, every Supabase upgrade breaks something.
 
-## 13. Studio image build (selfbase install step)
+## 13. Studio image build (supastack install step)
 
-**Decision**: `infra/studio/Dockerfile` extends the upstream Supabase Studio source at the same pinned commit and bakes in `NEXT_PUBLIC_BASE_PATH=/studio` at build time. `install.sh` builds this image once during setup (`docker build -t selfbase/studio:<commit>`). The per-instance `docker-compose.yml` references `selfbase/studio:<commit>` instead of `supabase/studio:<tag>`.
+**Decision**: `infra/studio/Dockerfile` extends the upstream Supabase Studio source at the same pinned commit and bakes in `NEXT_PUBLIC_BASE_PATH=/studio` at build time. `install.sh` builds this image once during setup (`docker build -t supastack/studio:<commit>`). The per-instance `docker-compose.yml` references `supastack/studio:<commit>` instead of `supabase/studio:<tag>`.
 
 **Rationale**:
 - One-time cost during install (~3 min). Per-instance creates only pull the prebuilt local image.
@@ -224,14 +224,14 @@ Generated values are passed via a typed struct, not by string substitution.
 
 **Rationale**:
 - Aligns with FR-032, FR-034, SC-008, SC-009.
-- Selfbase is operator-administered; auditability matters more than tidiness.
+- Supastack is operator-administered; auditability matters more than tidiness.
 
 ## 19. Testing strategy summary
 
 **Decision**:
 - **Unit (Vitest)** in every package. Mandatory coverage of: crypto round-trips (encrypt→decrypt, sign→verify), port allocator under contention, RBAC `(role × action)` matrix, BackupStore impls against fixtures.
 - **Contract**: per-route Vitest tests under `apps/api/tests/contract/` that issue HTTP calls with admin and member tokens and assert the authorization matrix from `spec.md` Acceptance Scenario sets.
-- **Integration**: a Docker-Compose-based suite that boots selfbase and provisions a single managed instance, then makes real REST calls with the generated `anon_key`. Runs in CI on tagged PRs and on a nightly job. Smoke target: SC-001, SC-003.
+- **Integration**: a Docker-Compose-based suite that boots supastack and provisions a single managed instance, then makes real REST calls with the generated `anon_key`. Runs in CI on tagged PRs and on a nightly job. Smoke target: SC-001, SC-003.
 - **E2E (Playwright)**: golden-path through setup → create → reveal credentials → pause → resume → backup → delete. Smoke target: SC-005, SC-009.
 
 **Rationale**:

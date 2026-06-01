@@ -7,8 +7,8 @@
 ## Run
 
 ```bash
-SELFBASE_APEX=supaviser.dev \
-SELFBASE_SESSION_COOKIE='<paste sb_sid cookie value from browser>' \
+SUPASTACK_APEX=supaviser.dev \
+SUPASTACK_SESSION_COOKIE='<paste sb_sid cookie value from browser>' \
 bash tests/cli-e2e/t077-silent-refresh.sh
 ```
 

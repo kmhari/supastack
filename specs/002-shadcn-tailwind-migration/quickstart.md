@@ -12,20 +12,20 @@ End-to-end verification script run AFTER the migration is complete. Each step ex
 cd /Users/lord/Code/superbase
 git checkout 002-shadcn-tailwind-migration
 pnpm install
-pnpm --filter @selfbase/web typecheck
-pnpm --filter @selfbase/web build
+pnpm --filter @supastack/web typecheck
+pnpm --filter @supastack/web build
 ```
 
 All three must pass with zero errors. Then deploy to the VM:
 
 ```bash
 rsync -az --checksum --exclude node_modules --exclude dist \
-  apps/web ubuntu@148.113.1.164:/opt/selfbase/apps/
+  apps/web ubuntu@148.113.1.164:/opt/supastack/apps/
 
 ssh ubuntu@148.113.1.164 "
-  cd /opt/selfbase/infra
-  docker compose --env-file /opt/selfbase/.env build --no-cache web
-  docker compose --env-file /opt/selfbase/.env up -d web
+  cd /opt/supastack/infra
+  docker compose --env-file /opt/supastack/.env build --no-cache web
+  docker compose --env-file /opt/supastack/.env up -d web
 "
 ```
 
@@ -77,7 +77,7 @@ All four must exit with code 0 (i.e., the negated `!` matches return nothing).
 
 1. From the authenticated state, land on `/`.
 2. **Verify** top chrome:
-   - Logomark + "Selfbase" wordmark on the left
+   - Logomark + "Supastack" wordmark on the left
    - Active nav highlight on "Projects" — using shadcn `<Button variant="ghost">` styled-as-tab pattern
    - User email + Sign-out button on the right
 3. **Verify** page header: "Projects" — 30px, weight 400, `-0.02em` letter-spacing.
@@ -184,7 +184,7 @@ Close your mouse / trackpad. Drive every flow from §2 through §8 using only Ta
 echo "Baseline (pre-migration):  $(cat /tmp/web-baseline-size.txt) bytes"
 
 # Current bundle:
-docker exec selfbase-web-1 sh -c 'cat /srv/assets/index-*.js | wc -c'
+docker exec supastack-web-1 sh -c 'cat /srv/assets/index-*.js | wc -c'
 
 # Ratio:
 # new / baseline ≤ 1.20

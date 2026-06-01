@@ -13,7 +13,7 @@ GET /v1/oauth/authorize?
   code_challenge=<base64url(sha256(verifier))>&
   code_challenge_method=S256&
   scope=platform
-Cookie: selfbase_session=<existing dashboard session cookie>
+Cookie: supastack_session=<existing dashboard session cookie>
 ```
 
 | Param | Required | Notes |

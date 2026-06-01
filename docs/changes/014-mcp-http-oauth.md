@@ -6,7 +6,7 @@
 
 ## What shipped
 
-A hosted multi-project MCP server at `mcp.<apex>/mcp` backed by a new OAuth 2.1 authorization server in selfbase. Operators paste **one URL** into any MCP-aware editor (Claude Code, Cursor, Windsurf, Claude Desktop), authorize in the browser using their existing dashboard session, and immediately drive their selfbase deployment through LLM tool calls — same UX as Cloud's `mcp.supabase.com/mcp`.
+A hosted multi-project MCP server at `mcp.<apex>/mcp` backed by a new OAuth 2.1 authorization server in supastack. Operators paste **one URL** into any MCP-aware editor (Claude Code, Cursor, Windsurf, Claude Desktop), authorize in the browser using their existing dashboard session, and immediately drive their supastack deployment through LLM tool calls — same UX as Cloud's `mcp.supabase.com/mcp`.
 
 ## Operator setup
 
@@ -21,7 +21,7 @@ Paste into your editor's MCP config (the exact format depends on the editor; exa
 ```json
 {
   "mcpServers": {
-    "selfbase": {
+    "supastack": {
       "type": "http",
       "url": "https://mcp.<apex>/mcp"
     }
@@ -29,7 +29,7 @@ Paste into your editor's MCP config (the exact format depends on the editor; exa
 }
 ```
 
-First time you trigger an MCP call from the LLM, your browser opens to the selfbase authorize page. If you're already logged into the selfbase dashboard, you'll see only the consent dialog — click **Authorize**. The tab closes automatically and the MCP client receives an access token.
+First time you trigger an MCP call from the LLM, your browser opens to the supastack authorize page. If you're already logged into the supastack dashboard, you'll see only the consent dialog — click **Authorize**. The tab closes automatically and the MCP client receives an access token.
 
 ### 3. Revoke a connected client
 
@@ -69,14 +69,14 @@ For any **existing project** provisioned before feature 016, uncomment the `anal
 
 ```bash
 # On the VM — edit <ref>'s kong.yml, uncomment the analytics-v1-api block, then:
-sudo docker restart selfbase-<ref>-kong-1
+sudo docker restart supastack-<ref>-kong-1
 ```
 
 ## OAuth design
 
-- **Access tokens**: JWT (HS256) signed via HKDF-derived key from selfbase master key (label `selfbase-oauth-jwt-v1`). 1h TTL. Matches Cloud's gotrue defaults.
+- **Access tokens**: JWT (HS256) signed via HKDF-derived key from supastack master key (label `supastack-oauth-jwt-v1`). 1h TTL. Matches Cloud's gotrue defaults.
 - **Refresh tokens**: opaque random strings (≥256 bits), stored in `oauth_refresh_tokens`. Single-use (rotated on every refresh). 30-day idle expiry. Reuse-detection per RFC 6749 §10.4 revokes the entire grant.
-- **Revocation**: Redis-backed by JWT `jti` claim. `selfbase:oauth:revoked:<jti>` with TTL = remaining token lifetime. Auto-expires; no GC needed for the hot path. Cleanup crons handle the cold-path DB rows.
+- **Revocation**: Redis-backed by JWT `jti` claim. `supastack:oauth:revoked:<jti>` with TTL = remaining token lifetime. Auto-expires; no GC needed for the hot path. Cleanup crons handle the cold-path DB rows.
 - **DCR**: Per RFC 7591 at `POST /v1/oauth/register`. Per-IP rate-limited to 10/hour. Every MCP client (including Claude Code, Cursor, etc.) self-registers — no allow-list, no "verified" tier in the consent UI.
 - **Discovery**: `/.well-known/oauth-authorization-server` (RFC 8414) on the api host + `/.well-known/oauth-protected-resource` (RFC 9728) on the mcp host. MCP clients auto-find both via these.
 
@@ -89,15 +89,15 @@ Operator's MCP client (Claude Code etc.)
    ▼
 ┌──────────────────┐
 │ Caddy (apex)     │
-│  mcp.<apex>      │──► selfbase-mcp:3002
+│  mcp.<apex>      │──► supastack-mcp:3002
 │  api.<apex>      │──► api:3001
 │  *.<apex>        │──► various per-project Kong via host-mapped ports
 └──────────────────┘
                           │
                           ▼
             ┌──────────────────────────────────┐
-            │ selfbase-mcp:3002                │
-            │  - Bearer auth via @selfbase/oauth│
+            │ supastack-mcp:3002                │
+            │  - Bearer auth via @supastack/oauth│
             │  - Per-session createSupabaseMcpServer({platform})│
             │  - Strips deferred groups (storage write, branching, etc.) │
             └──────────────────────────────────┘
@@ -105,7 +105,7 @@ Operator's MCP client (Claude Code etc.)
                           │  /v1/* with OAuth JWT (dual-auth plugin accepts both PAT and JWT)
                           ▼
             ┌──────────────────────────────────┐
-            │ selfbase api                     │
+            │ supastack api                     │
             │  - dual-auth (PAT + OAuth JWT)   │
             │  - /v1/oauth/* OAuth 2.1 server  │
             │  - /v1/projects/:ref/*           │
@@ -141,7 +141,7 @@ apps/worker/src/jobs/
   cleanup-oauth-refresh.ts                       1-hour interval, DELETE 30-day-idle
 apps/web/src/pages/SettingsMcpClients.tsx        NEW dashboard page
 packages/db/migrations/0013_oauth_tables.sql     NEW 4 OAuth tables (idempotent)
-infra/docker-compose.yml                         MODIFIED — adds selfbase-mcp service + SELFBASE_APEX env on api+caddy
+infra/docker-compose.yml                         MODIFIED — adds supastack-mcp service + SUPASTACK_APEX env on api+caddy
 ```
 
 ## Test summary

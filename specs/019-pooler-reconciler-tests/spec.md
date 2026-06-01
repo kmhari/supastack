@@ -28,7 +28,7 @@ A developer refactoring or extending the pooler-reconciler needs confidence that
 6. **Given** a failed pooler row and `forceRetry=true`, **When** `classifyInstance` is called, **Then** the staleness check is bypassed and the instance is classified for immediate retry.
 7. **Given** an instance with `status='deleting'`, **When** `classifyInstance` is called with any other state, **Then** it returns `instance_gone` regardless.
 8. **Given** an instance with a pooler row but no matching Supavisor tenant entry, **When** `classifyInstance` is called, **Then** it returns `missing_in_supavisor`.
-9. **Given** a Supavisor tenant entry with no corresponding selfbase instance, **When** `classifyInstance` is called, **Then** it returns `orphan_in_supavisor`.
+9. **Given** a Supavisor tenant entry with no corresponding supastack instance, **When** `classifyInstance` is called, **Then** it returns `orphan_in_supavisor`.
 10. **Given** an instance whose Postgres password differs from the pooler row's stored credential, **When** `classifyInstance` is called, **Then** it returns `pg_password_drift`.
 
 ---
@@ -92,7 +92,7 @@ A developer needs confidence that the reconciler's startup checks (crash recover
 ### Key Entities
 
 - **ReconcileRun**: A record of one full reconciliation pass — includes `id`, `started_at`, `status` (`running` | `completed` | `partial_failure` | `failed`), `error`, `actions_taken`.
-- **PoolerRow**: The per-instance pooler state tracked in the selfbase database — includes `ref`, `status`, `updated_at`, credential hash.
+- **PoolerRow**: The per-instance pooler state tracked in the supastack database — includes `ref`, `status`, `updated_at`, credential hash.
 - **SupavisorTenant**: The tenant entry in Supavisor's own data store — keyed by project ref.
 - **ClassificationResult**: One of 7 enum values output by `classifyInstance` for a given instance.
 

@@ -1,10 +1,10 @@
 /**
- * T025 — selfbase → cloud status enum mapping (pure function).
+ * T025 — supastack → cloud status enum mapping (pure function).
  */
 import { describe, expect, it } from 'vitest';
-import { mapSelfbaseStatusToCloud } from '../../../src/services/project-status-mapper.js';
+import { mapSupastackStatusToCloud } from '../../../src/services/project-status-mapper.js';
 
-describe('mapSelfbaseStatusToCloud', () => {
+describe('mapSupastackStatusToCloud', () => {
   const cases: Array<[string, string]> = [
     ['running', 'ACTIVE_HEALTHY'],
     ['paused', 'INACTIVE'],
@@ -16,13 +16,13 @@ describe('mapSelfbaseStatusToCloud', () => {
   ];
   for (const [src, dst] of cases) {
     it(`${src} → ${dst}`, () => {
-      expect(mapSelfbaseStatusToCloud(src)).toBe(dst);
+      expect(mapSupastackStatusToCloud(src)).toBe(dst);
     });
   }
-  it('unknown selfbase state → UNKNOWN (default branch)', () => {
-    expect(mapSelfbaseStatusToCloud('weird')).toBe('UNKNOWN');
+  it('unknown supastack state → UNKNOWN (default branch)', () => {
+    expect(mapSupastackStatusToCloud('weird')).toBe('UNKNOWN');
   });
   it('empty string → UNKNOWN', () => {
-    expect(mapSelfbaseStatusToCloud('')).toBe('UNKNOWN');
+    expect(mapSupastackStatusToCloud('')).toBe('UNKNOWN');
   });
 });

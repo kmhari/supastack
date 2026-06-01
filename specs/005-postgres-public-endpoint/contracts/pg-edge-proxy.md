@@ -2,7 +2,7 @@
 
 **Feature**: 005-postgres-public-endpoint | **Date**: 2026-05-23
 
-A small TCP service in the selfbase api container. Listens on port 5432. Speaks Postgres protocol just enough to handle STARTTLS, terminates TLS with the wildcard cert, extracts tenant ref from SNI, and forwards the plaintext stream to the per-instance Postgres backend.
+A small TCP service in the supastack api container. Listens on port 5432. Speaks Postgres protocol just enough to handle STARTTLS, terminates TLS with the wildcard cert, extracts tenant ref from SNI, and forwards the plaintext stream to the per-instance Postgres backend.
 
 ---
 
@@ -14,7 +14,7 @@ A small TCP service in the selfbase api container. Listens on port 5432. Speaks 
 **Client-side requirements**:
 - `sslmode=require` (or higher) — connections without TLS are rejected
 - Username = `postgres` (or whatever role exists in the per-instance Postgres); no `.tenantid` suffix needed
-- Hostname = `db.<ref>.<apex>` (must match `apex_domain` configured in selfbase)
+- Hostname = `db.<ref>.<apex>` (must match `apex_domain` configured in supastack)
 - Standard Postgres clients work out of the box: `psql`, `libpq`, `node-postgres`, `pg-promise`, Python `psycopg`, Go `pgx`, `supabase` CLI, every supabase-js variant
 
 ---
@@ -34,7 +34,7 @@ A small TCP service in the selfbase api container. Listens on port 5432. Speaks 
 4. Client → standard TLS ClientHello (with SNI = hostname they connected to)
 
 5. Proxy completes TLS handshake using wildcard cert + key from
-   /var/selfbase/certs/<apex>/{cert,key}.pem
+   /var/supastack/certs/<apex>/{cert,key}.pem
    (loaded once at startup; SIGHUP reloads on cert renewal)
 
 6. After handshake, proxy reads tlsSocket.servername (the SNI)
@@ -79,13 +79,13 @@ Read at startup from env + filesystem:
 | Source | Value |
 |---|---|
 | `process.env.PG_EDGE_PROXY_PORT` (default 5432) | Listen port |
-| `process.env.SELFBASE_CERTS_DIR` (default `/var/selfbase/certs`) | Cert root |
+| `process.env.SUPASTACK_CERTS_DIR` (default `/var/supastack/certs`) | Cert root |
 | `org.apex_domain` from DB (read at startup, refresh on apex change event) | Used in SNI regex + cert path |
-| `org.apex_domain` → cert at `${SELFBASE_CERTS_DIR}/${apex}/cert.pem` + `key.pem` | TLS material |
+| `org.apex_domain` → cert at `${SUPASTACK_CERTS_DIR}/${apex}/cert.pem` + `key.pem` | TLS material |
 
-**Cert reload**: subscribe to a Redis pub/sub channel `selfbase:wildcard-cert:reloaded`. Feature 004's renewal flow publishes after rewriting cert files. On message, the proxy re-reads files and swaps the TLS context atomically. New connections use the new cert; in-flight connections finish on the old.
+**Cert reload**: subscribe to a Redis pub/sub channel `supastack:wildcard-cert:reloaded`. Feature 004's renewal flow publishes after rewriting cert files. On message, the proxy re-reads files and swaps the TLS context atomically. New connections use the new cert; in-flight connections finish on the old.
 
-**Apex change**: rebuild the SNI regex. Same Redis channel `selfbase:apex:changed` — when the dashboard changes apex (rare), the proxy updates its filter.
+**Apex change**: rebuild the SNI regex. Same Redis channel `supastack:apex:changed` — when the dashboard changes apex (rare), the proxy updates its filter.
 
 ---
 
@@ -95,7 +95,7 @@ In-memory `Map<string, { host, port, expiresAt }>` with 60s TTL.
 
 - Cache miss → DB query → populate
 - Cache hit → use without DB query
-- On instance delete (api emits Redis event `selfbase:instance:deleted`) → invalidate cache for that ref immediately
+- On instance delete (api emits Redis event `supastack:instance:deleted`) → invalidate cache for that ref immediately
 
 Why 60s and not longer: covers transient API/DB hiccups; short enough that instance lifecycle changes propagate quickly without explicit invalidation.
 

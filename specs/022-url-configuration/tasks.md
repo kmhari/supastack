@@ -46,7 +46,7 @@
 
 **Story goal**: Operator can set/update Site URL through the dashboard. Saving triggers the auth container reload and the new value lands in `GOTRUE_SITE_URL`.
 
-**Independent test**: With selfbase running, navigate to the page, type `https://example.com`, click Save changes. Verify `GET /api/v1/projects/<ref>/config/auth` returns `site_url: "https://example.com"` and `docker exec selfbase-<ref>-auth-1 env | grep SITE_URL` shows `GOTRUE_SITE_URL=https://example.com`.
+**Independent test**: With supastack running, navigate to the page, type `https://example.com`, click Save changes. Verify `GET /api/v1/projects/<ref>/config/auth` returns `site_url: "https://example.com"` and `docker exec supastack-<ref>-auth-1 env | grep SITE_URL` shows `GOTRUE_SITE_URL=https://example.com`.
 
 - [X] T009 [US1] Create `apps/web/src/pages/auth-url-config/SiteUrlForm.tsx` (Card + h2 "Site URL" + description + labeled `Input` + Save changes Button). Props: `{ initialValue: string, isAdmin: boolean, onSave: (next: string) => void }`. Maintains `SiteUrlState` view-model from data-model.md (controlled `value`, derived `dirty` + `valid`). Save button disabled unless `valid && dirty`. Member: input disabled + Save button hidden
 - [X] T010 [US1] In `ProjectAuthUrlConfig.tsx`: fetch auth-config via `useQuery(['auth-config', ref], () => authConfigApi.get(ref))`; mount `<SiteUrlForm initialValue={authConfig.site_url ?? ''} isAdmin={isAdmin} onSave={save} />`; wire `save` to existing `useRestartToast(ref, …)` utility from `auth-providers/use-restart-toast.ts`
@@ -61,7 +61,7 @@
 
 **Story goal**: Operator can batch-add multiple redirect URLs via a modal dialog and remove individual URLs from the list. Each save persists the merged list in one PATCH.
 
-**Independent test**: Click Add URL → dialog appears titled "Add new redirect URLs". Add `http://localhost:8765/**`, click Save URLs. URL appears in list. Click trash → URL removed. `docker exec selfbase-<ref>-auth-1 env | grep URI_ALLOW_LIST` reflects each save.
+**Independent test**: Click Add URL → dialog appears titled "Add new redirect URLs". Add `http://localhost:8765/**`, click Save URLs. URL appears in list. Click trash → URL removed. `docker exec supastack-<ref>-auth-1 env | grep URI_ALLOW_LIST` reflects each save.
 
 - [X] T013 [US2] Create `apps/web/src/pages/auth-url-config/RedirectUrlsList.tsx`. Props: `{ urls: string[], isAdmin: boolean, onDelete: (target: string) => void, onAddClick: () => void }`. Renders: h2 "Redirect URLs", description, Docs link `https://supabase.com/docs/guides/auth/redirect-urls`, Add URL button (admin only), empty state ("No Redirect URLs" / "Auth providers may need a URL to redirect back to") when `urls.length === 0`, otherwise `<ul aria-label="Redirect URLs">` of `<li>` rows each with URL text + trash button (admin only, `aria-label="Remove {url}"`)
 - [X] T014 [US2] Create `apps/web/src/pages/auth-url-config/AddRedirectUrlsDialog.tsx` using Radix Dialog primitive. Props: `{ open: boolean, onOpenChange: (open: boolean) => void, existingUrls: string[], onSave: (newUrls: string[]) => void }`. Title "Add new redirect URLs". Subtitle "This will add a URL to a list of allowed URLs that can interact with your Authentication services for this project." Internal state: array of `AddDialogRow` (id/value/error). One empty row on open. "+ Add URL" button appends a row. Trash icon removes a row (re-append empty if last row removed). On Save URLs click: trim → drop empty → validate each via `looksLikeValidUrl` → dedup via `dedupKey` against `existingUrls` → cap check (existing + batch ≤ 50) → if all green, call `onSave(batch)`; else mark offending rows with inline error. Save URLs button is the green full-width primary
@@ -75,7 +75,7 @@
 
 ## Phase 5: User Story 3 — Visual parity with Cloud (P2)
 
-**Story goal**: Side-by-side screenshot of the selfbase page and Cloud's `/auth/url-configuration` at 1440px viewport produces a reviewer's "yep, same page" reaction.
+**Story goal**: Side-by-side screenshot of the supastack page and Cloud's `/auth/url-configuration` at 1440px viewport produces a reviewer's "yep, same page" reaction.
 
 **Independent test**: Capture screenshots of both pages at 1440px. Verify section order, headings, descriptions, empty-state copy, Docs link, button placement all match.
 
@@ -118,11 +118,11 @@
   - member loads page → sees disabled inputs, no Save button, no Add URL button, no trash icons
   - deep-link: navigate directly to `/dashboard/project/<ref>/auth/url-configuration` → page loads
 - [X] T025 Run regression + e2e suites locally as the pre-deploy gate:
-  - `cd apps/api && pnpm test upstream-auth-config-snapshot` — FR-014 regression guard: the `_selfbase.fieldStatus` snapshot-drift contract test must still pass (no field accidentally re-classified from `honored` → `stored_only` by this feature's work)
+  - `cd apps/api && pnpm test upstream-auth-config-snapshot` — FR-014 regression guard: the `_supastack.fieldStatus` snapshot-drift contract test must still pass (no field accidentally re-classified from `honored` → `stored_only` by this feature's work)
   - `cd apps/api && pnpm test` — full api suite (SC-3: zero regressions in feature 020's auth-config PATCH)
   - `cd apps/web && pnpm test` — full web vitest suite (SC-3)
   - `cd apps/web && pnpm test:e2e url-configuration` — all 11 specs must pass against `pnpm dev` (FR-013, SC-5, SC-6)
-- [ ] T026 Deploy to supaviser.dev: `rsync -az --exclude=node_modules apps/web/ ubuntu@148.113.1.164:/opt/selfbase/apps/web/ && ssh ubuntu@148.113.1.164 'cd /opt/selfbase/infra && sudo docker compose build web && sudo docker compose up -d web'`
+- [ ] T026 Deploy to supaviser.dev: `rsync -az --exclude=node_modules apps/web/ ubuntu@148.113.1.164:/opt/supastack/apps/web/ && ssh ubuntu@148.113.1.164 'cd /opt/supastack/infra && sudo docker compose build web && sudo docker compose up -d web'`
 - [ ] T027 Live-VM smoke per [`quickstart.md`](./quickstart.md) Smokes 1–5 against project `znishgvglkafpmjkqspw` on supaviser.dev: (1) save Site URL, (2) batch-add `http://localhost:3000` + `http://localhost:8765/**`, (3) GitHub OAuth round-trip lands on localhost (THE bug this feature unblocks), (4) delete one URL, (5) member sees read-only. Capture screenshots for the PR
 - [ ] T028 Create `docs/changes/022-url-configuration.md` runbook documenting: motivation (the OAuth bounce bug + the SSH-only workaround it replaces), what shipped, breaking changes (none), follow-ups (link from provider drawers — issue to file)
 - [ ] T029 Commit + push: `git add -A && git commit -m 'feat(022): URL Configuration page (Site URL + Redirect URLs allow-list)'`; open PR against main with the live-VM smoke screenshots in the body

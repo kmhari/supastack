@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 #
-# E2E: MCP HTTP transport roundtrip against the deployed selfbase mcp service.
+# E2E: MCP HTTP transport roundtrip against the deployed supastack mcp service.
 # Uses OAuth JWT bearer minted via the oauth-dance.sh helper.
 #
 # Run with:
-#   SELFBASE_APEX=supaviser.dev \
-#   SELFBASE_OAUTH_JWT='eyJ...' \
+#   SUPASTACK_APEX=supaviser.dev \
+#   SUPASTACK_OAUTH_JWT='eyJ...' \
 #   bash tests/cli-e2e/mcp-roundtrip.sh
 #
 # Requirements: curl, jq.
 
 set -euo pipefail
 
-: "${SELFBASE_APEX:?SELFBASE_APEX required}"
-: "${SELFBASE_OAUTH_JWT:?SELFBASE_OAUTH_JWT required — mint via oauth-dance.sh}"
+: "${SUPASTACK_APEX:?SUPASTACK_APEX required}"
+: "${SUPASTACK_OAUTH_JWT:?SUPASTACK_OAUTH_JWT required — mint via oauth-dance.sh}"
 
-MCP="https://mcp.${SELFBASE_APEX}/mcp"
-JWT="${SELFBASE_OAUTH_JWT}"
+MCP="https://mcp.${SUPASTACK_APEX}/mcp"
+JWT="${SUPASTACK_OAUTH_JWT}"
 
 # Initialize MCP session
 echo "==> [1] initialize"
@@ -87,9 +87,9 @@ echo "    response: $(echo "$CALL_RES" | head -c 200)..."
 
 # Phase 6 US4 — get_logs via direct API (not MCP — proves the backing endpoint works)
 echo "==> [4] get_logs via direct API call (US4)"
-if [[ -n "${SELFBASE_PROJECT_REF:-}" ]]; then
-  API="https://api.${SELFBASE_APEX}"
-  LOGS_RES=$(curl -sk "${API}/v1/projects/${SELFBASE_PROJECT_REF}/analytics/endpoints/logs.all?service=api" \
+if [[ -n "${SUPASTACK_PROJECT_REF:-}" ]]; then
+  API="https://api.${SUPASTACK_APEX}"
+  LOGS_RES=$(curl -sk "${API}/v1/projects/${SUPASTACK_PROJECT_REF}/analytics/endpoints/logs.all?service=api" \
     -H "Authorization: Bearer ${JWT}" -w '\nHTTP %{http_code}\n')
   STATUS=$(echo "$LOGS_RES" | grep -oE 'HTTP [0-9]+' | tail -1 | awk '{print $2}')
   if [[ "$STATUS" == "200" ]]; then
@@ -100,14 +100,14 @@ if [[ -n "${SELFBASE_PROJECT_REF:-}" ]]; then
     echo "    WARN: unexpected status $STATUS for get_logs"
   fi
 else
-  echo "    SKIP: SELFBASE_PROJECT_REF not set"
+  echo "    SKIP: SUPASTACK_PROJECT_REF not set"
 fi
 
 # Phase 7 US5 — list_storage_buckets via direct API
 echo "==> [5] list_storage_buckets via direct API call (US5)"
-if [[ -n "${SELFBASE_PROJECT_REF:-}" ]]; then
-  API="https://api.${SELFBASE_APEX}"
-  BUCKETS_RES=$(curl -sk "${API}/v1/projects/${SELFBASE_PROJECT_REF}/storage/buckets" \
+if [[ -n "${SUPASTACK_PROJECT_REF:-}" ]]; then
+  API="https://api.${SUPASTACK_APEX}"
+  BUCKETS_RES=$(curl -sk "${API}/v1/projects/${SUPASTACK_PROJECT_REF}/storage/buckets" \
     -H "Authorization: Bearer ${JWT}" -w '\nHTTP %{http_code}\n')
   STATUS=$(echo "$BUCKETS_RES" | grep -oE 'HTTP [0-9]+' | tail -1 | awk '{print $2}')
   if [[ "$STATUS" == "200" ]]; then
@@ -120,14 +120,14 @@ if [[ -n "${SELFBASE_PROJECT_REF:-}" ]]; then
     echo "    WARN: unexpected status $STATUS for list_storage_buckets"
   fi
 else
-  echo "    SKIP: SELFBASE_PROJECT_REF not set"
+  echo "    SKIP: SUPASTACK_PROJECT_REF not set"
 fi
 
 # Phase 8 US6 — pause + restore project via direct API
 echo "==> [5b] pause + restore project (US6 — SC-013)"
-if [[ -n "${SELFBASE_PROJECT_REF:-}" ]]; then
-  API="https://api.${SELFBASE_APEX}"
-  PAUSE_RES=$(curl -sk -X POST "${API}/v1/projects/${SELFBASE_PROJECT_REF}/pause" \
+if [[ -n "${SUPASTACK_PROJECT_REF:-}" ]]; then
+  API="https://api.${SUPASTACK_APEX}"
+  PAUSE_RES=$(curl -sk -X POST "${API}/v1/projects/${SUPASTACK_PROJECT_REF}/pause" \
     -H "Authorization: Bearer ${JWT}" -H 'Content-Type: application/json' -d '{}' -w '\n__HTTP:%{http_code}')
   STATUS=$(echo "$PAUSE_RES" | grep -oE '__HTTP:[0-9]+' | grep -oE '[0-9]+')
   if [[ "$STATUS" == "200" ]]; then
@@ -141,7 +141,7 @@ if [[ -n "${SELFBASE_PROJECT_REF:-}" ]]; then
   fi
 
   # Immediately restore (we want to leave the project running for other tests)
-  RESTORE_RES=$(curl -sk -X POST "${API}/v1/projects/${SELFBASE_PROJECT_REF}/restore" \
+  RESTORE_RES=$(curl -sk -X POST "${API}/v1/projects/${SUPASTACK_PROJECT_REF}/restore" \
     -H "Authorization: Bearer ${JWT}" -H 'Content-Type: application/json' -d '{}' -w '\n__HTTP:%{http_code}')
   STATUS=$(echo "$RESTORE_RES" | grep -oE '__HTTP:[0-9]+' | grep -oE '[0-9]+')
   if [[ "$STATUS" == "200" ]]; then
@@ -151,18 +151,18 @@ if [[ -n "${SELFBASE_PROJECT_REF:-}" ]]; then
     echo "    restore: WARN status $STATUS"
   fi
 else
-  echo "    SKIP: SELFBASE_PROJECT_REF not set"
+  echo "    SKIP: SUPASTACK_PROJECT_REF not set"
 fi
 
 # Phase 5 US3 — revoke MCP client (verifies SC-004 <5s propagation)
 echo "==> [6] revoke MCP client (US3 + SC-004)"
-if [[ -n "${SELFBASE_SESSION_COOKIE:-}" ]]; then
+if [[ -n "${SUPASTACK_SESSION_COOKIE:-}" ]]; then
   # Get the JWT's client_id from the JWT payload (no need to look up DB)
   AZP=$(echo "$JWT" | cut -d. -f2 | base64 --decode 2>/dev/null | jq -r '.azp' 2>/dev/null || echo "")
   if [[ -n "$AZP" ]]; then
-    DASH="https://${SELFBASE_APEX}"
+    DASH="https://${SUPASTACK_APEX}"
     REVOKE_RES=$(curl -sk -X DELETE "${DASH}/api/v1/oauth/clients/${AZP}" \
-      -H "Cookie: sb_sid=${SELFBASE_SESSION_COOKIE}" \
+      -H "Cookie: sb_sid=${SUPASTACK_SESSION_COOKIE}" \
       -w '\nHTTP %{http_code}\n')
     STATUS=$(echo "$REVOKE_RES" | grep -oE 'HTTP [0-9]+' | tail -1 | awk '{print $2}')
     [[ "$STATUS" == "200" ]] || { echo "    WARN: revoke returned $STATUS"; }
@@ -179,7 +179,7 @@ if [[ -n "${SELFBASE_SESSION_COOKIE:-}" ]]; then
     fi
   fi
 else
-  echo "    SKIP: SELFBASE_SESSION_COOKIE not set (revoke requires dashboard session)"
+  echo "    SKIP: SUPASTACK_SESSION_COOKIE not set (revoke requires dashboard session)"
 fi
 
 # Revoked-token check (negative)

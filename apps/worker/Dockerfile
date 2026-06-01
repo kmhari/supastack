@@ -24,7 +24,7 @@ FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY apps/worker/package.json ./apps/worker/
 COPY packages ./packages/
-RUN pnpm install --frozen-lockfile=false --filter @selfbase/worker...
+RUN pnpm install --frozen-lockfile=false --filter @supastack/worker...
 
 FROM base AS runtime
 COPY --from=deps /app /app

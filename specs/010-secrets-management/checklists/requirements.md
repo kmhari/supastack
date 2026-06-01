@@ -32,6 +32,6 @@
 ## Notes
 
 - US3 closes the rescoped issue #5; US1 + US2 are new dashboard/routing work over an existing backend
-- The split between "selfbase owns edge-function-env secrets" vs "Studio owns vault secrets" is explicit and aligned with what the feature 003 audit confirmed about huntvox's actual usage pattern
+- The split between "supastack owns edge-function-env secrets" vs "Studio owns vault secrets" is explicit and aligned with what the feature 003 audit confirmed about huntvox's actual usage pattern
 - No new tables; no schema changes; no new BullMQ jobs. Pure UI + a Caddy rule + a provision-time SQL addition + a backfill script.
 - Studio's existing Vault UI being usable post-backfill (FR-016, SC-006) is the litmus test that vault enablement actually works for users.

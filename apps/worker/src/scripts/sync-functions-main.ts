@@ -1,6 +1,6 @@
 /**
  * One-shot script: re-sync the per-instance `main/index.ts` router across the
- * fleet so existing instances pick up selfbase's eszip-aware variant (v2).
+ * fleet so existing instances pick up supastack's eszip-aware variant (v2).
  *
  * Rollout sequence:
  *   1. Deploy api with the new supabase-template (this commit lands T041).
@@ -9,22 +9,22 @@
  *      become functional across every instance.
  *
  * Idempotency: each main/index.ts file is fingerprinted by the first-line
- * marker `// selfbase-functions-main:v2` (T041). Instances already on v2 are
+ * marker `// supastack-functions-main:v2` (T041). Instances already on v2 are
  * skipped; legacy/v1 instances get the new router written atomically.
  *
  * The script does NOT restart per-instance functions containers — they pick
  * up the new router on the next deploy. (Restarting all of them would mean
  * a brief global outage on the data plane; we accept eventual consistency.)
  */
+import { logger } from '@supastack/shared';
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { logger } from '@selfbase/shared';
 
-const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
+const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/supastack/instances';
 const TEMPLATE_PATH =
-  process.env.SELFBASE_FUNCTIONS_TEMPLATE ??
+  process.env.SUPASTACK_FUNCTIONS_TEMPLATE ??
   '/app/infra/supabase-template/volumes/functions/main/index.ts';
-const VERSION_MARKER = '// selfbase-functions-main:v2';
+const VERSION_MARKER = '// supastack-functions-main:v2';
 
 interface SyncResult {
   ref: string;
@@ -38,7 +38,7 @@ async function readTemplate(): Promise<string> {
   } catch (e) {
     throw new Error(
       `Could not read template at ${TEMPLATE_PATH}: ${(e as Error).message}. ` +
-        `Set SELFBASE_FUNCTIONS_TEMPLATE if running outside the worker container.`,
+        `Set SUPASTACK_FUNCTIONS_TEMPLATE if running outside the worker container.`,
     );
   }
 }

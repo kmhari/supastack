@@ -33,6 +33,6 @@
 
 - **Restore is the heaviest new work** in this spec: NEW restore_job entity, NEW worker job (stop → swap → restart → verify), NEW project status (`restoring`), NEW RBAC gate. Other endpoints are mostly read-only wrappers over existing per-instance state.
 - **Snippets are read-only via the API**: write operations remain Studio-only. The CLI doesn't expose snippet create/update/delete today; if upstream adds them, follow-up spec.
-- **Restore semantics differ from Cloud**: Cloud uses PITR via continuous WAL streaming; selfbase uses snapshot-id-based restore. Endpoint name kept the same (`/restore-pitr`) for CLI compatibility; the payload differs (we accept `backup_id`, Cloud accepts `recovery_time_target`).
+- **Restore semantics differ from Cloud**: Cloud uses PITR via continuous WAL streaming; supastack uses snapshot-id-based restore. Endpoint name kept the same (`/restore-pitr`) for CLI compatibility; the payload differs (we accept `backup_id`, Cloud accepts `recovery_time_target`).
 - **Sibling endpoint groups** still split as low-priority issues: custom domains (#10), postgres/auth config (#11), ssl-enforcement (#12).
 - **Arbitrary-SQL query endpoint** deliberately deferred — security-sensitive, warrants its own spec pass.

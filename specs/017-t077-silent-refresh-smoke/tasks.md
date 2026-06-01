@@ -14,7 +14,7 @@
 
 **Purpose**: Create the script file with header and environment validation.
 
-- [x] T001 Create `tests/cli-e2e/t077-silent-refresh.sh` with shebang, `set -euo pipefail`, usage comment block (mirrors `oauth-dance.sh` header style), and env-var guards for `SELFBASE_APEX` and `SELFBASE_SESSION_COOKIE`
+- [x] T001 Create `tests/cli-e2e/t077-silent-refresh.sh` with shebang, `set -euo pipefail`, usage comment block (mirrors `oauth-dance.sh` header style), and env-var guards for `SUPASTACK_APEX` and `SUPASTACK_SESSION_COOKIE`
 
 ---
 
@@ -37,7 +37,7 @@
 
 **Goal**: Prove SC-003 — after the access token genuinely expires, a refresh token exchange succeeds without browser intervention.
 
-**Independent Test**: `SELFBASE_APEX=supaviser.dev SELFBASE_SESSION_COOKIE=<cookie> bash tests/cli-e2e/t077-silent-refresh.sh` runs end-to-end and exits 0 with `[T077] PASS: SC-003 validated`.
+**Independent Test**: `SUPASTACK_APEX=supaviser.dev SUPASTACK_SESSION_COOKIE=<cookie> bash tests/cli-e2e/t077-silent-refresh.sh` runs end-to-end and exits 0 with `[T077] PASS: SC-003 validated`.
 
 ### Implementation
 

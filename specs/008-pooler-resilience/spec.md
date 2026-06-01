@@ -206,7 +206,7 @@ The recovery flow exactly matches the manual recovery we performed for ASYO duri
 
 - The supabase template's per-instance Postgres `pg_hba.conf` allows `host all all 127.0.0.1/32 trust` for connections from within the container. This is the standard supabase upstream template — already used during feature 005 to recover ASYO. If a future upstream template tightens this, US3's reset endpoint needs to find another path.
 - Supavisor's `/api/tenants` and `DELETE /api/tenants/:external_id` endpoints behave per the existing pooler-client.ts contract (already proven in feature 005).
-- One reconciler run per 24 hours is sufficient for the drift volumes selfbase will see (a small-fleet hobbyist deployment, not a SaaS at scale). Operators wanting faster reconciliation can manually trigger via FR-008.
+- One reconciler run per 24 hours is sufficient for the drift volumes supastack will see (a small-fleet hobbyist deployment, not a SaaS at scale). Operators wanting faster reconciliation can manually trigger via FR-008.
 - The dashboard panel is a "Settings" surface only — no separate top-level "Database" navigation. Operators with no drift issues should never need to look at it.
 - Connection-string reveal is a per-session UX state (not persisted) — refreshing the page re-redacts all rows.
 - PG password drift is detectable specifically via auth error class; other registration failures (network, supavisor down, malformed payload) are kept under the generic `failed` status — only true auth-class errors flip to `pg_password_drift`.

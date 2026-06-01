@@ -6,8 +6,8 @@
  * points with one fixture per drift class. We mock the import seam:
  *   - undici.fetch → controls supavisor responses
  *   - pg.Client → controls active-probe outcome (auth-class vs ok)
- *   - @selfbase/db → in-memory tables + capture mutations
- *   - @selfbase/crypto → returns deterministic postgresPassword
+ *   - @supastack/db → in-memory tables + capture mutations
+ *   - @supastack/crypto → returns deterministic postgresPassword
  *
  * Each fixture asserts: (a) the run completes, (b) the remediation side
  * effect we expect actually fired (register vs unregister vs drift promo).
@@ -137,7 +137,7 @@ vi.mock('undici', () => ({
   AbortSignal: { timeout: () => undefined },
 }));
 
-vi.mock('@selfbase/crypto', () => ({
+vi.mock('@supastack/crypto', () => ({
   decryptJson: () => ({ postgresPassword: 'fake-pw' }),
   loadMasterKey: () => Buffer.alloc(32),
 }));
@@ -263,7 +263,7 @@ function rowsFor(table: string, _cols?: Record<string, unknown>): unknown[] {
   }
 }
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => mockDb(),
   schema: {
     supabaseInstances: {

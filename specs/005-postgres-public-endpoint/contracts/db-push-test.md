@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Validates that all supabase CLI database commands work against a live selfbase deployment
+Validates that all supabase CLI database commands work against a live supastack deployment
 **without** the `--db-url` flag. This is the acceptance gate for SC-001 and SC-002.
 
 ---
@@ -14,15 +14,15 @@ Validates that all supabase CLI database commands work against a live selfbase d
 ## Required Environment Variables
 
 ```bash
-SELFBASE_APEX=selfbase.example.com
-SELFBASE_PAT=sbp_<40hex>
-SELFBASE_PROJECT_REF=<20-char-ref>
-SELFBASE_DB_PASSWORD=<postgres-password>
+SUPASTACK_APEX=supastack.example.com
+SUPASTACK_PAT=sbp_<40hex>
+SUPASTACK_PROJECT_REF=<20-char-ref>
+SUPASTACK_DB_PASSWORD=<postgres-password>
 ```
 
 Optional:
 ```bash
-SELFBASE_ANON_KEY=eyJ...   # defaults to "fake"
+SUPASTACK_ANON_KEY=eyJ...   # defaults to "fake"
 ```
 
 ---
@@ -30,10 +30,10 @@ SELFBASE_ANON_KEY=eyJ...   # defaults to "fake"
 ## Invocation
 
 ```bash
-SELFBASE_APEX=... \
-SELFBASE_PAT=... \
-SELFBASE_PROJECT_REF=... \
-SELFBASE_DB_PASSWORD=... \
+SUPASTACK_APEX=... \
+SUPASTACK_PAT=... \
+SUPASTACK_PROJECT_REF=... \
+SUPASTACK_DB_PASSWORD=... \
 bash tests/cli-e2e/db-push.sh
 ```
 
@@ -44,8 +44,8 @@ bash tests/cli-e2e/db-push.sh
 ### Step 1 — supabase login (reuse or establish)
 
 ```bash
-SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-  supabase login --profile "$WORK/selfbase.toml" --token "$SELFBASE_PAT"
+SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+  supabase login --profile "$WORK/supastack.toml" --token "$SUPASTACK_PAT"
 ```
 
 Assert: exit 0.
@@ -62,9 +62,9 @@ EOF
 ### Step 3 — supabase db push (primary acceptance gate)
 
 ```bash
-SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-  supabase --profile "$WORK/selfbase.toml" db push \
-    --project-ref "$SELFBASE_PROJECT_REF"
+SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+  supabase --profile "$WORK/supastack.toml" db push \
+    --project-ref "$SUPASTACK_PROJECT_REF"
 ```
 
 Assert: exit 0. **No `--db-url` flag.** The CLI must resolve `db.<ref>.<apex>:5432` and connect successfully.
@@ -72,9 +72,9 @@ Assert: exit 0. **No `--db-url` flag.** The CLI must resolve `db.<ref>.<apex>:54
 ### Step 4 — supabase migration list
 
 ```bash
-SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-  supabase --profile "$WORK/selfbase.toml" migration list \
-    --project-ref "$SELFBASE_PROJECT_REF"
+SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+  supabase --profile "$WORK/supastack.toml" migration list \
+    --project-ref "$SUPASTACK_PROJECT_REF"
 ```
 
 Assert: exit 0. Output must include the migration name `99999999000000_e2e_db_push_test`.
@@ -82,9 +82,9 @@ Assert: exit 0. Output must include the migration name `99999999000000_e2e_db_pu
 ### Step 5 — supabase db diff (no pending)
 
 ```bash
-SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-  supabase --profile "$WORK/selfbase.toml" db diff \
-    --project-ref "$SELFBASE_PROJECT_REF"
+SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+  supabase --profile "$WORK/supastack.toml" db diff \
+    --project-ref "$SUPASTACK_PROJECT_REF"
 ```
 
 Assert: exit 0. Output is empty or contains no unrecognized changes (migration was already applied in step 3).
@@ -92,9 +92,9 @@ Assert: exit 0. Output is empty or contains no unrecognized changes (migration w
 ### Step 6 — supabase db pull (schema dump)
 
 ```bash
-SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-  supabase --profile "$WORK/selfbase.toml" db pull \
-    --project-ref "$SELFBASE_PROJECT_REF" \
+SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+  supabase --profile "$WORK/supastack.toml" db pull \
+    --project-ref "$SUPASTACK_PROJECT_REF" \
     --schema public \
     -f "$WORK/schema.sql"
 ```
@@ -104,9 +104,9 @@ Assert: exit 0. `$WORK/schema.sql` must exist and contain `_e2e_db_push_test`.
 ### Step 7 — supabase inspect db (schema inspection)
 
 ```bash
-SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-  supabase --profile "$WORK/selfbase.toml" inspect db \
-    --project-ref "$SELFBASE_PROJECT_REF"
+SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+  supabase --profile "$WORK/supastack.toml" inspect db \
+    --project-ref "$SUPASTACK_PROJECT_REF"
 ```
 
 Assert: exit 0.
@@ -115,7 +115,7 @@ Assert: exit 0.
 
 ```bash
 # Drop the test table via direct psql (using the password for cleanup only)
-psql "postgresql://postgres:${SELFBASE_DB_PASSWORD}@db.${SELFBASE_PROJECT_REF}.${SELFBASE_APEX}:5432/postgres" \
+psql "postgresql://postgres:${SUPASTACK_DB_PASSWORD}@db.${SUPASTACK_PROJECT_REF}.${SUPASTACK_APEX}:5432/postgres" \
   -c "DROP TABLE IF EXISTS _e2e_db_push_test;"
 ```
 
@@ -134,6 +134,6 @@ Assert: exit 0. If psql is unavailable, skip gracefully with a warning.
 
 - `supabase` CLI ≥ 2.72.7 on PATH
 - `psql` on PATH (for cleanup step; gracefully skipped if absent)
-- Valid selfbase profile at `$WORK/selfbase.toml` (written at step 1)
-- Live selfbase deployment with wildcard cert and at least one provisioned project at `SELFBASE_PROJECT_REF`
+- Valid supastack profile at `$WORK/supastack.toml` (written at step 1)
+- Live supastack deployment with wildcard cert and at least one provisioned project at `SUPASTACK_PROJECT_REF`
 - Port 5432 reachable from the runner at `db.<ref>.<apex>:5432` with a valid TLS cert

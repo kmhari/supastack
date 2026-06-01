@@ -26,7 +26,7 @@ set -euo pipefail
 DOCKER="${DOCKER:-docker}"
 PORT="${PORT:-8099}"
 IMAGE="${CADDY_IMAGE:-caddy:2.8-alpine}"
-NAME="selfbase-web-cache-test-$$"
+NAME="supastack-web-cache-test-$$"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CADDYFILE="$ROOT/apps/web/Caddyfile.runtime"
 

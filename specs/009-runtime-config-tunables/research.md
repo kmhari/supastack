@@ -22,7 +22,7 @@ Decisions taken during /speckit-plan. All NEEDS-CLARIFICATION items from Technic
 
 ## R-002: Encryption at rest for the snapshot
 
-**Decision**: The snapshot row stores `encrypted_payload bytea` — the full JSON config (including plaintext secrets) encrypted via the existing `@selfbase/crypto` envelope (`encryptJson` / `decryptJson(buf, loadMasterKey())`), same pattern as `projectSecrets.encryptedValue`.
+**Decision**: The snapshot row stores `encrypted_payload bytea` — the full JSON config (including plaintext secrets) encrypted via the existing `@supastack/crypto` envelope (`encryptJson` / `decryptJson(buf, loadMasterKey())`), same pattern as `projectSecrets.encryptedValue`.
 
 **Rationale**: Plaintext secrets must round-trip safely through the sentinel-merge, so they need to be retrievable from the snapshot. The master-key envelope already exists, is audited, and never leaves the api container. Reusing it costs nothing.
 
@@ -34,7 +34,7 @@ Decisions taken during /speckit-plan. All NEEDS-CLARIFICATION items from Technic
 
 ## R-003: Container reload mechanism
 
-**Decision**: Reuse `restartOrRollback` from `apps/api/src/services/secret-store.ts` verbatim — `docker restart <container>` followed by `waitContainerHealthy(name, 5000)`. Same `@selfbase/docker-control` adapter. New container names: `selfbase-${ref}-rest-1` (PostgREST) and `selfbase-${ref}-auth-1` (GoTrue).
+**Decision**: Reuse `restartOrRollback` from `apps/api/src/services/secret-store.ts` verbatim — `docker restart <container>` followed by `waitContainerHealthy(name, 5000)`. Same `@supastack/docker-control` adapter. New container names: `supastack-${ref}-rest-1` (PostgREST) and `supastack-${ref}-auth-1` (GoTrue).
 
 **Rationale**:
 - It already exists and works for the secrets endpoint, which has identical semantics ("write env → restart container → if unhealthy, rollback").
@@ -50,7 +50,7 @@ Decisions taken during /speckit-plan. All NEEDS-CLARIFICATION items from Technic
 
 ## R-004: Cross-surface restart serialization
 
-**Decision**: Per-project mutex via Redis SETNX on a key `selfbase:config-write-lock:<ref>` with a 60-second TTL. PATCH on either surface acquires the lock before any `.env` write; releases on success/failure. GET requires no lock.
+**Decision**: Per-project mutex via Redis SETNX on a key `supastack:config-write-lock:<ref>` with a 60-second TTL. PATCH on either surface acquires the lock before any `.env` write; releases on success/failure. GET requires no lock.
 
 **Rationale**:
 - Two concurrent PATCHes to the same project — one on postgrest, one on auth — would each restart a different container, but each `.env` edit reads the file, mutates, and writes it back. Without serialization the second writer can race the first writer's `.env` write and lose its changes.

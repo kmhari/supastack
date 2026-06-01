@@ -1,4 +1,4 @@
-# Feature 023 — Env Secret Auto-Generation & SELFBASE_APEX DB Migration
+# Feature 023 — Env Secret Auto-Generation & SUPASTACK_APEX DB Migration
 
 **Issue**: #75 | **Branch**: `023-env-secret-autogen`
 
@@ -41,11 +41,11 @@ cp recovered.env infra/.env   # or wherever INSTALL_DIR points
 
 Extracts all 6 secrets from running containers via `docker inspect`. Prints warnings for any variable not found.
 
-### SELFBASE_APEX no longer required for API and MCP containers
+### SUPASTACK_APEX no longer required for API and MCP containers
 
-The API and MCP services now resolve the apex domain from `org.apex_domain` in the control-plane database, with a 60-second in-process TTL cache. `SELFBASE_APEX` is retained as an optional env-var override.
+The API and MCP services now resolve the apex domain from `org.apex_domain` in the control-plane database, with a 60-second in-process TTL cache. `SUPASTACK_APEX` is retained as an optional env-var override.
 
-**Caddy and Supavisor still require `SELFBASE_APEX`** in `.env` — they have no database access.
+**Caddy and Supavisor still require `SUPASTACK_APEX`** in `.env` — they have no database access.
 
 Affected files:
 
@@ -61,11 +61,11 @@ Affected files:
 | --------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `MASTER_KEY`                | **All per-instance secrets encrypted with this key** | See feature 018 runbook (`docs/changes/018-master-key-rotation.md`) — requires re-encryption of all `encryptedSecrets` rows          |
 | `SESSION_SECRET`            | All active sessions invalidated                      | Update `.env`, restart api. Users must log in again. Zero downtime possible with blue/green.                                         |
-| `CONTROL_DB_PASSWORD`       | Postgres auth                                        | Update `.env` + Postgres `ALTER ROLE selfbase PASSWORD '...'`, restart all containers.                                               |
+| `CONTROL_DB_PASSWORD`       | Postgres auth                                        | Update `.env` + Postgres `ALTER ROLE supastack PASSWORD '...'`, restart all containers.                                               |
 | `SUPAVISOR_SECRET_KEY_BASE` | Supavisor internal state                             | Update `.env`, restart supavisor. Active pooler connections drop briefly.                                                            |
 | `SUPAVISOR_VAULT_ENC_KEY`   | Supavisor vault encryption                           | Update `.env`, restart supavisor.                                                                                                    |
 | `SUPAVISOR_API_JWT_SECRET`  | API↔Supavisor admin JWTs                             | Update `.env`, restart api + worker + supavisor simultaneously.                                                                      |
-| `SELFBASE_APEX`             | Domain routing                                       | Update `.env`, restart caddy + supavisor. API and MCP pick up the new value from DB within 60s (no restart needed if DB is updated). |
+| `SUPASTACK_APEX`             | Domain routing                                       | Update `.env`, restart caddy + supavisor. API and MCP pick up the new value from DB within 60s (no restart needed if DB is updated). |
 
 ## Deployment Notes
 

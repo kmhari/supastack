@@ -11,7 +11,7 @@ A BullMQ job runs **daily at 03:00 UTC** comparing three sources of truth:
 | Source                               | What it knows                                                |
 | ------------------------------------ | ------------------------------------------------------------ |
 | `supabase_instances`                 | Which projects should exist (their refs + statuses)          |
-| `pooler_tenants` (selfbase)          | Which projects selfbase thinks are registered with supavisor |
+| `pooler_tenants` (supastack)          | Which projects supastack thinks are registered with supavisor |
 | `GET /api/tenants/<ref>` (supavisor) | Which projects are actually registered with supavisor        |
 
 Per-project classification + remediation:
@@ -113,7 +113,7 @@ What happens under the hood:
 
 1. Admin RBAC check (`instance.pg-password.reset` permission)
 2. Audit log entry emitted (`instances.pg_password.reset`, severity `high`)
-3. `docker exec` into `selfbase-<ref>-db-1` running `psql -h 127.0.0.1 -U supabase_admin` (trust auth from inside the container)
+3. `docker exec` into `supastack-<ref>-db-1` running `psql -h 127.0.0.1 -U supabase_admin` (trust auth from inside the container)
 4. `BEGIN; ALTER USER postgres WITH PASSWORD '<from secret>'; ALTER USER supabase_admin WITH PASSWORD '<from secret>'; COMMIT;`
 5. Enqueue a single-instance reconciler pass with high priority
 6. Poll the `reconciler_runs` row for up to 5 seconds
@@ -142,7 +142,7 @@ Response:
 
 | Symptom                                  | Likely cause                                   | Fix                                                         |
 | ---------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------- |
-| 502 `per_instance_db_unreachable`        | Per-instance db container is down              | `docker compose -p selfbase-<ref> up -d db`, then retry     |
+| 502 `per_instance_db_unreachable`        | Per-instance db container is down              | `docker compose -p supastack-<ref> up -d db`, then retry     |
 | 409 `project_not_running`                | Project is `paused` or `deleting`              | Resume the project first                                    |
 | 500 `master_key_rotation_detected`       | Master key changed since the secret was stored | Out of scope — re-mint instance secrets                     |
 | Reset succeeds but tenant still `failed` | Different root cause (supavisor down, network) | Look at the latest `register_failed` event's `detail.error` |

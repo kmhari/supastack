@@ -28,31 +28,31 @@
  * Research: R-001 (snapshot model), R-002 (encryption), R-003 (reload),
  *           R-004 (locking), R-007 (field mapping), R-008 (redaction sentinel).
  */
-import { readFile, rename, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import { Redis } from 'ioredis';
-import { and, eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { encryptJson, decryptJson, loadMasterKey } from '@selfbase/crypto';
-import { ZodError } from 'zod';
+import { decryptJson, encryptJson, loadMasterKey } from '@supastack/crypto';
+import { db, schema } from '@supastack/db';
 import {
+  POSTGREST_CONFIG_DEFAULTS,
   REDACTED_SECRET,
   SECRET_FIELDS,
   UpdateAuthConfigBodySchema,
   UpdatePostgrestConfigBodySchema,
-  POSTGREST_CONFIG_DEFAULTS,
-} from '@selfbase/shared';
+} from '@supastack/shared';
+import { and, eq } from 'drizzle-orm';
+import { Redis } from 'ioredis';
+import { readFile, rename, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { ZodError } from 'zod';
 import { ManagementApiError } from '../plugins/mgmt-api-errors.js';
 import { recreateOrRollback, restartOrRollback } from './container-reload.js';
 import {
-  AUTH_CONFIG_HONORED,
   AUTH_CONFIG_FIELD_STATUS,
+  AUTH_CONFIG_HONORED,
   POSTGREST_CONFIG_MAP,
   defaultEnvValueTransform,
   lookupAuthFieldMapping,
   lookupPostgrestFieldMapping,
 } from './env-field-mapper.js';
-import { upsertEnvEntry, removeEnvEntry } from './secret-store.js';
+import { removeEnvEntry, upsertEnvEntry } from './secret-store.js';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -64,7 +64,7 @@ export type ConfigSource = { userId: string };
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
-const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/selfbase/instances';
+const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/supastack/instances';
 
 const LOCK_TTL_SECONDS = 60;
 
@@ -79,14 +79,14 @@ const AUTH_CONFIG_DEFAULTS: ConfigJson = {
   sms_autoconfirm: false,
 };
 
-// ─── Selfbase extension (feature 020 US4) ──────────────────────────────────
+// ─── Supastack extension (feature 020 US4) ──────────────────────────────────
 
 /**
- * Per-field status indicator surfaced under `_selfbase.fieldStatus` on the
+ * Per-field status indicator surfaced under `_supastack.fieldStatus` on the
  * auth-config GET response. Computed once at module init from
  * AUTH_CONFIG_FIELD_STATUS — per-request cost is zero.
  *
- * The key is namespaced (`_selfbase`) so unmodified upstream `supabase` CLI
+ * The key is namespaced (`_supastack`) so unmodified upstream `supabase` CLI
  * clients ignore it (FR-002, SC-005).
  *
  * Spec: specs/020-auth-providers-dashboard/spec.md FR-002, FR-003
@@ -122,8 +122,8 @@ export async function getConfig(ref: string, surface: ConfigSurface): Promise<Co
   const plaintext = await loadCurrentPlaintext(ref, surface);
   const redacted = redactSecrets(plaintext);
   if (surface === 'auth') {
-    // Inject the selfbase extension. Postgrest surface is unchanged.
-    return { ...redacted, _selfbase: AUTH_FIELD_STATUS_EXTENSION };
+    // Inject the supastack extension. Postgrest surface is unchanged.
+    return { ...redacted, _supastack: AUTH_FIELD_STATUS_EXTENSION };
   }
   return redacted;
 }
@@ -200,7 +200,7 @@ export async function patchConfig(
 // ─── Internals ─────────────────────────────────────────────────────────────
 
 export function containerNameFor(ref: string, surface: ConfigSurface): string {
-  return surface === 'postgrest' ? `selfbase-${ref}-rest-1` : `selfbase-${ref}-auth-1`;
+  return surface === 'postgrest' ? `supastack-${ref}-rest-1` : `supastack-${ref}-auth-1`;
 }
 
 export function envPathFor(ref: string): string {
@@ -335,9 +335,9 @@ async function applyEnvAndRestart(
   // into the container env. `docker restart` keeps the original env baked at
   // create-time, which silently breaks PATCH→container for any honored field.
   // The compose service names are `auth` and `rest` (per supabase-template's
-  // service: lines); the container name is `selfbase-<ref>-<service>-1`.
+  // service: lines); the container name is `supastack-<ref>-<service>-1`.
   const composeDir = path.join(INSTANCES_DIR, ref);
-  const projectName = `selfbase-${ref}`;
+  const projectName = `supastack-${ref}`;
   const serviceName = surface === 'postgrest' ? 'rest' : 'auth';
   await recreateOrRollback(
     composeDir,
@@ -439,7 +439,7 @@ export async function withProjectConfigLock<T>(
   redisOverride?: Redis,
 ): Promise<T> {
   const redis = redisOverride ?? getRedis();
-  const key = `selfbase:config-write-lock:${ref}`;
+  const key = `supastack:config-write-lock:${ref}`;
   const token = `${process.pid}-${Date.now()}-${Math.random()}`;
   const acquired = await redis.set(key, token, 'EX', LOCK_TTL_SECONDS, 'NX');
   if (acquired !== 'OK') {

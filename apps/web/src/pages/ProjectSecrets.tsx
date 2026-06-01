@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { RESERVED_SECRETS } from '@selfbase/shared';
+import { RESERVED_SECRETS } from '@supastack/shared';
 import { ProjectShell } from '@/components/ProjectShell';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -268,7 +268,7 @@ export function ProjectSecretsPage(): React.ReactElement {
       <section>
         <h2 className="m-0 mb-3 text-lg font-medium text-foreground">Default secrets</h2>
         <p className="mb-3 text-sm text-muted-foreground">
-          Managed by selfbase. Always available inside edge functions; you cannot set or replace
+          Managed by supastack. Always available inside edge functions; you cannot set or replace
           them.
         </p>
         <Card className="overflow-hidden p-0">

@@ -1,10 +1,10 @@
 ---
-description: "Task list for Selfbase v1"
+description: "Task list for Supastack v1"
 ---
 
-# Tasks: Selfbase — Self-Hosted Supabase Platform
+# Tasks: Supastack — Self-Hosted Supabase Platform
 
-**Input**: Design documents under `specs/001-selfbase-supabase-platform/`
+**Input**: Design documents under `specs/001-supastack-supabase-platform/`
 
 **Prerequisites**: `plan.md`, `spec.md` (read), `research.md`, `data-model.md`, `contracts/*`, `quickstart.md` (all present).
 
@@ -41,10 +41,10 @@ Monorepo (extended web app layout from `plan.md`):
 - [x] T004 [P] Add a `git check-ignore -v src/lib/api.ts` smoke assertion to CI to prevent the Multibase `lib/`-gitignored failure (`.github/workflows/ci.yml` or equivalent)
 - [x] T005 [P] Vendor upstream `supabase/supabase` `docker/*` at a pinned commit into `infra/supabase-template/` (Compose, `.env.example`, `kong.yml`, `vector.yml`, `volumes/db/*.sql`). Record the pinned commit in `infra/supabase-template/COMMIT`.
 - [x] T006 [P] Vendor theme assets (Tailwind config, design tokens, base components) from `supabase/supabase` `apps/studio/` at the same pinned commit into `apps/web/src/theme/`. Document the lift list in `apps/web/src/theme/README.md`.
-- [x] T007 Write `infra/studio/Dockerfile` that builds Studio from the vendored source with `NEXT_PUBLIC_BASE_PATH=/studio` baked in. Image tag: `selfbase/studio:<pinned-commit>`.
+- [x] T007 Write `infra/studio/Dockerfile` that builds Studio from the vendored source with `NEXT_PUBLIC_BASE_PATH=/studio` baked in. Image tag: `supastack/studio:<pinned-commit>`.
 - [x] T008 Write `apps/caddy/Caddyfile` containing only the admin `:2019` block + `on_demand_tls { ask http://api:3001/internal/tls/ask }` skeleton; instance routes are added at runtime via admin API.
-- [x] T009 Write `infra/docker-compose.yml` for the control plane: postgres:16, redis:7-alpine, caddy:2 (mounts `apps/caddy/Caddyfile` and `/var/selfbase/caddy-data`), api, worker, web. Bind ports 80 + 443 (Caddy) and admin 2019 only inside the network.
-- [x] T010 Write `install.sh` at repo root: detects/installs Docker, clones repo to `/opt/selfbase`, `openssl rand`-generates `MASTER_KEY` + `SESSION_SECRET` + control-DB password, writes `.env`, builds `selfbase/studio:<commit>` (one-time), runs `docker compose up -d`, waits for health, prints setup URL. Pattern off `/Users/lord/Code/superbase/install.sh`.
+- [x] T009 Write `infra/docker-compose.yml` for the control plane: postgres:16, redis:7-alpine, caddy:2 (mounts `apps/caddy/Caddyfile` and `/var/supastack/caddy-data`), api, worker, web. Bind ports 80 + 443 (Caddy) and admin 2019 only inside the network.
+- [x] T010 Write `install.sh` at repo root: detects/installs Docker, clones repo to `/opt/supastack`, `openssl rand`-generates `MASTER_KEY` + `SESSION_SECRET` + control-DB password, writes `.env`, builds `supastack/studio:<commit>` (one-time), runs `docker compose up -d`, waits for health, prints setup URL. Pattern off `/Users/lord/Code/superbase/install.sh`.
 - [x] T011 [P] Add shared pino logger config (`packages/shared/src/logger.ts`) with level from `LOG_LEVEL` env; JSON output in production, pretty in dev.
 
 ---
@@ -107,7 +107,7 @@ Monorepo (extended web app layout from `plan.md`):
 - [x] T050 [P] [US1] Contract test `apps/api/tests/contract/instances-create.test.ts` — admin can create; member gets 403; input validation (long names, bad SMTP); 202 + ref returned
 - [x] T051 [P] [US1] Contract test `apps/api/tests/contract/instances-list-get.test.ts` — member sees fewer fields than admin (port_postgres etc. hidden)
 - [x] T052 [P] [US1] Contract test `apps/api/tests/contract/credentials-reveal.test.ts` — requires re-auth; member can reveal own org's; audit entry written
-- [x] T053 [US1] Integration test `tests/integration/provision-instance.test.ts` — boots selfbase + control-plane Postgres + Caddy via Docker Compose, calls `/setup`, calls `/instances`, polls for status=`running` (≤ 90 s), then calls instance REST with `anon_key` → expect 200 (the SupaConsole regression check)
+- [x] T053 [US1] Integration test `tests/integration/provision-instance.test.ts` — boots supastack + control-plane Postgres + Caddy via Docker Compose, calls `/setup`, calls `/instances`, polls for status=`running` (≤ 90 s), then calls instance REST with `anon_key` → expect 200 (the SupaConsole regression check)
 
 ### Implementation for User Story 1
 
@@ -116,7 +116,7 @@ Monorepo (extended web app layout from `plan.md`):
 - [x] T056 [US1] Implement `apps/api/src/routes/instances-create.ts` — `POST /api/v1/instances`: zod-validate input → generate `ref` → allocate ports → generate secrets (jwt_secret, anon, service-role, postgres, dashboard, MinIO, vault, logflare, pg-meta crypto keys) → AES-GCM-encrypt blob → insert row (status=`provisioning`) → enqueue `provision` job → return 202
 - [x] T057 [P] [US1] Implement `apps/api/src/routes/instances-list.ts` — `GET /api/v1/instances` and `GET /api/v1/instances/:ref`; field-filter based on role
 - [x] T058 [P] [US1] Implement `apps/api/src/routes/credentials-reveal.ts` — `POST /api/v1/instances/:ref/credentials/reveal`: re-auth check (password match) → decrypt blob → write audit entry → return cleartext
-- [x] T059 [US1] Implement `apps/worker/src/jobs/provision.ts` — full pipeline: read row → decrypt secrets → mkdir `/var/selfbase/instances/<ref>/` → copy `infra/supabase-template/*` → `compose-template.ts` writes `.env` → `compose config -q` round-trip check → `compose up -d` → poll containers until healthy (3-min cap) → upsert Caddy route via `caddy-reload` → set status=`running`. On any error: set status=`failed`, store `provision_error`, leave dir for inspection.
+- [x] T059 [US1] Implement `apps/worker/src/jobs/provision.ts` — full pipeline: read row → decrypt secrets → mkdir `/var/supastack/instances/<ref>/` → copy `infra/supabase-template/*` → `compose-template.ts` writes `.env` → `compose config -q` round-trip check → `compose up -d` → poll containers until healthy (3-min cap) → upsert Caddy route via `caddy-reload` → set status=`running`. On any error: set status=`failed`, store `provision_error`, leave dir for inspection.
 - [x] T060 [US1] Wire `provision` job completion to enqueue `caddy-reload` (debounced) — `apps/worker/src/jobs/provision.ts`
 - [x] T061 [US1] Implement `apps/web/src/pages/Setup.tsx` — calls `/setup/status` on mount; renders form (email, password, orgName, apexDomain); displays one-shot master token after success
 - [x] T062 [US1] Implement `apps/web/src/pages/Login.tsx` — email + password; on success route to `/`
@@ -144,9 +144,9 @@ Monorepo (extended web app layout from `plan.md`):
 
 - [x] T069 [P] [US2] Implement `apps/api/src/routes/instances-lifecycle.ts` — `POST /instances/:ref/pause`, `/resume`, `/restart`, `/upgrade`, `DELETE /instances/:ref`. All return 202 + enqueue corresponding job; validate transition against `packages/shared` allowed-transitions table; admin only.
 - [x] T070 [P] [US2] Implement `apps/api/src/routes/instances-patch.ts` — `PATCH /instances/:ref` for editable fields (`name`, `backupAutoEnabled`, `backupRetain`)
-- [x] T071 [US2] Implement `apps/worker/src/jobs/lifecycle.ts` — handlers for: `pause` (`compose stop`, status=`paused`), `resume` (`compose start`, wait healthy, status=`running`), `restart` (`compose restart`, wait healthy), `upgrade` (optional pre-backup → `compose pull` → `compose up -d --force-recreate` → wait healthy → update `supabase_version`), `delete` (status=`deleting` → `compose down -v` → `rm -rf /var/selfbase/instances/<ref>` → delete `port_allocations` rows → delete `supabase_instances` row → enqueue Caddy reload)
+- [x] T071 [US2] Implement `apps/worker/src/jobs/lifecycle.ts` — handlers for: `pause` (`compose stop`, status=`paused`), `resume` (`compose start`, wait healthy, status=`running`), `restart` (`compose restart`, wait healthy), `upgrade` (optional pre-backup → `compose pull` → `compose up -d --force-recreate` → wait healthy → update `supabase_version`), `delete` (status=`deleting` → `compose down -v` → `rm -rf /var/supastack/instances/<ref>` → delete `port_allocations` rows → delete `supabase_instances` row → enqueue Caddy reload)
 - [x] T072 [US2] Implement `apps/web/src/components/InstanceActions.tsx` — Pause / Resume / Restart / Upgrade / Delete buttons with confirmation dialogs; surfaces ineligible actions based on current status
-- [x] T073 [US2] Implement `apps/web/src/pages/InstanceUpgrade.tsx` (or modal) — version picker (lists pinned versions known to selfbase) + "Backup first" checkbox
+- [x] T073 [US2] Implement `apps/web/src/pages/InstanceUpgrade.tsx` (or modal) — version picker (lists pinned versions known to supastack) + "Backup first" checkbox
 - [x] T074 [US2] Wire delete cleanup to also write an `audit_log` entry attributed to the actor
 
 **Checkpoint**: US2 functional alongside US1.
@@ -170,7 +170,7 @@ Monorepo (extended web app layout from `plan.md`):
 
 - [x] T079 [P] [US3] Implement `apps/api/src/routes/backups.ts` — `POST /instances/:ref/backups` (admin, enqueue), `GET /instances/:ref/backups` (any), `GET /instances/:ref/backups/:id/download` (any; local → stream with `Content-Disposition`, s3 → 307 to signed URL)
 - [x] T080 [P] [US3] Implement `apps/api/src/routes/org-backup-store.ts` — `PUT /api/v1/org/backup-store`: validate config, encrypt secrets (S3 credentials), update `org.backup_store_kind` + `org.backup_store_config_encrypted`; admin-only
-- [x] T081 [US3] Implement `apps/worker/src/jobs/backup.ts` — insert `backups` row (status=`running`) → resolve BackupStore from `org.backup_store_kind` + decrypted config → `docker exec selfbase-<ref>-db pg_dump -U postgres -Fc postgres` streamed into `BackupStore.put()` → update row to `completed` with `size_bytes` and `store_key` → on failure, status=`failed` with `error`. Updates `supabase_instances.last_backup_at` on success.
+- [x] T081 [US3] Implement `apps/worker/src/jobs/backup.ts` — insert `backups` row (status=`running`) → resolve BackupStore from `org.backup_store_kind` + decrypted config → `docker exec supastack-<ref>-db pg_dump -U postgres -Fc postgres` streamed into `BackupStore.put()` → update row to `completed` with `size_bytes` and `store_key` → on failure, status=`failed` with `error`. Updates `supabase_instances.last_backup_at` on success.
 - [x] T082 [US3] Implement retention sweep — after every successful backup, query `backups` rows for this `instance_ref` ordered by `started_at DESC`, delete all beyond `backup_retain` from both the BackupStore and the `backups` table (`apps/worker/src/jobs/backup.ts` or a helper)
 - [x] T083 [US3] Implement `apps/worker/src/jobs/backup-scheduler.ts` — BullMQ repeatable job, fires hourly: SELECT instances with `backup_auto_enabled = true` AND (`last_backup_at IS NULL` OR `last_backup_at < now() - interval '24 hours'`); enqueue a `backup` job for each
 - [x] T084 [US3] Sign short-lived download URLs for local-store backups — `apps/api/src/services/download-tokens.ts`: HMAC-sign `{ backupId, exp }` with `SESSION_SECRET`, validate in the download handler
@@ -218,11 +218,11 @@ Monorepo (extended web app layout from `plan.md`):
 - [x] T103 [P] Write top-of-file contract comments in `install.sh` — what it does, what env vars it accepts (`INSTALL_DIR`, `STUDIO_PORT`, `PUBLIC_URL`), what it produces
 - [x] T104 [P] E2E Playwright golden path `apps/web/tests/e2e/golden-path.spec.ts` — setup → create instance → poll for running → open studio → reveal credentials → create backup → pause → resume → delete (SC-005, SC-006, SC-009 coverage)
 - [x] T105 [P] Add JSDoc/README to each `packages/*/README.md` describing the package's surface and how it's tested
-- [x] T106 Write project root `README.md` — what selfbase is, quickstart link, capability list, license (MIT or whichever the operator picks)
-- [x] T107 Verify `specs/001-selfbase-supabase-platform/quickstart.md` end-to-end on the existing VM `148.113.1.164` after Multibase wipe (SC-001 demonstration); update quickstart if any step diverges from reality
+- [x] T106 Write project root `README.md` — what supastack is, quickstart link, capability list, license (MIT or whichever the operator picks)
+- [x] T107 Verify `specs/001-supastack-supabase-platform/quickstart.md` end-to-end on the existing VM `148.113.1.164` after Multibase wipe (SC-001 demonstration); update quickstart if any step diverges from reality
 - [x] T108 [P] Tighten Caddy reload — debounce window already 200 ms; add a metric counter for reload-rate to surface churn (`apps/worker/src/jobs/caddy-reload.ts`)
 - [x] T109 [P] Confirm SC-010 — load 15 dummy instance rows (status=`paused`, no containers) and verify dashboard navigation < 1 s perceived
-- [x] T110 Implement instance health reconciler in `apps/worker/src/jobs/health-reconciler.ts` — BullMQ repeatable job (30 s tick) that calls `composePs(selfbase-<ref>)` for every non-deleted instance and updates `supabase_instances.status` if the observed container set diverges (e.g., running → stopped on OOM-kill). Honors FR-033 ("based on the actual state of its underlying processes, not just on the last requested action"). RECOMMENDED to land in Phase 2 before US1 ships, even though listed in Polish for diff hygiene.
+- [x] T110 Implement instance health reconciler in `apps/worker/src/jobs/health-reconciler.ts` — BullMQ repeatable job (30 s tick) that calls `composePs(supastack-<ref>)` for every non-deleted instance and updates `supabase_instances.status` if the observed container set diverges (e.g., running → stopped on OOM-kill). Honors FR-033 ("based on the actual state of its underlying processes, not just on the last requested action"). RECOMMENDED to land in Phase 2 before US1 ships, even though listed in Polish for diff hygiene.
 
 ---
 

@@ -145,12 +145,12 @@ Any field not present in upstream's `UpdateAuthConfigBody` schema → 400 `valid
 **Response 200**: full post-merge config (same shape as GET, with secrets redacted).
 
 **Side effects**:
-1. Acquire Redis lock `selfbase:config-write-lock:<ref>` (TTL 60s); 409 `config_write_in_progress` if held.
+1. Acquire Redis lock `supastack:config-write-lock:<ref>` (TTL 60s); 409 `config_write_in_progress` if held.
 2. Validate via Zod → 400 on any field error.
 3. Load current snapshot (decrypt with master key) → merge body → sentinel-resolve secrets → cross-field validate → 400 on missing_credentials.
 4. For every honored field in the post-merge config: `upsertEnvEntry` into per-instance `.env`.
 5. INSERT or UPDATE `project_config_snapshots` row for `(ref, 'auth')`, re-encrypting the post-merge JSON.
-6. `docker restart selfbase-<ref>-auth-1` → `waitContainerHealthy(5000)`.
+6. `docker restart supastack-<ref>-auth-1` → `waitContainerHealthy(5000)`.
 7. On failure after step 4: rollback `.env` from backup, revert snapshot row, return 500 `restart_failed`.
 8. Emit `audit_log` entry `action='mgmt_api.auth_config.update'`. Secret-typed fields appear in `diff` with both `old` and `new` redacted to `***` — the audit log MUST NOT leak plaintext secrets.
 9. Release Redis lock.

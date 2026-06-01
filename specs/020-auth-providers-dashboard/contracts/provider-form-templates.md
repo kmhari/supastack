@@ -86,7 +86,7 @@ Note: NO `email_optional` toggle (drops the CommonFour 4th field).
 | Allow users without an email | toggle | `external_google_email_optional` |
 | Callback URL (for OAuth) | read-only + Copy | (display only) |
 
-Note: Cloud's "Client IDs" plural field is a comma-separated string of (Web client ID, Android client ID, One Tap client ID, …). selfbase stores the primary in `external_google_client_id` and the rest in `external_google_additional_client_ids`. The drawer's single input writes the first value to `external_google_client_id` and the remainder to `external_google_additional_client_ids`. Read path reconstructs the comma-joined view.
+Note: Cloud's "Client IDs" plural field is a comma-separated string of (Web client ID, Android client ID, One Tap client ID, …). supastack stores the primary in `external_google_client_id` and the rest in `external_google_additional_client_ids`. The drawer's single input writes the first value to `external_google_client_id` and the remainder to `external_google_additional_client_ids`. Read path reconstructs the comma-joined view.
 
 ---
 

@@ -13,8 +13,8 @@
  */
 import { createHmac } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
+import { db, schema } from '@supastack/db';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import type { InstanceSecrets } from './instance-secrets.js';
 
 const TTL_SEC = 24 * 60 * 60; // 24h

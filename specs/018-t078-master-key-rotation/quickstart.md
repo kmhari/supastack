@@ -8,7 +8,7 @@
 
 ```bash
 # On the VM
-cd /opt/selfbase
+cd /opt/supastack
 OLD=$(grep ^MASTER_KEY infra/.env | cut -d= -f2)
 NEW=$(openssl rand -hex 32)
 echo "NEW KEY: $NEW"   # save this

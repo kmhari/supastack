@@ -27,7 +27,7 @@ Response: 201 Created (NOT 200). Body shape matches upstream (need to inspect a 
 **Rationale**: The whole point of the cli-compat surface (feature 003) is "the unmodified upstream CLI + MCP server work without configuration." Any deviation breaks both. Zero-flexibility on this.
 
 **Alternatives considered**:
-- Add selfbase-specific fields (e.g., `audit_label`) — rejected; if upstream adds them later we'd collide.
+- Add supastack-specific fields (e.g., `audit_label`) — rejected; if upstream adds them later we'd collide.
 - Return 200 instead of 201 — rejected; the upstream CLI checks for 2xx generally, but the MCP server's typed client may check 201 specifically. Use 201 to be safe.
 
 ---
@@ -81,7 +81,7 @@ Returns true if it finds a `;` outside of any of those AND there's non-whitespac
 
 ## Decision 4 — `pg_dump` streaming via Docker socket exec
 
-**Decision**: New helper `pg-dump-exec.ts` shells `pg_dump` inside the per-instance `selfbase-<ref>-db-1` container via the Docker Engine HTTP API (Unix socket at `/var/run/docker.sock`). Streams stdout directly to the Fastify Reply object. Pattern from `apps/api/src/services/pg-password-reset.ts` (Docker socket exec) extended for streaming output.
+**Decision**: New helper `pg-dump-exec.ts` shells `pg_dump` inside the per-instance `supastack-<ref>-db-1` container via the Docker Engine HTTP API (Unix socket at `/var/run/docker.sock`). Streams stdout directly to the Fastify Reply object. Pattern from `apps/api/src/services/pg-password-reset.ts` (Docker socket exec) extended for streaming output.
 
 ```ts
 export async function streamPgDump(
@@ -93,7 +93,7 @@ export async function streamPgDump(
 ```
 
 Flow:
-1. Resolve container name: `selfbase-<ref>-db-1`
+1. Resolve container name: `supastack-<ref>-db-1`
 2. Compute `pg_dump` args:
    - Always: `-h 127.0.0.1 -U postgres -d postgres --no-owner --no-privileges`
    - Conditional: `--data-only` / `--schema-only`
@@ -127,7 +127,7 @@ SELECT nspname FROM pg_namespace
  ORDER BY nspname;
 ```
 
-For a fresh selfbase project this returns: `auth`, `extensions`, `graphql`, `graphql_public`, `net`, `pgsodium`, `pgsodium_masks`, `public`, `realtime`, `storage`, `supabase_functions`, `supabase_migrations`, `vault`.
+For a fresh supastack project this returns: `auth`, `extensions`, `graphql`, `graphql_public`, `net`, `pgsodium`, `pgsodium_masks`, `public`, `realtime`, `storage`, `supabase_functions`, `supabase_migrations`, `vault`.
 
 **Rationale**:
 - Matches clarification Q2: a backup-flavored command should produce a working clone on restore, not lose `auth.users` because of a too-narrow default.
@@ -184,7 +184,7 @@ No additional schema migration — `audit_log.action` is unconstrained `text` pe
 
 For new projects, **set `statement_timeout = 8000` (8 seconds)** at provision time via a small one-line addition to the provision pipeline's bootstrap SQL. This protects shared DB resources from runaway operator queries while still covering >95% of typical ad-hoc work.
 
-The provision-time default is a separate follow-up (out of scope for this feature) — exists as a TODO in the implementation tasks. Existing projects without an explicit setting will have `statement_timeout = 0` (unlimited) until the operator runs `postgres-config update` or selfbase ships the provision-pipeline change.
+The provision-time default is a separate follow-up (out of scope for this feature) — exists as a TODO in the implementation tasks. Existing projects without an explicit setting will have `statement_timeout = 0` (unlimited) until the operator runs `postgres-config update` or supastack ships the provision-pipeline change.
 
 **Rationale**:
 - Mirrors Cloud's behavior exactly (no request-level override)

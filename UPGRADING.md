@@ -1,6 +1,6 @@
 # Upgrading the vendored Supabase template
 
-Selfbase pins to a specific commit of `supabase/supabase` for two artifacts:
+Supastack pins to a specific commit of `supabase/supabase` for two artifacts:
 
 1. **The per-instance Docker Compose template** at `infra/supabase-template/`
    (the upstream `docker/` directory at that commit).
@@ -51,18 +51,18 @@ The pin is recorded in `infra/supabase-template/COMMIT` (just the SHA).
    ```sh
    docker build \
      --build-arg SUPABASE_COMMIT="$(cat infra/supabase-template/COMMIT)" \
-     -t selfbase/studio:$(cat infra/supabase-template/COMMIT) \
+     -t supastack/studio:$(cat infra/supabase-template/COMMIT) \
      -f infra/studio/Dockerfile \
      infra/studio/
    ```
 
-   Update `STUDIO_IMAGE` in `/opt/selfbase/.env` to the new tag.
+   Update `STUDIO_IMAGE` in `/opt/supastack/.env` to the new tag.
 
 6. **Run the compose templater tests.** These catch upstream changes that
    add new required variables (the Multibase failure mode):
 
    ```sh
-   pnpm --filter @selfbase/docker-control test
+   pnpm --filter @supastack/docker-control test
    ```
 
    If the test fails with `compose-template: N variable(s) referenced by the

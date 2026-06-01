@@ -24,7 +24,7 @@
 
 - [X] T002 [P] Update `packages/shared/src/mgmt-api-schemas.ts`: add three Zod schemas matching the pinned upstream OpenAPI snapshot at `specs/012-cli-login-role/contracts/upstream-openapi-snapshot.json`:
   - `CreateLoginRoleBody = z.object({ read_only: z.boolean() }).strict()` — rejects extra fields with 400 + `invalid_request`.
-  - `CreateLoginRoleResponse = z.object({ role: z.string().min(1), password: z.string().min(1), ttl_seconds: z.number().int().min(1) })` — exported for both runtime validation and TypeScript inference. **Note**: the `ttl_seconds` constraint `min(1)` mirrors upstream's OpenAPI `minimum: 1`; selfbase's runtime value is always **300** (research.md Decision 2). Add an inline TS comment `// Wire schema mirrors upstream's openapi minimum; selfbase always returns 300 — see TTL_SECONDS in cli-login-role-service.ts` so the looser-than-runtime constraint isn't mistaken for "TTL is configurable".
+  - `CreateLoginRoleResponse = z.object({ role: z.string().min(1), password: z.string().min(1), ttl_seconds: z.number().int().min(1) })` — exported for both runtime validation and TypeScript inference. **Note**: the `ttl_seconds` constraint `min(1)` mirrors upstream's OpenAPI `minimum: 1`; supastack's runtime value is always **300** (research.md Decision 2). Add an inline TS comment `// Wire schema mirrors upstream's openapi minimum; supastack always returns 300 — see TTL_SECONDS in cli-login-role-service.ts` so the looser-than-runtime constraint isn't mistaken for "TTL is configurable".
   - `DeleteLoginRolesResponse = z.object({ message: z.literal('ok') })` — Zod literal so any drift from `"ok"` fails the contract test.
 
 ---
@@ -59,7 +59,7 @@
 
 **Goal**: Ship the `POST /v1/projects/:ref/cli/login-role` endpoint end-to-end for the read-write path (`read_only: false`) — the exact contract the upstream `supabase` CLI binary calls when no `SUPABASE_DB_PASSWORD` or `--password` is supplied.
 
-**Independent Test**: From a fresh shell with `unset SUPABASE_DB_PASSWORD`, run `supabase --profile selfbase.toml link --project-ref $REF && supabase db push --include-all` against a live selfbase deployment. Confirm zero password prompts and the migration applies. Then `psql` into the per-project DB and confirm exactly one `cli_login_postgres` role exists with `rolvaliduntil` in the recent past. (Maps to spec User Story 1 Acceptance Scenarios 1–4.)
+**Independent Test**: From a fresh shell with `unset SUPABASE_DB_PASSWORD`, run `supabase --profile supastack.toml link --project-ref $REF && supabase db push --include-all` against a live supastack deployment. Confirm zero password prompts and the migration applies. Then `psql` into the per-project DB and confirm exactly one `cli_login_postgres` role exists with `rolvaliduntil` in the recent past. (Maps to spec User Story 1 Acceptance Scenarios 1–4.)
 
 ### Service layer (read-write path)
 
@@ -126,11 +126,11 @@
   - Open `psql` connection using the returned creds → run `SET SESSION ROLE postgres; SELECT 1;` → assert exit 0.
   - Sleep 320s (TTL + 20s grace) → reconnect with the same password → assert exit non-zero with stderr matching `28P01|password authentication failed`.
   - Inspect `pg_roles` for `cli_login_postgres` → assert exactly one row, `rolvaliduntil < now()`.
-  - Standard `tests/cli-e2e/` env-var prelude per existing patterns (`SELFBASE_APEX`, `SELFBASE_PAT`, `SELFBASE_PROJECT_REF`, `SELFBASE_DB_SUPERUSER_PASSWORD`).
+  - Standard `tests/cli-e2e/` env-var prelude per existing patterns (`SUPASTACK_APEX`, `SUPASTACK_PAT`, `SUPASTACK_PROJECT_REF`, `SUPASTACK_DB_SUPERUSER_PASSWORD`).
 
 - [X] T014 [US1] Restructure `tests/cli-e2e/db-push.sh` into the dual-pass harness from spec FR-011:
   - Wrap the existing 8 steps in a `run_full_workflow()` shell function parameterised by `WITH_PASSWORD` (1 or 0).
-  - When `WITH_PASSWORD=1`: keep `--password "$SELFBASE_DB_PASSWORD"` and `SUPABASE_DB_PASSWORD=…` exactly as today.
+  - When `WITH_PASSWORD=1`: keep `--password "$SUPASTACK_DB_PASSWORD"` and `SUPABASE_DB_PASSWORD=…` exactly as today.
   - When `WITH_PASSWORD=0`: drop `--password` from every CLI invocation, `unset SUPABASE_DB_PASSWORD` for the function's scope.
   - At the end of the script: `WITH_PASSWORD=1 run_full_workflow && WITH_PASSWORD=0 run_full_workflow`. Either failure fails the script.
   - In Pass B, after step 4 (`db push`) succeeds, add an inline `psql` assertion that `pg_roles` shows `cli_login_postgres` exists with `rolvaliduntil < now()` (the 5-min window elapsed since the last endpoint call).
@@ -300,7 +300,7 @@ T014 ─► T014b ──┬─► T015 [US2]
 
 1. **Iteration 1 — MVP** (US1 only):
    - Land Phase 1 + Phase 2 + T007–T014 + T014b in one PR. Hides behind no flag — the endpoint is a new path so it's inert until the CLI calls it.
-   - Confirm `tests/cli-e2e/db-push.sh` (Pass B) goes green against the live VM, including the new `migration fetch` + `migration repair` round-trip steps from T014b. This is the moment selfbase achieves Cloud parity for password-less `db push`.
+   - Confirm `tests/cli-e2e/db-push.sh` (Pass B) goes green against the live VM, including the new `migration fetch` + `migration repair` round-trip steps from T014b. This is the moment supastack achieves Cloud parity for password-less `db push`.
 
 2. **Iteration 2 — Regression guard + read-only + lockdown** (US2 + US3 + DELETE):
    - Land T015, T016, T017–T019, T020–T023 in one PR (or two if the changes get too wide to review). All build on the Iteration 1 service file.

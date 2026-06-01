@@ -22,7 +22,7 @@ Migrate the entire `apps/web` frontend from inline-`style` objects and a typed-t
 
 **Testing**: `vitest` (existing). Visual parity validated by manual walkthrough of the 11 routes. Build + typecheck (`tsc --noEmit`) run after every page-level migration step (FR-012).
 
-**Target Platform**: Modern evergreen browsers (Chrome/Edge/Safari/Firefox latest 2 versions). The deployed bundle is served by Caddy from the `selfbase-web` container.
+**Target Platform**: Modern evergreen browsers (Chrome/Edge/Safari/Firefox latest 2 versions). The deployed bundle is served by Caddy from the `supastack-web` container.
 
 **Project Type**: SPA dashboard (single Vite-built React app), single-package within a pnpm workspace.
 

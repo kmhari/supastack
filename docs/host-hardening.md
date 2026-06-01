@@ -1,8 +1,8 @@
 # Host Hardening
 
-Selfbase runs as a Docker stack on a single Ubuntu VM. The platform secures itself (TLS, RBAC, envelope-encrypted secrets, per-instance Postgres isolation) but it does **not** audit or harden the underlying host — that's the operator's responsibility.
+Supastack runs as a Docker stack on a single Ubuntu VM. The platform secures itself (TLS, RBAC, envelope-encrypted secrets, per-instance Postgres isolation) but it does **not** audit or harden the underlying host — that's the operator's responsibility.
 
-If you're running selfbase on a production VM and care about compliance, the upstream Supabase organization publishes three small standalone tools you can run alongside selfbase. None of them are installed or wrapped by selfbase; you run them at your own discretion, on your own schedule, against your own host.
+If you're running supastack on a production VM and care about compliance, the upstream Supabase organization publishes three small standalone tools you can run alongside supastack. None of them are installed or wrapped by supastack; you run them at your own discretion, on your own schedule, against your own host.
 
 ## Tools
 
@@ -38,7 +38,7 @@ sudo ./generate-sbom.sh > sbom.json
 
 ## Notes
 
-- These tools operate at the **host OS level**, not against the selfbase stack. They won't audit your provisioned Supabase instances, your Postgres data, or your Caddy config.
+- These tools operate at the **host OS level**, not against the supastack stack. They won't audit your provisioned Supabase instances, your Postgres data, or your Caddy config.
 - Run them as `root` (or via `sudo`) — they need to read protected files and config.
-- They are not on a release cadence tied to selfbase. Check each upstream repo for the latest version before each audit cycle.
-- For selfbase-specific operational concerns (wildcard TLS renewal, pooler drift, master-key rotation), see the per-feature runbooks under [`docs/changes/`](./changes).
+- They are not on a release cadence tied to supastack. Check each upstream repo for the latest version before each audit cycle.
+- For supastack-specific operational concerns (wildcard TLS renewal, pooler drift, master-key rotation), see the per-feature runbooks under [`docs/changes/`](./changes).

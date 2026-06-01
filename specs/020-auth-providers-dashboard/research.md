@@ -8,7 +8,7 @@ Resolves the 5 open questions identified in `plan.md`. Each entry: **Decision / 
 
 ## R-001: GoTrue env-var names for the 141 newly-honored fields
 
-**Decision**: Map each promoted field to its `GOTRUE_*` env-var as documented in upstream `gotrue`'s `internal/conf/configuration.go` struct tags. The selfbase template uses two naming conventions side-by-side: full `GOTRUE_*` names (preferred for new fields) and shortened legacy aliases (`GOOGLE_ENABLED` → `GOTRUE_EXTERNAL_GOOGLE_ENABLED`) for the 3 already-wired providers. We keep the legacy short-alias pattern for the 3 existing providers (no churn) and use full names for the 19 new providers + 37 mailer + 7 rate-limit + 20 sessions/password/webauthn-rp/passkey/api/db/smtp-misc fields.
+**Decision**: Map each promoted field to its `GOTRUE_*` env-var as documented in upstream `gotrue`'s `internal/conf/configuration.go` struct tags. The supastack template uses two naming conventions side-by-side: full `GOTRUE_*` names (preferred for new fields) and shortened legacy aliases (`GOOGLE_ENABLED` → `GOTRUE_EXTERNAL_GOOGLE_ENABLED`) for the 3 already-wired providers. We keep the legacy short-alias pattern for the 3 existing providers (no churn) and use full names for the 19 new providers + 37 mailer + 7 rate-limit + 20 sessions/password/webauthn-rp/passkey/api/db/smtp-misc fields.
 
 **Rationale**: Pinning to a single GoTrue version (`supabase/gotrue:vX.Y.Z`, exact tag in `infra/supabase-template/versions.md`) means env-var names are stable. A few `mailer_notifications_*` fields (introduced in recent GoTrue versions) may not be present in the pinned image; those flip from `honored` to `stored_only` with a `reason: "requires GoTrue image bump — see #65"`. Final count of `honored` may land at 160–165 depending on the image-vs-flag check during implementation (tracked as a TODO in tasks.md, not a spec change — the SC-003 target of 165 has a ±5 tolerance documented here).
 
@@ -34,10 +34,10 @@ Resolves the 5 open questions identified in `plan.md`. Each entry: **Decision / 
 
 **Decision**: Poll the control-plane `GET /v1/projects/:ref` endpoint and read its `status` field; the dashboard toast flips to success when `status === 'running'` AND the per-instance kong's `/auth/v1/health` returns 200 within the same poll window. Use exponential backoff: 500ms, 1s, 2s, 4s (cap), max 60s total before timing out.
 
-**Rationale**: The per-instance auth container's `/auth/v1/health` is exposed via kong at `https://<ref>.<apex>/auth/v1/health` and is fast (< 50ms when healthy). The control-plane status is the authoritative selfbase-side signal; combining both protects against the race where docker says the container is up but GoTrue's HTTP server hasn't bound yet.
+**Rationale**: The per-instance auth container's `/auth/v1/health` is exposed via kong at `https://<ref>.<apex>/auth/v1/health` and is fast (< 50ms when healthy). The control-plane status is the authoritative supastack-side signal; combining both protects against the race where docker says the container is up but GoTrue's HTTP server hasn't bound yet.
 
 **Alternatives considered**:
-- Poll only `/auth/v1/health` → rejected; doesn't catch the case where the container failed to start and selfbase already marked it `errored`.
+- Poll only `/auth/v1/health` → rejected; doesn't catch the case where the container failed to start and supastack already marked it `errored`.
 - Poll only the control-plane status → rejected; the status flips to `running` as soon as docker reports healthy, which can be a few seconds before GoTrue actually serves requests.
 - Server-sent events / websocket → rejected; overkill for a 30s poll; the api doesn't have an SSE harness today.
 
@@ -63,7 +63,7 @@ Resolves the 5 open questions identified in `plan.md`. Each entry: **Decision / 
 
 **Alternatives considered**:
 - Keeping `security_manual_linking_enabled` as `stored_only` and hiding the toggle → rejected; Cloud parity demands the toggle, and the promotion is free.
-- Adding `allow_manual_linking` as a selfbase-only alias → rejected; would diverge from the upstream contract that `supabase config update` already exercises.
+- Adding `allow_manual_linking` as a supastack-only alias → rejected; would diverge from the upstream contract that `supabase config update` already exercises.
 
 ---
 

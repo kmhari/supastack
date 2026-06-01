@@ -1,6 +1,6 @@
 # Phase 0 Research: Supabase CLI Compatibility — P0
 
-**Feature**: `003-supabase-cli-compat-p0` | **Date**: 2026-05-22 | **Sources**: empirical CLI trace; `/tmp/supabase-cli` (upstream v2.72.7 source); existing selfbase code
+**Feature**: `003-supabase-cli-compat-p0` | **Date**: 2026-05-22 | **Sources**: empirical CLI trace; `/tmp/supabase-cli` (upstream v2.72.7 source); existing supastack code
 
 Every decision below has been emitted from either a direct grep of the upstream CLI source or an HTTP trace against an unmodified `supabase` binary. Where a question is still empirically open, it's marked **PENDING-TRACE** and points at the active background trace agent that's resolving it.
 
@@ -10,7 +10,7 @@ Every decision below has been emitted from either a direct grep of the upstream 
 
 **Decision**: Emit `sbp_<40 lowercase hex chars>` as the plaintext token. Continue storing **SHA-256 of plaintext** in `apiTokens.tokenSha256` (already the case). Add a small `prefix` column to the table (`text NOT NULL`, the first 12 chars of the plaintext, e.g. `sbp_e4cebad5`) so the dashboard's token list can display a stable, non-reversible label per token.
 
-**Rationale**: The upstream CLI hard-validates tokens with `^sbp_(oauth_)?[a-f0-9]{40}$` in `apps/cli-go/internal/utils/access_token.go:16`. Tokens that don't match never enter the keyring and never hit the wire. We already had a `sb_<hex64>` format from selfbase's pre-CLI lineage; we're swapping the prefix and shortening the random portion to fit. 20 bytes of entropy is still 160 bits — far above any meaningful collision/guess threshold — so the security posture is unchanged. SHA-256 at-rest matches our existing schema; no migration of hashing logic.
+**Rationale**: The upstream CLI hard-validates tokens with `^sbp_(oauth_)?[a-f0-9]{40}$` in `apps/cli-go/internal/utils/access_token.go:16`. Tokens that don't match never enter the keyring and never hit the wire. We already had a `sb_<hex64>` format from supastack's pre-CLI lineage; we're swapping the prefix and shortening the random portion to fit. 20 bytes of entropy is still 160 bits — far above any meaningful collision/guess threshold — so the security posture is unchanged. SHA-256 at-rest matches our existing schema; no migration of hashing logic.
 
 **Alternatives considered**:
 - *Keep `sb_<hex64>` and reject for the CLI*: rules out the entire feature.
@@ -58,7 +58,7 @@ Every decision below has been emitted from either a direct grep of the upstream 
 **Storage layout per instance** (after either path completes):
 
 ```
-/var/selfbase/instances/<ref>/volumes/functions/
+/var/supastack/instances/<ref>/volumes/functions/
 ├── main/index.ts            # router, ships from supabase-template, eszip-aware (see below)
 ├── <slug>/
 │   ├── bundle.eszip         # iff deployed via eszip path
@@ -128,15 +128,15 @@ Every decision below has been emitted from either a direct grep of the upstream 
 
 - *Implement the eszip path as P0*: requires either (a) confirming `supabase/edge-runtime:v1.71.2` can load `.eszip` files via its existing `main` router (untested), or (b) decoding eszip server-side back to source files (we'd vendor a Go-or-Rust eszip decoder, a non-trivial dependency for the P0 blast radius). Defer to P1.
 - *Implement BOTH paths in P0*: doubles the surface area for the same end-state. Pick the simpler one first; ship.
-- *Reject `--use-api` and force users to install Docker for bundling*: works against the user's reason for asking — `selfbase` users may be on stripped CI runners without Docker. Doesn't fly.
+- *Reject `--use-api` and force users to install Docker for bundling*: works against the user's reason for asking — `supastack` users may be on stripped CI runners without Docker. Doesn't fly.
 
 **Action items**:
 
 - `apps/api/src/services/function-deploy.ts`:
-  - Accept multipart at `POST /v1/projects/:ref/functions/deploy?slug=<slug>`. Stream every `file` part to `/tmp/selfbase-uploads/<request-id>/<filename>` (paths preserve relative structure with the upload root as parent).
+  - Accept multipart at `POST /v1/projects/:ref/functions/deploy?slug=<slug>`. Stream every `file` part to `/tmp/supastack-uploads/<request-id>/<filename>` (paths preserve relative structure with the upload root as parent).
   - Parse `metadata` part as JSON, validate with Zod (`.passthrough()` per R-010).
-  - On success of all parts, atomically `mv` the upload directory into `/var/selfbase/instances/<ref>/volumes/functions/<slug>/` (replacing the prior version if any). Take a backup snapshot of the prior version first for rollback.
-  - Trigger `dockerControl.restart('selfbase-<ref>-functions-1')` and `waitHealthy` (5s budget per R-003).
+  - On success of all parts, atomically `mv` the upload directory into `/var/supastack/instances/<ref>/volumes/functions/<slug>/` (replacing the prior version if any). Take a backup snapshot of the prior version first for rollback.
+  - Trigger `dockerControl.restart('supastack-<ref>-functions-1')` and `waitHealthy` (5s budget per R-003).
   - Insert/update the `project_functions` row (per data-model.md) inside the same DB transaction that wraps the file-mv. Roll back both on restart failure.
   - Respond `201` with the `DeployFunctionResponse` shape (required fields plus `verify_jwt`, `entrypoint_path`, `created_at`, `updated_at` for skip-no-change support; `ezbr_sha256` from the bundle's SHA256).
 
@@ -145,7 +145,7 @@ Every decision below has been emitted from either a direct grep of the upstream 
   - Mount `PUT /v1/projects/:ref/functions` (bulk update) — accept a `BulkUpdateFunctionBody` array, return it back unchanged (with our canonical fields) since we already stored each function in the per-function POST.
   - Mount `GET /v1/projects/:ref/functions`, `GET .../functions/:slug/body`, `DELETE .../functions/:slug` for list/download/delete.
 
-- **For the eszip path (out of P0)**: return 501 from `POST /v1/projects/:ref/functions` and `PATCH /v1/projects/:ref/functions/:slug` with content-type `application/vnd.denoland.eszip`. The error envelope identifies it as "Selfbase requires `--use-api` for function deploys in this version."
+- **For the eszip path (out of P0)**: return 501 from `POST /v1/projects/:ref/functions` and `PATCH /v1/projects/:ref/functions/:slug` with content-type `application/vnd.denoland.eszip`. The error envelope identifies it as "Supastack requires `--use-api` for function deploys in this version."
 
 - **Connect-CLI dashboard page** copy: include `--use-api` in the example invocation. Make it part of the canonical command users copy.
 
@@ -153,7 +153,7 @@ Every decision below has been emitted from either a direct grep of the upstream 
 
 ## R-003 — Container reload mechanism for new/changed functions
 
-**Decision**: Trigger a **graceful container restart** of the per-instance `functions` container after every successful deploy/delete. Use the existing `@selfbase/docker-control` dockerode wrapper. Restart is initiated synchronously from inside the deploy request handler, and the handler does not return success to the CLI until the container reports healthy. Hard budget: 5 seconds (with a 2-second typical observed).
+**Decision**: Trigger a **graceful container restart** of the per-instance `functions` container after every successful deploy/delete. Use the existing `@supastack/docker-control` dockerode wrapper. Restart is initiated synchronously from inside the deploy request handler, and the handler does not return success to the CLI until the container reports healthy. Hard budget: 5 seconds (with a 2-second typical observed).
 
 **Rationale**: The upstream self-hosted docs explicitly recommend `docker compose restart functions --no-deps` as the deploy reload step. The runtime supports this — its boot is fast (~1-2s typical). The container ships no documented HMR/SIGHUP API, and probing for one is fragile (we'd be relying on un-released runtime behavior). Restart is the boring, supported, documented path.
 
@@ -165,14 +165,14 @@ The 5s budget plus 1-2s observed leaves 8-12s under our 15s first-deploy SLO (SC
 - *Use a separate "deploy worker" process to manage the restart*: unnecessary indirection for a sub-5s operation. The Fastify request handler can do this synchronously.
 
 **Action items**:
-- `function-deploy.ts`: after writing files, call `dockerControl.restart('selfbase-<ref>-functions-1')` and `dockerControl.waitHealthy(...)` with a 5s timeout.
+- `function-deploy.ts`: after writing files, call `dockerControl.restart('supastack-<ref>-functions-1')` and `dockerControl.waitHealthy(...)` with a 5s timeout.
 - Failure path: if the restart times out or the container becomes unhealthy, roll back the file write (move the new files aside and restore the prior `.eszip` if it existed), restart again, and return 500 with a deploy-rolled-back error envelope.
 
 ---
 
 ## R-004 — Secret propagation without function redeploy (FR-014, FR-018, SC-005)
 
-**Decision**: Write secrets as plain `KEY=value` lines into the per-instance `.env` file at `/var/selfbase/instances/<ref>/.env`, then **restart the `functions` container only** (not the entire stack) so the runtime picks up the new env. Encrypt the same values at rest in the control-plane DB (`project_secrets` table, master-key-encrypted blob) so the dashboard can show the redacted list and we can rebuild the `.env` after disaster recovery.
+**Decision**: Write secrets as plain `KEY=value` lines into the per-instance `.env` file at `/var/supastack/instances/<ref>/.env`, then **restart the `functions` container only** (not the entire stack) so the runtime picks up the new env. Encrypt the same values at rest in the control-plane DB (`project_secrets` table, master-key-encrypted blob) so the dashboard can show the redacted list and we can rebuild the `.env` after disaster recovery.
 
 **Rationale**: The edge-runtime container is configured via Docker Compose's `environment:` section, which means env vars are injected from `.env` substitution at container creation time. There is no documented way to add env vars to a running Deno process. Restart is the only path.
 
@@ -192,7 +192,7 @@ Restarting only the `functions` container (not the whole stack) is in-budget —
 
 ## R-005 — Reserved secret names (FR-019)
 
-**Decision**: Maintain an in-code allowlist-by-rejection: any secret name that matches one of the values selfbase already writes into the per-instance `.env` is refused. Concretely (verified against `infra/supabase-template/docker-compose.yml`):
+**Decision**: Maintain an in-code allowlist-by-rejection: any secret name that matches one of the values supastack already writes into the per-instance `.env` is refused. Concretely (verified against `infra/supabase-template/docker-compose.yml`):
 
 ```
 ANON_KEY, SERVICE_ROLE_KEY, JWT_SECRET, SUPABASE_URL, SUPABASE_PUBLIC_URL,
@@ -209,7 +209,7 @@ Plus a regex guard: secret names must match `^[A-Z][A-Z0-9_]{0,63}$` (POSIX env-
 **Rationale**: These are the variables the runtime depends on for its own operation; overwriting any of them risks crashing the function container or, worse, silently substituting bogus credentials. The list is short, finite, and reviewable. We choose allowlist-by-rejection over silent shadowing because the spec (FR-019) demands explicit refusal.
 
 **Alternatives considered**:
-- *Namespace-prefix every user secret (e.g., `USER_FOO`)*: violates upstream CLI compatibility — the cloud doesn't do this and users would have to read selfbase-specific docs to translate names. Reject.
+- *Namespace-prefix every user secret (e.g., `USER_FOO`)*: violates upstream CLI compatibility — the cloud doesn't do this and users would have to read supastack-specific docs to translate names. Reject.
 - *Allow overwrites and trust the user*: doesn't survive contact with users who name a secret `JWT_SECRET` thinking they're configuring their own JWT lib. The runtime crash that results is painful and inscrutable.
 
 **Action items**:
@@ -238,9 +238,9 @@ One catch: the existing auth.ts grants tokens the user's effective role at looku
 
 ## R-007 — Multipart body parsing
 
-**Decision**: Add `@fastify/multipart` as a backend dependency, configured with a 50 MB hard limit per part and a 5-file max. Stream the file part to a tempfile under `/tmp/selfbase-uploads/` (the api container's tmpfs), then atomically move it to the per-instance volume only after the metadata part has parsed cleanly.
+**Decision**: Add `@fastify/multipart` as a backend dependency, configured with a 50 MB hard limit per part and a 5-file max. Stream the file part to a tempfile under `/tmp/supastack-uploads/` (the api container's tmpfs), then atomically move it to the per-instance volume only after the metadata part has parsed cleanly.
 
-**Rationale**: Standard Fastify pattern. Streaming-to-tempfile means we never hold a 50 MB buffer in memory, atomic move means partial uploads never leave a corrupt eszip in the runtime's load path, and the 50 MB cap protects the disk against a malicious PAT trying to fill `/var/selfbase`.
+**Rationale**: Standard Fastify pattern. Streaming-to-tempfile means we never hold a 50 MB buffer in memory, atomic move means partial uploads never leave a corrupt eszip in the runtime's load path, and the 50 MB cap protects the disk against a malicious PAT trying to fill `/var/supastack`.
 
 **Alternatives considered**:
 - *Use Busboy directly*: more code for the same outcome. `@fastify/multipart` wraps Busboy under the hood.
@@ -259,7 +259,7 @@ One catch: the existing auth.ts grants tokens the user's effective role at looku
 **Rationale**: The CLI's generated client deserializes errors by reading `message` first; missing field crashes the parser with a Go reflect error (we saw this in our earlier trace: `json: cannot unmarshal object into Go value of type []api.SecretResponse`). The cloud envelope is minimal and well-documented in their OpenAPI spec.
 
 **Alternatives considered**:
-- *Use selfbase's existing dashboard error envelope (`{ "error": { "code", "message" } }`)*: not parseable by the CLI; would force every CLI consumer to see "unexpected error retrieving X" generic messages.
+- *Use supastack's existing dashboard error envelope (`{ "error": { "code", "message" } }`)*: not parseable by the CLI; would force every CLI consumer to see "unexpected error retrieving X" generic messages.
 - *Return RFC 7807 problem-details*: also not what the CLI parses. Reject.
 
 **Action items**:
@@ -269,7 +269,7 @@ One catch: the existing auth.ts grants tokens the user's effective role at looku
 
 ## R-009 — Connect-CLI dashboard helper endpoints
 
-**Decision**: Add two helper endpoints under `/api/v1/cli/` (selfbase's internal dashboard surface, not the new `/v1/` management surface):
+**Decision**: Add two helper endpoints under `/api/v1/cli/` (supastack's internal dashboard surface, not the new `/v1/` management surface):
 
 - `GET /api/v1/cli/profile.toml` — returns the TOML snippet pre-filled with the deployment's `api_url` (`https://api.<apex>`), `dashboard_url`, and `project_host` (`<apex>`). Content-Type `text/plain`. Auth: session cookie required.
 - `POST /api/v1/cli/mint-token` — convenience endpoint that calls `mintApiToken` with a default label like `"CLI on <hostname>"` and returns `{ token, label }`. Same as creating a token through the Tokens UI, but one click; the dashboard's Connect-CLI page calls it.
@@ -288,11 +288,11 @@ One catch: the existing auth.ts grants tokens the user's effective role at looku
 
 ## R-010 — Compatibility with future upstream CLI changes (FR-023)
 
-**Decision**: Use **permissive request parsing** (Zod `.passthrough()` on every request body schema in `packages/shared/src/schemas.ts`) so unknown new fields the CLI starts sending are ignored, not rejected. Use **conservative response emission**: omit (don't null) every optional field selfbase doesn't model. Don't add fields to responses unless the CLI is observed to need them.
+**Decision**: Use **permissive request parsing** (Zod `.passthrough()` on every request body schema in `packages/shared/src/schemas.ts`) so unknown new fields the CLI starts sending are ignored, not rejected. Use **conservative response emission**: omit (don't null) every optional field supastack doesn't model. Don't add fields to responses unless the CLI is observed to need them.
 
 **Rationale**: The upstream CLI evolves on a release cadence we don't control. The CLI's generated client uses `json:"…,omitempty"` on most struct fields and tolerates extra fields in JSON responses (Go's default `encoding/json` behavior). The combination of permissive in / conservative out is the standard tactic for clients you don't own.
 
-We accept that some new fields (e.g., a `signing_key` field returned by `GET /v1/projects/:ref/api-keys`) may eventually be required for new commands to work. That's a future-work problem; the deal is selfbase tracks the CLI and adds fields as the CLI starts requiring them, not preemptively.
+We accept that some new fields (e.g., a `signing_key` field returned by `GET /v1/projects/:ref/api-keys`) may eventually be required for new commands to work. That's a future-work problem; the deal is supastack tracks the CLI and adds fields as the CLI starts requiring them, not preemptively.
 
 **Alternatives considered**:
 - *Strict request validation*: would break the moment the CLI adds an optional field.
@@ -300,7 +300,7 @@ We accept that some new fields (e.g., a `signing_key` field returned by `GET /v1
 
 **Action items**:
 - Zod schemas in `packages/shared/src/schemas.ts` for every P0 endpoint, with `.passthrough()` on request bodies.
-- Document the policy in `contracts/management-api.yaml` as an `x-selfbase-compat-policy` extension.
+- Document the policy in `contracts/management-api.yaml` as an `x-supastack-compat-policy` extension.
 
 ---
 
@@ -317,7 +317,7 @@ We accept that some new fields (e.g., a `signing_key` field returned by `GET /v1
 **Rationale**: Tier 3 is the only thing that catches actual CLI-shape drift. Tier 2 catches our schema mistakes. Tier 1 catches everything else cheaply. Tier 3 stays opt-in (not in PR-time CI) because the bundling Docker pull is heavy and flaky on cloud CI; we'd rather have a fast green-light loop and a separate slower compatibility job that gates merges to main once a day.
 
 **Alternatives considered**:
-- *No E2E*: leaves the whole compatibility story untested in selfbase's repo. Reject — this is the spec's primary deliverable.
+- *No E2E*: leaves the whole compatibility story untested in supastack's repo. Reject — this is the spec's primary deliverable.
 - *Mock the CLI in our tests*: defeats the purpose.
 
 **Action items**:

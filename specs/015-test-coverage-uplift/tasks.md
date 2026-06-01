@@ -25,7 +25,7 @@ This feature is intrinsically about tests, so every implementation task **is** a
 
 **Goal**: every (role, action) cell in the RBAC matrix and every exported zod schema is exercised by unit tests.
 
-**Independent test**: `pnpm --filter @selfbase/shared exec vitest run --coverage` reports ≥80% statements.
+**Independent test**: `pnpm --filter @supastack/shared exec vitest run --coverage` reports ≥80% statements.
 
 - [X] T010 [P] [US1] RBAC matrix iteration test at `packages/shared/tests/rbac.test.ts` — iterate `rbacMatrix` from `packages/shared/src/rbac.ts`; assert every (role, action) cell via `can(role, action)`; assert that every action used by `apps/api` route handlers exists in the matrix (import-time check)
 - [X] T011 [P] [US1] Zod schemas test at `packages/shared/tests/schemas.test.ts` covering exports from `packages/shared/src/schemas.ts` and `packages/shared/src/schemas/` — one accept + ≥1 reject per documented constraint with `expected_error_path` assertions
@@ -34,7 +34,7 @@ This feature is intrinsically about tests, so every implementation task **is** a
 - [X] T014 [P] [US1] State machine transition test at `packages/shared/tests/state-machine.test.ts` covering `packages/shared/src/state-machine.ts` — assert every allowed transition + reject every disallowed transition
 - [X] T015 [P] [US1] Errors test at `packages/shared/tests/errors.test.ts` covering exported error classes in `packages/shared/src/errors.ts` — code, status, envelope shape
 - [X] T016 [P] [US1] Reserved-secrets test at `packages/shared/tests/reserved-secrets.test.ts` covering `packages/shared/src/reserved-secrets.ts` — every key in `reserved-secrets.json` is reported reserved; non-reserved sample is not
-- [X] T017 [US1] Confirm `packages/shared` ≥80% statements by running `pnpm --filter @selfbase/shared exec vitest run --coverage` and recording the result **and wall-clock duration** in `specs/015-test-coverage-uplift/results.md` (SC-007)
+- [X] T017 [US1] Confirm `packages/shared` ≥80% statements by running `pnpm --filter @supastack/shared exec vitest run --coverage` and recording the result **and wall-clock duration** in `specs/015-test-coverage-uplift/results.md` (SC-007)
 
 ---
 
@@ -89,12 +89,12 @@ This feature is intrinsically about tests, so every implementation task **is** a
 
 **Goal**: migration runner (idempotency) and port allocator (uniqueness, range, concurrency) covered. Uses the existing pg-based pattern in `packages/db/tests/`.
 
-**Independent test**: `pnpm --filter @selfbase/db exec vitest run --coverage` reports ≥70% statements.
+**Independent test**: `pnpm --filter @supastack/db exec vitest run --coverage` reports ≥70% statements.
 
 - [X] T050 [P] [US4] Extend `packages/db/tests/migration-idempotency.test.ts` to cover the full current migration set (every file in `packages/db/migrations/`), asserting the second run produces zero schema diff (SC-005)
 - [X] T051 [P] [US4] Extend `packages/db/tests/port-allocator.test.ts` with a concurrency block — 16 concurrent allocators, assert unique results within configured range; also assert behavior at range boundary
 - [X] T052 [P] [US4] Migration runner internals test at `packages/db/tests/migration-runner-internals.test.ts` — pure helpers (file ordering, checksum/skip logic) exercised in isolation
-- [X] T053 [US4] Confirm `packages/db` ≥70% statements by running `pnpm --filter @selfbase/db exec vitest run --coverage` and appending the result **and wall-clock duration** to `specs/015-test-coverage-uplift/results.md` (SC-007)
+- [X] T053 [US4] Confirm `packages/db` ≥70% statements by running `pnpm --filter @supastack/db exec vitest run --coverage` and appending the result **and wall-clock duration** to `specs/015-test-coverage-uplift/results.md` (SC-007)
 
 ---
 

@@ -5,7 +5,7 @@ import { isEszipMagic } from '../../src/services/function-deploy.js';
  * T003a (c): eszip magic-byte check.
  *
  * The default `supabase functions deploy` path uploads a raw eszip body with
- * `Content-Type: application/vnd.denoland.eszip`. Selfbase MUST validate the
+ * `Content-Type: application/vnd.denoland.eszip`. Supastack MUST validate the
  * `ESZIP` magic header before persisting to disk, otherwise a stray multipart
  * boundary or a JSON body sent with the wrong content-type would land at
  * `volumes/functions/<slug>/bundle.eszip` and crash the runtime on next load.

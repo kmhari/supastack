@@ -60,7 +60,7 @@ jobs:
   # ─── Feature 021 — Dashboard browser-level e2e tests ───────────────────────
   #
   # Spins up postgres + redis via docker compose, runs the api + web as Node
-  # processes (with SELFBASE_TEST_FAKE_DOCKER=1 so per-instance provisioning
+  # processes (with SUPASTACK_TEST_FAKE_DOCKER=1 so per-instance provisioning
   # is mocked), then runs Playwright against the local dashboard. Captures
   # screenshots + traces on failure and uploads them as a build artifact.
   e2e:
@@ -84,7 +84,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: pnpm --filter @selfbase/web exec playwright install --with-deps chromium
+        run: pnpm --filter @supastack/web exec playwright install --with-deps chromium
 
       - name: Generate test stack secrets
         id: secrets
@@ -96,22 +96,22 @@ jobs:
           SVB=$(openssl rand -hex 32)
           SVV=$(openssl rand -hex 16)
           cat > infra/.env <<EOF
-          SELFBASE_APEX=test.local
-          SELFBASE_PUBLIC_IP=
-          SELFBASE_VERSION=dev
+          SUPASTACK_APEX=test.local
+          SUPASTACK_PUBLIC_IP=
+          SUPASTACK_VERSION=dev
           MASTER_KEY=${MK}
           CONTROL_DB_PASSWORD=${DB_PW}
           SESSION_SECRET=${SS}
           COOKIE_SECURE=0
           LOG_LEVEL=warn
           ACME_DIRECTORY_URL=
-          STUDIO_IMAGE=selfbase/studio:latest
+          STUDIO_IMAGE=supastack/studio:latest
           SUPAVISOR_API_JWT_SECRET=${SVA}
           SUPAVISOR_SECRET_KEY_BASE=${SVB}
           SUPAVISOR_VAULT_ENC_KEY=${SVV}
           EOF
           # Export for use by the api/web boot steps below
-          echo "DATABASE_URL=postgres://selfbase:${DB_PW}@localhost:5432/selfbase" >> $GITHUB_ENV
+          echo "DATABASE_URL=postgres://supastack:${DB_PW}@localhost:5432/supastack" >> $GITHUB_ENV
           echo "REDIS_URL=redis://localhost:6379" >> $GITHUB_ENV
           echo "CONTROL_DB_PASSWORD=${DB_PW}" >> $GITHUB_ENV
           echo "MASTER_KEY=${MK}" >> $GITHUB_ENV
@@ -122,7 +122,7 @@ jobs:
           cd infra
           sudo docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml up -d db redis
           # Wait for postgres to accept connections
-          until sudo docker exec selfbase-db-1 pg_isready -U selfbase >/dev/null 2>&1; do
+          until sudo docker exec supastack-db-1 pg_isready -U supastack >/dev/null 2>&1; do
             echo "waiting for postgres..."; sleep 2
           done
           # Confirm host port bindings
@@ -130,7 +130,7 @@ jobs:
 
       - name: Run api in background
         env:
-          SELFBASE_TEST_FAKE_DOCKER: '1'
+          SUPASTACK_TEST_FAKE_DOCKER: '1'
           NODE_ENV: development
           COOKIE_SECURE: '0'
           LOG_LEVEL: info
@@ -140,7 +140,7 @@ jobs:
           # watching (it adds spurious restarts), and we want stdout flushed
           # immediately. Use plain `tsx` and unbuffered output.
           NODE_OPTIONS="--enable-source-maps" \
-            pnpm --filter @selfbase/api exec tsx src/server.ts \
+            pnpm --filter @supastack/api exec tsx src/server.ts \
               > /tmp/api.log 2>&1 &
           API_PID=$!
           echo "API_PID=$API_PID" >> $GITHUB_ENV
@@ -174,7 +174,7 @@ jobs:
 
       - name: Run web dev server in background
         run: |
-          pnpm --filter @selfbase/web dev > /tmp/web.log 2>&1 &
+          pnpm --filter @supastack/web dev > /tmp/web.log 2>&1 &
           echo "WEB_PID=$!" >> $GITHUB_ENV
           until curl -fsS http://localhost:5173 >/dev/null 2>&1; do
             if ! kill -0 $! 2>/dev/null; then
@@ -189,7 +189,7 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:5173
           CI: '1'
-        run: pnpm --filter @selfbase/web test:e2e
+        run: pnpm --filter @supastack/web test:e2e
 
       - name: Upload Playwright report on failure
         if: failure()
@@ -221,7 +221,7 @@ jobs:
                 `Run locally:\n` +
                 '```bash\n' +
                 'cd infra && sudo docker compose --env-file .env up -d db redis\n' +
-                'SELFBASE_TEST_FAKE_DOCKER=1 pnpm dev\n' +
-                'pnpm --filter @selfbase/web test:e2e\n' +
+                'SUPASTACK_TEST_FAKE_DOCKER=1 pnpm dev\n' +
+                'pnpm --filter @supastack/web test:e2e\n' +
                 '```'
             });

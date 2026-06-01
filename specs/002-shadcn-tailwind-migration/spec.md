@@ -12,7 +12,7 @@
 
 ### User Story 1 — Existing pages keep working with a unified component system (Priority: P1)
 
-A user signs in and uses the Selfbase dashboard exactly as before: lists projects, creates a project, opens a project detail page, manages backups, edits org settings, invites members, mints tokens, reviews the audit log. They notice no functional regressions but the screens feel more polished and visually consistent. The whole frontend is now built from a single component library with predictable interactions (focus states, keyboard navigation, hover transitions, disabled states) and a single styling system.
+A user signs in and uses the Supastack dashboard exactly as before: lists projects, creates a project, opens a project detail page, manages backups, edits org settings, invites members, mints tokens, reviews the audit log. They notice no functional regressions but the screens feel more polished and visually consistent. The whole frontend is now built from a single component library with predictable interactions (focus states, keyboard navigation, hover transitions, disabled states) and a single styling system.
 
 **Why this priority**: This is the only outcome that delivers value end-to-end. Until every existing page uses the new system, the codebase is in a worse state than before (two styling paradigms living side by side). A user must see no regressions and a developer must encounter no inline color/spacing hardcoded into pages.
 

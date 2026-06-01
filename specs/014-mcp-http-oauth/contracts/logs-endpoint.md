@@ -59,7 +59,7 @@ Wire shape matches upstream `getLogs` handler's return shape (the upstream MCP s
 3. Resolve instance row → confirm status `running`.
 4. Decrypt `encryptedSecrets.logflareApiKey` via `loadMasterKey()`.
 5. Construct query (verbatim `sql` OR `service` + time-range default).
-6. `fetch('http://selfbase-<ref>-analytics-1:4000/api/endpoints/logs.all', { headers: { 'X-API-KEY': logflareApiKey }, body: { sql } })` (Logflare API).
+6. `fetch('http://supastack-<ref>-analytics-1:4000/api/endpoints/logs.all', { headers: { 'X-API-KEY': logflareApiKey }, body: { sql } })` (Logflare API).
 7. Forward Logflare's JSON response under `result` field.
 
 ## Error responses

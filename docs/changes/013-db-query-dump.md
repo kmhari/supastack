@@ -1,7 +1,7 @@
 # Feature 013 — `db query` + `db dump` Management API endpoints
 
 **Branch**: `013-db-query-dump`
-**Closes**: [#36](https://github.com/kmhari/selfbase/issues/36) — unblocks 1 CLI command + 3 MCP tools per [#37](https://github.com/kmhari/selfbase/issues/37)
+**Closes**: [#36](https://github.com/kmhari/supastack/issues/36) — unblocks 1 CLI command + 3 MCP tools per [#37](https://github.com/kmhari/supastack/issues/37)
 **Spec**: [specs/013-db-query-dump/spec.md](../../specs/013-db-query-dump/spec.md)
 **Plan**: [specs/013-db-query-dump/plan.md](../../specs/013-db-query-dump/plan.md)
 
@@ -65,11 +65,11 @@ Existing projects keep their current setting (PG default `0` = unlimited unless 
 # 1. Dump the source
 supabase db dump --linked --no-owner --no-privileges > /tmp/source.sql
 
-# 2. Provision a fresh selfbase project (via dashboard or /api/v1/instances)
+# 2. Provision a fresh supastack project (via dashboard or /api/v1/instances)
 
 # 3. Restore via direct PG connection to the new project
 NEW_REF=<new-ref>
-NEW_PW=$(grep POSTGRES_PASSWORD /var/selfbase/instances/${NEW_REF}/.env | cut -d= -f2)
+NEW_PW=$(grep POSTGRES_PASSWORD /var/supastack/instances/${NEW_REF}/.env | cut -d= -f2)
 psql "postgresql://postgres:${NEW_PW}@db.${NEW_REF}.<apex>:5432/postgres" -f /tmp/source.sql
 ```
 
@@ -81,7 +81,7 @@ psql "postgresql://postgres:${NEW_PW}@db.${NEW_REF}.<apex>:5432/postgres" -f /tm
 | `400 read_only_violation` (SQLSTATE 25006)          | `read_only: true` set + write attempted              | Drop `read_only` if write is intentional                                                             |
 | `400 pg_error` SQLSTATE 57014 (`statement timeout`) | Query exceeded `statement_timeout` GUC               | Optimize the query, OR raise the GUC via `supabase postgres-config update --statement-timeout=…`     |
 | `409 project_not_runnable`                          | Project is paused / provisioning / failed            | Wait for status `running` (visible on dashboard)                                                     |
-| `502 pg_dump_failed`                                | pg_dump exited non-zero — see `error.details.stderr` | Usually a transient container issue; retry. If persistent, ssh and `docker logs selfbase-<ref>-db-1` |
+| `502 pg_dump_failed`                                | pg_dump exited non-zero — see `error.details.stderr` | Usually a transient container issue; retry. If persistent, ssh and `docker logs supastack-<ref>-db-1` |
 | `503 pg_connect_failed`                             | Couldn't reach per-project Postgres                  | Check project status; check api container can reach `host.docker.internal:<port>`                    |
 
 ## Implementation notes
@@ -94,7 +94,7 @@ psql "postgresql://postgres:${NEW_PW}@db.${NEW_REF}.<apex>:5432/postgres" -f /tm
 
 ## MCP tools unblocked (SC-007)
 
-The upstream Supabase MCP server's `execute_sql`, `list_tables`, and corrected `apply_migration` tools point at `POST /v1/projects/<ref>/database/query`. With this feature deployed, all three work against selfbase via the unmodified MCP server — no fork, no shim. Verified via Claude Code editor smoke (task T026).
+The upstream Supabase MCP server's `execute_sql`, `list_tables`, and corrected `apply_migration` tools point at `POST /v1/projects/<ref>/database/query`. With this feature deployed, all three work against supastack via the unmodified MCP server — no fork, no shim. Verified via Claude Code editor smoke (task T026).
 
 ## Wire-shape contract
 

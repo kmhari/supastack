@@ -13,7 +13,7 @@ How to run, extend, and debug the browser-test suite.
 pnpm install --frozen-lockfile
 
 # Install Chromium for Playwright (one-time per machine)
-pnpm --filter @selfbase/web exec playwright install --with-deps chromium
+pnpm --filter @supastack/web exec playwright install --with-deps chromium
 ```
 
 ---
@@ -30,19 +30,19 @@ You need three terminals:
 
 2. **api + web dev servers**:
    ```bash
-   SELFBASE_TEST_FAKE_DOCKER=1 pnpm dev
+   SUPASTACK_TEST_FAKE_DOCKER=1 pnpm dev
    ```
 
-   The `SELFBASE_TEST_FAKE_DOCKER=1` env var makes the api use the fake docker control — `POST /api/v1/instances` succeeds without spinning up real per-instance containers.
+   The `SUPASTACK_TEST_FAKE_DOCKER=1` env var makes the api use the fake docker control — `POST /api/v1/instances` succeeds without spinning up real per-instance containers.
 
 3. **The Playwright suite**:
    ```bash
-   pnpm --filter @selfbase/web test:e2e
+   pnpm --filter @supastack/web test:e2e
    ```
 
    Or in interactive UI mode (great for debugging):
    ```bash
-   pnpm --filter @selfbase/web test:e2e:ui
+   pnpm --filter @supastack/web test:e2e:ui
    ```
 
 ---
@@ -66,7 +66,7 @@ You need three terminals:
 ```bash
 # 1. Edit ProjectShell.tsx, remove the "Authentication" group
 # 2. Run the suite
-pnpm --filter @selfbase/web test:e2e -- sidebar-nav.spec.ts
+pnpm --filter @supastack/web test:e2e -- sidebar-nav.spec.ts
 # Expected: ❌ test fails with "expected Authentication heading visible, got: null"
 # Screenshot artifact in apps/web/playwright-report/
 ```
@@ -74,7 +74,7 @@ pnpm --filter @selfbase/web test:e2e -- sidebar-nav.spec.ts
 ### Smoke 2 — Auth Providers drawer
 
 ```bash
-pnpm --filter @selfbase/web test:e2e -- auth-providers.spec.ts
+pnpm --filter @supastack/web test:e2e -- auth-providers.spec.ts
 # Expected: ✓ 4 tests pass
 #   ✓ providers list contains expected rows
 #   ✓ Google drawer opens with expected fields
@@ -87,7 +87,7 @@ pnpm --filter @selfbase/web test:e2e -- auth-providers.spec.ts
 ```bash
 # 1. Add a new file apps/web/src/pages/NewFeaturePage.tsx
 # 2. Run the lint
-pnpm --filter @selfbase/web lint:page-coverage
+pnpm --filter @supastack/web lint:page-coverage
 # Expected: ❌ NewFeaturePage.tsx has no browser-test smoke
 ```
 
@@ -96,7 +96,7 @@ pnpm --filter @selfbase/web lint:page-coverage
 ```bash
 # 1. Add a deliberate console.error to ProjectGeneral.tsx
 # 2. Run the suite
-pnpm --filter @selfbase/web test:e2e -- page-smokes.spec.ts
+pnpm --filter @supastack/web test:e2e -- page-smokes.spec.ts
 # Expected: ❌ "page renders: /dashboard/project/{ref}" fails with the console error message
 ```
 
@@ -113,7 +113,7 @@ pnpm --filter @selfbase/web test:e2e -- page-smokes.spec.ts
 ### Smoke 6 — Full suite completes in < 5 minutes
 
 ```bash
-time pnpm --filter @selfbase/web test:e2e
+time pnpm --filter @supastack/web test:e2e
 # Expected: real time < 5m00s
 ```
 
@@ -147,7 +147,7 @@ After a deliberately-broken PR run:
 
 2. **Run the lint to verify**:
    ```bash
-   pnpm --filter @selfbase/web lint:page-coverage
+   pnpm --filter @supastack/web lint:page-coverage
    # Should pass — no message
    ```
 
@@ -183,7 +183,7 @@ When the `e2e` job fails on a PR:
 4. **Common failure modes**:
    - Stale Playwright browser binary in cache → rerun the job (CI re-installs); fixes itself.
    - Race condition between stack-boot and test start → check the "Wait for healthcheck" step; bump the curl-loop timeout if needed.
-   - Real regression → reproduce locally with `pnpm --filter @selfbase/web test:e2e -- <spec-file>`.
+   - Real regression → reproduce locally with `pnpm --filter @supastack/web test:e2e -- <spec-file>`.
 
 ---
 
@@ -198,7 +198,7 @@ sudo docker compose down -v
 sudo docker compose --env-file .env up -d db redis
 
 # Then re-seed admin via pnpm dev's first-run flow
-SELFBASE_TEST_FAKE_DOCKER=1 pnpm dev
+SUPASTACK_TEST_FAKE_DOCKER=1 pnpm dev
 # Visit http://localhost:5173/setup and complete with the seeded admin email/password
 # Or run the suite — the admin-session fixture will auto-setup on first run
 ```

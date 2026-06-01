@@ -18,9 +18,9 @@ After: a single `*.<apex>` + `<apex>` certificate covers everything. Issued via 
 | `/setup` wizard step 4                          | Shows the two TXT records the operator must add at their registrar                                                                                   |
 | `apps/api/src/services/acme.ts`                 | ACME DNS-01 client (acme-client lib) — opens order, retrieves TXT challenges, polls public DNS for propagation, completes validation, downloads cert |
 | `wildcard_certs` table                          | Persists ACME account key + cert + key, PEM-encoded; key encrypted via master key                                                                    |
-| `certs-data` Docker volume                      | Mounted RO into caddy/api/supavisor at `/var/selfbase/certs/<apex>/{cert.pem,key.pem}`                                                               |
+| `certs-data` Docker volume                      | Mounted RO into caddy/api/supavisor at `/var/supastack/certs/<apex>/{cert.pem,key.pem}`                                                               |
 | `apps/api/src/services/cert-check.ts`           | Daily BullMQ job that surfaces a dashboard alert at 30 days remaining                                                                                |
-| Redis pub/sub `selfbase:wildcard-cert:reloaded` | Hot-reload signal — caddy + pg-edge-proxy + supavisor subscribe and re-load the new cert without restart                                             |
+| Redis pub/sub `supastack:wildcard-cert:reloaded` | Hot-reload signal — caddy + pg-edge-proxy + supavisor subscribe and re-load the new cert without restart                                             |
 
 ## Endpoints / surfaces
 

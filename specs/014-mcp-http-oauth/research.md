@@ -24,7 +24,7 @@ All clarifications from spec.md → Clarifications (Session 2026-05-26) are reso
 
 ## Decision 2 — Run MCP as a separate compose service (`apps/mcp`), not embedded in api
 
-**Decision**: New compose service `selfbase-mcp` running on port 3002 inside the container network. Caddy route `mcp.<apex>` → `selfbase-mcp:3002`. Dockerfile based on `node:20-slim`.
+**Decision**: New compose service `supastack-mcp` running on port 3002 inside the container network. Caddy route `mcp.<apex>` → `supastack-mcp:3002`. Dockerfile based on `node:20-slim`.
 
 **Rationale**:
 - Per-session MCP server instances can hold non-trivial state (subscriptions, in-flight tool calls). Memory profile differs from api's request/response shape. Isolation prevents api OOM cascade.
@@ -39,14 +39,14 @@ All clarifications from spec.md → Clarifications (Session 2026-05-26) are reso
 
 ---
 
-## Decision 3 — JWT signing key: HKDF from master key, label `selfbase-oauth-jwt-v1`
+## Decision 3 — JWT signing key: HKDF from master key, label `supastack-oauth-jwt-v1`
 
-**Decision** (per Clarifications Q2): HKDF-SHA256 derive a 32-byte HS256 signing key from `loadMasterKey()` with the byte-string label `selfbase-oauth-jwt-v1`. Algorithm chosen: HS256 (HMAC-SHA256). No DB-stored key.
+**Decision** (per Clarifications Q2): HKDF-SHA256 derive a 32-byte HS256 signing key from `loadMasterKey()` with the byte-string label `supastack-oauth-jwt-v1`. Algorithm chosen: HS256 (HMAC-SHA256). No DB-stored key.
 
 ```ts
 // apps/api/src/services/oauth-jwt.ts
 import { hkdfSync } from 'node:crypto';
-const SIGNING_KEY = hkdfSync('sha256', loadMasterKey(), Buffer.alloc(0), 'selfbase-oauth-jwt-v1', 32);
+const SIGNING_KEY = hkdfSync('sha256', loadMasterKey(), Buffer.alloc(0), 'supastack-oauth-jwt-v1', 32);
 ```
 
 **Rationale**:
@@ -63,7 +63,7 @@ const SIGNING_KEY = hkdfSync('sha256', loadMasterKey(), Buffer.alloc(0), 'selfba
 
 ## Decision 4 — Revocation propagation: Redis set keyed by `jti`
 
-**Decision** (per Clarifications Q3): Every issued access token includes a `jti` claim (UUID v4). On revoke, `SET selfbase:oauth:revoked:<jti> "1" EX <remaining_seconds>` in the existing api Redis instance. Every authenticated request (api `/v1/*` + MCP `/mcp`) does `EXISTS selfbase:oauth:revoked:<jti>` before processing — return 401 if present.
+**Decision** (per Clarifications Q3): Every issued access token includes a `jti` claim (UUID v4). On revoke, `SET supastack:oauth:revoked:<jti> "1" EX <remaining_seconds>` in the existing api Redis instance. Every authenticated request (api `/v1/*` + MCP `/mcp`) does `EXISTS supastack:oauth:revoked:<jti>` before processing — return 401 if present.
 
 **Rationale**:
 - ~1ms per request — well under the 100ms target.
@@ -87,7 +87,7 @@ Rate limit: 10 registrations per IP per hour (mitigates abuse). Per-client metad
 **Rationale**:
 - Matches what MCP spec expects clients to do.
 - Eliminates the maintenance burden of tracking each client's official OAuth client_id (which we'd assign anyway, defeating the trust signal).
-- Consent UI shows the operator the `client_name` + `redirect_uris` from the DCR submission — operator's responsibility to spot fakes (selfbase is a single-operator-org product; the threat model is light).
+- Consent UI shows the operator the `client_name` + `redirect_uris` from the DCR submission — operator's responsibility to spot fakes (supastack is a single-operator-org product; the threat model is light).
 
 **Alternatives considered**:
 - Hybrid (seed top 4 clients) — rejected per Q4 (we can't issue trust signals for clients whose identity we don't actually verify).
@@ -100,7 +100,7 @@ Rate limit: 10 registrations per IP per hour (mitigates abuse). Per-client metad
 **Decision** (per Clarifications Q5): One container, in-memory session map keyed by `mcp-session-id` header. Idle TTL 30 minutes. Process restart = all sessions drop (MCP clients reconnect, opening fresh sessions transparently).
 
 **Rationale**:
-- Matches selfbase's single-VM topology.
+- Matches supastack's single-VM topology.
 - SC-009 capacity (20 concurrent sessions @ <150 MiB) easily fits in process.
 - Sessions hold MCP server instance + transport; rebuilding on reconnect is cheap (~10ms).
 - Future option: if scale demands, swap the in-memory session map for a Redis-backed one (matches the revocation-list architecture).
@@ -113,7 +113,7 @@ Rate limit: 10 registrations per IP per hour (mitigates abuse). Per-client metad
 
 ## Decision 7 — Authorize-time identity check: reuse dashboard session cookie
 
-**Decision**: The `GET /v1/oauth/authorize` endpoint reads the existing selfbase dashboard session cookie. If no valid session, redirect to the dashboard login page (passing the entire authorize URL as a `next` query param), then bounce back to authorize on successful login.
+**Decision**: The `GET /v1/oauth/authorize` endpoint reads the existing supastack dashboard session cookie. If no valid session, redirect to the dashboard login page (passing the entire authorize URL as a `next` query param), then bounce back to authorize on successful login.
 
 **Implementation**:
 - The authorize endpoint is rendered server-side (Fastify returns HTML) OR redirects to a React route in the web app. Either works; we'll pick based on which is less code (probably server-side simple HTML — fewer integration points).
@@ -126,28 +126,28 @@ Rate limit: 10 registrations per IP per hour (mitigates abuse). Per-client metad
 
 **Alternatives considered**:
 - Separate username/password form on the authorize page — rejected (duplicates dashboard login; awkward UX).
-- OIDC-style passive auth check (silent iframe) — overkill for selfbase's single-org model.
+- OIDC-style passive auth check (silent iframe) — overkill for supastack's single-org model.
 
 ---
 
 ## Decision 8 — Status enum translation: introduce a thin mapping layer in `/v1/projects/*` responses
 
-**Decision** (per FR-036): Add a single helper `mapSelfbaseStatusToCloud(status: string): string` that maps selfbase's internal enum (`running`, `paused`, `provisioning`, `failed`, `stopped`, `deleting`, `creating`) to Cloud's wire enum (`ACTIVE_HEALTHY`, `INACTIVE`, `COMING_UP`, `UNKNOWN`, `INACTIVE`, `REMOVED`, `COMING_UP`). Apply at every `/v1/projects/*` response boundary (list_projects, get_project, pause_project response, restore_project response).
+**Decision** (per FR-036): Add a single helper `mapSupastackStatusToCloud(status: string): string` that maps supastack's internal enum (`running`, `paused`, `provisioning`, `failed`, `stopped`, `deleting`, `creating`) to Cloud's wire enum (`ACTIVE_HEALTHY`, `INACTIVE`, `COMING_UP`, `UNKNOWN`, `INACTIVE`, `REMOVED`, `COMING_UP`). Apply at every `/v1/projects/*` response boundary (list_projects, get_project, pause_project response, restore_project response).
 
 **Rationale**:
-- Without this, MCP and CLI clients see selfbase-native enum values they don't know how to interpret.
+- Without this, MCP and CLI clients see supastack-native enum values they don't know how to interpret.
 - Cloud's enum is the wire-shape contract; we owe consumers this translation.
 - Single helper = single point of update if Cloud adds a new status value.
 
 **Alternatives considered**:
-- Change selfbase's internal enum to match Cloud — too disruptive; affects existing dashboard code, audit logs, etc.
-- Pass-through selfbase enum + rely on consumers to handle "UNKNOWN" — breaks the wire-compat goal.
+- Change supastack's internal enum to match Cloud — too disruptive; affects existing dashboard code, audit logs, etc.
+- Pass-through supastack enum + rely on consumers to handle "UNKNOWN" — breaks the wire-compat goal.
 
 ---
 
 ## Decision 9 — Logflare forwarding: HTTP GET against the analytics container
 
-**Decision**: `GET /v1/projects/:ref/analytics/endpoints/logs.all` resolves the per-project analytics container address (`selfbase-<ref>-analytics-1:4000` internally), forwards the SQL query (either constructed from `service` + time-range params or passed verbatim via `sql=`), authenticates with the per-project Logflare API key.
+**Decision**: `GET /v1/projects/:ref/analytics/endpoints/logs.all` resolves the per-project analytics container address (`supastack-<ref>-analytics-1:4000` internally), forwards the SQL query (either constructed from `service` + time-range params or passed verbatim via `sql=`), authenticates with the per-project Logflare API key.
 
 **Per-project Logflare key storage**: We currently DO store a `logflareApiKey` field on `supabase_instances.encryptedSecrets` (verified during research — the analytics container needs it for ingestion at startup). The forwarder decrypts via existing master-key helpers.
 
@@ -172,16 +172,16 @@ Rate limit: 10 registrations per IP per hour (mitigates abuse). Per-client metad
 
 ## Decision 10 — Storage bucket listing: reverse-proxy with service-role JWT swap
 
-**Decision**: `GET /v1/projects/:ref/storage/buckets` reverse-proxies `GET selfbase-<ref>-storage-1:5000/bucket`. The proxy strips the client's PAT/OAuth Bearer and substitutes a freshly-minted per-project service-role JWT (24-hour TTL, cached) signed with the per-project JWT secret stored in `encryptedSecrets`.
+**Decision**: `GET /v1/projects/:ref/storage/buckets` reverse-proxies `GET supastack-<ref>-storage-1:5000/bucket`. The proxy strips the client's PAT/OAuth Bearer and substitutes a freshly-minted per-project service-role JWT (24-hour TTL, cached) signed with the per-project JWT secret stored in `encryptedSecrets`.
 
 **Rationale**:
-- The storage container's REST API trusts JWT Bearer tokens signed with the project's JWT secret. It doesn't know about selfbase PATs or our OAuth tokens.
+- The storage container's REST API trusts JWT Bearer tokens signed with the project's JWT secret. It doesn't know about supastack PATs or our OAuth tokens.
 - Service-role JWT minting is the same pattern used by the existing reveal-credentials infrastructure.
 - 24-hour caching of the minted JWT avoids re-signing on every request (negligible compute but reduces noise in logs).
 
 **Alternatives considered**:
 - Query storage's underlying DB tables directly (`storage.buckets`) — couples us to internals; the HTTP API is the stable contract.
-- Forward the operator's selfbase JWT — storage doesn't trust it.
+- Forward the operator's supastack JWT — storage doesn't trust it.
 
 ---
 
@@ -207,7 +207,7 @@ All 5 questions from spec.md Session 2026-05-26 are addressed:
 | Clarification | Resolution |
 |---|---|
 | Access-token TTL | 1h access + 30-day refresh (matches Cloud gotrue defaults) |
-| JWT signing key | HKDF from master key, label `selfbase-oauth-jwt-v1` (Decision 3) |
+| JWT signing key | HKDF from master key, label `supastack-oauth-jwt-v1` (Decision 3) |
 | Revocation propagation | Redis set keyed by `jti`, ≤100ms (Decision 4) |
 | Client registration | DCR-only, no pre-registered allow-list (Decision 5) |
 | MCP horizontal scalability | Single replica, in-process sessions (Decision 6) |

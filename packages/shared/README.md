@@ -1,4 +1,4 @@
-# @selfbase/shared
+# @supastack/shared
 
 Shared types, schemas, RBAC, and the structured logger.
 
@@ -33,7 +33,7 @@ operations) and the worker (refuses to act on stale rows).
 ## Logger
 
 ```ts
-import { logger, makeLogger } from '@selfbase/shared';
+import { logger, makeLogger } from '@supastack/shared';
 logger.info({ ref: 'abc' }, 'instance provisioned');
 const child = makeLogger({ service: 'worker', job: 'backup' });
 ```

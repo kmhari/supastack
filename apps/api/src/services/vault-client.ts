@@ -2,7 +2,7 @@
  * Per-project Postgres client + vault.* helpers.
  *
  * Opens a short-lived `pg.Client` to host.docker.internal:<port_db_direct>
- * as supabase_admin, runs `fn(client)`, closes. Selfbase pattern: never hold
+ * as supabase_admin, runs `fn(client)`, closes. Supastack pattern: never hold
  * long-lived connections per project in the api (operator-driven calls are
  * infrequent; per-request connect overhead ~10–30ms is acceptable).
  *
@@ -10,12 +10,12 @@
  * Decision 2 (vault.* helpers).
  */
 
-import { Client } from 'pg';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
+import { db, schema } from '@supastack/db';
+import { logger } from '@supastack/shared/logger';
 import { eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
-import { decryptJson, loadMasterKey } from '@selfbase/crypto';
+import { Client } from 'pg';
 import type { InstanceSecrets } from './instance-secrets.js';
-import { logger } from '@selfbase/shared/logger';
 
 const log = logger.child({ service: 'vault-client' });
 

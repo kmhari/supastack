@@ -3,7 +3,7 @@
 **Feature**: 012-cli-login-role
 **Date**: 2026-05-25
 
-This document resolves the open architecture/implementation questions before contracts are written. Each decision is the result of either an upstream source-code reading, a Postgres-behaviour check, or a deliberate selfbase posture pick documented in the spec's Clarifications section.
+This document resolves the open architecture/implementation questions before contracts are written. Each decision is the result of either an upstream source-code reading, a Postgres-behaviour check, or a deliberate supastack posture pick documented in the spec's Clarifications section.
 
 ---
 
@@ -128,7 +128,7 @@ SC-005 acceptance criterion targets ≥128 bits; this provides 256.
 
 **Alternatives considered**:
 - *No lock, accept the race* — rejected; while functionally correct (Postgres atomicity guarantees only one final password wins), it surfaces a confusing intermediate state where role existence and password validity could briefly disagree.
-- *Application-level mutex in the api container* — rejected; doesn't work across api replicas if/when selfbase scales horizontally; PG advisory locks are correct at any scale.
+- *Application-level mutex in the api container* — rejected; doesn't work across api replicas if/when supastack scales horizontally; PG advisory locks are correct at any scale.
 - *Row-level lock on `pg_authid`* — rejected; not allowed (system catalogs can't be `FOR UPDATE`-locked from user SQL).
 
 ---
@@ -138,10 +138,10 @@ SC-005 acceptance criterion targets ≥128 bits; this provides 256.
 **Decision**: New helper `tryConsume(key: string, limit: number, windowMs: number): boolean` backed by `Map<string, { count: number; windowStart: number }>`. Key is `${patId}:${projectRef}`. On HTTP request, before reaching the service layer, call `tryConsume(key, 30, 60_000)`; if false, respond 429 with `{ message: "rate limit exceeded", code: "rate_limited" }` (matches `packages/shared/src/errors.ts:54`'s existing shape). Bucket TTL keys after 10 minutes of inactivity to prevent unbounded memory growth.
 
 **Rationale**:
-- Selfbase's deploy model is single-VM (one api replica) — a process-local bucket is correct.
+- Supastack's deploy model is single-VM (one api replica) — a process-local bucket is correct.
 - The Fastify `@fastify/rate-limit` plugin exists and is well-tested, but its default keying strategy is per-IP, not per-PAT. The plugin can be configured to use a custom key function, but the additional dependency for what amounts to a 40-line helper isn't justified. We keep the dependency footprint small.
 - 60-second sliding window with discrete count is simpler than true sliding-window-log and more than adequate at 30/min — the worst-case error vs an exact sliding window is one window's worth of slack (≤30 extra calls just after the window flips), which is harmless at this scale.
-- If selfbase later scales to multiple api replicas, this helper is swapped for a Redis token bucket (`INCR + EXPIRE` pattern). The interface stays the same.
+- If supastack later scales to multiple api replicas, this helper is swapped for a Redis token bucket (`INCR + EXPIRE` pattern). The interface stays the same.
 
 **Alternatives considered**:
 - *`@fastify/rate-limit` plugin* — works but adds a dependency for marginal value.
@@ -171,7 +171,7 @@ req.log.info(
 DELETE emits `event: 'cli_login_role_invalidated'` with the same shape minus `scope` (DELETE invalidates both roles).
 
 **Rationale**:
-- The api container already initialises Fastify's request logger with pino — `event` is the discriminator field operators use to filter (same pattern used elsewhere in selfbase, e.g., `event: 'cert_renewal_due'`).
+- The api container already initialises Fastify's request logger with pino — `event` is the discriminator field operators use to filter (same pattern used elsewhere in supastack, e.g., `event: 'cert_renewal_due'`).
 - No new logger configuration; the existing log pipeline carries this to wherever operators already ship their logs (stdout → docker → operator's choice).
 - Spec FR-013 ratifies this format.
 
@@ -196,12 +196,12 @@ DELETE emits `event: 'cli_login_role_invalidated'` with the same shape minus `sc
 
 ---
 
-## Decision 11 — Pooler interaction: no selfbase-side change needed
+## Decision 11 — Pooler interaction: no supastack-side change needed
 
-**Decision**: Do nothing special on the selfbase pooler (top-level Supavisor at `pooler.<apex>:6543`) — let the upstream CLI's existing `initPoolerLogin` backoff/retry loop (`apps/cli-go/internal/utils/flags/db_url.go:198-209`) handle any sub-second propagation lag.
+**Decision**: Do nothing special on the supastack pooler (top-level Supavisor at `pooler.<apex>:6543`) — let the upstream CLI's existing `initPoolerLogin` backoff/retry loop (`apps/cli-go/internal/utils/flags/db_url.go:198-209`) handle any sub-second propagation lag.
 
 **Rationale**:
-- Selfbase's top-level Supavisor authenticates against the per-project Postgres on-demand using credentials from its tenant configuration — it doesn't keep a per-role credential cache. When the CLI presents the rotated password, Supavisor forwards the SCRAM exchange to the underlying PG, which reads the freshly-written `pg_authid` row and authenticates successfully.
+- Supastack's top-level Supavisor authenticates against the per-project Postgres on-demand using credentials from its tenant configuration — it doesn't keep a per-role credential cache. When the CLI presents the rotated password, Supavisor forwards the SCRAM exchange to the underlying PG, which reads the freshly-written `pg_authid` row and authenticates successfully.
 - Verified against Supavisor's pass-through model in the existing pooler-reconciler code path — there's no role-name allowlist or credential snapshot that would need invalidation.
 - The CLI's `initPoolerLogin` does up to ~6 retry attempts with exponential backoff. Even if the SCRAM exchange races the password write by milliseconds, the retry covers it.
 
@@ -238,5 +238,5 @@ These were considered and intentionally NOT pinned in the spec/plan; the impleme
 ## Cross-references
 
 - Spec: [spec.md](./spec.md) — Clarifications Q1–Q4 record the upstream-verified TTL, role architecture, rate limit, and audit decisions.
-- Issue: [#31](https://github.com/kmhari/selfbase/issues/31)
+- Issue: [#31](https://github.com/kmhari/supastack/issues/31)
 - Upstream artefacts: `supabase/cli` PR #3885; `apps/cli-go/internal/utils/flags/queries/role.sql`; `apps/cli-go/internal/utils/connect.go:200-220`; `apps/cli-go/internal/utils/flags/db_url.go:123-209`.

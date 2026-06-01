@@ -68,6 +68,6 @@ describe('validateSecretName', () => {
     expect(RESERVED_SECRET_NAMES).toContain('SUPABASE_SERVICE_ROLE_KEY');
     expect(RESERVED_SECRET_NAMES).toContain('SUPABASE_DB_URL');
     expect(RESERVED_SECRET_NAMES).toContain('SB_REF');
-    expect(RESERVED_SECRET_NAMES).toContain('SELFBASE_VAULT_TTL_MS');
+    expect(RESERVED_SECRET_NAMES).toContain('SUPASTACK_VAULT_TTL_MS');
   });
 });

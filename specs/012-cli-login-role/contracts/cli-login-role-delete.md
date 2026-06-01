@@ -2,7 +2,7 @@
 
 **Feature**: 012-cli-login-role
 **Upstream source of truth**: `api.supabase.com/api/v1-json` (snapshot pinned at [`upstream-openapi-snapshot.json`](./upstream-openapi-snapshot.json))
-**Selfbase handler**: `apps/api/src/routes/management/cli-login-role.ts` (same file as the create handler — Phase 2)
+**Supastack handler**: `apps/api/src/routes/management/cli-login-role.ts` (same file as the create handler — Phase 2)
 
 ## Purpose
 
@@ -41,7 +41,7 @@ None. The endpoint takes no request body.
 
 The response shape is fixed to `{ message: "ok" }` per upstream `V1DeleteLoginRolesOutput = Schema.Struct({ message: Schema.Literal("ok") })` (verified at `/tmp/supabase-cli/packages/api/src/generated/contracts.ts:1086`).
 
-The HTTP status is 200, not 204. (Matches upstream — also matches selfbase's existing convention of always sending JSON envelopes from `/v1/*`.)
+The HTTP status is 200, not 204. (Matches upstream — also matches supastack's existing convention of always sending JSON envelopes from `/v1/*`.)
 
 ## Response — error cases
 
@@ -103,4 +103,4 @@ A second DELETE call immediately after the first is a no-op SQL-wise but still r
 
 ## Compatibility note
 
-Upstream's OpenAPI defines this endpoint (`v1-delete-login-roles`, path `/v1/projects/{ref}/cli/login-role`, response schema `V1DeleteLoginRolesOutput = { message: "ok" }`). The current upstream `supabase` CLI binary doesn't call DELETE in its primary flow today (PR #3885 only added the POST-driven password rotation; cleanup relies on TTL expiry), but it exists as an operator/automation hook. Selfbase shipping it in the same PR keeps the surface symmetric with Cloud's and gives operators the manual lockdown lever the spec FR-002 calls out.
+Upstream's OpenAPI defines this endpoint (`v1-delete-login-roles`, path `/v1/projects/{ref}/cli/login-role`, response schema `V1DeleteLoginRolesOutput = { message: "ok" }`). The current upstream `supabase` CLI binary doesn't call DELETE in its primary flow today (PR #3885 only added the POST-driven password rotation; cleanup relies on TTL expiry), but it exists as an operator/automation hook. Supastack shipping it in the same PR keeps the surface symmetric with Cloud's and gives operators the manual lockdown lever the spec FR-002 calls out.

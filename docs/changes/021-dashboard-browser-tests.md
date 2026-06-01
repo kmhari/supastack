@@ -34,7 +34,7 @@ First-time setup (run once per dev machine):
 
 ```bash
 pnpm install
-pnpm --filter @selfbase/web exec playwright install --with-deps chromium
+pnpm --filter @supastack/web exec playwright install --with-deps chromium
 ```
 
 Day-to-day:
@@ -45,30 +45,30 @@ cd infra
 sudo docker compose --env-file .env up -d db redis
 
 # Terminal 2 — api + web dev servers
-SELFBASE_TEST_FAKE_DOCKER=1 pnpm dev
+SUPASTACK_TEST_FAKE_DOCKER=1 pnpm dev
 
 # Terminal 3 — run the suite
-pnpm --filter @selfbase/web test:e2e
+pnpm --filter @supastack/web test:e2e
 
 # Or open the interactive UI for debugging
-pnpm --filter @selfbase/web test:e2e:ui
+pnpm --filter @supastack/web test:e2e:ui
 ```
 
 Run a single spec:
 
 ```bash
-pnpm --filter @selfbase/web test:e2e -- sidebar-nav.spec.ts
-pnpm --filter @selfbase/web test:e2e -- auth-providers.spec.ts
-pnpm --filter @selfbase/web test:e2e -- page-smokes.spec.ts
+pnpm --filter @supastack/web test:e2e -- sidebar-nav.spec.ts
+pnpm --filter @supastack/web test:e2e -- auth-providers.spec.ts
+pnpm --filter @supastack/web test:e2e -- page-smokes.spec.ts
 ```
 
-## What `SELFBASE_TEST_FAKE_DOCKER=1` does
+## What `SUPASTACK_TEST_FAKE_DOCKER=1` does
 
-When set, the api installs a stub at `globalThis.__selfbaseFakeDockerControl` that no-ops `restart` and `waitHealthy`. This means `POST /api/v1/instances` (project creation) succeeds without actually spinning up per-instance docker stacks — every browser test that needs a project gets one in ~1 second instead of ~30. Production builds with the env var unset are unaffected.
+When set, the api installs a stub at `globalThis.__supastackFakeDockerControl` that no-ops `restart` and `waitHealthy`. This means `POST /api/v1/instances` (project creation) succeeds without actually spinning up per-instance docker stacks — every browser test that needs a project gets one in ~1 second instead of ~30. Production builds with the env var unset are unaffected.
 
 ## What the coverage lint does
 
-`pnpm lint` (or `pnpm --filter @selfbase/web lint:page-coverage` standalone) runs `apps/web/scripts/check-page-coverage.mjs`:
+`pnpm lint` (or `pnpm --filter @supastack/web lint:page-coverage` standalone) runs `apps/web/scripts/check-page-coverage.mjs`:
 
 1. Lists files under `apps/web/src/pages/*.tsx` matching the dashboard-page name convention.
 2. Reads `EXPECTED_PAGES` + `EXCLUDED_PAGES` from `apps/web/tests/e2e/expected-pages.ts`.
@@ -111,7 +111,7 @@ Three failure modes verified during T024:
 2. **Run the lint** to verify:
 
    ```bash
-   pnpm --filter @selfbase/web lint:page-coverage
+   pnpm --filter @supastack/web lint:page-coverage
    # ✓ check-page-coverage: 22 dashboard-page files all covered or excluded
    ```
 
@@ -126,7 +126,7 @@ The `e2e` job in `.github/workflows/ci.yml`:
 1. Triggers on every `pull_request` and `push` to main
 2. Spins up postgres + redis via docker compose
 3. Generates fresh secrets via `openssl rand -hex`
-4. Boots api + web (with `SELFBASE_TEST_FAKE_DOCKER=1`)
+4. Boots api + web (with `SUPASTACK_TEST_FAKE_DOCKER=1`)
 5. Polls both healthchecks
 6. Runs the full Playwright suite
 7. On failure: uploads screenshots + traces + api/web logs as a build artifact, posts a PR comment with the run link and local-repro command
@@ -168,9 +168,9 @@ Listed in spec §Out of Scope; each may become its own future feature if motivat
 
 **The admin fixture says "could not obtain admin session"** — the api isn't running OR the api can't reach the DB. Check `lsof -i :3001` and `docker compose ps`.
 
-**The test-project fixture errors with "could not create test project"** — `SELFBASE_TEST_FAKE_DOCKER=1` isn't set on the api process. Without it, the create call tries to spin a real per-instance stack and times out.
+**The test-project fixture errors with "could not create test project"** — `SUPASTACK_TEST_FAKE_DOCKER=1` isn't set on the api process. Without it, the create call tries to spin a real per-instance stack and times out.
 
-**Suite says "browser not installed"** — run `pnpm --filter @selfbase/web exec playwright install --with-deps chromium`.
+**Suite says "browser not installed"** — run `pnpm --filter @supastack/web exec playwright install --with-deps chromium`.
 
 **Tests pass locally but fail in CI** — most likely a timing issue. Increase the per-test timeout in `playwright.config.ts` or add an explicit `await expect(...).toBeVisible({ timeout: N })`.
 

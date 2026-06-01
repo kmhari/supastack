@@ -1,8 +1,8 @@
+import { db } from '@supastack/db';
+import { sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { Redis } from 'ioredis';
 import { fetch } from 'undici';
-import { sql } from 'drizzle-orm';
-import { db } from '@selfbase/db';
 
 const CADDY_ADMIN_URL = process.env.CADDY_ADMIN_URL ?? 'http://caddy:2019';
 
@@ -41,7 +41,7 @@ async function probeCaddy(): Promise<void> {
   // CI's e2e job runs the api on the GitHub runner host with only db + redis
   // in docker — no caddy container. Treat caddy as "not applicable" when the
   // fake-docker test hook is engaged, so /health returns 200 instead of 503.
-  if (process.env.SELFBASE_TEST_FAKE_DOCKER === '1') return;
+  if (process.env.SUPASTACK_TEST_FAKE_DOCKER === '1') return;
   // Caddy 2.7+ admin origin check — include Origin matching the configured list.
   const res = await fetch(`${CADDY_ADMIN_URL}/config/`, {
     headers: { origin: CADDY_ADMIN_URL },

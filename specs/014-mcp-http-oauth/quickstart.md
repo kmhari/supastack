@@ -1,19 +1,19 @@
 # Quickstart — 014 MCP HTTP + OAuth 2.1
 
-End-to-end smoke after deploy. Assumes the feature is fully implemented + rsync'd to `/opt/selfbase` + redeployed.
+End-to-end smoke after deploy. Assumes the feature is fully implemented + rsync'd to `/opt/supastack` + redeployed.
 
 ## Setup (one-time per VM)
 
 ```bash
 # On VM
-cd /opt/selfbase
+cd /opt/supastack
 
 # Run the OAuth tables migration
-sudo docker compose exec api node -e "import('@selfbase/db').then(m => m.migrate(process.env.DATABASE_URL))"
+sudo docker compose exec api node -e "import('@supastack/db').then(m => m.migrate(process.env.DATABASE_URL))"
 
 # Build + deploy the new MCP service alongside api
-sudo docker compose build api selfbase-mcp
-sudo docker compose up -d api selfbase-mcp
+sudo docker compose build api supastack-mcp
+sudo docker compose up -d api supastack-mcp
 
 # Confirm Caddy picked up the mcp.<apex> route
 sudo docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
@@ -24,14 +24,14 @@ DNS prerequisite: `mcp.<apex>` MUST resolve to the same A-record as `api.<apex>`
 ## US1 — Operator OAuth dance + list_projects via MCP
 
 ```bash
-# 1. Operator logs into the selfbase dashboard at https://<apex>/dashboard
+# 1. Operator logs into the supastack dashboard at https://<apex>/dashboard
 #    (this creates the session cookie that the authorize endpoint reads)
 
 # 2. Operator opens any MCP client and pastes the config:
 cat > ~/.claude/mcp.json <<'EOF'
 {
   "mcpServers": {
-    "selfbase": {
+    "supastack": {
       "type": "http",
       "url": "https://mcp.<apex>/mcp"
     }
@@ -150,7 +150,7 @@ Run the OAuth dance from 3+ different MCP clients. Each goes through DCR indepen
 ## Audit log spot-check
 
 ```bash
-ssh ubuntu@148.113.1.164 "sudo docker exec selfbase-db-1 psql -U selfbase -d selfbase \
+ssh ubuntu@148.113.1.164 "sudo docker exec supastack-db-1 psql -U supastack -d supastack \
   -c \"SELECT action, target_kind, target_id, payload->>'client_id' as client, created_at \
        FROM audit_log \
        WHERE action LIKE 'oauth.%' OR action LIKE 'mcp.%' \
@@ -162,14 +162,14 @@ ssh ubuntu@148.113.1.164 "sudo docker exec selfbase-db-1 psql -U selfbase -d sel
 
 ```bash
 # After 20 concurrent OAuth sessions are open (use the smoke script in a loop)
-ssh ubuntu@148.113.1.164 "sudo docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}' selfbase-mcp"
+ssh ubuntu@148.113.1.164 "sudo docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}' supastack-mcp"
 # Expected: < 150 MiB
 ```
 
 ## Log-leak check (SC-008)
 
 ```bash
-ssh ubuntu@148.113.1.164 "sudo docker logs --since 10m selfbase-api-1 selfbase-mcp-1 2>&1 \
+ssh ubuntu@148.113.1.164 "sudo docker logs --since 10m supastack-api-1 supastack-mcp-1 2>&1 \
   | grep -cE 'sbp_[0-9a-f]{40}|eyJ[A-Za-z0-9_-]{60,}'"
 # Expected: 0 — no PAT prefix, no JWT prefix in logs
 ```

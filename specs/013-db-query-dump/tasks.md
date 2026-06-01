@@ -48,7 +48,7 @@
 
 **Purpose**: Docker-socket `pg_dump` exec wrapper. The dump route depends on it. Independent of phase 1.
 
-- [X] T005 [P] Create `apps/api/src/services/pg-dump-exec.ts` per `research.md` Decision 4. Exports `streamPgDump(ref, flags, output, signal): Promise<{ exitCode, bytesWritten }>`. Resolves container name `selfbase-<ref>-db-1`; builds pg_dump args from flags (`--data-only`, `--schema-only`, `--schema=<n>` per schema); execs via Docker socket HTTP API (`/var/run/docker.sock`); pipes stdout to `output` stream; on `signal.aborted`, calls Docker exec kill HTTP endpoint. Pattern: extend `apps/api/src/services/pg-password-reset.ts` (which already uses the Docker socket for exec).
+- [X] T005 [P] Create `apps/api/src/services/pg-dump-exec.ts` per `research.md` Decision 4. Exports `streamPgDump(ref, flags, output, signal): Promise<{ exitCode, bytesWritten }>`. Resolves container name `supastack-<ref>-db-1`; builds pg_dump args from flags (`--data-only`, `--schema-only`, `--schema=<n>` per schema); execs via Docker socket HTTP API (`/var/run/docker.sock`); pipes stdout to `output` stream; on `signal.aborted`, calls Docker exec kill HTTP endpoint. Pattern: extend `apps/api/src/services/pg-password-reset.ts` (which already uses the Docker socket for exec).
 - [X] T006 [P] [TDD] Unit test `apps/api/tests/unit/pg-dump-exec.test.ts` — mock `http.request` against the Docker socket:
   - Happy path: exec start → stdout streamed → exit 0 → return `{ exitCode: 0, bytesWritten }`
   - pg_dump exits non-zero → throws with stderr included (truncated to 1KB)
@@ -141,7 +141,7 @@
   6. Else: set `Content-Type: application/octet-stream`; pipe `streamPgDump` to `reply.raw`; pass `req.raw.signal` (or equivalent AbortSignal from `req.raw.on('aborted', …)` wrapped) into the helper
   7. On success: emit `audit_log` row `instance.db.dump`
 - [X] T019 [US2] Register `dbDumpRoutes` in `apps/api/src/server.ts`.
-- [X] T020 [P] [US2] Extend `tests/cli-e2e/db-query-dump.sh` with US2 section: dry-run, real dump to file, restore round-trip to a fresh project, cancel-mid-stream zombie check, **plus SC-004 memory ceiling**: against a project with ≥100MB of data, run `sudo docker stats --no-stream --format '{{.MemUsage}}' selfbase-api-1` every 1s during the dump (background loop); assert the peak RSS sample stays under 200MB.
+- [X] T020 [P] [US2] Extend `tests/cli-e2e/db-query-dump.sh` with US2 section: dry-run, real dump to file, restore round-trip to a fresh project, cancel-mid-stream zombie check, **plus SC-004 memory ceiling**: against a project with ≥100MB of data, run `sudo docker stats --no-stream --format '{{.MemUsage}}' supastack-api-1` every 1s during the dump (background loop); assert the peak RSS sample stays under 200MB.
 
 ---
 
@@ -151,8 +151,8 @@
 - [X] T022 [P] Create operator runbook `docs/changes/013-db-query-dump.md`: what changed (operators can now run `supabase db query --linked` + `db dump --linked`), MCP tools unblocked, audit-log semantics + the "full SQL text logged by default" note for compliance review, troubleshooting (statement_timeout exceeded → use `supabase postgres-config update --statement-timeout=…`), restore-from-dump recipe.
 - [X] T023 [P] Update release notes / PR description with screenshots from the MCP-tool smoke (Claude Code editor showing `execute_sql` working against the apex).
 - [ ] T024 [P] **POST-DEPLOY** — Audit log spot-check: run a few queries via `supabase db query`; query `audit_log` directly to confirm full SQL text + parameters land + truncation works for >256-byte param values.
-- [ ] T026 [P] **POST-DEPLOY** — **SC-007 MCP-tool smoke** (post-deploy): in a Claude Code / MCP-aware editor pointed at `api.<apex>` with a selfbase admin PAT, invoke `mcp__supabase__execute_sql({ query: "SELECT 1" })` and `mcp__supabase__list_tables({ schemas: ["public"] })` against a live project. Both must succeed without modifications to the upstream Supabase MCP server. Capture a screenshot for the PR description.
-- [ ] T027 [P] **POST-DEPLOY** — **SC-008 log-leak grep** (post-deploy): after running the full quickstart (US1 + US2 commands), run `ssh ubuntu@148.113.1.164 "sudo docker logs --since 5m selfbase-api-1 2>&1 | grep -cE 'sbp_[0-9a-f]{40}'"` → must return `0`. Also grep for representative SQL result strings used in the smoke (e.g., a known email value from `auth.users`) → must return `0`.
+- [ ] T026 [P] **POST-DEPLOY** — **SC-007 MCP-tool smoke** (post-deploy): in a Claude Code / MCP-aware editor pointed at `api.<apex>` with a supastack admin PAT, invoke `mcp__supabase__execute_sql({ query: "SELECT 1" })` and `mcp__supabase__list_tables({ schemas: ["public"] })` against a live project. Both must succeed without modifications to the upstream Supabase MCP server. Capture a screenshot for the PR description.
+- [ ] T027 [P] **POST-DEPLOY** — **SC-008 log-leak grep** (post-deploy): after running the full quickstart (US1 + US2 commands), run `ssh ubuntu@148.113.1.164 "sudo docker logs --since 5m supastack-api-1 2>&1 | grep -cE 'sbp_[0-9a-f]{40}'"` → must return `0`. Also grep for representative SQL result strings used in the smoke (e.g., a known email value from `auth.users`) → must return `0`.
 - [ ] T025 (Follow-up, NOT blocking — DEFERRED to separate PR) Provision-time `statement_timeout = 8000` default — modify `apps/worker/src/jobs/provision.ts` to issue `ALTER DATABASE postgres SET statement_timeout = 8000` after the existing bootstrap. Separate PR; tracked in research.md Decision 8 + spec FR-007 (downgraded to SHOULD).
 
 ---

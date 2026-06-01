@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 let returningRows: Array<{ token: string }> = [];
 const deleteCalls: unknown[] = [];
 
-vi.mock('@selfbase/db', () => ({
+vi.mock('@supastack/db', () => ({
   db: () => ({
     delete: (_t: unknown) => ({
       where: (_w: unknown) => ({

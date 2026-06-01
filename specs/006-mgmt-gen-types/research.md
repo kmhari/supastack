@@ -10,14 +10,14 @@
 
 **Rationale**:
 - The Supabase Cloud generator uses `pg-meta` under the hood — reusing it gives us byte-compat for free.
-- Every selfbase project already ships `pg-meta` in its compose template (it powers Studio's table editor).
+- Every supastack project already ships `pg-meta` in its compose template (it powers Studio's table editor).
 - Re-implementing `information_schema` traversal + TS emission from scratch would be ~1000 LOC of fragile code that has to track upstream pg-meta changes manually.
 
 **Alternatives considered**:
 - **Direct `information_schema` + handwritten TS emitter**: more control, but high maintenance burden + risk of subtle drift from Cloud output.
 - **Spawn `supabase` CLI on the api side and capture its output**: would couple our api to a fork of the CLI; ugly.
 
-**Implementation note**: `pg-meta` is on the internal docker network (`selfbase-<ref>-meta-1`). The api reaches it via `host.docker.internal:<port_meta>` (similar to how the pg-edge-proxy reaches per-instance Postgres). Port mapping needs to be exposed in the supabase_instances row — add `port_meta` column if not already present.
+**Implementation note**: `pg-meta` is on the internal docker network (`supastack-<ref>-meta-1`). The api reaches it via `host.docker.internal:<port_meta>` (similar to how the pg-edge-proxy reaches per-instance Postgres). Port mapping needs to be exposed in the supabase_instances row — add `port_meta` column if not already present.
 
 ---
 
@@ -74,10 +74,10 @@
 
 ## Decision 5: Restore architecture — snapshot-id, not WAL/PITR
 
-**Decision**: Selfbase's restore takes a `backup_id` referring to an existing physical snapshot (from the `backups` table), stops the per-instance Postgres, swaps its data directory with a fresh extraction of the snapshot, and restarts. The endpoint is named `/restore-pitr` for CLI compatibility but the payload differs.
+**Decision**: Supastack's restore takes a `backup_id` referring to an existing physical snapshot (from the `backups` table), stops the per-instance Postgres, swaps its data directory with a fresh extraction of the snapshot, and restarts. The endpoint is named `/restore-pitr` for CLI compatibility but the payload differs.
 
 **Rationale**:
-- Cloud uses continuous WAL streaming for PITR; selfbase doesn't currently capture WAL.
+- Cloud uses continuous WAL streaming for PITR; supastack doesn't currently capture WAL.
 - Snapshot restore matches the granularity we actually have (whatever the backup job took, nightly typically).
 - Naming the endpoint `/restore-pitr` lets the CLI's `supabase backups restore` work unchanged; the CLI sends `recovery_time_target` — we accept it but ignore it in favor of `backup_id` (and document the deviation in the contract).
 
@@ -89,7 +89,7 @@
 
 ## Decision 6: Restore rollback strategy
 
-**Decision**: Before swapping the data dir, the worker takes a filesystem-level snapshot of the existing data dir to a sibling directory (`/var/selfbase/instances/<ref>/volumes/db/data.pre-restore-<job-id>`). If anything in the restore pipeline fails, the worker swaps the original dir back and marks the job `failed`. The pre-restore dir is kept for 24h then garbage-collected.
+**Decision**: Before swapping the data dir, the worker takes a filesystem-level snapshot of the existing data dir to a sibling directory (`/var/supastack/instances/<ref>/volumes/db/data.pre-restore-<job-id>`). If anything in the restore pipeline fails, the worker swaps the original dir back and marks the job `failed`. The pre-restore dir is kept for 24h then garbage-collected.
 
 **Rationale**:
 - FR-021 requires clean rollback. Filesystem-level snapshot is the only reliable way to guarantee bit-exact rollback.

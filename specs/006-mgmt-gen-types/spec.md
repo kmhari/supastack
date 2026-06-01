@@ -18,7 +18,7 @@ Sibling endpoint groups still split out as low-priority issues:
 
 ## Background
 
-selfbase already implements the P0 subset of Supabase's Management API (shipped in feature 003): the endpoints the upstream Supabase CLI calls for `supabase login`, `supabase link`, `supabase functions deploy/list/download/delete`, and `supabase secrets set/list/unset`. Feature 005 unblocked `supabase db push/pull/diff` by exposing per-instance Postgres at `db.<ref>.<apex>:5432` and a multi-tenant pooler at `pooler.<apex>:6543`.
+supastack already implements the P0 subset of Supabase's Management API (shipped in feature 003): the endpoints the upstream Supabase CLI calls for `supabase login`, `supabase link`, `supabase functions deploy/list/download/delete`, and `supabase secrets set/list/unset`. Feature 005 unblocked `supabase db push/pull/diff` by exposing per-instance Postgres at `db.<ref>.<apex>:5432` and a multi-tenant pooler at `pooler.<apex>:6543`.
 
 This feature replaces the `501 not_implemented` response for four more CLI surfaces:
 
@@ -48,7 +48,7 @@ Scoped to US4 (backups list/restore).
 
 A developer is wiring up a TypeScript app against their self-hosted Supabase project. They run `supabase gen types typescript --project-id <ref> --schema public > database.types.ts` and get a TypeScript source file with exact types for every table, view, enum, and function — identical in shape to what Supabase Cloud emits, so the rest of the SDK type ergonomics work unchanged.
 
-**Why this priority**: Highest user demand. Without it, every TypeScript Supabase project on selfbase loses static type safety.
+**Why this priority**: Highest user demand. Without it, every TypeScript Supabase project on supastack loses static type safety.
 
 **Independent Test**: `supabase gen types typescript --project-id <existing-ref>` exits 0, emits valid TypeScript that compiles under `tsc --noEmit`, and includes a `Database` type listing all user tables.
 
@@ -64,7 +64,7 @@ A developer is wiring up a TypeScript app against their self-hosted Supabase pro
 
 ### User Story 2 — Manage database migrations end-to-end from CLI (Priority: P1)
 
-A developer working against a self-hosted selfbase project wants the same migration workflow they'd have against Supabase Cloud: create a new migration locally (`supabase migration new`), push it (`supabase migration up`), list the project's history side-by-side with their local files (`supabase migration list`), repair drift if the history table got out of sync (`supabase migration repair`), or pull the remote history back to local (`supabase migration fetch`). All commands work with only `--project-ref` — no `--db-url` flag required.
+A developer working against a self-hosted supastack project wants the same migration workflow they'd have against Supabase Cloud: create a new migration locally (`supabase migration new`), push it (`supabase migration up`), list the project's history side-by-side with their local files (`supabase migration list`), repair drift if the history table got out of sync (`supabase migration repair`), or pull the remote history back to local (`supabase migration fetch`). All commands work with only `--project-ref` — no `--db-url` flag required.
 
 **Why this priority**: Migration is the canonical day-2 workflow for every Supabase project. Half the operations are local-only, the other half need a small API surface to read and patch the history table.
 
@@ -85,10 +85,10 @@ A developer working against a self-hosted selfbase project wants the same migrat
 
 ### User Story 3 — Import and export SQL editor snippets via CLI (Priority: P3) **— DEFERRED to issue #13**
 
-> **Deferred during implementation**: the spec assumed `/v1/snippets` reads from `user_content.content` on the per-instance Postgres (mirroring Supabase Cloud). Live inspection of a selfbase project showed no such schema — selfbase Studio (OSS Supabase Studio) stores SQL snippets in browser localStorage, not server-side. Implementing the endpoints requires either a new control-plane snippets table + Studio integration, or waiting for upstream OSS Studio to add server-side snippet storage. Tracked in [#13](https://github.com/kmhari/selfbase/issues/13).
+> **Deferred during implementation**: the spec assumed `/v1/snippets` reads from `user_content.content` on the per-instance Postgres (mirroring Supabase Cloud). Live inspection of a supastack project showed no such schema — supastack Studio (OSS Supabase Studio) stores SQL snippets in browser localStorage, not server-side. Implementing the endpoints requires either a new control-plane snippets table + Studio integration, or waiting for upstream OSS Studio to add server-side snippet storage. Tracked in [#13](https://github.com/kmhari/supastack/issues/13).
 >
 
-A developer maintains a collection of useful SQL snippets in the selfbase Studio SQL editor (queries for ops, ad-hoc reports, debugging joins). They want to list them from the CLI for backup or to copy into version control. They run `supabase snippets list` to see all their snippets across projects they have access to, then `supabase snippets download <snippet-id> > my-query.sql` to pull the body of a specific one to disk.
+A developer maintains a collection of useful SQL snippets in the supastack Studio SQL editor (queries for ops, ad-hoc reports, debugging joins). They want to list them from the CLI for backup or to copy into version control. They run `supabase snippets list` to see all their snippets across projects they have access to, then `supabase snippets download <snippet-id> > my-query.sql` to pull the body of a specific one to disk.
 
 **Why this priority**: Niche but cheap. Snippet portability matters for developers who curate a personal query library; it's the difference between a one-off SQL Editor session and a reusable artifact. Implementation is a thin read-only wrapper over the per-instance `user_content` schema that Supabase Studio already populates.
 
@@ -107,12 +107,12 @@ A developer maintains a collection of useful SQL snippets in the selfbase Studio
 
 ### User Story 4 — List and restore backups via CLI (Priority: P2) **— DEFERRED to issue #14**
 
-> **Deferred from feature 006** as the heaviest piece (new restore_jobs entity, async BullMQ worker, filesystem-snapshot rollback, GC, RBAC gate, dynamic timeout, multiple pre-flight checks — ~11 tasks). All design work (FRs, contracts, data model, clarifications) is preserved here for the follow-up implementation. Tracked in [#14](https://github.com/kmhari/selfbase/issues/14).
+> **Deferred from feature 006** as the heaviest piece (new restore_jobs entity, async BullMQ worker, filesystem-snapshot rollback, GC, RBAC gate, dynamic timeout, multiple pre-flight checks — ~11 tasks). All design work (FRs, contracts, data model, clarifications) is preserved here for the follow-up implementation. Tracked in [#14](https://github.com/kmhari/supastack/issues/14).
 >
 
-An operator runs nightly snapshots of a production project (selfbase already supports this via the worker's backup job). When something goes wrong — a bad migration, an accidental `DELETE FROM users` — they need to restore. They run `supabase backups list --project-ref <ref>` to see available restore points, pick a recovery target, run `supabase backups restore --project-ref <ref> --backup-id <id>`, wait for the project to come back up, and verify data is at the chosen point in time.
+An operator runs nightly snapshots of a production project (supastack already supports this via the worker's backup job). When something goes wrong — a bad migration, an accidental `DELETE FROM users` — they need to restore. They run `supabase backups list --project-ref <ref>` to see available restore points, pick a recovery target, run `supabase backups restore --project-ref <ref> --backup-id <id>`, wait for the project to come back up, and verify data is at the chosen point in time.
 
-**Why this priority**: Backups are the foundation of disaster recovery. selfbase already has the backup-write side; the list and restore-read side closes the loop. Restore is destructive and substantial work (stop the instance, replace the data directory, restart, verify) — gated to admins only with strong confirmation.
+**Why this priority**: Backups are the foundation of disaster recovery. supastack already has the backup-write side; the list and restore-read side closes the loop. Restore is destructive and substantial work (stop the instance, replace the data directory, restart, verify) — gated to admins only with strong confirmation.
 
 **Independent Test**: Take a backup via existing dashboard/cron. Run `supabase backups list --project-ref <ref>` — must include the backup with `id`, `inserted_at`, `status` (`COMPLETED`), and size. Make a destructive change to the data (e.g., `DROP TABLE`). Run `supabase backups restore --project-ref <ref> --backup-id <id>`. After restore completes, the dropped table must exist again with its original rows.
 
@@ -204,8 +204,8 @@ An operator runs nightly snapshots of a production project (selfbase already sup
 
 #### Backups
 
-- **FR-016**: MUST expose `GET /v1/projects/<ref>/database/backups` returning `{ backups: [{ id, inserted_at, status, kind, size_bytes }], physical_backup_data: { earliest_physical_backup_date_at, latest_physical_backup_date_at } }`. Matches upstream Cloud shape (Cloud uses PITR for the dates; selfbase uses snapshot timestamps).
-- **FR-017**: MUST expose `POST /v1/projects/<ref>/database/backups/restore-pitr` accepting `{ backup_id: <id> }` (selfbase uses snapshot id rather than recovery_time_target). Returns 202 with `{ restore_job_id }`.
+- **FR-016**: MUST expose `GET /v1/projects/<ref>/database/backups` returning `{ backups: [{ id, inserted_at, status, kind, size_bytes }], physical_backup_data: { earliest_physical_backup_date_at, latest_physical_backup_date_at } }`. Matches upstream Cloud shape (Cloud uses PITR for the dates; supastack uses snapshot timestamps).
+- **FR-017**: MUST expose `POST /v1/projects/<ref>/database/backups/restore-pitr` accepting `{ backup_id: <id> }` (supastack uses snapshot id rather than recovery_time_target). Returns 202 with `{ restore_job_id }`.
 - **FR-018**: MUST expose `GET /v1/projects/<ref>/database/backups/restore-status` returning the current/most-recent restore job: `{ id, status, started_at?, completed_at?, error_message? }`. Status values: `pending`, `running`, `success`, `failed`.
 - **FR-019**: Restore MUST be an async job — the API returns 202 immediately and the actual restore (stop ALL sibling services → swap data dir → restart ALL services → verify) runs in the background.
 - **FR-020**: During restore, the project's status MUST be `restoring` (new value); the dashboard MUST show this state and disable destructive ops on the project.
@@ -245,16 +245,16 @@ An operator runs nightly snapshots of a production project (selfbase already sup
 - **SC-008**: A failed restore mid-run leaves the project fully rolled back to the pre-restore state and restarts all sibling services — never in a partially-restored zombie state. Verified by killing the worker mid-restore and checking final state (data dir matches pre-restore, sibling services running, restore_jobs row marked `failed` with `error_message`).
 - **SC-011**: Restore against an instance with insufficient free disk (less than `2 × data_dir` available) is rejected pre-flight with `409 disk_space_insufficient` in under 500ms; the instance state is unchanged after the call.
 - **SC-012**: Pre-restore snapshot directory is automatically removed 24 hours after a successful restore (verified by an integration test that fast-forwards the GC clock).
-- **SC-009**: All four CLI surfaces (gen types, migration *, snippets list/download, backups list/restore) are operable end-to-end against a fresh selfbase install with zero `not_implemented` errors for the in-scope subcommands.
+- **SC-009**: All four CLI surfaces (gen types, migration *, snippets list/download, backups list/restore) are operable end-to-end against a fresh supastack install with zero `not_implemented` errors for the in-scope subcommands.
 - **SC-010**: Existing P0 CLI commands (`login`, `link`, `functions *`, `secrets *`) plus feature-005 commands (`db push/pull/diff`) continue to pass their existing integration tests with zero regressions.
 
 ## Assumptions
 
-- The upstream Supabase CLI's request/response shapes (per https://api.supabase.com/api/v1-json) are the source of truth — selfbase matches them so the CLI does not need a selfbase-specific build. We target the current stable CLI release at feature start.
+- The upstream Supabase CLI's request/response shapes (per https://api.supabase.com/api/v1-json) are the source of truth — supastack matches them so the CLI does not need a supastack-specific build. We target the current stable CLI release at feature start.
 - For gen types: the `pg-meta` container that ships with every Supabase stack already provides a typed introspection surface — implementation may reuse it or query `information_schema` directly.
 - For migrations: the api reaches per-instance Postgres via the same channel feature 005 uses (direct or pooler). No new network path.
-- For snippets: Studio stores snippets in `user_content.content` on the per-project Postgres. The API reads from there. Selfbase does NOT introduce a separate snippet store. If a project's Postgres lacks the schema (pre-Studio or schema-purged), the project contributes zero snippets.
-- For backups: the existing backup job + `backups` table is reused for the read side. Restore is NEW — implementation needs a worker job that stops the instance, swaps the data dir, restarts. Restore semantics are snapshot-based, not PITR — Cloud uses PITR via WAL streaming; selfbase doesn't currently capture WAL, so we expose the snapshot-id model under the same endpoint name. The CLI accepts both.
+- For snippets: Studio stores snippets in `user_content.content` on the per-project Postgres. The API reads from there. Supastack does NOT introduce a separate snippet store. If a project's Postgres lacks the schema (pre-Studio or schema-purged), the project contributes zero snippets.
+- For backups: the existing backup job + `backups` table is reused for the read side. Restore is NEW — implementation needs a worker job that stops the instance, swaps the data dir, restarts. Restore semantics are snapshot-based, not PITR — Cloud uses PITR via WAL streaming; supastack doesn't currently capture WAL, so we expose the snapshot-id model under the same endpoint name. The CLI accepts both.
 - Restore is destructive and admin-only by RBAC. The CLI's confirmation prompt is the primary user-side guardrail; the API's audit log + high-severity event is the secondary.
 - The `restore_job` entity is a new control-plane table; it tracks the lifecycle of one restore operation. One in-flight restore per project at a time.
 - Existing PAT auth, RBAC ownership checks, and the rate-limit envelope from feature 003 are reused unchanged across all endpoints.

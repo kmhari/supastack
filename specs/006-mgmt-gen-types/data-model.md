@@ -20,7 +20,7 @@ Tracks the lifecycle of one backup-restore operation per row.
 | `completed_at` | timestamptz | NULL | Set when status reaches terminal (`success` or `failed`) |
 | `error_message` | text | NULL | Populated on `failed` |
 | `actor_id` | uuid | NOT NULL, FK → `users.id` | Who initiated the restore |
-| `pre_restore_dir` | text | NULL | Filesystem path to the rollback snapshot, e.g. `/var/selfbase/instances/<ref>/volumes/db/data.pre-restore-<id>`. Set when running, cleared after GC (24h post-success). |
+| `pre_restore_dir` | text | NULL | Filesystem path to the rollback snapshot, e.g. `/var/supastack/instances/<ref>/volumes/db/data.pre-restore-<id>`. Set when running, cleared after GC (24h post-success). |
 | `timeout_budget_seconds` | integer | NOT NULL | Dynamic worker budget computed at job creation: `300 + ceil(backup_bytes / 1e9) * 60 + 300`. Worker aborts and runs rollback if exceeded. |
 | `created_at` | timestamptz | NOT NULL, default `now()` | |
 
@@ -59,7 +59,7 @@ Add ONE column to support `pg-meta` reachability for the gen-types endpoint:
 
 **Migration**:
 - Add column nullable.
-- Backfill existing rows by reading `docker port selfbase-<ref>-meta-1` (worker one-shot, similar to feature 005's backfill-pooler-tenants).
+- Backfill existing rows by reading `docker port supastack-<ref>-meta-1` (worker one-shot, similar to feature 005's backfill-pooler-tenants).
 - New instances populate it during provision (compose-template change).
 - Drop NOT NULL constraint in a follow-up after all instances populated.
 

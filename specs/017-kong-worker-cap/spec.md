@@ -18,7 +18,7 @@ The operator-facing problem is simple: per-project gateway memory is excessive r
 
 ### User Story 1 - Operator hosts more projects per VM (Priority: P1)
 
-As an operator running selfbase on a single VM, I want each project's gateway to consume bounded memory regardless of host CPU count, so that I can host more projects on the same hardware without provisioning a larger VM.
+As an operator running supastack on a single VM, I want each project's gateway to consume bounded memory regardless of host CPU count, so that I can host more projects on the same hardware without provisioning a larger VM.
 
 **Why this priority**: This is the entire point of the change. The current `auto` behavior makes per-project memory scale with host cores, which is the wrong axis — it should scale with per-project traffic. Without this fix, the platform's project density is artificially capped.
 
@@ -26,7 +26,7 @@ As an operator running selfbase on a single VM, I want each project's gateway to
 
 **Acceptance Scenarios**:
 
-1. **Given** a fresh selfbase VM with N ≥ 4 host cores, **When** the operator provisions a new project, **Then** the project's gateway container runs with a small, fixed number of worker processes (not N) and reports steady-state memory under 300 MiB at idle.
+1. **Given** a fresh supastack VM with N ≥ 4 host cores, **When** the operator provisions a new project, **Then** the project's gateway container runs with a small, fixed number of worker processes (not N) and reports steady-state memory under 300 MiB at idle.
 2. **Given** an existing VM already running projects under the old configuration, **When** the operator re-deploys the per-project gateway service via the normal compose update path, **Then** existing projects pick up the new worker cap and free the excess memory without data loss or downtime longer than a normal gateway restart.
 3. **Given** a project under typical dashboard + CLI traffic, **When** comparing before and after the worker cap, **Then** request error rate and p95 latency are within normal noise (no regression attributable to fewer workers).
 

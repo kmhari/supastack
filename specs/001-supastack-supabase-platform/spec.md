@@ -1,12 +1,12 @@
-# Feature Specification: Selfbase — Self-Hosted Supabase Platform
+# Feature Specification: Supastack — Self-Hosted Supabase Platform
 
-**Feature Branch**: `001-selfbase-supabase-platform`
+**Feature Branch**: `001-supastack-supabase-platform`
 
 **Created**: 2026-05-21
 
 **Status**: Draft
 
-**Input**: User description: "Selfbase: self-hosted Supabase Cloud control plane for managing multiple full-stack Supabase instances with per-subdomain HTTPS, backups, lifecycle, encrypted secrets, and a web dashboard." (derived from `plan.md` in the project root)
+**Input**: User description: "Supastack: self-hosted Supabase Cloud control plane for managing multiple full-stack Supabase instances with per-subdomain HTTPS, backups, lifecycle, encrypted secrets, and a web dashboard." (derived from `plan.md` in the project root)
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -20,7 +20,7 @@ A solo operator who already controls a server wants to stand up a fully working 
 
 **Acceptance Scenarios**:
 
-1. **Given** a freshly installed Selfbase with no users, **When** the operator opens the setup page and submits email, password, organization name, and apex domain, **Then** a super-admin account is created, the apex is registered, and the operator is logged into the dashboard.
+1. **Given** a freshly installed Supastack with no users, **When** the operator opens the setup page and submits email, password, organization name, and apex domain, **Then** a super-admin account is created, the apex is registered, and the operator is logged into the dashboard.
 2. **Given** an authenticated operator with a registered apex, **When** they create an instance named "test", **Then** within 90 seconds the dashboard shows the instance as "running" with its unique stable identifier, display name, status, and reachable URLs.
 3. **Given** a newly running instance, **When** the operator visits its API URL with the displayed anonymous key as a header, **Then** the API responds successfully (no signature failures, no "instance unreachable" errors).
 4. **Given** an instance was just created, **When** the first HTTPS request hits its subdomain, **Then** a valid certificate is issued automatically and subsequent requests are served over HTTPS without operator action.

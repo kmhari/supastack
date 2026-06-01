@@ -11,7 +11,7 @@
 - The reference implementation in `/Users/lord/Code/open-frontend/apps/api/src/services/acme-manual.ts` is proven and battle-tested — direct copy+adapt.
 - No custom Caddy build required: stock `caddy:2.8-alpine` supports `tls.certificates.load_files`.
 - No DNS API credentials to store, rotate, revoke, or validate — simpler DB schema.
-- Automated Cloudflare API integration tracked in [issue #6](https://github.com/kmhari/selfbase/issues/6); can be layered on top without restructuring.
+- Automated Cloudflare API integration tracked in [issue #6](https://github.com/kmhari/supastack/issues/6); can be layered on top without restructuring.
 
 **Alternatives considered**:
 - Custom Caddy build with `caddy-dns/cloudflare` module — requires Docker image build, Cloudflare-only, more complex cert lifecycle tracking. Rejected.
@@ -75,11 +75,11 @@ const found = expectedValues.every(v => values.includes(v));
 ## Decision 4: Cert + Key Storage
 
 **Decision**: Three-layer storage:
-1. **Disk** (`/var/selfbase/certs/<apex>/cert.pem` + `key.pem`) — Caddy reads from here via `tls.certificates.load_files`. Written by the API container to the shared `certs-data` Docker volume.
+1. **Disk** (`/var/supastack/certs/<apex>/cert.pem` + `key.pem`) — Caddy reads from here via `tls.certificates.load_files`. Written by the API container to the shared `certs-data` Docker volume.
 2. **DB** — `wildcard_certs` table stores cert PEM (plaintext — it's public), encrypted key PEM, and all order metadata. This allows cert reload after disk loss without re-running ACME.
 3. **Encrypted key PEM** — `encryptJson(keyPem, loadMasterKey())` → bytea column. Same mechanism as backup store config and instance secrets.
 
-**Shared volume**: `certs-data` Docker volume mounted at `/var/selfbase/certs` in both `api` (write) and `caddy` (read, `:ro`).
+**Shared volume**: `certs-data` Docker volume mounted at `/var/supastack/certs` in both `api` (write) and `caddy` (read, `:ro`).
 
 ---
 
@@ -93,8 +93,8 @@ const found = expectedValues.every(v => values.includes(v));
   "tls": {
     "certificates": {
       "load_files": [{
-        "certificate": "/var/selfbase/certs/apex.com/cert.pem",
-        "key": "/var/selfbase/certs/apex.com/key.pem",
+        "certificate": "/var/supastack/certs/apex.com/cert.pem",
+        "key": "/var/supastack/certs/apex.com/key.pem",
         "tags": ["wildcard:apex.com"]
       }]
     },
@@ -145,13 +145,13 @@ Without a wildcard cert: only `{ "automation": { ... } }` (existing behavior, no
 3. Dashboard reads `renewal_due` flag and shows a persistent banner with expiry date + "Renew now" button.
 4. Operator clicks "Renew" → hits `POST /api/wildcard-certs/initiate` → wizard re-renders with new TXT challenge values (the ACME account key is reused; order URL refreshed) → operator adds TXT → clicks Verify → new cert issued.
 
-**Automated renewal** (Cloudflare API) tracked in [issue #6](https://github.com/kmhari/selfbase/issues/6).
+**Automated renewal** (Cloudflare API) tracked in [issue #6](https://github.com/kmhari/supastack/issues/6).
 
 ---
 
 ## Decision 8: ACME Account Email
 
-**Decision**: Use the super-admin's email (stored in `users` table from `/setup`). This is the same email the operator used to create their selfbase account.
+**Decision**: Use the super-admin's email (stored in `users` table from `/setup`). This is the same email the operator used to create their supastack account.
 
 **Rationale**: No additional configuration needed; the email is already available. Let's Encrypt uses it only for expiry/policy notifications — using the admin email is correct.
 
@@ -169,10 +169,10 @@ const DIRECTORY_URL = process.env.ACME_DIRECTORY_URL ?? acme.directory.letsencry
 
 ## Decision 10: Certs Directory Path
 
-**Decision**: `/var/selfbase/certs` in both containers (mounted from `certs-data` volume). Per-apex subdirectory: `/var/selfbase/certs/<apex>/cert.pem` + `key.pem`.
+**Decision**: `/var/supastack/certs` in both containers (mounted from `certs-data` volume). Per-apex subdirectory: `/var/supastack/certs/<apex>/cert.pem` + `key.pem`.
 
 ```ts
-const CERTS_DIR = process.env.SELFBASE_CERTS_DIR ?? '/var/selfbase/certs';
+const CERTS_DIR = process.env.SUPASTACK_CERTS_DIR ?? '/var/supastack/certs';
 // path: CERTS_DIR/<apex>/cert.pem
 ```
 
@@ -187,4 +187,4 @@ All ACME logic is adapted from:
 - `open-frontend/apps/api/src/routes/wildcard-cert.ts` — route handlers + DNS check
 - `open-frontend/apps/edge/src/reload.ts` — Caddy config generation with `load_files` + `tls_connection_policies`
 
-These are the proven patterns; selfbase adapts them to its DB schema, Docker layout, and auth model.
+These are the proven patterns; supastack adapts them to its DB schema, Docker layout, and auth model.

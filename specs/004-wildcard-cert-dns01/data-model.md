@@ -54,8 +54,8 @@ CREATE INDEX IF NOT EXISTS wildcard_certs_org_idx
 - `account_key_pem` — RSA 2048 private key PEM, encrypted via `encryptJson(pem, masterKey)`. Generated once on first `initiateWildcardOrder`; reused for all subsequent renewals to preserve the ACME account identity.
 - `order_url` — the Let's Encrypt ACME order resource URL (`https://acme-v02.api.letsencrypt.org/acme/order/…`). Stored so `verifyAndFinalize` can resume an in-progress order without creating a new one.
 - `challenge_records` — JSON array of `{ name: string, value: string }`. Always has exactly 2 entries for a `apex + *.apex` order (one per authorization). Both reference the same TXT hostname (`_acme-challenge.<apex>`) with different values.
-- `cert_pem` — full PEM chain (leaf + intermediates). Stored as plaintext (certificates are public). Also written to `/var/selfbase/certs/<apex>/cert.pem` on the shared volume.
-- `key_pem` — private key PEM, encrypted via `encryptJson(pem, masterKey)`. Also written to `/var/selfbase/certs/<apex>/key.pem` on the shared volume (mode 0o600). Stored in DB as backup so cert can be reloaded into Caddy after a volume wipe without re-running ACME.
+- `cert_pem` — full PEM chain (leaf + intermediates). Stored as plaintext (certificates are public). Also written to `/var/supastack/certs/<apex>/cert.pem` on the shared volume.
+- `key_pem` — private key PEM, encrypted via `encryptJson(pem, masterKey)`. Also written to `/var/supastack/certs/<apex>/key.pem` on the shared volume (mode 0o600). Stored in DB as backup so cert can be reloaded into Caddy after a volume wipe without re-running ACME.
 - `renewal_due` — set `true` by the daily `cert-check` BullMQ job when `not_after - now() < 30 days`. Cleared when a new cert is issued. Drives the dashboard alert banner.
 - `status` lifecycle:
   - `pending` — row created, `initiateWildcardOrder` not yet called
@@ -196,13 +196,13 @@ Exports: `wildcardCerts`, `certRenewalEvents`
 ## Shared Volume
 
 **`certs-data`** Docker volume:
-- Mounted at `/var/selfbase/certs` in `api` container (read-write; API writes cert+key files)
-- Mounted at `/var/selfbase/certs` in `caddy` container (read-only; Caddy reads cert+key files)
+- Mounted at `/var/supastack/certs` in `api` container (read-write; API writes cert+key files)
+- Mounted at `/var/supastack/certs` in `caddy` container (read-only; Caddy reads cert+key files)
 
 File paths per apex:
 ```
-/var/selfbase/certs/<apex>/cert.pem    (mode 0o644)
-/var/selfbase/certs/<apex>/key.pem     (mode 0o600)
+/var/supastack/certs/<apex>/cert.pem    (mode 0o644)
+/var/supastack/certs/<apex>/key.pem     (mode 0o600)
 ```
 
 On VM wipe, this volume is removed alongside `pg-data` and `caddy-data`. Re-setup re-issues the ACME cert and rewrites the files.

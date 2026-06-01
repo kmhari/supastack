@@ -5,7 +5,7 @@
 -- endpoint). Supavisor creates the tables inside _supavisor on first boot via
 -- `bin/supavisor eval "Supavisor.Release.migrate"`.
 --
--- We DO NOT manage these tables from selfbase. Tenant ops go through supavisor's
+-- We DO NOT manage these tables from supastack. Tenant ops go through supavisor's
 -- HTTP admin API. See specs/005-postgres-public-endpoint/contracts/tenant-registration.md.
 
 CREATE SCHEMA IF NOT EXISTS _supavisor;

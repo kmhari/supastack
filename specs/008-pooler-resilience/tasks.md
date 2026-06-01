@@ -120,7 +120,7 @@ TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `apps/web/src/`, `pack
   ALTER USER supabase_admin WITH PASSWORD '<escaped>';
   COMMIT;
   ```
-  Runs via docker exec on `selfbase-<ref>-db-1` using the existing docker socket HTTP API (mirror the pattern from the demo + fix-asyo.mjs script). Use psql `-h 127.0.0.1 -U supabase_admin -d postgres -c "<sql>"`. Pass SQL via `-c`, NOT env. On any error, throw `PerInstancePgResetError` with the underlying message.
+  Runs via docker exec on `supastack-<ref>-db-1` using the existing docker socket HTTP API (mirror the pattern from the demo + fix-asyo.mjs script). Use psql `-h 127.0.0.1 -U supabase_admin -d postgres -c "<sql>"`. Pass SQL via `-c`, NOT env. On any error, throw `PerInstancePgResetError` with the underlying message.
 - [X] T026 [US3] Create `apps/api/src/routes/reset-pg-password.ts` — `POST /api/v1/instances/:ref/reset-pg-password` per `contracts/reset-pg-password.md`. Admin RBAC; 404 for unknown ref; 409 for `paused|deleting|provisioning` (note: status `failed` with `pg_password_drift_at_provision` is allowed). Emit audit `instances.pg_password.reset` (severity high) BEFORE running. Call `resetPgPasswordForInstance(ref)` → on success, enqueue single-instance reconciler pass with high priority, wait up to 5s for completion via BullMQ job promise (or polling the reconciler_runs row), include final `pooler_tenant_status` in response. 502 if container unreachable.
 - [X] T027 [US3] Edit `apps/api/src/server.ts` to register the reset endpoint under `/api/v1`.
 

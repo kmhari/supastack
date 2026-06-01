@@ -64,10 +64,10 @@ const accessTokenHex = Buffer.concat([ct, tag]).toString('hex');   // Go's GCM a
 
 ## Decision 3 — Redis storage shape + key namespace
 
-**Decision**: Reuse the existing `Redis` connection (currently used by `connect-redis` for session cookies at `selfbase:sess:*`). New key namespace: `selfbase:cli-login:<session_id>`. Payload: JSON-encoded object (UTF-8), TTL set via `SET ... EX 300`.
+**Decision**: Reuse the existing `Redis` connection (currently used by `connect-redis` for session cookies at `supastack:sess:*`). New key namespace: `supastack:cli-login:<session_id>`. Payload: JSON-encoded object (UTF-8), TTL set via `SET ... EX 300`.
 
 ```
-KEY:   selfbase:cli-login:<uuid>
+KEY:   supastack:cli-login:<uuid>
 VALUE: {
   "device_code": "91cbae4c",
   "access_token": "<hex ciphertext+tag>",

@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: When an operator runs `supabase login` against a selfbase deployment (without `--token`), the upstream CLI tries to open a browser at `<dashboard_url>/cli/login?session_id=…&token_name=…&public_key=…`, then prompts for a verification code that the dashboard is supposed to display, then polls `<api_url>/platform/cli/login/<session_id>?device_code=…` for an encrypted token. selfbase doesn't implement that flow today — only PAT-based `--token` login works. This feature adds the dashboard page + polling endpoint so plain `supabase login` becomes a one-shot, copy-paste flow that mints a real PAT under the hood and saves it to the operator's CLI.
+**Input**: When an operator runs `supabase login` against a supastack deployment (without `--token`), the upstream CLI tries to open a browser at `<dashboard_url>/cli/login?session_id=…&token_name=…&public_key=…`, then prompts for a verification code that the dashboard is supposed to display, then polls `<api_url>/platform/cli/login/<session_id>?device_code=…` for an encrypted token. supastack doesn't implement that flow today — only PAT-based `--token` login works. This feature adds the dashboard page + polling endpoint so plain `supabase login` becomes a one-shot, copy-paste flow that mints a real PAT under the hood and saves it to the operator's CLI.
 
 ## Clarifications
 
@@ -14,33 +14,33 @@
 
 - Q: Should the dashboard require an explicit "Allow" click before minting, or auto-mint on page load? → A: **Auto-mint on load.** Authentication itself is the consent (verified against Cloud's actual UX via screenshot). The page shows "Signed in as <email>" for confidence, no extra button.
 - Q: How should the dashboard handle the `token_name` from the URL? → A: **Use as-is, not editable.** Label written to `api_tokens.label` verbatim from the URL parameter; operator identifies tokens by hostname + timestamp in the existing tokens page.
-- Q: What happens if the operator hits the page without being logged in? → A: **Redirect to /login?next=<original-url>** (existing selfbase pattern). After login, return to the CLI-login page with all original query params intact and continue the mint.
+- Q: What happens if the operator hits the page without being logged in? → A: **Redirect to /login?next=<original-url>** (existing supastack pattern). After login, return to the CLI-login page with all original query params intact and continue the mint.
 - Q: Session reuse — what if the same `session_id` is hit twice? → A: **Single-use at mint time.** Once a `session_id` has been used to mint a token, any second visit to the dashboard with that `session_id` shows an "Unable to create CLI sign-in" error page (matches Cloud's screenshot). The CLI must retry with a fresh `supabase login` to get a new `session_id`.
 - Q: How long should the pending session live in Redis? → A: **5 minutes.** Matches Cloud's defaults. Plenty for copy-paste; bounded enough that abandoned sessions garbage-collect quickly.
 - Q: Should CLI-minted PATs be visible in the dashboard's tokens page? → A: **Yes, in the same list, with a small "cli" badge** next to the label. Same `api_tokens` row; revoke works identically. Operators can find and kill CLI sessions from the existing settings UI without needing a separate page.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 — Plain `supabase login` against selfbase succeeds with zero manual token paste (Priority: P1) 🎯 MVP
+### User Story 1 — Plain `supabase login` against supastack succeeds with zero manual token paste (Priority: P1) 🎯 MVP
 
 An operator on their laptop runs `supabase login` (with no flags). The CLI:
 
 1. Generates a keypair locally
 2. Prints "Press Enter to open browser and login automatically" and a fallback URL
 3. The operator presses Enter; the browser opens to `https://<apex>/dashboard/cli/login?session_id=<uuid>&token_name=<name>&public_key=<hex>`
-4. The dashboard (operator already signed in) shows an "Authorize selfbase CLI" page with an 8-character verification code in big monospace boxes + a "Copy code" button + "Signed in as <email>"
+4. The dashboard (operator already signed in) shows an "Authorize supastack CLI" page with an 8-character verification code in big monospace boxes + a "Copy code" button + "Signed in as <email>"
 5. The operator clicks "Copy code"
 6. Back in the terminal, the CLI prompts "Enter your verification code:"; the operator pastes; presses Enter
 7. The CLI prints "You are now logged in. Happy coding!" and saves the token to `~/.supabase/access-token`
 8. From then on, `supabase projects list`, `supabase functions deploy`, etc. all work without any `--token` flag
 
-**Why this priority**: This IS the feature. Without it, the only way to authenticate the CLI against selfbase is `supabase login --token sbp_…`, which means operators have to first navigate to `/settings/tokens`, click Create, copy the token, paste into the terminal. The auto-flow eliminates that, exactly mirroring the Cloud experience.
+**Why this priority**: This IS the feature. Without it, the only way to authenticate the CLI against supastack is `supabase login --token sbp_…`, which means operators have to first navigate to `/settings/tokens`, click Create, copy the token, paste into the terminal. The auto-flow eliminates that, exactly mirroring the Cloud experience.
 
-**Independent Test**: On a fresh laptop with no `~/.supabase/access-token`, configure the selfbase profile (see existing docs), then run `supabase login`. Without ever pasting a `sbp_…` token, complete the flow end-to-end. Verify `~/.supabase/access-token` now exists; `supabase projects list` returns the deployment's projects; the new token shows up in `https://<apex>/settings/tokens` with a "cli" badge.
+**Independent Test**: On a fresh laptop with no `~/.supabase/access-token`, configure the supastack profile (see existing docs), then run `supabase login`. Without ever pasting a `sbp_…` token, complete the flow end-to-end. Verify `~/.supabase/access-token` now exists; `supabase projects list` returns the deployment's projects; the new token shows up in `https://<apex>/settings/tokens` with a "cli" badge.
 
 **Acceptance Scenarios**:
 
-1. **Given** the operator is signed in to the dashboard in their browser, **When** the CLI opens the `/dashboard/cli/login?session_id=…&token_name=…&public_key=…` URL, **Then** within 2 seconds the dashboard renders the "Authorize selfbase CLI" page with an 8-character verification code in monospaced boxes.
+1. **Given** the operator is signed in to the dashboard in their browser, **When** the CLI opens the `/dashboard/cli/login?session_id=…&token_name=…&public_key=…` URL, **Then** within 2 seconds the dashboard renders the "Authorize supastack CLI" page with an 8-character verification code in monospaced boxes.
 2. **Given** the dashboard has displayed the verification code, **When** the operator copies it and pastes it into the CLI's verification prompt, **Then** within 1 second the CLI prints "You are now logged in. Happy coding!" and exits 0.
 3. **Given** the CLI has just logged in, **When** the operator runs `supabase projects list`, **Then** the deployment's projects are listed (no `--token` flag, no env var needed).
 4. **Given** the operator has just logged in via the flow, **When** they open `/settings/tokens` in the dashboard, **Then** the newly created token is in the list with the URL's `token_name` as its label AND a small "cli" badge next to the label.
@@ -61,11 +61,11 @@ An operator runs `supabase login` from a fresh machine where their browser doesn
 
 **Why this priority**: Common first-time-on-a-new-machine case. Without this redirect, the operator hits a 401 page and has to manually navigate back to the URL from CLI output. Lower than US1 because logged-in is the more common state once an operator's been around.
 
-**Independent Test**: In an incognito window with no selfbase session, paste the CLI-login URL. Confirm bounce to `/login?next=…`. Sign in. Confirm bounce back to the CLI-login URL with the same `session_id`/`token_name`/`public_key`. Confirm the code appears.
+**Independent Test**: In an incognito window with no supastack session, paste the CLI-login URL. Confirm bounce to `/login?next=…`. Sign in. Confirm bounce back to the CLI-login URL with the same `session_id`/`token_name`/`public_key`. Confirm the code appears.
 
 **Acceptance Scenarios**:
 
-1. **Given** the operator's browser has no active selfbase session, **When** they navigate to `/dashboard/cli/login?session_id=A&token_name=B&public_key=C`, **Then** the browser is redirected to `/login?next=<url-encoded-original-url>`.
+1. **Given** the operator's browser has no active supastack session, **When** they navigate to `/dashboard/cli/login?session_id=A&token_name=B&public_key=C`, **Then** the browser is redirected to `/login?next=<url-encoded-original-url>`.
 2. **Given** the operator just signed in via the bounced login form, **When** the login completes, **Then** the browser lands back at `/dashboard/cli/login?session_id=A&token_name=B&public_key=C` (all original params preserved) and the dashboard auto-mints the token.
 3. **Given** the operator cancels the login (closes tab) before signing in, **When** the CLI polls, **Then** the CLI's polling loop times out (no Redis entry was created) and surfaces "session not found" after its built-in retries.
 
@@ -81,7 +81,7 @@ The CLI's `session_id` is single-use. If the operator (or anything else) opens t
 
 **Acceptance Scenarios**:
 
-1. **Given** a CLI-login flow has already minted a token for `session_id=X`, **When** the same URL with `session_id=X` is opened again, **Then** the dashboard renders "Unable to create CLI sign-in" with the body text "selfbase could not create the CLI sign-in session. Error: Could not create CLI login session" and a "Back to dashboard" button.
+1. **Given** a CLI-login flow has already minted a token for `session_id=X`, **When** the same URL with `session_id=X` is opened again, **Then** the dashboard renders "Unable to create CLI sign-in" with the body text "supastack could not create the CLI sign-in session. Error: Could not create CLI login session" and a "Back to dashboard" button.
 2. **Given** a session_id is in use (token minted, not yet polled by CLI), **When** the CLI polls and gets the encrypted token bundle, **Then** Redis deletes the entry; any subsequent poll for the same session_id returns 404.
 3. **Given** a session_id was never used (CLI exited before polling), **When** 5 minutes pass with no activity, **Then** Redis garbage-collects the entry and subsequent polls return 404 with no manual cleanup needed.
 
@@ -111,7 +111,7 @@ An operator who's stopped using a particular laptop wants to invalidate the CLI 
 - **Browser auto-fills `?next=` with an external URL on the post-login bounce**: the login handler MUST validate the `next` param is a same-origin relative path; reject external URLs to prevent open-redirect abuse.
 - **Operator copies the code but waits >5 minutes before pasting into CLI**: CLI polling returns 404; operator re-runs `supabase login` to get a fresh `session_id`.
 - **Two operators open the same CLI-login URL by mistake (operator A copies the URL into a message)**: first one to load it wins (mints the token under whoever is signed in there). Acceptable risk — the URL is single-use and the operator clearly initiated the flow on their own machine; resulting token is bound to whoever was signed in when it was minted.
-- **Operator already signed in, but the browser has multiple selfbase orgs eventually (post-v1)**: out of scope for v1; selfbase is single-org per deployment.
+- **Operator already signed in, but the browser has multiple supastack orgs eventually (post-v1)**: out of scope for v1; supastack is single-org per deployment.
 - **Operator's PAT-write RBAC is denied (e.g., suspended account)**: dashboard mint fails → error page shown.
 - **CLI's verification-code-attempts limit (max 2 retries per the CLI source)**: if the operator typos the code 3 times, the CLI gives up; the dashboard's `session_id` entry persists for the remaining TTL, but is functionally orphaned (the CLI process has exited). It garbage-collects in Redis on TTL expiry.
 
@@ -134,7 +134,7 @@ An operator who's stopped using a particular laptop wants to invalidate the CLI 
   - Store the encrypted bundle in a session store keyed by `session_id` with a 5-minute TTL, payload `{ device_code, access_token (hex), public_key (server pub key, hex), nonce (hex), created_at }`
   - Render the page in "code display" mode (see FR-004)
 - **FR-004**: The "code display" mode MUST show:
-  - Title: "Authorize selfbase CLI" (or similar branded variant)
+  - Title: "Authorize supastack CLI" (or similar branded variant)
   - Subtitle: "Enter this verification code in Supabase CLI to finish signing in"
   - The 8-character verification code in 8 separate large monospace boxes (one char per box)
   - A full-width "Copy code" button that copies the code to clipboard on click and visually confirms ("Copied!")
@@ -142,8 +142,8 @@ An operator who's stopped using a particular laptop wants to invalidate the CLI 
   - Footer text: "After authorizing, you can close this tab or manage tokens like this one in <a href='/settings/tokens'>Access Tokens</a>."
 - **FR-005**: On load with a `session_id` that has already been used (i.e., a session bundle exists in the store OR existed and was deleted by a CLI poll), the page MUST render the error state:
   - Title: "Unable to create CLI sign-in"
-  - Subtitle: "Retry the sign-in command from selfbase CLI"
-  - Body: warning card with "selfbase could not create the CLI sign-in session. Error: Could not create CLI login session"
+  - Subtitle: "Retry the sign-in command from supastack CLI"
+  - Body: warning card with "supastack could not create the CLI sign-in session. Error: Could not create CLI login session"
   - "Back to dashboard" button
   - NO new token minted
 
@@ -186,7 +186,7 @@ An operator who's stopped using a particular laptop wants to invalidate the CLI 
 
 ### Measurable Outcomes
 
-- **SC-001**: An operator who has never authenticated the CLI against selfbase can complete `supabase login` (no flags) end-to-end in under 30 seconds on a laptop with their browser already signed in. (US1)
+- **SC-001**: An operator who has never authenticated the CLI against supastack can complete `supabase login` (no flags) end-to-end in under 30 seconds on a laptop with their browser already signed in. (US1)
 - **SC-002**: For 100% of completed CLI-login flows, the resulting access token in `~/.supabase/access-token` is a valid PAT that authenticates `supabase projects list` against the deployment without any additional configuration. (US1)
 - **SC-003**: For 100% of completed flows, the freshly minted PAT appears in the dashboard's tokens page within 2 seconds of completion, visually distinguished from manually-created tokens. (US1, US4)
 - **SC-004**: An operator whose browser is logged out can complete the flow (login bounce + return + finish) in under 60 seconds. (US2)

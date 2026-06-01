@@ -238,7 +238,7 @@ Each step gates on `tsc --noEmit` + `vite build` + a manual walkthrough of the t
 
 ## Decision 8 — Bundle-size budget
 
-**Baseline**: pre-migration bundle is ~`/srv/assets/index-*.js` from the currently deployed `selfbase-web` image. Capture its byte size as the baseline before step 1.
+**Baseline**: pre-migration bundle is ~`/srv/assets/index-*.js` from the currently deployed `supastack-web` image. Capture its byte size as the baseline before step 1.
 
 **Budget**: ≤ 20% growth (SC-007). Expected additions:
 - `lucide-react` icons (only the imported ones — ~1KB each gzipped)
@@ -297,6 +297,6 @@ Both grep checks are idempotent and run in < 1s on the existing tree.
 
 ## Captured baseline (T001)
 
-**Pre-migration bundle**: `/srv/assets/index-D7Ogluuw.js` = **313,039 bytes** raw (uncompressed) on `selfbase-web` image as deployed at 2026-05-22 20:01 UTC.
+**Pre-migration bundle**: `/srv/assets/index-D7Ogluuw.js` = **313,039 bytes** raw (uncompressed) on `supastack-web` image as deployed at 2026-05-22 20:01 UTC.
 
 20% growth budget per SC-007: **post-migration bundle ≤ 375,646 bytes** raw.

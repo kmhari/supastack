@@ -50,7 +50,7 @@ Per RFC 6750, when the MCP server rejects a request:
 
 ```http
 HTTP/1.1 401 Unauthorized
-WWW-Authenticate: Bearer realm="selfbase",
+WWW-Authenticate: Bearer realm="supastack",
                   resource="https://mcp.<apex>/mcp",
                   authorization_uri="https://api.<apex>/.well-known/oauth-authorization-server"
 

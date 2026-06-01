@@ -1,11 +1,11 @@
 # Quickstart — CLI login-role
 
 **Feature**: 012-cli-login-role
-**Audience**: Operator of a selfbase deployment who has just merged this feature and wants to verify it works end-to-end.
+**Audience**: Operator of a supastack deployment who has just merged this feature and wants to verify it works end-to-end.
 
 ## TL;DR
 
-You do nothing extra. `supabase db push` (and `db pull`, `db diff`, `migration list/fetch/repair`, `inspect db`) now work against selfbase without supplying a database password. Your existing `--password "$PW"` scripts still work; nothing breaks.
+You do nothing extra. `supabase db push` (and `db pull`, `db diff`, `migration list/fetch/repair`, `inspect db`) now work against supastack without supplying a database password. Your existing `--password "$PW"` scripts still work; nothing breaks.
 
 ## Prerequisite check
 
@@ -22,7 +22,7 @@ curl -s -o /dev/null -w '%{http_code}\n' \
 
 # 2. With a valid PAT, expect 201 + JSON body.
 curl -s -X POST "https://api.${APEX}/v1/projects/${REF}/cli/login-role" \
-  -H "Authorization: Bearer ${SELFBASE_PAT}" \
+  -H "Authorization: Bearer ${SUPASTACK_PAT}" \
   -H 'Content-Type: application/json' \
   -d '{"read_only": false}' | jq .
 # Expected: { "role": "cli_login_postgres", "password": "<64-char-hex>", "ttl_seconds": 300 }
@@ -34,11 +34,11 @@ If both checks pass, the endpoint is live.
 
 ```bash
 # 0. Unset any existing DB-password env vars to make sure the new path is exercised.
-unset SUPABASE_DB_PASSWORD SELFBASE_DB_PASSWORD
+unset SUPABASE_DB_PASSWORD SUPASTACK_DB_PASSWORD
 
-# 1. Configure the selfbase profile (one-time, per machine).
-cat > ~/selfbase.toml <<EOF
-name          = "selfbase-prod"
+# 1. Configure the supastack profile (one-time, per machine).
+cat > ~/supastack.toml <<EOF
+name          = "supastack-prod"
 api_url       = "https://api.${APEX}"
 dashboard_url = "https://${APEX}/dashboard"
 project_host  = "${APEX}"
@@ -46,14 +46,14 @@ EOF
 
 # 2. Authenticate the CLI once. (Either flow works; both end with a PAT in ~/.supabase/access-token.)
 #    Option A — paste a PAT created in /dashboard/settings/tokens:
-supabase login --profile ~/selfbase.toml --token "${SELFBASE_PAT}"
+supabase login --profile ~/supastack.toml --token "${SUPASTACK_PAT}"
 #    Option B — device-code flow (feature 011):
-supabase login --profile ~/selfbase.toml
+supabase login --profile ~/supastack.toml
 
 # 3. Link a project — note: NO --password flag.
 mkdir -p /tmp/qs && cd /tmp/qs && supabase init -y
 echo "project_id = \"${REF}\"" > supabase/config.toml
-supabase --profile ~/selfbase.toml link --project-ref "${REF}"
+supabase --profile ~/supastack.toml link --project-ref "${REF}"
 
 # 4. Push a throwaway migration — NO --password flag.
 cat > supabase/migrations/99999999999999_qs.sql <<'EOF'
@@ -62,21 +62,21 @@ CREATE TABLE IF NOT EXISTS _qs_login_role_smoke (
   at timestamptz NOT NULL DEFAULT now()
 );
 EOF
-supabase --profile ~/selfbase.toml db push --include-all
+supabase --profile ~/supastack.toml db push --include-all
 
 # 5. Verify the migration list — NO --password flag.
-supabase --profile ~/selfbase.toml migration list
+supabase --profile ~/supastack.toml migration list
 
 # 6. Verify the per-project Postgres ended up with exactly one cli_login_postgres role
 #    whose validity is in the recent past (the 5-min window has not been refreshed since step 4).
-PGPASSWORD="${SELFBASE_DB_SUPERUSER_PASSWORD}" psql \
+PGPASSWORD="${SUPASTACK_DB_SUPERUSER_PASSWORD}" psql \
   "postgresql://postgres@db.${REF}.${APEX}:5432/postgres" \
   -c "SELECT rolname, rolvaliduntil FROM pg_roles WHERE rolname LIKE 'cli_login_%' ORDER BY rolname;"
 # Expected: exactly one row 'cli_login_postgres' with rolvaliduntil ≈ now() - <a few minutes>.
 # (Read-only role not created since step 4 didn't request read_only: true.)
 
 # 7. Cleanup.
-PGPASSWORD="${SELFBASE_DB_SUPERUSER_PASSWORD}" psql \
+PGPASSWORD="${SUPASTACK_DB_SUPERUSER_PASSWORD}" psql \
   "postgresql://postgres@db.${REF}.${APEX}:5432/postgres" \
   -c "DROP TABLE _qs_login_role_smoke;"
 ```
@@ -86,24 +86,24 @@ If every step succeeds without prompting for or accepting a database password, t
 ## Verifying the legacy `--password` flow still works (US2 regression guard)
 
 ```bash
-unset SUPABASE_DB_PASSWORD SELFBASE_DB_PASSWORD
+unset SUPABASE_DB_PASSWORD SUPASTACK_DB_PASSWORD
 cd /tmp/qs
 
 # Same workflow, but explicitly passing --password to every command.
-supabase --profile ~/selfbase.toml link --project-ref "${REF}" \
-  --password "${SELFBASE_DB_SUPERUSER_PASSWORD}"
+supabase --profile ~/supastack.toml link --project-ref "${REF}" \
+  --password "${SUPASTACK_DB_SUPERUSER_PASSWORD}"
 
-supabase --profile ~/selfbase.toml db push --include-all \
-  --password "${SELFBASE_DB_SUPERUSER_PASSWORD}"
+supabase --profile ~/supastack.toml db push --include-all \
+  --password "${SUPASTACK_DB_SUPERUSER_PASSWORD}"
 
-supabase --profile ~/selfbase.toml migration list \
-  --password "${SELFBASE_DB_SUPERUSER_PASSWORD}"
+supabase --profile ~/supastack.toml migration list \
+  --password "${SUPASTACK_DB_SUPERUSER_PASSWORD}"
 ```
 
 All three should succeed identically to pre-feature behaviour. Confirm via `pg_roles` that no `cli_login_*` role was created as a side effect (the CLI's resolution logic short-circuits the endpoint call when `--password` is supplied):
 
 ```bash
-PGPASSWORD="${SELFBASE_DB_SUPERUSER_PASSWORD}" psql \
+PGPASSWORD="${SUPASTACK_DB_SUPERUSER_PASSWORD}" psql \
   "postgresql://postgres@db.${REF}.${APEX}:5432/postgres" \
   -c "SELECT COUNT(*) FROM pg_roles WHERE rolname LIKE 'cli_login_%';"
 # Expected on a freshly-provisioned project: 0
@@ -119,7 +119,7 @@ PGPASSWORD="${SELFBASE_DB_SUPERUSER_PASSWORD}" psql \
 # from the operator will succeed (they re-rotate); calls in flight with stale
 # passwords will fail with 28P01.
 curl -X DELETE "https://api.${APEX}/v1/projects/${REF}/cli/login-role" \
-  -H "Authorization: Bearer ${SELFBASE_PAT}"
+  -H "Authorization: Bearer ${SUPASTACK_PAT}"
 # Expected: 200 { "message": "ok" }
 ```
 
@@ -130,7 +130,7 @@ Note: this is single-shot. The very next POST from any CLI re-rotates the passwo
 If the CLI role itself has somehow become problematic (corrupted entry, third-party tool fiddling, etc.), connect as the per-project superuser and drop it. The next CLI call recreates it idempotently — no operator-side state needs to be cleared first.
 
 ```bash
-PGPASSWORD="${SELFBASE_DB_SUPERUSER_PASSWORD}" psql \
+PGPASSWORD="${SUPASTACK_DB_SUPERUSER_PASSWORD}" psql \
   "postgresql://postgres@db.${REF}.${APEX}:5432/postgres" <<'SQL'
 DROP ROLE IF EXISTS cli_login_postgres;
 DROP ROLE IF EXISTS cli_login_supabase_read_only_user;
@@ -144,7 +144,7 @@ If `DROP ROLE` fails with `role "cli_login_postgres" cannot be dropped because s
 ```bash
 # Stream the api container's log and filter for the structured event.
 # Path/transport depends on the operator's existing log pipeline.
-docker logs selfbase-api 2>&1 | \
+docker logs supastack-api 2>&1 | \
   grep -F '"event":"cli_login_role_rotated"' | \
   jq -r '. | "\(.time) \(.project_ref) \(.scope) by PAT \(.pat_id) from \(.requester_ip)"'
 ```
@@ -161,7 +161,7 @@ docker logs selfbase-api 2>&1 | \
 
 ## Reference: how this works under the hood
 
-When the CLI realises no `SUPABASE_DB_PASSWORD` and no `--password` was provided, its `NewDbConfigWithPassword` (`apps/cli-go/internal/utils/flags/db_url.go:123`) calls `POST /v1/projects/{ref}/cli/login-role`. Selfbase:
+When the CLI realises no `SUPABASE_DB_PASSWORD` and no `--password` was provided, its `NewDbConfigWithPassword` (`apps/cli-go/internal/utils/flags/db_url.go:123`) calls `POST /v1/projects/{ref}/cli/login-role`. Supastack:
 
 1. Validates the bearer PAT (existing auth plugin).
 2. Checks RBAC for `database.create-login-role` (admin only).

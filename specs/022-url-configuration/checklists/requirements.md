@@ -34,5 +34,5 @@
 - Feature is dashboard-only — backend already honors both fields (env-field-mapper.ts:66-67). No API changes, no migrations.
 - This feature was prompted by a real bug surfaced in feature 020 deployment: GitHub OAuth redirect from localhost:8765 bounced back to project URL because allow-list had no UI entry path.
 - Cloud screenshot reference captured via claude-in-chrome on 2026-05-28 at huntvox project. Empty state observed (huntvox has no Redirect URLs configured). Add-URL modal captured in second screenshot — confirms batch-add UX (multiple URL rows in a single dialog, single "Save URLs" submit).
-- Clarification session 2026-05-28: 4 questions resolved (Add URL modal shape, empty-Site-URL handling, dedup rule, existing-project default behavior). 1 mid-session correction: Site URL is the OPERATOR'S frontend URL, NOT the project's kong URL — selfbase MUST NOT seed it.
+- Clarification session 2026-05-28: 4 questions resolved (Add URL modal shape, empty-Site-URL handling, dedup rule, existing-project default behavior). 1 mid-session correction: Site URL is the OPERATOR'S frontend URL, NOT the project's kong URL — supastack MUST NOT seed it.
 - Spec ready for `/speckit-plan`.

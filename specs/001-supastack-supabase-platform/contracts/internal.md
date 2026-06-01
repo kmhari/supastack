@@ -27,7 +27,7 @@ Caddy treats any non-2xx response as deny.
 
 ## Caddy admin API consumption
 
-Selfbase calls Caddy's admin API at `http://caddy:2019/load` with the full JSON config produced by `apps/api/src/services/caddy-config.ts`. This is an outbound call from selfbase, not an inbound one — listed here for completeness.
+Supastack calls Caddy's admin API at `http://caddy:2019/load` with the full JSON config produced by `apps/api/src/services/caddy-config.ts`. This is an outbound call from supastack, not an inbound one — listed here for completeness.
 
 - Method: `POST`
 - Body: `application/json` — full Caddy JSON config

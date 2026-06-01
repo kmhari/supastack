@@ -120,12 +120,12 @@ describe('ConnectCliPage', () => {
   beforeEach(() => {
     cliProfileToml.mockReset();
     cliMintToken.mockReset();
-    cliProfileToml.mockResolvedValue('[profile]\nname = "selfbase"\n');
+    cliProfileToml.mockResolvedValue('[profile]\nname = "supastack"\n');
   });
   afterEach(() => cleanup());
 
   it('renders three-step layout with toml + mint button', async () => {
     render(withProviders('/dashboard/cli', '/dashboard/cli', <ConnectCliPage />));
-    await waitFor(() => expect(screen.getAllByText(/selfbase/i).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText(/supastack/i).length).toBeGreaterThan(0));
   });
 });

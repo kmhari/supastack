@@ -46,7 +46,7 @@ curl -X PATCH "https://supaviser.dev/v1/projects/$TEST_REF/config/auth" \
 sleep 35
 
 # Confirm the env line was written
-ssh ubuntu@148.113.1.164 'sudo cat /var/selfbase/instances/'$TEST_REF'/.env | grep DISCORD'
+ssh ubuntu@148.113.1.164 'sudo cat /var/supastack/instances/'$TEST_REF'/.env | grep DISCORD'
 
 # Expected:
 #   DISCORD_ENABLED=true
@@ -54,7 +54,7 @@ ssh ubuntu@148.113.1.164 'sudo cat /var/selfbase/instances/'$TEST_REF'/.env | gr
 #   DISCORD_SECRET=test
 
 # Confirm the running container picked it up
-ssh ubuntu@148.113.1.164 'sudo docker exec selfbase-'$TEST_REF'-auth env | grep DISCORD'
+ssh ubuntu@148.113.1.164 'sudo docker exec supastack-'$TEST_REF'-auth env | grep DISCORD'
 ```
 
 **Pass**: env vars present in BOTH the .env file AND the running container's env.
@@ -65,7 +65,7 @@ ssh ubuntu@148.113.1.164 'sudo docker exec selfbase-'$TEST_REF'-auth env | grep 
 
 ```bash
 curl -s -H "Authorization: Bearer $PAT" \
-  "https://supaviser.dev/v1/projects/$TEST_REF/config/auth" | jq '._selfbase.fieldStatus | {
+  "https://supaviser.dev/v1/projects/$TEST_REF/config/auth" | jq '._supastack.fieldStatus | {
     honored_count: ([.[] | select(.status=="honored")] | length),
     stored_only_sample: (.saml_enabled),
     unsupported_sample: (.oauth_server_enabled)
@@ -97,7 +97,7 @@ supabase login --token $PAT
 supabase link --project-ref $TEST_REF
 supabase config get --auth
 
-# Should print the auth config without errors, ignoring the _selfbase key.
+# Should print the auth config without errors, ignoring the _supastack key.
 ```
 
 **Pass**: CLI exits 0; output contains the expected fields.
@@ -192,7 +192,7 @@ To simulate: SSH to the VM, manually corrupt the `.env` for the test project (e.
 ## Smoke 10 — Run the behavioral parity test (CI gate)
 
 ```bash
-SELFBASE_APEX=supaviser.dev SELFBASE_PAT=$PAT SELFBASE_TEST_PROJECT_REF=$TEST_REF \
+SUPASTACK_APEX=supaviser.dev SUPASTACK_PAT=$PAT SUPASTACK_TEST_PROJECT_REF=$TEST_REF \
   bash tests/cli-e2e/auth-config-behavioral-parity.sh
 ```
 

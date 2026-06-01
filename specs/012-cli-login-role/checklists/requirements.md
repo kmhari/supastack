@@ -37,7 +37,7 @@
 
 | Item | Status | Notes |
 |------|--------|-------|
-| No implementation details | PASS with caveat | Spec necessarily names a small number of concrete artifacts that are part of the **contract** with the upstream CLI (the endpoint path `POST /v1/projects/{ref}/cli/login-role`, the request/response shape, role-name prefix `cli_`, Postgres error code 42501). These are wire-level realities the CLI client already speaks against Cloud — they constrain *what* selfbase must produce, not *how* selfbase produces it. The plan phase will turn each into an implementation choice. No language/framework names appear; no internal file paths or class names appear except in the Assumptions section where `per-instance-pg.ts` is cited as an existing-system reference. |
+| No implementation details | PASS with caveat | Spec necessarily names a small number of concrete artifacts that are part of the **contract** with the upstream CLI (the endpoint path `POST /v1/projects/{ref}/cli/login-role`, the request/response shape, role-name prefix `cli_`, Postgres error code 42501). These are wire-level realities the CLI client already speaks against Cloud — they constrain *what* supastack must produce, not *how* supastack produces it. The plan phase will turn each into an implementation choice. No language/framework names appear; no internal file paths or class names appear except in the Assumptions section where `per-instance-pg.ts` is cited as an existing-system reference. |
 | Focused on user value | PASS | Every requirement traces to a user-observable outcome (no password prompt, no behavioural regression, no leftover roles, defense-in-depth on read-only). |
 | Written for non-technical stakeholders | PASS with caveat | The "Postgres role" and "PAT" terms are unavoidable because the value proposition itself is about credentials. Glossary-style framing is implicit in the prose. |
 | All mandatory sections completed | PASS | User scenarios, requirements, success criteria, assumptions all present. Edge cases included inline under user scenarios. |
@@ -65,7 +65,7 @@ Four questions asked, four answered, four integrated. Spec rewritten mid-session
 Clarifications recorded (in order asked):
 1. TTL = 300 seconds (5 min) — confirmed against upstream tests + SQL template.
 2. Role architecture = persistent fixed-name role + rotating password (NOT ephemeral per-call roles) — confirmed against upstream `role.sql` + `connect.go:201-220`.
-3. Rate limit = 30/min/PAT/project — selfbase's own posture pick (Cloud's exact ceiling not public).
-4. Audit trail = structured log only — selfbase's own posture pick (Cloud's audit posture not public).
+3. Rate limit = 30/min/PAT/project — supastack's own posture pick (Cloud's exact ceiling not public).
+4. Audit trail = structured log only — supastack's own posture pick (Cloud's audit posture not public).
 
 Net spec shape change: lost FR-007 entropy on role names (deterministic now), restructured FR-008 from "scheduled reaper" to "project-teardown reclaim only", dropped User Story 4 (graceful Ctrl+C cleanup is no longer applicable — the role persists), added FR-013 (audit log). Spec is ~80 lines shorter than the pre-clarify draft and meaningfully closer to upstream parity.

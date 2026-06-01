@@ -6,7 +6,7 @@
 
 ## Summary
 
-Stand up Playwright as the real-browser harness for the selfbase dashboard. Replace the existing placeholder specs at `apps/web/tests/e2e/*.spec.ts` with working implementations covering the operator paths vitest+jsdom cannot reach: sidebar navigation, Radix-portal drawer interactions, deep-link querystrings, and any-page-loads-without-console-errors smokes. Wire CI to run the suite on every PR against a disposable local stack; capture screenshots + console logs on failure with secrets redacted; gate merges on the result. Add an "expected pages" registry + lint step so adding a dashboard page requires adding a smoke.
+Stand up Playwright as the real-browser harness for the supastack dashboard. Replace the existing placeholder specs at `apps/web/tests/e2e/*.spec.ts` with working implementations covering the operator paths vitest+jsdom cannot reach: sidebar navigation, Radix-portal drawer interactions, deep-link querystrings, and any-page-loads-without-console-errors smokes. Wire CI to run the suite on every PR against a disposable local stack; capture screenshots + console logs on failure with secrets redacted; gate merges on the result. Add an "expected pages" registry + lint step so adding a dashboard page requires adding a smoke.
 
 Four implementation tracks:
 
@@ -15,7 +15,7 @@ Four implementation tracks:
 - **Track C — Coverage enforcement**: expected-pages registry + lint script that fails when a new page is added without a smoke
 - **Track D — CI integration**: GitHub Actions job that boots the stack, runs the suite, uploads screenshot artifacts with redaction, posts a PR comment
 
-No backend changes other than a small env-gated boot hook in `apps/api/src/server.ts` (T005, ~5 lines) that installs a fake docker control at `globalThis.__selfbaseFakeDockerControl` when `SELFBASE_TEST_FAKE_DOCKER=1`. Production builds (env unset) are unaffected. No new API endpoints. No new dashboard features. Otherwise pure test-harness work building on feature 020's surface.
+No backend changes other than a small env-gated boot hook in `apps/api/src/server.ts` (T005, ~5 lines) that installs a fake docker control at `globalThis.__supastackFakeDockerControl` when `SUPASTACK_TEST_FAKE_DOCKER=1`. Production builds (env unset) are unaffected. No new API endpoints. No new dashboard features. Otherwise pure test-harness work building on feature 020's surface.
 
 ## Technical Context
 
@@ -45,7 +45,7 @@ No backend changes other than a small env-gated boot hook in `apps/api/src/serve
 
 **Constraints**:
 - No live-VM dependency in CI (FR-008) — disposable local stack only.
-- No per-instance Supabase project provisioning in CI (too slow / requires docker-in-docker) — tests that need a project use a pre-seeded fixture project created by the harness via api endpoints (`POST /api/v1/instances` with a known name) but stub out the per-instance docker container provisioning via the existing fake-docker-control hook (`globalThis.__selfbaseFakeDockerControl`). The auth-config GET works against a project even if its containers are mocked, because the snapshot path doesn't require running containers.
+- No per-instance Supabase project provisioning in CI (too slow / requires docker-in-docker) — tests that need a project use a pre-seeded fixture project created by the harness via api endpoints (`POST /api/v1/instances` with a known name) but stub out the per-instance docker container provisioning via the existing fake-docker-control hook (`globalThis.__supastackFakeDockerControl`). The auth-config GET works against a project even if its containers are mocked, because the snapshot path doesn't require running containers.
 - Text artifacts (console logs, network panel JSON, JUnit reports) must redact known secret patterns (FR-009 v1 scope) — implement as a Playwright reporter that wraps the default `html` reporter and post-processes `.txt` / `.log` / `.json` files before they're zipped. PNG screenshots pass through unchanged; redaction tracked as a follow-up issue.
 - Tests must not depend on real OAuth IdP roundtrips (Out of Scope) — Discord / Google etc. assertions stop at "drawer renders with the right fields" or "PATCH writes the env line", never "Google's consent screen appears".
 
@@ -431,7 +431,7 @@ e2e:
     - name: Run Playwright suite
       env:
         PLAYWRIGHT_BASE_URL: http://localhost:5173
-      run: pnpm --filter @selfbase/web test:e2e
+      run: pnpm --filter @supastack/web test:e2e
     - name: Upload Playwright report on failure
       if: failure()
       uses: actions/upload-artifact@v4
@@ -468,7 +468,7 @@ Open questions that need explicit decisions before implementation:
    
    (a) most production-like; (b) ~3× faster to start. Decision needed.
 
-3. **Fake docker control in CI**. Tests need a "project" to render the auth-providers page. The existing fake-docker-control hook (`globalThis.__selfbaseFakeDockerControl`) lets the api accept project creation without actually provisioning containers. Confirm this hook is exposed in the production api build OR add a test-only env var that enables it.
+3. **Fake docker control in CI**. Tests need a "project" to render the auth-providers page. The existing fake-docker-control hook (`globalThis.__supastackFakeDockerControl`) lets the api accept project creation without actually provisioning containers. Confirm this hook is exposed in the production api build OR add a test-only env var that enables it.
 
 4. **Admin user seeding**. The api exposes `POST /api/v1/setup` which is single-use (only works once per stack). Confirm we can re-run it on a freshly-spawned stack each CI run, OR use a one-time seed SQL.
 
@@ -496,8 +496,8 @@ Documents the registry's invariants:
 
 Per-developer instructions:
 - First-time setup: `pnpm install && pnpm exec playwright install --with-deps chromium`
-- Running locally: `pnpm dev` (in one terminal) + `pnpm --filter @selfbase/web test:e2e` (in another)
-- UI mode for debugging: `pnpm --filter @selfbase/web test:e2e:ui`
+- Running locally: `pnpm dev` (in one terminal) + `pnpm --filter @supastack/web test:e2e` (in another)
+- UI mode for debugging: `pnpm --filter @supastack/web test:e2e:ui`
 - Common failure modes + how to fix them (stale browser, port conflicts, seed-user collision)
 - How to add a new test for a new dashboard page
 

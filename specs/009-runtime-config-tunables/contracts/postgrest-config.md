@@ -17,9 +17,9 @@ Mirrors upstream Supabase Management API. Source: `https://api.supabase.com/api/
 }
 ```
 
-All four fields are required in the response. `db_pool: null` means "auto-configured" (selfbase always returns `null` unless an operator explicitly set it). Returned values come from the persisted `project_config_snapshots` row for `(ref, 'postgrest')`, or upstream-documented defaults if no row exists yet.
+All four fields are required in the response. `db_pool: null` means "auto-configured" (supastack always returns `null` unless an operator explicitly set it). Returned values come from the persisted `project_config_snapshots` row for `(ref, 'postgrest')`, or upstream-documented defaults if no row exists yet.
 
-**Note**: upstream's `PostgrestConfigWithJWTSecretResponse` includes a `jwt_secret` field. Selfbase explicitly does NOT return `jwt_secret` from this endpoint — the JWT signing secret is platform-managed (see spec Assumptions, JWT rotation is out of scope). Clients that expect this field will see it missing; the upstream OpenAPI shape uses two separate response schemas (`PostgrestConfigWithJWTSecretResponse` for GET, `V1PostgrestConfigResponse` for PATCH-response) — we return the PATCH-response shape on both, matching upstream's documented PATCH return.
+**Note**: upstream's `PostgrestConfigWithJWTSecretResponse` includes a `jwt_secret` field. Supastack explicitly does NOT return `jwt_secret` from this endpoint — the JWT signing secret is platform-managed (see spec Assumptions, JWT rotation is out of scope). Clients that expect this field will see it missing; the upstream OpenAPI shape uses two separate response schemas (`PostgrestConfigWithJWTSecretResponse` for GET, `V1PostgrestConfigResponse` for PATCH-response) — we return the PATCH-response shape on both, matching upstream's documented PATCH return.
 
 **Error responses**:
 - `401 unauthorized` — invalid/missing PAT.
@@ -56,13 +56,13 @@ Any field not listed above → 400 `validation_failed` with `error.details.<fiel
 **Response 200**: identical shape to GET response, returning the post-merge config (every field present, even ones the caller did not include in the PATCH body — they retain their prior value).
 
 **Side effects**:
-1. Acquire Redis lock `selfbase:config-write-lock:<ref>` (TTL 60s). If already held → 409 `config_write_in_progress`.
+1. Acquire Redis lock `supastack:config-write-lock:<ref>` (TTL 60s). If already held → 409 `config_write_in_progress`.
 2. Validate body via Zod → 400 on any field error.
 3. Read current snapshot (or defaults if none).
 4. Merge body over current → post-merge JSON.
 5. For honored fields: rewrite the per-instance `.env` via `upsertEnvEntry`.
 6. Persist new snapshot row (INSERT or UPDATE), bumping `version`.
-7. `docker restart selfbase-<ref>-rest-1` → `waitContainerHealthy(5000)`.
+7. `docker restart supastack-<ref>-rest-1` → `waitContainerHealthy(5000)`.
 8. On any failure after step 5: roll back `.env` from backup, delete or revert the snapshot row, return 500 `restart_failed`.
 9. Emit `audit_log` entry with `action='mgmt_api.postgrest.update'` and the field-level diff.
 10. Release Redis lock.
@@ -82,4 +82,4 @@ supabase postgres-config update --project-ref <ref> --max-rows 5000
 supabase postgres-config update --project-ref <ref> --db-pool 20
 ```
 
-All of the above MUST resolve `<ref>` against `https://api.<apex>` (selfbase) when the CLI is configured for selfbase via `supabase login --workdir <selfbase-pat>`.
+All of the above MUST resolve `<ref>` against `https://api.<apex>` (supastack) when the CLI is configured for supastack via `supabase login --workdir <supastack-pat>`.

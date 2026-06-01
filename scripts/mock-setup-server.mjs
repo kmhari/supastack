@@ -124,7 +124,7 @@ const server = http.createServer(async (req, res) => {
       certIssued = false;
       console.log(`[mock]   apex set to ${apex}`);
     }
-    return json(res, 200, { id: 'mock-org-id', name: 'Selfbase', apexDomain: apex });
+    return json(res, 200, { id: 'mock-org-id', name: 'Supastack', apexDomain: apex });
   }
 
   // POST /api/v1/wildcard-certs/initiate

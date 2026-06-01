@@ -1,8 +1,8 @@
-# Contract: Tenant Registration (selfbase api ↔ supavisor admin API)
+# Contract: Tenant Registration (supastack api ↔ supavisor admin API)
 
 **Feature**: 005-postgres-public-endpoint | **Date**: 2026-05-23
 
-The selfbase `api` is the only writer to supavisor's tenant table. All tenant CRUD ops go through supavisor's HTTP admin API at `http://supavisor:4000/api/tenants`.
+The supastack `api` is the only writer to supavisor's tenant table. All tenant CRUD ops go through supavisor's HTTP admin API at `http://supavisor:4000/api/tenants`.
 
 ---
 
@@ -61,7 +61,7 @@ All requests require `Authorization: Bearer <JWT>` where the JWT is:
 - `422` — validation error → bubble up; api wraps in `errors.invalidInput`
 - `5xx` — transient → api retries up to 3 times with backoff; on final failure, rolls back the provision transaction
 
-**Selfbase post-actions** (in transaction, after 2xx response):
+**Supastack post-actions** (in transaction, after 2xx response):
 1. `UPDATE pooler_tenants SET status='active', last_error=NULL WHERE external_id=$1`
 2. `INSERT INTO pooler_events (tenant_id, external_id, event, detail) VALUES (..., ..., 'register', '{"sni":"..."}')`
 3. `INSERT INTO audit_log (action) VALUES ('pooler.tenant.register')`
@@ -76,7 +76,7 @@ All requests require `Authorization: Bearer <JWT>` where the JWT is:
 
 **404 handling**: tenant didn't exist → treat as success (idempotent).
 
-**Selfbase post-actions**:
+**Supastack post-actions**:
 1. `DELETE FROM pooler_tenants WHERE external_id=$1` (CASCADE deletes pooler_events)
 2. `INSERT INTO audit_log (action) VALUES ('pooler.tenant.unregister')`
 
@@ -139,7 +139,7 @@ All requests require `Authorization: Bearer <JWT>` where the JWT is:
 
 ## GET /api/health — Liveness probe
 
-**Called by**: docker compose healthcheck + selfbase api's reconciler.
+**Called by**: docker compose healthcheck + supastack api's reconciler.
 
 **Response 200**: `{"status": "ok", "version": "2.7.4"}`.
 **Anything else**: supavisor unhealthy.

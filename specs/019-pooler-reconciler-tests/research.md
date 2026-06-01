@@ -31,9 +31,9 @@
 **Mocks required**:
 | Module | What to mock | Why |
 |---|---|---|
-| `@selfbase/db` | `db()` returns a chainable query builder stub; `schema.*` as plain string constants | Avoids real DB; pattern matches T030 |
-| `@selfbase/crypto` | `decryptJson`, `loadMasterKey` | Reconciler decrypts pooler credentials for probe |
-| `@selfbase/shared` | `logger` | Suppresses noise; prevents real log calls |
+| `@supastack/db` | `db()` returns a chainable query builder stub; `schema.*` as plain string constants | Avoids real DB; pattern matches T030 |
+| `@supastack/crypto` | `decryptJson`, `loadMasterKey` | Reconciler decrypts pooler credentials for probe |
+| `@supastack/shared` | `logger` | Suppresses noise; prevents real log calls |
 | `undici` | `fetch` (named export) | Supavisor HTTP calls all go through `fetch` from undici |
 | `pg` | `pg.Client` constructor | Per-instance PG probe in `maybePromoteToDrift` |
 | `drizzle-orm` | `eq`, `lt`, `and`, `sql` | Called by the reconciler's Drizzle queries; must not throw |

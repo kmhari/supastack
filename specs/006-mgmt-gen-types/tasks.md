@@ -53,16 +53,16 @@ This is a TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `packages/db
 - [ ] T012 [P] [US1] Create `apps/api/src/services/gen-types-service.ts` — exports `generateTypes(ref: string, schemas: string[]): Promise<string>`. Implementation: validate each `schemas[]` entry exists in the per-instance PG (`SELECT 1 FROM information_schema.schemata WHERE schema_name = ANY($1)` via `per-instance-pg.ts`); if any missing, throw `SchemaNotFoundError`. Then call `per-instance-meta` at `/types/typescript?included_schemas=<csv>&excluded_schemas=&excluded_tables=` (mirroring upstream pg-meta param names). Forward the response body as a string.
 - [ ] T013 [US1] Implement `apps/api/src/routes/management/gen-types.ts` — `GET /projects/:ref/types/typescript`. Parse `schemas` query (Zod from T008). Resolve instance status (404 unknown / 409 not running). Call `generateTypes`. Return `{ types }`. Map `SchemaNotFoundError → 400`, `PgMetaUnreachableError → 502`.
 - [ ] T014 [P] [US1] Edit `apps/worker/src/jobs/provision.ts` to populate `port_meta` in the `supabase_instances` row from the allocated port for the per-instance pg-meta container (it's the existing port-allocator's next-available slot). Compose template already maps pg-meta's :8080 → that host port.
-- [ ] T015 [P] [US1] Create `apps/api/scripts/backfill-port-meta.ts` — one-shot script. For each `supabase_instances` row WHERE `port_meta IS NULL`: shell out to `docker port selfbase-<ref>-meta-1 8080` via the docker.sock unix proxy, parse the host port, UPDATE the row. Log per-row outcome. Idempotent. Document invocation in script header.
+- [ ] T015 [P] [US1] Create `apps/api/scripts/backfill-port-meta.ts` — one-shot script. For each `supabase_instances` row WHERE `port_meta IS NULL`: shell out to `docker port supastack-<ref>-meta-1 8080` via the docker.sock unix proxy, parse the host port, UPDATE the row. Log per-row outcome. Idempotent. Document invocation in script header.
 - [ ] T016 [US1] Create `tests/cli-e2e/gen-types.sh` — exercises Quickstart US1 scenarios against the test VM. Asserts: exit 0, output non-empty, output contains `export type Database`, output passes `tsc --noEmit` after writing to a temp file alongside a stub `@supabase/supabase-js` import.
 
-**Checkpoint**: After T012-T016, `supabase gen types typescript --project-id <ref>` works end-to-end against a fresh selfbase install.
+**Checkpoint**: After T012-T016, `supabase gen types typescript --project-id <ref>` works end-to-end against a fresh supastack install.
 
 ---
 
 ## Phase 4: User Story 2 — Manage database migrations (Priority P1, INDEPENDENT of US1)
 
-**Story goal**: `supabase migration list/up/repair/fetch` round-trip works against selfbase.
+**Story goal**: `supabase migration list/up/repair/fetch` round-trip works against supastack.
 
 **Independent test**: Quickstart US2 round-trip (create → push → list → drift-simulate → repair → list → fetch) exits 0 at every step; final state matches initial.
 
@@ -88,7 +88,7 @@ This is a TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `packages/db
 
 ## Phase 5: User Story 3 — Snippets list/download (DEFERRED to issue #13)
 
-**Status**: Deferred during implementation. The spec assumed `/v1/snippets` reads from `user_content.content` on the per-instance Postgres; selfbase Studio actually stores snippets in browser localStorage (no server-side store). Tracked in [#13](https://github.com/kmhari/selfbase/issues/13).
+**Status**: Deferred during implementation. The spec assumed `/v1/snippets` reads from `user_content.content` on the per-instance Postgres; supastack Studio actually stores snippets in browser localStorage (no server-side store). Tracked in [#13](https://github.com/kmhari/supastack/issues/13).
 
 - [~] T020 [P] [US3] **DEFERRED** — see #13 — Create `apps/api/src/services/snippets-service.ts` — exports:
   - `listSnippets(callerUserId, callerAccessibleProjects, opts?: { projectRef?: string }): Promise<SnippetSummary[]>`
@@ -106,7 +106,7 @@ This is a TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `packages/db
 
 ## Phase 6: User Story 4 — Backups list/restore (DEFERRED to issue #14)
 
-**Status**: Deferred from feature 006 to its own implementation session. All design + tasks below are kept verbatim so a fresh session can lift them directly. Track in [#14](https://github.com/kmhari/selfbase/issues/14).
+**Status**: Deferred from feature 006 to its own implementation session. All design + tasks below are kept verbatim so a fresh session can lift them directly. Track in [#14](https://github.com/kmhari/supastack/issues/14).
 
 
 **Story goal**: `supabase backups list/restore` works; restore is async with rollback guarantee.
@@ -131,7 +131,7 @@ This is a TypeScript monorepo: `apps/api/src/`, `apps/worker/src/`, `packages/db
   - `initiateRestore(ref, callerUserId, payload: RestoreRequest): Promise<{ restore_job_id }>` — resolves backup_id from either field, runs preflight in order: (1) RBAC admin-only check, (2) project not paused, (3) backup status COMPLETED, (4) blob present in store, (5) PG-version match, (6) **disk-space pre-flight per FR-024**: stat `data` dir size, compare to `df` available on the volume; reject 409 `disk_space_insufficient` with `{ required_bytes, available_bytes, data_dir_bytes }` if insufficient. (7) Compute `timeout_budget_seconds = 300 + ceil(backup_bytes/1e9)*60 + 300`. Then wrap INSERT `restore_jobs` (with timeout_budget_seconds) + UPDATE `supabase_instances.status='restoring'` in a single TX, enqueue the BullMQ `restore` job, emit audit log `mgmt_api.backup.restore_started`.
   - `getRestoreStatus(ref): Promise<RestoreStatusResponse>` — returns current + history per the contract.
 - [x] T030 [US4] Implement `POST /v1/projects/:ref/database/backups/restore-pitr` and `GET /v1/projects/:ref/database/backups/restore-status` in `backups-mgmt.ts`. Map errors: `restore_in_progress → 409`, `project_paused → 409`, `backup_status_invalid → 409`, `backup_blob_missing → 410`, `incompatible_pg_version → 400`, non-admin → 403.
-- [x] T031 [P] [US4] Create `apps/worker/src/jobs/restore.ts` — BullMQ worker handling `{ restore_job_id }`. Implements the full state machine from `contracts/backups.md` "Worker job: restore" section. Wraps the entire job body in a watchdog that aborts at `timeout_budget_seconds` (read from the row), triggering the rollback path. Key steps in order: (1) load job + idempotency, (2) set running, (3) fetch blob, (4) **stop the WHOLE per-instance compose stack** (FR-025) via `@selfbase/docker-control`, (5) `mv` data dir to pre-restore snapshot, (6) extract blob into new empty data dir, (7) **start the WHOLE stack**, (8) wait db healthcheck, (9) smoke probe via `withPerInstancePg`, (10) wait sibling-service healthchecks (auth, rest, kong), (11) success: status=`success` + `supabase_instances.status='running'` + enqueue delayed 24h GC msg + audit `restore_completed`. On any failure or timeout: rollback per "On any error" in the contract — swap dirs back, start whole stack, mark `failed` (`error_message = 'timeout_exceeded (budget: <N>s)'` if watchdog fired), audit `restore_failed`, clear `pre_restore_dir`.
+- [x] T031 [P] [US4] Create `apps/worker/src/jobs/restore.ts` — BullMQ worker handling `{ restore_job_id }`. Implements the full state machine from `contracts/backups.md` "Worker job: restore" section. Wraps the entire job body in a watchdog that aborts at `timeout_budget_seconds` (read from the row), triggering the rollback path. Key steps in order: (1) load job + idempotency, (2) set running, (3) fetch blob, (4) **stop the WHOLE per-instance compose stack** (FR-025) via `@supastack/docker-control`, (5) `mv` data dir to pre-restore snapshot, (6) extract blob into new empty data dir, (7) **start the WHOLE stack**, (8) wait db healthcheck, (9) smoke probe via `withPerInstancePg`, (10) wait sibling-service healthchecks (auth, rest, kong), (11) success: status=`success` + `supabase_instances.status='running'` + enqueue delayed 24h GC msg + audit `restore_completed`. On any failure or timeout: rollback per "On any error" in the contract — swap dirs back, start whole stack, mark `failed` (`error_message = 'timeout_exceeded (budget: <N>s)'` if watchdog fired), audit `restore_failed`, clear `pre_restore_dir`.
 - [x] T032 [US4] Edit `apps/worker/src/index.ts` to register the restore queue + worker AND a separate `restore-gc` queue + worker. The `restore-gc` worker handles delayed messages enqueued by the success path of T031: load job, if `pre_restore_dir` is null exit (idempotent), else `rm -rf <pre_restore_dir>` then UPDATE `restore_jobs.pre_restore_dir = null`.
 - [x] T033 [P] [US4] Create `tests/cli-e2e/backups-restore.sh` — Quickstart US4 round-trip. Takes a backup, makes a destructive change, runs `supabase backups restore`, polls `/restore-status` until success/failed, asserts final state matches the backup snapshot AND that all sibling services (curl `/auth/v1/health`, `/rest/v1/`, kong) are healthy after restore. Also covers the negative tests: disk-insufficient → 409 (set up by truncating `df` artificially or pointing the data volume to a tmpfs), concurrent restore → 409, missing blob → 410.
 

@@ -40,7 +40,7 @@ vi.mock('node:child_process', () => ({
   }),
 }));
 
-vi.mock('@selfbase/db', () => {
+vi.mock('@supastack/db', () => {
   return {
     db: () => ({
       select: (cols?: Record<string, unknown>) => {
@@ -118,12 +118,12 @@ vi.mock('drizzle-orm', () => ({
   and: (...args: unknown[]) => ({ kind: 'and', args }),
 }));
 
-vi.mock('@selfbase/crypto', () => ({
+vi.mock('@supastack/crypto', () => ({
   decryptJson: () => ({ accessKeyId: 'x', secretAccessKey: 'y', bucket: 'b', region: 'r' }),
   loadMasterKey: () => Buffer.alloc(32),
 }));
 
-vi.mock('@selfbase/backup-store', () => {
+vi.mock('@supastack/backup-store', () => {
   class LocalDiskStore {
     constructor(public dir: string) {}
     async put(ref: string, _stream: Readable): Promise<{ key: string; size: number }> {

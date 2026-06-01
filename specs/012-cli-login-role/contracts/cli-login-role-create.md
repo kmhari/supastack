@@ -2,7 +2,7 @@
 
 **Feature**: 012-cli-login-role
 **Upstream source of truth**: `api.supabase.com/api/v1-json` (snapshot pinned at [`upstream-openapi-snapshot.json`](./upstream-openapi-snapshot.json) in this directory)
-**Selfbase handler**: `apps/api/src/routes/management/cli-login-role.ts` (to be created — Phase 2)
+**Supastack handler**: `apps/api/src/routes/management/cli-login-role.ts` (to be created — Phase 2)
 
 ## Purpose
 
@@ -14,7 +14,7 @@ Rotate the password of a per-project CLI login role and return fresh credentials
 POST /v1/projects/{ref}/cli/login-role
 ```
 
-- `{ref}` — 20-character lowercase-alpha project reference (matches existing `ProjectRef` regex selfbase already validates: `^[a-z]{20}$`).
+- `{ref}` — 20-character lowercase-alpha project reference (matches existing `ProjectRef` regex supastack already validates: `^[a-z]{20}$`).
 - The endpoint is mounted inside the `/v1/*` Fastify scope at `apps/api/src/server.ts` (alongside `migrationsRoutes`, `genTypesRoutes`, etc.), so it inherits the `mgmt-api-errors` envelope automatically.
 
 ## Request
@@ -23,7 +23,7 @@ POST /v1/projects/{ref}/cli/login-role
 
 | Header | Required | Value |
 |---|---|---|
-| `Authorization` | yes | `Bearer <PAT>` — selfbase-minted PAT (`sbp_<40hex>` per [feature 003](../../003-supabase-cli-compat-p0/)). |
+| `Authorization` | yes | `Bearer <PAT>` — supastack-minted PAT (`sbp_<40hex>` per [feature 003](../../003-supabase-cli-compat-p0/)). |
 | `Content-Type` | yes | `application/json`. |
 
 ### Body
@@ -69,7 +69,7 @@ The HTTP status code is `201 Created` (matches upstream — verified at `api.sup
 }
 ```
 
-The error envelope is selfbase's existing `mgmt-api-errors` shape, which the CLI's error handler already understands (used by every other `/v1/*` endpoint).
+The error envelope is supastack's existing `mgmt-api-errors` shape, which the CLI's error handler already understands (used by every other `/v1/*` endpoint).
 
 ### 403 Forbidden — PAT valid but RBAC denies `database.create-login-role`
 
@@ -91,7 +91,7 @@ The error envelope is selfbase's existing `mgmt-api-errors` shape, which the CLI
 }
 ```
 
-Per existing selfbase convention (see `apps/api/src/routes/management/migrations.ts:46-48`), the 404 is the same whether the project doesn't exist or whether the PAT-holder lacks visibility — avoids leaking project existence to unauthorised callers.
+Per existing supastack convention (see `apps/api/src/routes/management/migrations.ts:46-48`), the 404 is the same whether the project doesn't exist or whether the PAT-holder lacks visibility — avoids leaking project existence to unauthorised callers.
 
 ### 409 Conflict — project is in a non-running state (provisioning, paused, restoring, etc.)
 

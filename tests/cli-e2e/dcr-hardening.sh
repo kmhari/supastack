@@ -11,15 +11,15 @@
 # Spec: 014-mcp-http-oauth — quickstart.md US2, contracts/oauth-register-endpoint.md.
 #
 # Run with:
-#   SELFBASE_APEX=supaviser.dev bash tests/cli-e2e/dcr-hardening.sh
+#   SUPASTACK_APEX=supaviser.dev bash tests/cli-e2e/dcr-hardening.sh
 #
 # Requirements: curl, jq.
 
 set -euo pipefail
 
-: "${SELFBASE_APEX:?SELFBASE_APEX required}"
+: "${SUPASTACK_APEX:?SUPASTACK_APEX required}"
 
-API="https://api.${SELFBASE_APEX}"
+API="https://api.${SUPASTACK_APEX}"
 REG="${API}/v1/oauth/register"
 
 echo "==> [1] Register a fresh bespoke client (canonical happy path)"

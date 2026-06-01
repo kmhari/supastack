@@ -6,7 +6,7 @@ Live-VM verification recipe. Run from a laptop with SSH access to `ubuntu@148.11
 
 ```bash
 ssh ubuntu@148.113.1.164 "sudo docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}' | grep kong"
-ssh ubuntu@148.113.1.164 "sudo docker top selfbase-<REF>-kong-1 | grep -c 'nginx: worker'"
+ssh ubuntu@148.113.1.164 "sudo docker top supastack-<REF>-kong-1 | grep -c 'nginx: worker'"
 ```
 
 Expected before the change: ~1.25 GiB RSS per kong container, **12** worker processes (or whatever `nproc` returns on the host).
@@ -18,7 +18,7 @@ From the repo root on the VM, after rsyncing the updated `infra/supabase-templat
 ```bash
 # Pick one project ref to roll first
 REF=<project-ref>
-cd /opt/selfbase/instances/$REF   # per-project compose location
+cd /opt/supastack/instances/$REF   # per-project compose location
 # Regenerate the per-project compose from the updated template, then:
 sudo docker compose up -d kong
 ```
@@ -35,7 +35,7 @@ Note: `kong reload` re-execs the master and respawns workers under the new direc
 
 ```bash
 ssh ubuntu@148.113.1.164 "sudo docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}' | grep $REF-kong"
-ssh ubuntu@148.113.1.164 "sudo docker top selfbase-$REF-kong-1 | grep -c 'nginx: worker'"
+ssh ubuntu@148.113.1.164 "sudo docker top supastack-$REF-kong-1 | grep -c 'nginx: worker'"
 ```
 
 **Pass criteria (SC-001, SC-004)**:
@@ -70,7 +70,7 @@ ssh ubuntu@148.113.1.164 "free -h && sudo docker stats --no-stream --format 'tab
 
 ## 7. Watch for regressions (SC-003)
 
-Over the next 7 days, check the dashboard's per-project error-rate panel (or `selfbase-<ref>-analytics-1` Logflare) for gateway-originated 5xx. Compare 7-day rolling window before and after.
+Over the next 7 days, check the dashboard's per-project error-rate panel (or `supastack-<ref>-analytics-1` Logflare) for gateway-originated 5xx. Compare 7-day rolling window before and after.
 
 ## Rollback
 

@@ -1,6 +1,6 @@
-# @selfbase/crypto
+# @supastack/crypto
 
-Crypto primitives for selfbase. Five surfaces:
+Crypto primitives for supastack. Five surfaces:
 
 | Module         | Purpose                                                                                                           | Used by                                                                                                       |
 | -------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -22,5 +22,5 @@ Crypto primitives for selfbase. Five surfaces:
 ## Tests
 
 ```sh
-pnpm --filter @selfbase/crypto test
+pnpm --filter @supastack/crypto test
 ```

@@ -19,7 +19,7 @@ description: "Task list for feature 009 — runtime config tunables (postgres-co
 
 ## Path conventions
 
-Selfbase monorepo. `apps/api/`, `apps/worker/`, `packages/db/`, `packages/shared/`, `tests/cli-e2e/` — see plan.md's Source Code tree.
+Supastack monorepo. `apps/api/`, `apps/worker/`, `packages/db/`, `packages/shared/`, `tests/cli-e2e/` — see plan.md's Source Code tree.
 
 ---
 
@@ -64,8 +64,8 @@ Selfbase monorepo. `apps/api/`, `apps/worker/`, `packages/db/`, `packages/shared
   - `defaultConfigFor(surface: 'postgrest' | 'auth'): Json` — upstream-documented defaults
   - `getConfig(ref: string, surface): Promise<Json>` — decrypt snapshot or return defaults; redact every field in `SECRET_FIELDS` to `***`
   - `patchConfig(ref: string, surface, body: Json, source: { userId: string }): Promise<Json>` — full pipeline: Redis lock → load current (decrypted plaintext) → merge body → resolve `***` sentinels against current → cross-field validate (OAuth `enabled` requires non-empty client_id + non-`***`-after-merge secret) → for honored fields write `.env` via `upsertEnvEntry` from `secret-store.ts` → INSERT/UPDATE snapshot row (encrypted) → `restartOrRollback(containerNameFor(ref, surface))` → emit `audit_log` entry → release lock → return redacted post-merge
-- [X] T019 [P] Wire Redis SETNX helper for `selfbase:config-write-lock:<ref>` (TTL 60s). If existing Redis client wrapper provides a primitive, reuse it; otherwise add a small `withProjectConfigLock(ref, fn)` helper inside `runtime-config-store.ts`. 409 `config_write_in_progress` if `SET NX` fails.
-- [X] T020 [P] Extract container-name resolver: `containerNameFor(ref, surface)` returns `selfbase-${ref}-rest-1` for `'postgrest'` and `selfbase-${ref}-auth-1` for `'auth'`. Co-locate in `runtime-config-store.ts` or in `docker-control-adapter.ts` if cleaner.
+- [X] T019 [P] Wire Redis SETNX helper for `supastack:config-write-lock:<ref>` (TTL 60s). If existing Redis client wrapper provides a primitive, reuse it; otherwise add a small `withProjectConfigLock(ref, fn)` helper inside `runtime-config-store.ts`. 409 `config_write_in_progress` if `SET NX` fails.
+- [X] T020 [P] Extract container-name resolver: `containerNameFor(ref, surface)` returns `supastack-${ref}-rest-1` for `'postgrest'` and `supastack-${ref}-auth-1` for `'auth'`. Co-locate in `runtime-config-store.ts` or in `docker-control-adapter.ts` if cleaner.
 
 ### Foundational tests
 

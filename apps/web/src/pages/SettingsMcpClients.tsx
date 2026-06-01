@@ -47,7 +47,7 @@ export function SettingsMcpClientsPage(): React.ReactElement {
           <Plug className="size-4" />
           <AlertDescription>
             MCP-aware editors (Claude Code, Cursor, Windsurf, …) that you've authorized to drive
-            your selfbase deployment. Revoke any client to immediately invalidate every active
+            your supastack deployment. Revoke any client to immediately invalidate every active
             access token + refresh token for that client. Revocation takes effect within 5 seconds.
           </AlertDescription>
         </Alert>
@@ -106,7 +106,7 @@ export function SettingsMcpClientsPage(): React.ReactElement {
                     onClick={() => {
                       if (
                         confirm(
-                          `Revoke access for "${c.client_name}"?\n\nThis will immediately invalidate all tokens for this client. The next time it tries to call selfbase, it will need to re-authorize.`,
+                          `Revoke access for "${c.client_name}"?\n\nThis will immediately invalidate all tokens for this client. The next time it tries to call supastack, it will need to re-authorize.`,
                         )
                       ) {
                         revoke.mutate(c.client_id);

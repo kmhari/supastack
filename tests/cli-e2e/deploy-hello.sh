@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # T044 — E2E: drives the unmodified upstream `supabase` CLI against a live
-# selfbase deployment and asserts the full Connect-CLI + link + functions
+# supastack deployment and asserts the full Connect-CLI + link + functions
 # deploy flow works end-to-end.
 #
 # Runs BOTH wire formats:
@@ -11,24 +11,24 @@
 #
 # Default off in PR CI. Run locally with:
 #
-#   SELFBASE_APEX=cli-e2e.example.com \
-#   SELFBASE_PAT=sbp_<40hex> \
-#   SELFBASE_PROJECT_REF=<ref> \
-#   SELFBASE_ANON_KEY=eyJ... \
+#   SUPASTACK_APEX=cli-e2e.example.com \
+#   SUPASTACK_PAT=sbp_<40hex> \
+#   SUPASTACK_PROJECT_REF=<ref> \
+#   SUPASTACK_ANON_KEY=eyJ... \
 #   pnpm test:cli
 #
 # Requirements: supabase CLI ≥ 2.72.7 on PATH; curl, jq.
 # For the eszip variant: Docker daemon running.
 #
 # Also covers FR-004: supabase login exit 0 + ~/.supabase/profile written +
-# supabase projects list includes SELFBASE_PROJECT_REF.
+# supabase projects list includes SUPASTACK_PROJECT_REF.
 
 set -euo pipefail
 
-: "${SELFBASE_APEX:?SELFBASE_APEX required}"
-: "${SELFBASE_PAT:?SELFBASE_PAT required}"
-: "${SELFBASE_PROJECT_REF:?SELFBASE_PROJECT_REF required}"
-: "${SELFBASE_ANON_KEY:=fake}"
+: "${SUPASTACK_APEX:?SUPASTACK_APEX required}"
+: "${SUPASTACK_PAT:?SUPASTACK_PAT required}"
+: "${SUPASTACK_PROJECT_REF:?SUPASTACK_PROJECT_REF required}"
+: "${SUPASTACK_ANON_KEY:=fake}"
 
 # Skip eszip variant unless Docker is available.
 RUN_ESZIP=1
@@ -41,18 +41,18 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 # --- 1. Write the profile -----------------------------------------------
-cat > "$WORK/selfbase.toml" <<EOF
-name          = "selfbase-e2e"
-api_url       = "https://api.${SELFBASE_APEX}"
-dashboard_url = "https://${SELFBASE_APEX}/dashboard"
-project_host  = "${SELFBASE_APEX}"
+cat > "$WORK/supastack.toml" <<EOF
+name          = "supastack-e2e"
+api_url       = "https://api.${SUPASTACK_APEX}"
+dashboard_url = "https://${SUPASTACK_APEX}/dashboard"
+project_host  = "${SUPASTACK_APEX}"
 EOF
 
 # --- 2. supabase login (FR-004 assertion) -------------------------------
-echo "[deploy-hello] step 1/5: supabase login --profile <selfbase.toml>"
+echo "[deploy-hello] step 1/5: supabase login --profile <supastack.toml>"
 # Use SUPABASE_ACCESS_TOKEN env to skip the interactive paste prompt.
-SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-  supabase login --profile "$WORK/selfbase.toml" --token "$SELFBASE_PAT"
+SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+  supabase login --profile "$WORK/supastack.toml" --token "$SUPASTACK_PAT"
 # Confirm ~/.supabase/profile was written by the login PostRunE hook.
 test -f "$HOME/.supabase/profile" || {
   echo "FAIL: ~/.supabase/profile was not written"
@@ -62,10 +62,10 @@ echo "[deploy-hello] ✓ ~/.supabase/profile present"
 
 # --- 3. supabase projects list includes our ref -------------------------
 echo "[deploy-hello] step 2/5: supabase projects list"
-LIST_OUTPUT=$(SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-  supabase --profile "$WORK/selfbase.toml" projects list)
-echo "$LIST_OUTPUT" | grep -q "$SELFBASE_PROJECT_REF" || {
-  echo "FAIL: projects list did not include $SELFBASE_PROJECT_REF"
+LIST_OUTPUT=$(SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+  supabase --profile "$WORK/supastack.toml" projects list)
+echo "$LIST_OUTPUT" | grep -q "$SUPASTACK_PROJECT_REF" || {
+  echo "FAIL: projects list did not include $SUPASTACK_PROJECT_REF"
   echo "$LIST_OUTPUT"
   exit 1
 }
@@ -79,21 +79,21 @@ Deno.serve(() => new Response('e2e-ok-$(date +%s)'));
 EOF
 # Minimal supabase config so the CLI doesn't complain.
 cat > "$WORK/proj/supabase/config.toml" <<EOF
-project_id = "$SELFBASE_PROJECT_REF"
+project_id = "$SUPASTACK_PROJECT_REF"
 EOF
 cd "$WORK/proj"
 
 # --- 5a. Variant A: --use-api ------------------------------------------
 echo "[deploy-hello] step 3/5: variant A (--use-api)"
-SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-  supabase --profile "$WORK/selfbase.toml" functions deploy "$SLUG" \
-    --use-api --project-ref "$SELFBASE_PROJECT_REF"
+SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+  supabase --profile "$WORK/supastack.toml" functions deploy "$SLUG" \
+    --use-api --project-ref "$SUPASTACK_PROJECT_REF"
 echo "[deploy-hello] ✓ --use-api deploy succeeded"
 
 # Smoke the function. JWT verification may be on; tolerate either 200 or 401.
 curl_status=$(curl -s -o /dev/null -w '%{http_code}' \
-  "https://${SELFBASE_PROJECT_REF}.${SELFBASE_APEX}/functions/v1/${SLUG}" \
-  -H "Authorization: Bearer ${SELFBASE_ANON_KEY}") || true
+  "https://${SUPASTACK_PROJECT_REF}.${SUPASTACK_APEX}/functions/v1/${SLUG}" \
+  -H "Authorization: Bearer ${SUPASTACK_ANON_KEY}") || true
 echo "[deploy-hello]   public URL responded with ${curl_status}"
 case "$curl_status" in
   2*|401) ;;
@@ -103,16 +103,16 @@ esac
 # --- 5b. Variant B: default eszip --------------------------------------
 if [ "$RUN_ESZIP" = "1" ]; then
   echo "[deploy-hello] step 4/5: variant B (default eszip)"
-  SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-    supabase --profile "$WORK/selfbase.toml" functions deploy "$SLUG" \
-      --project-ref "$SELFBASE_PROJECT_REF"
+  SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+    supabase --profile "$WORK/supastack.toml" functions deploy "$SLUG" \
+      --project-ref "$SUPASTACK_PROJECT_REF"
   echo "[deploy-hello] ✓ eszip deploy succeeded"
 fi
 
 # --- 6. Cleanup ---------------------------------------------------------
 echo "[deploy-hello] step 5/5: cleanup"
-SUPABASE_ACCESS_TOKEN="$SELFBASE_PAT" \
-  supabase --profile "$WORK/selfbase.toml" functions delete "$SLUG" \
-    --project-ref "$SELFBASE_PROJECT_REF"
+SUPABASE_ACCESS_TOKEN="$SUPASTACK_PAT" \
+  supabase --profile "$WORK/supastack.toml" functions delete "$SLUG" \
+    --project-ref "$SUPASTACK_PROJECT_REF"
 
 echo "[deploy-hello] PASS"

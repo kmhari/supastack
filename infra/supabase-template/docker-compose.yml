@@ -670,14 +670,14 @@ services:
       SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       # TODO: Allow configuring VERIFY_JWT per function.
       VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"
-      # selfbase feature 010 — vault-backed envVars injection (main/index.ts v3).
-      # SB_REF identifies the project in runtime log lines; SELFBASE_VAULT_TTL_MS
+      # supastack feature 010 — vault-backed envVars injection (main/index.ts v3).
+      # SB_REF identifies the project in runtime log lines; SUPASTACK_VAULT_TTL_MS
       # gates the in-process cache (5s default = ~12 refreshes/min/project under
       # load; tunable for diagnosis). Vault reads use SUPABASE_DB_URL above —
       # the `postgres` role is SUPERUSER in the supabase/postgres image so it
       # can SELECT from vault.decrypted_secrets without a separate connection.
       SB_REF: ${PROJECT_REF}
-      SELFBASE_VAULT_TTL_MS: ${SELFBASE_VAULT_TTL_MS:-5000}
+      SUPASTACK_VAULT_TTL_MS: ${SUPASTACK_VAULT_TTL_MS:-5000}
     command:
       [
         "start",
@@ -734,7 +734,7 @@ services:
   db:
     image: supabase/postgres:15.8.1.085
     restart: unless-stopped
-    # SELFBASE PATCH (feature 005): publish db:5432 on a unique host port so
+    # SUPASTACK PATCH (feature 005): publish db:5432 on a unique host port so
     # the top-level pg-edge-proxy in the api container can reach this per-
     # instance Postgres via host.docker.internal:${POSTGRES_DIRECT_HOST_PORT}.
     # Sibling containers within this compose stack still connect via the
@@ -823,10 +823,10 @@ services:
     security_opt:
       - "label=disable"
 
-  # SELFBASE PATCH (feature 005): the per-instance supavisor service has been
-  # REMOVED. The top-level supavisor in the selfbase control plane (Phase 5 /
+  # SUPASTACK PATCH (feature 005): the per-instance supavisor service has been
+  # REMOVED. The top-level supavisor in the supastack control plane (Phase 5 /
   # US3) handles the optional pooler endpoint for all instances. Direct Postgres
-  # connections are handled by the pg-edge-proxy in the selfbase api container.
+  # connections are handled by the pg-edge-proxy in the supastack api container.
   # Per-instance sibling containers (auth, rest, storage, realtime, meta) all
   # connect to db:5432 directly via the internal Docker network — they never
   # used per-instance supavisor.

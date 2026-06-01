@@ -2,7 +2,7 @@
  * T030: unit tests for pg-password-probe (feature 008 US3 prevention).
  *
  * Mocks pg.Client so we don't need a real Postgres for retry semantics +
- * auth-class discrimination. Mocks @selfbase/db / @selfbase/crypto so the
+ * auth-class discrimination. Mocks @supastack/db / @supastack/crypto so the
  * probe sees a known instance row.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,7 +23,7 @@ vi.mock('pg', () => ({
   },
 }));
 
-vi.mock('@selfbase/db', () => {
+vi.mock('@supastack/db', () => {
   const limit = vi.fn(() => [
     {
       encryptedSecrets: Buffer.from('not-real-bytes'),
@@ -47,7 +47,7 @@ vi.mock('@selfbase/db', () => {
   };
 });
 
-vi.mock('@selfbase/crypto', () => ({
+vi.mock('@supastack/crypto', () => ({
   decryptJson: vi.fn(() => ({ postgresPassword: 'unit-test-pw' })),
   loadMasterKey: vi.fn(() => Buffer.alloc(32)),
 }));
@@ -56,7 +56,7 @@ vi.mock('drizzle-orm', () => ({
   eq: vi.fn(() => 'eq'),
 }));
 
-vi.mock('@selfbase/shared', () => ({
+vi.mock('@supastack/shared', () => ({
   logger: { debug: vi.fn(), warn: vi.fn(), info: vi.fn(), error: vi.fn() },
 }));
 

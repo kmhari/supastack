@@ -1,27 +1,27 @@
-# Quickstart — Selfbase
+# Quickstart — Supastack
 
 End-to-end walkthrough from a fresh Linux VM to a working Supabase instance reachable over HTTPS. This is the canonical smoke test for v1; the integration suite mirrors these steps.
 
 ## Prerequisites
 
 - A Linux host with a public IPv4 (Ubuntu 22.04/24.04 recommended)
-- DNS for an apex domain (e.g., `selfbase.example.com`) and a wildcard or per-subdomain record pointed at the host:
-  - `selfbase.example.com           A   <ip>`
-  - `*.selfbase.example.com         A   <ip>`  *(or add A records per `<ref>` as instances are created)*
+- DNS for an apex domain (e.g., `supastack.example.com`) and a wildcard or per-subdomain record pointed at the host:
+  - `supastack.example.com           A   <ip>`
+  - `*.supastack.example.com         A   <ip>`  *(or add A records per `<ref>` as instances are created)*
 - Inbound 80 and 443 open in firewall
 - Non-root user with sudo
 
 ## 1. Install
 
 ```bash
-curl -fsSL https://selfbase.dev/install.sh | bash
+curl -fsSL https://supastack.dev/install.sh | bash
 ```
 
 What the script does:
 - Installs Docker Engine + Compose if missing
-- Clones the selfbase repo to `/opt/selfbase`
+- Clones the supastack repo to `/opt/supastack`
 - Generates `MASTER_KEY`, `SESSION_SECRET`, and a control-plane DB password (via `openssl rand`)
-- Builds the per-instance Studio image once (`selfbase/studio:<pinned-commit>`)
+- Builds the per-instance Studio image once (`supastack/studio:<pinned-commit>`)
 - `docker compose pull && docker compose up -d`
 - Waits for the control-plane to report healthy
 - Prints next-step URL
@@ -84,13 +84,13 @@ In the instance detail view → **Backups** → **Create Backup**. Within ~30 s 
 Validate offline:
 
 ```bash
-pg_restore --list selfbase-<ref>-<timestamp>.dump | head
+pg_restore --list supastack-<ref>-<timestamp>.dump | head
 ```
 
 Should list the schemas + objects. Restoring into a fresh DB:
 
 ```bash
-createdb scratch && pg_restore -d scratch selfbase-<ref>-<timestamp>.dump
+createdb scratch && pg_restore -d scratch supastack-<ref>-<timestamp>.dump
 ```
 
 …should complete without errors.
@@ -123,7 +123,7 @@ Back as admin: open the instance detail, **Delete**. Confirm. The instance enter
 | First HTTPS request returns Caddy "no certificate available" | `/internal/tls/ask` denied | Check API logs for the deny line; confirm the instance row exists and status is not `deleting` |
 | `provisioning` → `failed` immediately | Compose env validation failure | Instance detail shows `provisionError`; full output in worker logs |
 | API returns 401 with `JWSError` | This should never happen | Open a bug — the JWT signer is broken |
-| Backup hangs | `pg_dump` inside the db container is failing | `docker logs selfbase-<ref>-db` |
+| Backup hangs | `pg_dump` inside the db container is failing | `docker logs supastack-<ref>-db` |
 | Studio shows 404 on `_next/static/*` | `NEXT_PUBLIC_BASE_PATH` mismatch | Confirm Studio image was built with `=/studio` |
 
 ---
@@ -131,10 +131,10 @@ Back as admin: open the instance detail, **Delete**. Confirm. The instance enter
 ## Cleanup (for repeat runs)
 
 ```bash
-docker compose -f /opt/selfbase/infra/docker-compose.yml down -v
-sudo rm -rf /var/selfbase  # /var/selfbase/instances and /var/selfbase/backups
-# remove any selfbase-<ref> Compose projects:
-docker ps -a --filter "name=selfbase-" --format "{{.Names}}" | xargs -r docker rm -f
+docker compose -f /opt/supastack/infra/docker-compose.yml down -v
+sudo rm -rf /var/supastack  # /var/supastack/instances and /var/supastack/backups
+# remove any supastack-<ref> Compose projects:
+docker ps -a --filter "name=supastack-" --format "{{.Names}}" | xargs -r docker rm -f
 ```
 
 Note: this destroys ALL data — do not run on a host you care about.

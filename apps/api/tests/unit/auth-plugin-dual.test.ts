@@ -1,17 +1,17 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { signAccessToken, type SignResult } from '@supastack/oauth';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { randomBytes } from 'node:crypto';
-import { signAccessToken, type SignResult } from '@selfbase/oauth';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * T022 — dual-credential auth plugin: accepts PAT + OAuth JWT.
  *
- * Mocks @selfbase/db so we can simulate user resolution. Uses a FakeRedis
- * for revocation. SELFBASE_APEX env is set for issuer/audience derivation.
+ * Mocks @supastack/db so we can simulate user resolution. Uses a FakeRedis
+ * for revocation. SUPASTACK_APEX env is set for issuer/audience derivation.
  */
 
 const APEX = 'test.example';
-process.env.SELFBASE_APEX = APEX;
+process.env.SUPASTACK_APEX = APEX;
 process.env.SESSION_SECRET = 'x'.repeat(64);
 process.env.REDIS_URL = 'redis://stub:6379';
 process.env.MASTER_KEY = Buffer.from('m'.repeat(32)).toString('base64');
@@ -28,7 +28,7 @@ userStore.set('user-active', { email: 'a@b.c', role: 'admin' });
 const patStore = new Map<string, { userId: string; tokenId: string }>();
 patStore.set('sbp_' + 'a'.repeat(40), { userId: 'user-active', tokenId: 'tok-1' });
 
-vi.mock('@selfbase/db', () => {
+vi.mock('@supastack/db', () => {
   // Mock that handles BOTH drizzle chains used by the auth plugin:
   //   PAT path:   select().from(apiTokens).innerJoin(users).innerJoin(orgMembers).where().limit(1)
   //   OAuth path: select().from(users).innerJoin(orgMembers).where().limit(1)
@@ -189,7 +189,7 @@ describe('auth plugin — dual-credential', () => {
   it('revoked JWT (jti in Redis) → 401', async () => {
     const app = await buildApp();
     const { token, jti } = mintToken();
-    redisStore.set(`selfbase:oauth:revoked:${jti}`, '1');
+    redisStore.set(`supastack:oauth:revoked:${jti}`, '1');
     _lastLookupKind = 'oauth';
     _lastSub = 'user-active';
     const res = await app.inject({

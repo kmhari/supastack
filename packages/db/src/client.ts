@@ -23,4 +23,4 @@ export async function closeDb(): Promise<void> {
   _db = null;
 }
 
-export type SelfbaseDb = NodePgDatabase<typeof schema>;
+export type SupastackDb = NodePgDatabase<typeof schema>;

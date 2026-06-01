@@ -78,7 +78,7 @@ apps/
         vault-enable.ts               # NEW — POST /api/v1/projects/<ref>/vault/enable (dashboard button)
       services/
         vault-client.ts               # NEW — per-project pg client + vault.* helpers
-        secret-store.ts               # MODIFIED — facade rewritten over vault-client; reserved-name list moved to @selfbase/shared
+        secret-store.ts               # MODIFIED — facade rewritten over vault-client; reserved-name list moved to @supastack/shared
         vault-bootstrap.ts            # NEW — CREATE EXTENSION sequence + pgsodium.create_root_key idempotency
       server.ts                       # MODIFIED — register new routes
     tests/
@@ -116,7 +116,7 @@ packages/
       0010_drop_project_secrets_table.sql  # NEW (idempotent, optional/follow-up — not blocking)
 ```
 
-**Structure Decision**: Selfbase monorepo (apps + packages + infra). Existing layout extended; no new top-level dirs. New `vault-client` service centralizes per-project Postgres access for the api so we don't sprinkle `pg.Client` instantiations across routes. Reserved-secret list relocated to `packages/shared` so the runtime injection guard (in the templated `main/index.ts`) and the api/web all reference one source — runtime gets it via a build-time copy into the functions image (research.md Decision 4).
+**Structure Decision**: Supastack monorepo (apps + packages + infra). Existing layout extended; no new top-level dirs. New `vault-client` service centralizes per-project Postgres access for the api so we don't sprinkle `pg.Client` instantiations across routes. Reserved-secret list relocated to `packages/shared` so the runtime injection guard (in the templated `main/index.ts`) and the api/web all reference one source — runtime gets it via a build-time copy into the functions image (research.md Decision 4).
 
 ## Complexity Tracking
 

@@ -8,7 +8,7 @@
 
 | Method          | Path                                          | Step | What                                                                               |
 | --------------- | --------------------------------------------- | ---- | ---------------------------------------------------------------------------------- |
-| `GET`           | `/v1/projects/<ref>/billing/addons`           | 1    | Stub — honest empty arrays; selfbase has no addon concept                          |
+| `GET`           | `/v1/projects/<ref>/billing/addons`           | 1    | Stub — honest empty arrays; supastack has no addon concept                          |
 | `GET/PUT/PATCH` | `/v1/projects/<ref>/config/database/postgres` | 3    | Real — applies Postgres GUCs via `ALTER SYSTEM SET` + `pg_reload_conf()`           |
 | `GET/PUT`       | `/v1/projects/<ref>/ssl-enforcement`          | 4    | Real — flips `pg_hba.conf` `host` ↔ `hostssl` for external address ranges + reload |
 
@@ -18,7 +18,7 @@ Steps 2 (`GET/PATCH /v1/projects/:ref/postgrest`) was already live from feature 
 
 ### billing/addons (step 1)
 
-`supabase config push` reads this first to determine which Cloud add-ons (PITR, compute upgrades, etc.) are active. selfbase has none. The route returns `{ available_addons: [], selected_addons: [] }` — accurate and sufficient for the CLI to proceed.
+`supabase config push` reads this first to determine which Cloud add-ons (PITR, compute upgrades, etc.) are active. supastack has none. The route returns `{ available_addons: [], selected_addons: [] }` — accurate and sufficient for the CLI to proceed.
 
 ### config/database/postgres (step 3)
 
@@ -36,7 +36,7 @@ PUT → validate body (PostgresConfigBodySchema)
     → return updated config
 ```
 
-- `restart_database: true` in the request body or any postmaster-context param change triggers a container restart (`selfbase-<ref>-db-1`).
+- `restart_database: true` in the request body or any postmaster-context param change triggers a container restart (`supastack-<ref>-db-1`).
 - Integer-valued params (`max_connections`, etc.) are cast to `int` before `ALTER SYSTEM SET` — Postgres rejects float-formatted values.
 - New RBAC actions: `database_config.read` (members) / `database_config.write` (admins).
 - Migration `0014_postgres_config_surface.sql` widens `project_config_snapshots.surface` check to include `'postgres'`.
@@ -90,6 +90,6 @@ Lines not matching these patterns (local socket, loopback, replication) are left
 
 ## Operator notes
 
-- `supabase config push` (CLI ≥ v2.72) now completes all 4 steps without a 501. Run against selfbase with a valid PAT.
+- `supabase config push` (CLI ≥ v2.72) now completes all 4 steps without a 501. Run against supastack with a valid PAT.
 - `ssl-enforcement` requires the db container to be running. GET against a paused project returns 500 `instance_not_running`.
-- Postgres GUC changes that require a postmaster restart (e.g. `max_connections`) will restart the `selfbase-<ref>-db-1` container — a few seconds of downtime per project.
+- Postgres GUC changes that require a postmaster restart (e.g. `max_connections`) will restart the `supastack-<ref>-db-1` container — a few seconds of downtime per project.

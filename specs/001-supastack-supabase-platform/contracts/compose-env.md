@@ -1,20 +1,20 @@
 # Contract — Per-instance `.env`
 
-The complete contract for the per-instance `.env` file selfbase writes into `/var/selfbase/instances/<ref>/.env` before running `docker compose -p selfbase-<ref> up -d`.
+The complete contract for the per-instance `.env` file supastack writes into `/var/supastack/instances/<ref>/.env` before running `docker compose -p supastack-<ref> up -d`.
 
 **Source of truth**: `infra/supabase-template/.env.example` — vendored from `supabase/supabase` `docker/.env.example` at a pinned commit. The compose templater asserts that **every** variable referenced anywhere in `infra/supabase-template/docker-compose.yml`, `kong.yml`, `vector.yml`, or `volumes/db/*.sql` is set in the emitted `.env` (with empty-string fallback for opt-outs). This is enforced at provision-time, not at runtime — a missing variable aborts the job before any container starts.
 
 ## Variable groups
 
-### Identity (selfbase-derived)
+### Identity (supastack-derived)
 
 | Var | Source | Notes |
 |---|---|---|
-| `PROJECT_REF` | selfbase | the `ref` (20 alphanumerics) |
-| `STUDIO_DEFAULT_ORGANIZATION` | selfbase | mirrors `name` |
-| `STUDIO_DEFAULT_PROJECT` | selfbase | mirrors `name` |
+| `PROJECT_REF` | supastack | the `ref` (20 alphanumerics) |
+| `STUDIO_DEFAULT_ORGANIZATION` | supastack | mirrors `name` |
+| `STUDIO_DEFAULT_PROJECT` | supastack | mirrors `name` |
 
-### Secrets (selfbase-generated, decrypted from `encrypted_secrets`)
+### Secrets (supastack-generated, decrypted from `encrypted_secrets`)
 
 | Var | Generator | Constraint |
 |---|---|---|
@@ -32,7 +32,7 @@ The complete contract for the per-instance `.env` file selfbase writes into `/va
 | `S3_PROTOCOL_ACCESS_KEY_SECRET` | 64 hex | per-instance MinIO |
 | `MINIO_ROOT_PASSWORD` | 32 hex | per-instance MinIO |
 
-### Ports (selfbase-allocated)
+### Ports (supastack-allocated)
 
 | Var | Source |
 |---|---|
@@ -43,7 +43,7 @@ The complete contract for the per-instance `.env` file selfbase writes into `/va
 | `POOLER_PROXY_PORT_TRANSACTION` | `port_pooler` |
 | `LOGFLARE_PORT` / analytics port | `port_analytics` |
 
-### URLs (selfbase-derived from `ref` + `apex`)
+### URLs (supastack-derived from `ref` + `apex`)
 
 | Var | Value |
 |---|---|

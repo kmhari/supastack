@@ -1,8 +1,8 @@
-# Contract: Pooler Health API (dashboard ↔ selfbase api)
+# Contract: Pooler Health API (dashboard ↔ supastack api)
 
 **Feature**: 005-postgres-public-endpoint | **Date**: 2026-05-23
 
-The dashboard polls a selfbase api endpoint that proxies + aggregates supavisor's health/metrics data into a stable shape. The dashboard never talks to supavisor directly.
+The dashboard polls a supastack api endpoint that proxies + aggregates supavisor's health/metrics data into a stable shape. The dashboard never talks to supavisor directly.
 
 ---
 
@@ -27,7 +27,7 @@ The dashboard polls a selfbase api endpoint that proxies + aggregates supavisor'
   "lastChecked": "2026-05-23T12:00:00Z",
   "summary": {
     "totalTenants": 3,
-    "registeredInSelfbase": 3,
+    "registeredInSupastack": 3,
     "registeredInSupavisor": 3,
     "drift": 0,
     "activeConnections": 5,
@@ -57,7 +57,7 @@ The dashboard polls a selfbase api endpoint that proxies + aggregates supavisor'
   "lastChecked": "2026-05-23T12:00:00Z",
   "summary": {
     "totalTenants": 3,
-    "registeredInSelfbase": 3,
+    "registeredInSupastack": 3,
     "registeredInSupavisor": 2,
     "drift": 1,
     "activeConnections": 5,
@@ -143,7 +143,7 @@ The dashboard component (`PoolerHealthCard.tsx`) polls `/api/pooler/health` ever
 
 ---
 
-## Selfbase API Client (`apps/web/src/lib/api.ts`)
+## Supastack API Client (`apps/web/src/lib/api.ts`)
 
 ```ts
 export const poolerApi = {

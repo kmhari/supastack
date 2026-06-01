@@ -20,16 +20,16 @@
 # OR a node script as fallback for the decrypt step), ssh access to VM.
 #
 # Env:
-#   SELFBASE_APEX=supaviser.dev
-#   SELFBASE_DASHBOARD_COOKIE=<sb_sid cookie value from a logged-in browser>
-#   SELFBASE_VM_HOST=ubuntu@148.113.1.164  (optional — skips log-leak check if unset)
+#   SUPASTACK_APEX=supaviser.dev
+#   SUPASTACK_DASHBOARD_COOKIE=<sb_sid cookie value from a logged-in browser>
+#   SUPASTACK_VM_HOST=ubuntu@148.113.1.164  (optional — skips log-leak check if unset)
 
 set -euo pipefail
 
-: "${SELFBASE_APEX:?SELFBASE_APEX required}"
-: "${SELFBASE_DASHBOARD_COOKIE:?SELFBASE_DASHBOARD_COOKIE required (sb_sid value)}"
+: "${SUPASTACK_APEX:?SUPASTACK_APEX required}"
+: "${SUPASTACK_DASHBOARD_COOKIE:?SUPASTACK_DASHBOARD_COOKIE required (sb_sid value)}"
 
-API="https://api.${SELFBASE_APEX}"
+API="https://api.${SUPASTACK_APEX}"
 SESSION_ID=$(python3 -c 'import uuid; print(uuid.uuid4())')
 
 echo "==> 0. Generate client ECDH-P256 keypair via Node (simulates the CLI)"
@@ -50,7 +50,7 @@ echo "    client_pub=${CLIENT_PUB:0:20}…${CLIENT_PUB:120:10}"
 echo "==> 1. POST /api/v1/cli/login (mint)"
 START_NS=$(date +%s%N)
 RES=$(curl -sk -w '\n%{http_code}' -X POST "${API}/api/v1/cli/login" \
-  -H "Cookie: sb_sid=${SELFBASE_DASHBOARD_COOKIE}" \
+  -H "Cookie: sb_sid=${SUPASTACK_DASHBOARD_COOKIE}" \
   -H "Content-Type: application/json" \
   --data-raw "{\"session_id\":\"${SESSION_ID}\",\"token_name\":\"cli_e2e_$(date +%s)\",\"public_key\":\"${CLIENT_PUB}\"}")
 END_NS=$(date +%s%N)
@@ -64,7 +64,7 @@ echo "    ✓ device_code=${DEVICE_CODE}"
 
 echo "==> 2. Replay same session_id → expect 409"
 REPLAY_CODE=$(curl -sk -o /dev/null -w '%{http_code}' -X POST "${API}/api/v1/cli/login" \
-  -H "Cookie: sb_sid=${SELFBASE_DASHBOARD_COOKIE}" \
+  -H "Cookie: sb_sid=${SUPASTACK_DASHBOARD_COOKIE}" \
   -H "Content-Type: application/json" \
   --data-raw "{\"session_id\":\"${SESSION_ID}\",\"token_name\":\"cli_e2e_replay\",\"public_key\":\"${CLIENT_PUB}\"}")
 [ "$REPLAY_CODE" = "409" ] || { echo "FAIL: replay returned ${REPLAY_CODE}, expected 409"; exit 1; }
@@ -106,10 +106,10 @@ echo "$PROJECTS" | python3 -c 'import sys,json; assert isinstance(json.load(sys.
 }
 echo "    ✓ PAT authenticates against /v1/projects"
 
-if [ -n "${SELFBASE_VM_HOST:-}" ]; then
+if [ -n "${SUPASTACK_VM_HOST:-}" ]; then
   echo "==> 7. SC-008: log-leak check (no plaintext PATs in container logs)"
   set +o pipefail
-  LEAK=$(ssh "${SELFBASE_VM_HOST}" "sudo docker logs --since 2m selfbase-api-1 selfbase-web-1 2>&1 | grep -cE 'sbp_[0-9a-f]{40}' || true" 2>/dev/null | tr -d '[:space:]')
+  LEAK=$(ssh "${SUPASTACK_VM_HOST}" "sudo docker logs --since 2m supastack-api-1 supastack-web-1 2>&1 | grep -cE 'sbp_[0-9a-f]{40}' || true" 2>/dev/null | tr -d '[:space:]')
   set -o pipefail
   if [ "$LEAK" != "0" ]; then
     echo "FAIL: ${LEAK} sbp_ pattern matches in logs"

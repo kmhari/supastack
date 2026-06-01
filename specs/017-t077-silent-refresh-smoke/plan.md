@@ -22,7 +22,7 @@ No production code changes. No schema migrations. No new endpoints.
 
 **Performance Goals**: N/A — total run ~62 minutes (dominated by TTL wait)
 
-**Constraints**: Must not modify any production source. Must not require new secrets beyond the existing `SELFBASE_SESSION_COOKIE` and `SELFBASE_APEX` env vars already used by `oauth-dance.sh`.
+**Constraints**: Must not modify any production source. Must not require new secrets beyond the existing `SUPASTACK_SESSION_COOKIE` and `SUPASTACK_APEX` env vars already used by `oauth-dance.sh`.
 
 **Scale/Scope**: Single script, ~120 lines
 

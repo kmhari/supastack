@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Selfbase — Self-Hosted Supabase Platform
+# Specification Quality Checklist: Supastack — Self-Hosted Supabase Platform
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-05-21

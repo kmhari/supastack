@@ -8,7 +8,7 @@
 
 **Input**: Post-deploy validation from issue #54 (feature 014), T078 acceptance.
 
-> **Context**: All per-project sensitive data in selfbase (Postgres passwords, JWT secrets, API keys, TLS private keys, backup credentials, runtime config) is encrypted at rest using AES-256-GCM with a single operator-controlled master key. If that key is ever compromised or rotated as a security practice, every encrypted blob in the control-plane database must be re-encrypted with the new key before the platform can continue operating. Currently there is no tooling for this, and the rotation has never been validated. T078 closes that gap by building a re-key tool and proving it works end-to-end: after rotation, a project can be paused and restored and comes back up cleanly with all secrets intact.
+> **Context**: All per-project sensitive data in supastack (Postgres passwords, JWT secrets, API keys, TLS private keys, backup credentials, runtime config) is encrypted at rest using AES-256-GCM with a single operator-controlled master key. If that key is ever compromised or rotated as a security practice, every encrypted blob in the control-plane database must be re-encrypted with the new key before the platform can continue operating. Currently there is no tooling for this, and the rotation has never been validated. T078 closes that gap by building a re-key tool and proving it works end-to-end: after rotation, a project can be paused and restored and comes back up cleanly with all secrets intact.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -87,7 +87,7 @@ As an operator, I want to pause and restore a project immediately after a master
 
 ## Assumptions
 
-- **Test VM is the target**: The selfbase VM at `supaviser.dev` is confirmed as a non-production test environment. All validation runs against this VM.
+- **Test VM is the target**: The supastack VM at `supaviser.dev` is confirmed as a non-production test environment. All validation runs against this VM.
 - **Re-key tool already exists**: `scripts/rekey-master.mjs` was written as part of this feature's implementation work (pre-spec). The spec validates the procedure and documents it; the tool code is already in place on the feature branch.
 - **Single atomic transaction is feasible**: Row counts on the test VM are small enough (< a few hundred rows across all tables) that a single transaction completes well within Postgres default statement timeout.
 - **Operator has direct DB access**: The re-key tool connects directly to the control-plane Postgres via `DATABASE_URL`. The operator can obtain this value from the VM's `.env` file.

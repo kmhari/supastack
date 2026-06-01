@@ -6,7 +6,7 @@ Operator walkthrough validating all three user stories against the test VM (`ubu
 
 ## Prerequisites
 
-- selfbase main + feature 008 changes deployed
+- supastack main + feature 008 changes deployed
 - Two running projects (ENZY `enzyxdtrbosuwjwzkmvl` + ASYO `asyobqcbycmqjeribjfv` or similar)
 - Admin session cookie or PAT
 - Pooler-tenants table populated (i.e., feature 005's backfill or reconciler has run)
@@ -20,7 +20,7 @@ curl -sS -H "Cookie: session=$ADMIN" https://supaviser.dev/api/v1/pooler/status 
 # expect: both 'active'
 
 # 2. Simulate drift — delete the ASYO row from pooler_tenants directly
-ssh ubuntu@148.113.1.164 'sudo docker exec selfbase-db-1 psql -U selfbase -d selfbase \
+ssh ubuntu@148.113.1.164 'sudo docker exec supastack-db-1 psql -U supastack -d supastack \
   -c "DELETE FROM pooler_tenants WHERE external_id = '\''asyobqcbycmqjeribjfv'\'';"'
 
 # 3. Trigger reconciler manually (don't want to wait for 03:00 UTC)
@@ -64,7 +64,7 @@ curl -sS -H "Cookie: session=$ADMIN" https://supaviser.dev/api/v1/pooler/status 
 
 ```bash
 # 1. Simulate drift — manually ALTER the postgres role's password to something wrong
-ssh ubuntu@148.113.1.164 'sudo docker exec selfbase-asyobqcbycmqjeribjfv-db-1 \
+ssh ubuntu@148.113.1.164 'sudo docker exec supastack-asyobqcbycmqjeribjfv-db-1 \
   psql -h 127.0.0.1 -U supabase_admin -d postgres \
   -c "ALTER USER postgres WITH PASSWORD '\''wrong'\'';"'
 
@@ -107,7 +107,7 @@ while [ "$(curl -sS -H "Cookie: session=$ADMIN" \
 done
 
 # 2. Now stop it + manually corrupt the password to simulate a "wrong data dir"
-ssh ubuntu@148.113.1.164 "sudo docker exec selfbase-${NEW_REF}-db-1 \
+ssh ubuntu@148.113.1.164 "sudo docker exec supastack-${NEW_REF}-db-1 \
   psql -h 127.0.0.1 -U supabase_admin -d postgres \
   -c \"ALTER USER postgres WITH PASSWORD 'corrupted';\""
 

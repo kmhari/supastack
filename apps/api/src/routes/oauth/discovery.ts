@@ -12,7 +12,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 export const oauthDiscoveryRoutes: FastifyPluginAsync = async (app) => {
   app.get('/.well-known/oauth-authorization-server', async (_req, reply) => {
-    const apex = process.env.SELFBASE_APEX;
+    const apex = process.env.SUPASTACK_APEX;
     if (!apex) {
       reply.status(503);
       return { message: 'apex not configured yet', code: 'not_ready' };

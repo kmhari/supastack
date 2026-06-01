@@ -1,24 +1,24 @@
 # Quickstart — 010 Secrets management
 
-End-to-end smoke for the live VM after deploy. Assumes the feature is fully implemented and rsync'd to `/opt/selfbase`.
+End-to-end smoke for the live VM after deploy. Assumes the feature is fully implemented and rsync'd to `/opt/supastack`.
 
 ## Setup (one-time)
 
 ```bash
 # On VM
-cd /opt/selfbase
+cd /opt/supastack
 sudo docker compose build api worker web caddy
 sudo docker compose up -d api worker web caddy
 ```
 
-Existing per-project functions containers get the patched `main/index.ts` on their next restart (re-deploy each instance via the dashboard, or `sudo docker compose -p selfbase-<ref> restart functions`).
+Existing per-project functions containers get the patched `main/index.ts` on their next restart (re-deploy each instance via the dashboard, or `sudo docker compose -p supastack-<ref> restart functions`).
 
 ## Verify provision-time vault enablement (FR-001, SC-005)
 
 ```bash
 # Provision a fresh project via the dashboard or curl
 # Then check that vault_enabled_at is set BEFORE the instance reaches 'running'
-sudo docker compose exec db psql -U postgres -d selfbase -c \
+sudo docker compose exec db psql -U postgres -d supastack -c \
   "SELECT ref, status, vault_enabled_at FROM supabase_instances ORDER BY created_at DESC LIMIT 5"
 # Expected: latest project has both status='running' AND vault_enabled_at NOT NULL
 ```
@@ -30,7 +30,7 @@ After provision completes:
 REF=<existing-ref>
 
 # Verify extensions enabled
-sudo docker exec selfbase-${REF}-db-1 psql -U supabase_admin -d postgres -c \
+sudo docker exec supastack-${REF}-db-1 psql -U supabase_admin -d postgres -c \
   "SELECT extname FROM pg_extension WHERE extname IN ('pgsodium','supabase_vault')"
 # Expected: both rows present
 ```
@@ -38,7 +38,7 @@ sudo docker exec selfbase-${REF}-db-1 psql -U supabase_admin -d postgres -c \
 ## Verify SQL-side vault works (US2, SC-006)
 
 ```bash
-sudo docker exec selfbase-${REF}-db-1 psql -U supabase_admin -d postgres <<'SQL'
+sudo docker exec supastack-${REF}-db-1 psql -U supabase_admin -d postgres <<'SQL'
 SELECT vault.create_secret('test-value', 'quickstart_test');
 SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'quickstart_test';
 DELETE FROM vault.secrets WHERE name = 'quickstart_test';
@@ -63,7 +63,7 @@ In a browser, signed in as admin:
    Expected output: `"alpha"` — within ≤10s of the Save click (typically 1–6s).
 5. Confirm zero restarts during the test:
    ```bash
-   sudo docker logs selfbase-${REF}-functions-1 --since 1m | grep -ic 'started\|restart'
+   sudo docker logs supastack-${REF}-functions-1 --since 1m | grep -ic 'started\|restart'
    ```
    Expected: 0.
 
@@ -71,7 +71,7 @@ In a browser, signed in as admin:
 
 ```bash
 # Update vault row directly via the vault helper (bypassing the dashboard)
-sudo docker exec selfbase-${REF}-db-1 psql -U supabase_admin -d postgres <<SQL
+sudo docker exec supastack-${REF}-db-1 psql -U supabase_admin -d postgres <<SQL
 SELECT vault.update_secret(
   (SELECT id FROM vault.secrets WHERE name = 'TEST_KEY'),
   'beta'
@@ -119,7 +119,7 @@ curl -s -X DELETE https://<apex>/v1/projects/${REF}/secrets \
 ## Verify Studio redirect (US4, SC-007)
 
 ```bash
-# 302 from Studio's broken page → selfbase dashboard
+# 302 from Studio's broken page → supastack dashboard
 curl -sI -o /dev/null -w '%{http_code} %{redirect_url}\n' \
   https://studio-${REF}.<apex>/project/default/functions/secrets
 # Expected: 302 https://<apex>/dashboard/project/${REF}/secrets?
@@ -130,7 +130,7 @@ curl -sI -o /dev/null -w '%{http_code}\n' \
 # Expected: 200 (or whatever Studio normally returns; NOT 302)
 ```
 
-Also in browser: click "Secrets" in Studio's Edge Functions sidebar → must land on the working selfbase secrets page, already authenticated.
+Also in browser: click "Secrets" in Studio's Edge Functions sidebar → must land on the working supastack secrets page, already authenticated.
 
 ## Verify breaking-change is documented
 

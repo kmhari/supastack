@@ -35,8 +35,8 @@ First-time-only. Refused if `setup_state.completed_at IS NOT NULL`.
 {
   "email": "you@example.com",
   "password": "min-12-chars",
-  "orgName": "Selfbase",
-  "apexDomain": "selfbase.example.com"   // optional
+  "orgName": "Supastack",
+  "apexDomain": "supastack.example.com"   // optional
 }
 ```
 
@@ -92,7 +92,7 @@ Body (oneOf):
 {
   "kind": "s3",
   "endpoint": "https://...",        // optional; omitted = AWS S3
-  "bucket": "selfbase-backups",
+  "bucket": "supastack-backups",
   "region": "us-east-1",
   "accessKeyId": "AKIA...",
   "secretAccessKey": "..."

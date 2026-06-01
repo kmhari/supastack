@@ -88,13 +88,13 @@ Step 11  Print [T078] PASS with timestamps → exit 0
 Each step emits: `[T078] STEP: <name> | STATUS: <code_or_ok> | ELAPSED: <s>s`
 
 **Environment variables**:
-- `SELFBASE_APEX` — e.g. `supaviser.dev`
-- `SELFBASE_PAT` — operator Personal Access Token
-- `SELFBASE_TEST_PROJECT_REF` — ref of a project to use for pause/restore test
-- `SELFBASE_VM_USER` — SSH user (default: `ubuntu`)
+- `SUPASTACK_APEX` — e.g. `supaviser.dev`
+- `SUPASTACK_PAT` — operator Personal Access Token
+- `SUPASTACK_TEST_PROJECT_REF` — ref of a project to use for pause/restore test
+- `SUPASTACK_VM_USER` — SSH user (default: `ubuntu`)
 - `DATABASE_URL` — direct Postgres connection string for re-key tool
 
-**Note**: Steps 4–5 (env swap + restart) require SSH access to the VM. The script uses `ssh $SELFBASE_VM_USER@$SELFBASE_APEX` and assumes key-based auth (same as existing operator SSH workflow).
+**Note**: Steps 4–5 (env swap + restart) require SSH access to the VM. The script uses `ssh $SUPASTACK_VM_USER@$SUPASTACK_APEX` and assumes key-based auth (same as existing operator SSH workflow).
 
 ### `docs/changes/018-master-key-rotation.md`
 

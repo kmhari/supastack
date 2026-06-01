@@ -6,18 +6,18 @@
 
 ## Scenario 1: Happy Path — First-Time Setup with Wildcard Cert
 
-**Pre-condition**: Fresh selfbase VM. Apex DNS A record (`selfbase.example.com → <VM IP>`) already configured. Operator has access to add TXT records at their registrar (any DNS provider).
+**Pre-condition**: Fresh supastack VM. Apex DNS A record (`supastack.example.com → <VM IP>`) already configured. Operator has access to add TXT records at their registrar (any DNS provider).
 
 **Steps**:
 1. Navigate to `http://<VM-IP>/setup` — redirected automatically.
 2. Step 1: Enter admin email, password, org name → Continue.
 3. Step 2: Copy the master API token → Continue.
-4. Step 3: Enter `selfbase.example.com` → DNS A record verified → Continue.
+4. Step 3: Enter `supastack.example.com` → DNS A record verified → Continue.
 5. Step 4 (new — DNS-01 cert): Wizard shows:
    ```
    Add these TXT records at your DNS registrar:
    
-   Host:    _acme-challenge.selfbase.example.com
+   Host:    _acme-challenge.supastack.example.com
    Value 1: abc123base64urlvalue1...
    Value 2: def456base64urlvalue2...
    TTL:     60 seconds
@@ -29,15 +29,15 @@
 8. Once both show ✅, operator clicks "Verify" (or wizard auto-verifies).
 9. Progress card: `Completing ACME challenge... → Downloading certificate... → Certificate issued ✓`
 10. Wizard: "Wildcard certificate issued. Valid until 2026-08-23."
-11. "Go to dashboard" → browser navigates to `https://selfbase.example.com/dashboard`.
+11. "Go to dashboard" → browser navigates to `https://supastack.example.com/dashboard`.
 
 **Verify** (SC-001, SC-002):
 ```bash
-curl -v https://selfbase.example.com 2>&1 | grep -E "subject|issuer|CN="
-# subject: CN=*.selfbase.example.com
+curl -v https://supastack.example.com 2>&1 | grep -E "subject|issuer|CN="
+# subject: CN=*.supastack.example.com
 # issuer: Let's Encrypt
 
-curl -v https://<new-ref>.selfbase.example.com/rest/v1/ 2>&1 | grep -E "subject|issuer"
+curl -v https://<new-ref>.supastack.example.com/rest/v1/ 2>&1 | grep -E "subject|issuer"
 # Same wildcard cert — zero ACME handshake delay
 ```
 
@@ -64,7 +64,7 @@ curl -v https://<new-ref>.selfbase.example.com/rest/v1/ 2>&1 | grep -E "subject|
 **Steps**:
 1. DNS status shows: `✅ Value 1: found` / `⏳ Value 2: propagating...`
 2. Operator clicks Verify → response: `{ allDnsReady: false, dnsChecks: [{ found: true }, { found: false }] }`
-3. Wizard shows: "Record `_acme-challenge.selfbase.example.com` is missing value 2: `def456...`. Add it at your registrar and retry."
+3. Wizard shows: "Record `_acme-challenge.supastack.example.com` is missing value 2: `def456...`. Add it at your registrar and retry."
 4. Operator adds the second value → both show ✅ → Verify → cert issued.
 
 ---
@@ -114,7 +114,7 @@ curl -v https://<new-ref>.selfbase.example.com/rest/v1/ 2>&1 | grep -E "subject|
 
 ## Scenario 7: VM Wipe and Re-Setup (SC-005)
 
-**Pre-condition**: Full selfbase stack was running with wildcard cert. VM wiped: Docker volumes removed (pg-data, certs-data, caddy-data, redis-data), selfbase containers removed, DB data cleared. Host DNS still points at same IP.
+**Pre-condition**: Full supastack stack was running with wildcard cert. VM wiped: Docker volumes removed (pg-data, certs-data, caddy-data, redis-data), supastack containers removed, DB data cleared. Host DNS still points at same IP.
 
 **Steps**:
 1. Run `install.sh` on fresh state.

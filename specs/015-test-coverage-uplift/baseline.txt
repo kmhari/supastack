@@ -1,5 +1,5 @@
 
-> selfbase@0.1.0 test:coverage /Users/lord/Code/superbase/.claude/worktrees/issue-45
+> supastack@0.1.0 test:coverage /Users/lord/Code/superbase/.claude/worktrees/issue-45
 > node scripts/coverage.mjs
 
 

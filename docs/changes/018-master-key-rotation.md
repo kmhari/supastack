@@ -2,7 +2,7 @@
 
 ## Overview
 
-All sensitive per-project data in selfbase is encrypted at rest using AES-256-GCM with a single operator-controlled master key (`MASTER_KEY` env var). This document describes when and how to rotate that key.
+All sensitive per-project data in supastack is encrypted at rest using AES-256-GCM with a single operator-controlled master key (`MASTER_KEY` env var). This document describes when and how to rotate that key.
 
 ## When to rotate
 
@@ -25,7 +25,7 @@ All sensitive per-project data in selfbase is encrypted at rest using AES-256-GC
 ## Pre-rotation checklist
 
 1. **Backup the database**: `pg_dump` the control-plane Postgres and store the backup off-VM before proceeding.
-2. **Record the current key**: Note the current `MASTER_KEY` value from `/opt/selfbase/infra/.env`. Keep it until rotation is fully confirmed — you'll need it as `OLD_MASTER_KEY` and as the rollback key.
+2. **Record the current key**: Note the current `MASTER_KEY` value from `/opt/supastack/infra/.env`. Keep it until rotation is fully confirmed — you'll need it as `OLD_MASTER_KEY` and as the rollback key.
 3. **Choose a low-traffic window**: The re-key transaction is fast (< 1 second for typical row counts), but the api/worker restart causes ~10 seconds of downtime. Schedule accordingly.
 4. **Ensure SSH access**: The re-key tool runs on the VM and requires direct `DATABASE_URL` access.
 
@@ -43,7 +43,7 @@ Save this value as `NEW_KEY`. Do not store it in shell history — set it in a v
 
 ```bash
 ssh ubuntu@<apex>
-cd /opt/selfbase
+cd /opt/supastack
 OLD=$(grep ^MASTER_KEY infra/.env | cut -d= -f2)
 NEW=<paste your new key>
 

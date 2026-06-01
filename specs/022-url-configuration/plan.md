@@ -15,7 +15,7 @@ Add a `/dashboard/project/<ref>/auth/url-configuration` page that mirrors Supaba
 **Primary Dependencies**: React 18.3, react-router-dom 6.26, @tanstack/react-query 5.x, Radix Dialog 1.1, Tailwind 4.1 (all already in `apps/web/package.json` — no new deps)
 **Storage**: Existing per-project `auth_config` columns + per-instance `.env`. No schema changes.
 **Testing**: Vitest (component + helpers), Playwright (e2e via feature 021's harness)
-**Target Platform**: Selfbase dashboard SPA served by Caddy, modern browsers
+**Target Platform**: Supastack dashboard SPA served by Caddy, modern browsers
 **Project Type**: Web (frontend-only feature against existing api)
 **Performance Goals**: Page load < 200ms after auth-config query resolves (same envelope as Auth Providers page)
 **Constraints**: Match Cloud screenshot at 1440px viewport; reuse Auth Providers' restart-toast UX; cap allow-list at 50 entries; admin-only writes

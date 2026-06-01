@@ -6,7 +6,7 @@
 
 ## Summary
 
-Add `apps/worker/tests/unit/pooler-reconciler.test.ts` covering all 7 classification variants, remediation isolation in `runFullReconcile`, and preflight/concurrency guards in `startRun`. All external dependencies (`@selfbase/db`, `undici`, `pg`, `@selfbase/crypto`, `@selfbase/shared`, `drizzle-orm`) are mocked via `vi.mock` — no live DB, network, or Docker required. Zero production source changes.
+Add `apps/worker/tests/unit/pooler-reconciler.test.ts` covering all 7 classification variants, remediation isolation in `runFullReconcile`, and preflight/concurrency guards in `startRun`. All external dependencies (`@supastack/db`, `undici`, `pg`, `@supastack/crypto`, `@supastack/shared`, `drizzle-orm`) are mocked via `vi.mock` — no live DB, network, or Docker required. Zero production source changes.
 
 ## Technical Context
 
@@ -14,7 +14,7 @@ Add `apps/worker/tests/unit/pooler-reconciler.test.ts` covering all 7 classifica
 
 **Primary Dependencies**: Vitest ^2.0.0 (already in `apps/worker/package.json`), `vi.mock` for all external deps
 
-**Storage**: N/A — all DB access mocked via `vi.mock('@selfbase/db', ...)`
+**Storage**: N/A — all DB access mocked via `vi.mock('@supastack/db', ...)`
 
 **Testing**: `vitest run` via `pnpm -C apps/worker test`
 
@@ -99,7 +99,7 @@ pooler-reconciler
 
 ```ts
 // db() mock — configure per test via dbMock.mockResolvedValueOnce(...)
-vi.mock('@selfbase/db', () => { ... });
+vi.mock('@supastack/db', () => { ... });
 
 // undici fetch mock — configure per test
 vi.mock('undici', () => ({ fetch: vi.fn() }));
@@ -111,8 +111,8 @@ vi.mock('pg', () => ({ default: { Client: vi.fn(...) } }));
 vi.mock('drizzle-orm', () => ({ eq: vi.fn(() => 'eq'), lt: vi.fn(() => 'lt'), and: vi.fn(() => 'and'), sql: vi.fn() }));
 
 // crypto + shared
-vi.mock('@selfbase/crypto', () => ({ decryptJson: vi.fn(), loadMasterKey: vi.fn() }));
-vi.mock('@selfbase/shared', () => ({ logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+vi.mock('@supastack/crypto', () => ({ decryptJson: vi.fn(), loadMasterKey: vi.fn() }));
+vi.mock('@supastack/shared', () => ({ logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 ```
 
 ## Complexity Tracking

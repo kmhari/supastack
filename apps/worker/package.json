@@ -1,5 +1,5 @@
 {
-  "name": "@selfbase/worker",
+  "name": "@supastack/worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,11 +13,11 @@
     "sync:functions-main": "tsx src/scripts/sync-functions-main.ts"
   },
   "dependencies": {
-    "@selfbase/backup-store": "workspace:*",
-    "@selfbase/crypto": "workspace:*",
-    "@selfbase/db": "workspace:*",
-    "@selfbase/docker-control": "workspace:*",
-    "@selfbase/shared": "workspace:*",
+    "@supastack/backup-store": "workspace:*",
+    "@supastack/crypto": "workspace:*",
+    "@supastack/db": "workspace:*",
+    "@supastack/docker-control": "workspace:*",
+    "@supastack/shared": "workspace:*",
     "bullmq": "^5.12.0",
     "drizzle-orm": "^0.33.0",
     "ioredis": "^5.4.1",

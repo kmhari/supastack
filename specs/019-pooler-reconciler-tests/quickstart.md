@@ -29,7 +29,7 @@ All tests should pass with zero external calls (no network, no DB connections).
 
 ## Verifying mock isolation
 
-If any test makes a real network call or real DB connection, it will time out or throw a connection error. This is intentional — it catches mock gaps. If you see `ECONNREFUSED` or similar, check that `vi.mock('undici', ...)` and `vi.mock('@selfbase/db', ...)` are wired before the SUT import.
+If any test makes a real network call or real DB connection, it will time out or throw a connection error. This is intentional — it catches mock gaps. If you see `ECONNREFUSED` or similar, check that `vi.mock('undici', ...)` and `vi.mock('@supastack/db', ...)` are wired before the SUT import.
 
 ## Test file location
 

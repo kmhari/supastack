@@ -45,18 +45,18 @@ Resolves the 5 open questions identified in `plan.md`.
 
 ## R-003: Fake docker control in CI
 
-**Decision**: The existing `globalThis.__selfbaseFakeDockerControl` hook (set during test setup) is the supported way to disable real container provisioning in api processes. Wire it in the CI stack by setting `NODE_ENV=test` + a new env var `SELFBASE_TEST_FAKE_DOCKER=1` that the api respects at boot.
+**Decision**: The existing `globalThis.__supastackFakeDockerControl` hook (set during test setup) is the supported way to disable real container provisioning in api processes. Wire it in the CI stack by setting `NODE_ENV=test` + a new env var `SUPASTACK_TEST_FAKE_DOCKER=1` that the api respects at boot.
 
 **Rationale**:
 - The hook is already used by the integration test suite (60+ tests reference it). Established pattern.
-- Adding a boot-time env var (`SELFBASE_TEST_FAKE_DOCKER=1`) keeps the production build clean — the hook is only enabled when explicitly asked. No risk of accidentally shipping the fake to production.
+- Adding a boot-time env var (`SUPASTACK_TEST_FAKE_DOCKER=1`) keeps the production build clean — the hook is only enabled when explicitly asked. No risk of accidentally shipping the fake to production.
 - The hook lets `POST /api/v1/instances` succeed without actually starting containers; the auth-config GET / PATCH flow works against the snapshot row even when no per-instance docker stack exists.
 
 **Alternatives considered**:
 - **Run real per-instance docker provisioning**: ~30s per project × multiple projects = blows the 5-min budget.
 - **Mock api-side via separate test build of the api image**: more invasive; introduces a divergent code path. Rejected.
 
-**Implementation note**: `apps/api/src/services/docker-control-adapter.ts` already checks `globalThis.__selfbaseFakeDockerControl`. The new env var sets that global at boot time (in api's `server.ts` startup, gated by `SELFBASE_TEST_FAKE_DOCKER === '1'`).
+**Implementation note**: `apps/api/src/services/docker-control-adapter.ts` already checks `globalThis.__supastackFakeDockerControl`. The new env var sets that global at boot time (in api's `server.ts` startup, gated by `SUPASTACK_TEST_FAKE_DOCKER === '1'`).
 
 ---
 

@@ -218,7 +218,7 @@ With:
 **Existing project (one-time VM op)**: On deploy, the operator runs:
 ```bash
 # Edit the live project's kong.yml to uncomment the same block, then:
-sudo docker restart selfbase-<ref>-kong-1
+sudo docker restart supastack-<ref>-kong-1
 ```
 
 This is already documented in `docs/changes/014-mcp-http-oauth.md`. Update that doc to note the template is now fixed for new projects and no worker job is needed.
@@ -264,4 +264,4 @@ No constitution violations. No complexity justification required.
 1. `SHOW statement_timeout` on a freshly provisioned project → `8s`
 2. `mcp-roundtrip.sh` — confirm deferred tools absent in tools/list output
 3. `curl .../analytics/endpoints/logs.all` on an existing project → 200 or 503 (not 404)
-4. `pnpm --filter @selfbase/api test` → all green (including 14 new OAuth cases)
+4. `pnpm --filter @supastack/api test` → all green (including 14 new OAuth cases)

@@ -12,7 +12,7 @@
 
 1. **#21** — close the silent-no-op gap between full **shape** parity and full **behavioral** parity of the auth-config Management API. Today 24 of 234 fields wired to the per-instance auth container actually take effect; the other 210 are persisted but inert. Scope after splitting six follow-up issues (#61 SAML, #62 captcha, #63 custom OAuth server, #64 hooks, #65 MFA, #66 SMS providers): **141 fields** to promote, all template-cheap with no new endpoints or services. Plus a transparency layer that surfaces per-field `honored` / `stored-only` / `unsupported` status in the Management API GET response. Plus a behavioral parity test harness that proves every honored field actually changes runtime behavior.
 
-2. **#34** — ship a selfbase dashboard page at `Auth → Providers` mirroring Cloud's `/auth/providers`. List of provider rows; click opens a side drawer with the provider's specific form; pre-filled read-only callback URL with a Copy button; container-restart toast after Save. The page is the visible operator-UX deliverable that depends on #21's OAuth promotions.
+2. **#34** — ship a supastack dashboard page at `Auth → Providers` mirroring Cloud's `/auth/providers`. List of provider rows; click opens a side drawer with the provider's specific form; pre-filled read-only callback URL with a Copy button; container-restart toast after Save. The page is the visible operator-UX deliverable that depends on #21's OAuth promotions.
 
 The combination is **not** a UI for all 141 promoted fields. The dashboard page covers **only** what Cloud's auth providers page covers: 4 top-level toggles + Email/Phone toggle rows + 21 OAuth provider rows (20 unique providers with Slack rendered as two rows — legacy + OIDC) + disabled placeholder rows for SAML / Web3 / Custom Providers. The other ~100 promoted fields (mailer templates, rate limits, sessions, password rules, etc.) are backend-only in this feature; their dashboard surfaces are separate future pages (#71 Email Templates page, #68 Phone Settings page, etc.) under the same Authentication sidebar group.
 
@@ -20,11 +20,11 @@ The combination is **not** a UI for all 141 promoted fields. The dashboard page 
 
 ### User Story 1 — Operator configures Google sign-in entirely from the dashboard (Priority: P1)
 
-An operator opens `Auth → Providers` in their selfbase project, clicks the Google row, sees the open side drawer with empty Client IDs / Client Secret fields and a pre-filled read-only Callback URL with a Copy button. They paste credentials they obtained from Google Cloud Console, toggle Enable, click Save. The drawer closes; a toast appears: "Restarting auth — your changes will be live in ~30s." Roughly thirty seconds later the toast flips to "Google enabled." The operator tests by visiting their app, clicks Sign in with Google, and is redirected to Google's consent screen.
+An operator opens `Auth → Providers` in their supastack project, clicks the Google row, sees the open side drawer with empty Client IDs / Client Secret fields and a pre-filled read-only Callback URL with a Copy button. They paste credentials they obtained from Google Cloud Console, toggle Enable, click Save. The drawer closes; a toast appears: "Restarting auth — your changes will be live in ~30s." Roughly thirty seconds later the toast flips to "Google enabled." The operator tests by visiting their app, clicks Sign in with Google, and is redirected to Google's consent screen.
 
 **Why this priority**: This is the entire raison d'être for the combined feature. Today the operator either runs `supabase config update --external-google-enabled=…` (which works only for google/github/azure) or SSHes into the VM and edits the .env. Both ugly. This story validates the dashboard, the OAuth provider promotion, the restart UX, and the secret-handling all at once. Without it nothing else matters.
 
-**Independent Test**: Fresh selfbase project. From the dashboard, complete a Google OAuth provider configuration end-to-end (enable + paste creds + Save), wait for the toast to flip, then trigger a real OAuth handshake from a sample app and verify the user lands back signed-in. Pass = the full loop succeeds with zero CLI or SSH intervention.
+**Independent Test**: Fresh supastack project. From the dashboard, complete a Google OAuth provider configuration end-to-end (enable + paste creds + Save), wait for the toast to flip, then trigger a real OAuth handshake from a sample app and verify the user lands back signed-in. Pass = the full loop succeeds with zero CLI or SSH intervention.
 
 **Acceptance Scenarios**:
 
@@ -73,9 +73,9 @@ Independent of the dashboard, the backend promotes the remaining auth-config fie
 
 ### User Story 4 — Per-field transparency in Management API responses (Priority: P2)
 
-The Management API `GET /v1/projects/<ref>/config/auth` response gains a selfbase-namespaced extension that classifies each of the 234 fields as `honored` / `stored_only` / `unsupported` with a short human-readable reason for non-honored entries. Unmodified upstream `supabase` CLI clients ignore the extension key and continue to work. CLI users (and operators using `curl` or scripts) can now tell from a single GET whether a value they set will take effect.
+The Management API `GET /v1/projects/<ref>/config/auth` response gains a supastack-namespaced extension that classifies each of the 234 fields as `honored` / `stored_only` / `unsupported` with a short human-readable reason for non-honored entries. Unmodified upstream `supabase` CLI clients ignore the extension key and continue to work. CLI users (and operators using `curl` or scripts) can now tell from a single GET whether a value they set will take effect.
 
-**Why this priority**: P2 because the dashboard already only renders honored fields, so dashboard operators don't experience the silent-no-op gap. CLI users and SREs do experience it — they routinely send fields that selfbase ignores. This is the API-side transparency fix. Lower priority than US1–US3 because it benefits the smaller, more-technical audience.
+**Why this priority**: P2 because the dashboard already only renders honored fields, so dashboard operators don't experience the silent-no-op gap. CLI users and SREs do experience it — they routinely send fields that supastack ignores. This is the API-side transparency fix. Lower priority than US1–US3 because it benefits the smaller, more-technical audience.
 
 **Independent Test**: PATCH a known-stored-only field via the Management API; GET; verify the response contains the extension key with that field classified `stored_only` and the reason text matches the status map. PATCH a known-honored field; GET; verify it's classified `honored`. PATCH a field in the `unsupported` set (e.g. `oauth_server_enabled`); GET; verify `unsupported` + reason.
 
@@ -89,7 +89,7 @@ The Management API `GET /v1/projects/<ref>/config/auth` response gains a selfbas
 
 ### User Story 5 — Disabled "Coming soon" placeholder rows for non-shipping providers (Priority: P3)
 
-Cloud's auth providers page shows SAML 2.0, Web3 Wallet, and Custom Providers rows. selfbase does not honor these in this feature (split to #61, #72, #63 respectively). The dashboard renders them as disabled rows with a "Coming soon" badge linking to the tracking issue, so operators see the full provider taxonomy and know the work is tracked.
+Cloud's auth providers page shows SAML 2.0, Web3 Wallet, and Custom Providers rows. supastack does not honor these in this feature (split to #61, #72, #63 respectively). The dashboard renders them as disabled rows with a "Coming soon" badge linking to the tracking issue, so operators see the full provider taxonomy and know the work is tracked.
 
 **Why this priority**: P3 because it's a transparency-vs-cleanliness call. Hiding the rows entirely is also defensible (recommended in earlier scoping); rendering them as disabled mirrors Cloud's layout and pre-empts operator confusion ("where's SAML?"). User chose disabled-with-badge. Pure UX work; no backend.
 
@@ -117,7 +117,7 @@ Cloud's auth providers page shows SAML 2.0, Web3 Wallet, and Custom Providers ro
 ### Functional Requirements — Backend (US3, US4)
 
 - **FR-001**: The auth-config endpoint MUST classify every field in upstream's `UpdateAuthConfigBody` (234 fields at current snapshot) as `honored`, `stored_only`, or `unsupported`. Zero unclassified fields shall be present at merge time.
-- **FR-002**: The per-field classification MUST be exposed in the `GET /v1/projects/<ref>/config/auth` response under a selfbase-namespaced extension key.
+- **FR-002**: The per-field classification MUST be exposed in the `GET /v1/projects/<ref>/config/auth` response under a supastack-namespaced extension key.
 - **FR-003**: Non-honored classifications MUST include a short human-readable `reason` field (e.g. "no SAML keypair infrastructure — see #61", "Cloud-only OAuth server — see #63").
 - **FR-004**: After this feature ships, the count of honored fields MUST be at least 160 (target 165, ± 5 tolerance per research R-001): 20 OAuth providers fully honored (21 rendered rows including Slack's legacy + OIDC variants); ~37 mailer subjects/templates/notifications (subject to GoTrue image flag-availability); 20 sessions / password / webauthn-rp / passkey / api / db / smtp-misc (1 promoted in foundational task T010a — `security_manual_linking_enabled`; the remaining 19 in US3); 7 rate limits; plus the 24 already honored. Fields whose GoTrue version support is uncertain reclassify to `stored_only` with `reason: "requires GoTrue image bump — see #65"` rather than blocking the feature.
 - **FR-005**: PATCH MUST continue to accept every field in the upstream shape (including `stored_only` and `unsupported`) to preserve unmodified `supabase` CLI compatibility (feature 009 Q4 clarification stands).
@@ -128,7 +128,7 @@ Cloud's auth providers page shows SAML 2.0, Web3 Wallet, and Custom Providers ro
 
 ### Functional Requirements — Dashboard (US1, US2, US5)
 
-- **FR-010**: Selfbase's project shell sidebar MUST expose a new top-level Authentication group with a Providers entry, opening the page at the conventional path under the project route (e.g. `…/auth/providers`).
+- **FR-010**: Supastack's project shell sidebar MUST expose a new top-level Authentication group with a Providers entry, opening the page at the conventional path under the project route (e.g. `…/auth/providers`).
 - **FR-011**: The Providers page MUST render a top section with four toggles (Allow new users to sign up, Allow manual linking, Allow anonymous sign-ins, Confirm email) and a single Save button governing the bundle.
 - **FR-012**: The Providers page MUST render two regions: (a) a top section with the 4 global toggles per FR-011, and (b) a separate providers list with 25 entries — Email row (toggle-only) + Phone row (toggle-only) + a disabled SAML 2.0 row + a disabled Web3 Wallet row + 21 active OAuth provider rows (20 unique providers; Slack appears as both legacy and OIDC rows). Plus (c) a separately-rendered, disabled Custom Providers section below the providers list.
 - **FR-013**: Each disabled row MUST display a "Coming soon" badge linking to the corresponding GitHub issue (#61 SAML, #72 Web3 Wallet, #63 Custom Providers). Clicking the row itself MUST NOT open a drawer.
@@ -169,8 +169,8 @@ Cloud's auth providers page shows SAML 2.0, Web3 Wallet, and Custom Providers ro
 - The unmodified upstream `supabase` CLI ignores unknown top-level keys in the GET response, allowing the per-field status indicator to be added without bumping any compat shim.
 - The existing per-instance provisioning flow (feature 009) already regenerates the .env and restarts the per-instance auth container on auth-config PATCH; this feature reuses that lifecycle.
 - The per-instance auth container's healthcheck endpoint reliably reports readiness within ~30 seconds on the production VM under normal load; the dashboard's toast UX is acceptable on that timing.
-- All 20 unique OAuth providers' env-var mappings are determinable from upstream documentation; no provider requires selfbase-hosted state beyond the per-instance .env.
-- Operators bring their own credentials (Client ID + Secret) for every provider from the IdP's developer console; selfbase does not register apps on operators' behalf.
+- All 20 unique OAuth providers' env-var mappings are determinable from upstream documentation; no provider requires supastack-hosted state beyond the per-instance .env.
+- Operators bring their own credentials (Client ID + Secret) for every provider from the IdP's developer console; supastack does not register apps on operators' behalf.
 - Existing RBAC infrastructure (the `config.write` action) is sufficient; no new RBAC actions need to be added.
 - The dashboard SPA's existing toast and side-drawer primitives can be reused; no new dashboard component frameworks introduced.
 

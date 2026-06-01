@@ -12,7 +12,7 @@
  * Heavy lifting lives in apps/api/src/services/pooler-reconciler.ts —
  * imported via the workspace alias so worker + api stay in sync.
  */
-import { logger } from '@selfbase/shared';
+import { logger } from '@supastack/shared';
 import {
   startRun,
   runFullReconcile,

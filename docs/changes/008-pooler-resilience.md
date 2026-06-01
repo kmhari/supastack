@@ -78,7 +78,7 @@ POST /api/v1/instances/<ref>/reset-pg-password   # admin-only
 ```
 
 1. Decrypt `encrypted_secrets.postgresPassword`
-2. `docker exec` into `selfbase-<ref>-db-1` running `psql -h 127.0.0.1 -U supabase_admin -d postgres -c "BEGIN; ALTER USER postgres WITH PASSWORD '<escaped>'; ALTER USER supabase_admin WITH PASSWORD '<escaped>'; COMMIT;"`
+2. `docker exec` into `supastack-<ref>-db-1` running `psql -h 127.0.0.1 -U supabase_admin -d postgres -c "BEGIN; ALTER USER postgres WITH PASSWORD '<escaped>'; ALTER USER supabase_admin WITH PASSWORD '<escaped>'; COMMIT;"`
 3. Enqueue single-instance reconciler pass with priority 5
 4. Poll `reconciler_runs` row for up to 5 seconds
 5. Return `{ ref, reset_at, message, pooler_tenant_status, reconciler_run_id }`

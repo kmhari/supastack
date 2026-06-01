@@ -2,7 +2,7 @@
 
 **Branch**: `005-postgres-public-endpoint` | **Date**: 2026-05-23 | **Spec**: [spec.md](./spec.md)
 
-**Input**: GitHub issue [kmhari/selfbase#3](https://github.com/kmhari/selfbase/issues/3) — pivoted twice. Final architecture: Option B after live VM testing confirmed Supavisor's SNI bug.
+**Input**: GitHub issue [kmhari/supastack#3](https://github.com/kmhari/supastack/issues/3) — pivoted twice. Final architecture: Option B after live VM testing confirmed Supavisor's SNI bug.
 
 ## Summary
 
@@ -23,12 +23,12 @@ This avoids the Supavisor 2.7.4 SNI-lookup bug (`comparison with nil is forbidde
 - Node.js built-in `tls` + `net` modules — no new npm dep for the proxy
 - `supabase/supavisor:2.7.4` — same image we already use; serves the optional pooler endpoint
 - `drizzle-orm` + `pg` — existing DB layer, new `pooler_tenants` table
-- `@selfbase/crypto` — existing `decryptJson`/`loadMasterKey` for password handling
+- `@supastack/crypto` — existing `decryptJson`/`loadMasterKey` for password handling
 - `bullmq` — existing; new `pooler-reconciler` daily cron
 
 **Storage**: Two new schemas in control-plane Postgres:
 - `_supavisor` — supavisor's Ecto-managed tables (auto-created on supavisor first boot)
-- New selfbase tables: `pooler_tenants` (tracking) + `pooler_events` (audit)
+- New supastack tables: `pooler_tenants` (tracking) + `pooler_events` (audit)
 
 **Testing**: Vitest (existing) for the proxy unit tests; `tests/cli-e2e/db-push.sh` for E2E
 
@@ -188,10 +188,10 @@ supavisor:
     - '6543:6543'      # transaction pooler endpoint
     # NOT publishing :5432 — the custom pg-edge-proxy owns that
   volumes:
-    - certs-data:/var/selfbase/certs:ro
+    - certs-data:/var/supastack/certs:ro
   environment:
     PORT: 4000
-    DATABASE_URL: ecto://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
+    DATABASE_URL: ecto://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack
     CLUSTER_POSTGRES: "true"
     SECRET_KEY_BASE: ${SUPAVISOR_SECRET_KEY_BASE}
     VAULT_ENC_KEY: ${SUPAVISOR_VAULT_ENC_KEY}
@@ -199,8 +199,8 @@ supavisor:
     METRICS_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET}
     REGION: local
     ERL_AFLAGS: -proto_dist inet_tcp
-    GLOBAL_DOWNSTREAM_CERT_PATH: /var/selfbase/certs/${SELFBASE_APEX}/cert.pem
-    GLOBAL_DOWNSTREAM_KEY_PATH: /var/selfbase/certs/${SELFBASE_APEX}/key.pem
+    GLOBAL_DOWNSTREAM_CERT_PATH: /var/supastack/certs/${SUPASTACK_APEX}/cert.pem
+    GLOBAL_DOWNSTREAM_KEY_PATH: /var/supastack/certs/${SUPASTACK_APEX}/key.pem
   networks: [internal]
   healthcheck:
     test: ['CMD', 'wget', '-qO-', 'http://localhost:4000/api/health']

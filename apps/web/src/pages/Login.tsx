@@ -42,11 +42,11 @@ export function LoginPage(): React.ReactElement {
       <form onSubmit={(e) => void onSubmit(e)} className="flex w-96 max-w-full flex-col gap-4">
         <div className="mb-2 flex items-center gap-2.5">
           <span aria-hidden className="inline-block size-7 rounded-md bg-success" />
-          <span className="text-base font-medium">Selfbase</span>
+          <span className="text-base font-medium">Supastack</span>
         </div>
 
         <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">Welcome back</h1>
-        <p className="m-0 text-sm text-muted-foreground">Sign in to your selfbase account.</p>
+        <p className="m-0 text-sm text-muted-foreground">Sign in to your supastack account.</p>
 
         <div>
           <Label htmlFor="email" className="mb-1.5 block text-sm text-foreground-light">

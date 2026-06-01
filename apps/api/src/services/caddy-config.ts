@@ -1,7 +1,7 @@
-import { not, inArray, eq } from 'drizzle-orm';
-import { db, schema } from '@selfbase/db';
+import { db, schema } from '@supastack/db';
+import { eq, inArray, not } from 'drizzle-orm';
 
-const CERTS_DIR = process.env.SELFBASE_CERTS_DIR ?? '/var/selfbase/certs';
+const CERTS_DIR = process.env.SUPASTACK_CERTS_DIR ?? '/var/supastack/certs';
 
 /**
  * Build the complete Caddy JSON config from the current DB state.
@@ -118,7 +118,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
 
   /**
    * Feature 010 — Studio's bundled `/project/default/functions/secrets` page
-   * is a documentation-only stub (no CRUD). Redirect to the working selfbase
+   * is a documentation-only stub (no CRUD). Redirect to the working supastack
    * dashboard page at /dashboard/project/<ref>/secrets, preserving any
    * query string. Path-precise so other /functions/* pages pass through.
    * Must be inserted BEFORE instanceStudioRoute for the same hostname so
@@ -158,7 +158,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
   //   1. <ref>.<apex>         → Kong (data plane)
   //   2. studio-<ref>.<apex>  → Studio (UI)
   //   3. api.<apex>           → api:3001 (Supabase CLI-compat management surface)
-  //   4. <apex>/* + everything else → selfbase web (dashboard catch-all)
+  //   4. <apex>/* + everything else → supastack web (dashboard catch-all)
   const dataHost = (ref: string): string => (apex ? `${ref}.${apex}` : `${ref}.localhost`);
   const studioHost = (ref: string): string =>
     apex ? `studio-${ref}.${apex}` : `studio-${ref}.localhost`;
@@ -183,7 +183,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
     : [];
 
   /**
-   * MCP service host (`mcp.<apex>`) — feature 014. Routes to the selfbase-mcp
+   * MCP service host (`mcp.<apex>`) — feature 014. Routes to the supastack-mcp
    * container which serves the OAuth-gated Streamable HTTP transport at /mcp
    * and the protected-resource discovery at /.well-known/oauth-protected-resource.
    */
@@ -199,7 +199,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
 
   const httpsRoutes = [
     ...instances.map((i) => instanceRoute(i.ref, i.portKong, dataHost(i.ref))),
-    // Feature 010 — redirect Studio's broken /functions/secrets URL to selfbase.
+    // Feature 010 — redirect Studio's broken /functions/secrets URL to supastack.
     // MUST appear before instanceStudioRoute (path-precise match evaluated first).
     ...instances.map((i) => studioSecretsRedirectRoute(i.ref, studioHost(i.ref))),
     ...instances.map((i) => instanceStudioRoute(i.ref, i.portStudio, studioHost(i.ref))),
@@ -211,7 +211,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
   const httpRoutes = [
     // Plain HTTP carries the same per-instance routes (for dev/testing without DNS).
     ...instances.map((i) => instanceRoute(i.ref, i.portKong, dataHost(i.ref))),
-    // Feature 010 — redirect Studio's broken /functions/secrets URL to selfbase.
+    // Feature 010 — redirect Studio's broken /functions/secrets URL to supastack.
     // MUST appear before instanceStudioRoute (path-precise match evaluated first).
     ...instances.map((i) => studioSecretsRedirectRoute(i.ref, studioHost(i.ref))),
     ...instances.map((i) => instanceStudioRoute(i.ref, i.portStudio, studioHost(i.ref))),

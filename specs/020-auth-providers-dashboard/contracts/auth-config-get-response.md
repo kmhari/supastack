@@ -25,8 +25,8 @@ This contract supersedes feature 009's `contracts/auth-config.md` for the GET re
   "saml_external_url": null,
   // ... 222+ more fields ...
 
-  // ─── Selfbase extension (new) ────────────────────────────────────────
-  "_selfbase": {
+  // ─── Supastack extension (new) ────────────────────────────────────────
+  "_supastack": {
     "fieldStatus": {
       // Every field in upstream UpdateAuthConfigBody is classified here.
       "jwt_exp": {
@@ -68,21 +68,21 @@ This contract supersedes feature 009's `contracts/auth-config.md` for the GET re
 |---|---|:---:|:---:|:---:|
 | `"honored"` | Value written to per-instance `.env`; container picks it up on next start. Changing this field changes runtime behavior. | yes | no | yes (true for `*_secret` etc.) |
 | `"stored_only"` | Value persisted but not wired into the container. PATCH accepts it (CLI compat); changes are no-ops on the running auth surface. | no | yes (with `#NNN` issue ref) | no |
-| `"unsupported"` | Selfbase has explicitly chosen never to honor. Same persistence as `stored_only`; the reason distinguishes intent. | no | yes (with `#NNN` issue ref) | no |
+| `"unsupported"` | Supastack has explicitly chosen never to honor. Same persistence as `stored_only`; the reason distinguishes intent. | no | yes (with `#NNN` issue ref) | no |
 
 ---
 
 ## Invariants
 
-1. **Exhaustive classification**: `Object.keys(_selfbase.fieldStatus)` equals `Object.keys(UpdateAuthConfigBody.properties)` as a set. No gaps; no extras. Build-time enforced by `apps/api/tests/contract/upstream-auth-config-snapshot.test.ts`.
+1. **Exhaustive classification**: `Object.keys(_supastack.fieldStatus)` equals `Object.keys(UpdateAuthConfigBody.properties)` as a set. No gaps; no extras. Build-time enforced by `apps/api/tests/contract/upstream-auth-config-snapshot.test.ts`.
 
-2. **CLI back-compat**: removing the `_selfbase` key from the response yields a payload byte-equivalent (modulo JSON key ordering) to what feature 009 returned pre-feature. The unmodified `supabase` CLI ignores unknown top-level keys; verified by a test that loads a captured pre-feature response, adds `_selfbase`, and parses via the same Zod schema the CLI uses.
+2. **CLI back-compat**: removing the `_supastack` key from the response yields a payload byte-equivalent (modulo JSON key ordering) to what feature 009 returned pre-feature. The unmodified `supabase` CLI ignores unknown top-level keys; verified by a test that loads a captured pre-feature response, adds `_supastack`, and parses via the same Zod schema the CLI uses.
 
-3. **Secret masking**: every field whose `_selfbase.fieldStatus[field].secret === true` has its value field set to `null` in the response. The per-field secret value is never returned in this endpoint. A separate, audit-logged Reveal pathway (TBD in implementation; see `research.md` open items) is the only way to retrieve a plaintext secret value.
+3. **Secret masking**: every field whose `_supastack.fieldStatus[field].secret === true` has its value field set to `null` in the response. The per-field secret value is never returned in this endpoint. A separate, audit-logged Reveal pathway (TBD in implementation; see `research.md` open items) is the only way to retrieve a plaintext secret value.
 
 4. **Reason text format**: every `stored_only` and `unsupported` entry's `reason` string ends with a token of the form `#NNN` matching an open GitHub issue at merge time. Verified by a release-gate test that scrapes the strings and runs `gh issue view`.
 
-5. **No version bump**: this is an additive response-shape change. The Management API surface version (currently `v1`) is unchanged. Upstream parity (Supabase Cloud) is unaffected — the `_selfbase` key has no analog there and is intentionally vendor-specific.
+5. **No version bump**: this is an additive response-shape change. The Management API surface version (currently `v1`) is unchanged. Upstream parity (Supabase Cloud) is unaffected — the `_supastack` key has no analog there and is intentionally vendor-specific.
 
 ---
 
@@ -96,6 +96,6 @@ This contract supersedes feature 009's `contracts/auth-config.md` for the GET re
 
 ## Test artifacts
 
-- `apps/api/tests/unit/auth-config-response-shape.test.ts` — golden-file test of a known-good response with `_selfbase.fieldStatus` present.
+- `apps/api/tests/unit/auth-config-response-shape.test.ts` — golden-file test of a known-good response with `_supastack.fieldStatus` present.
 - `apps/api/tests/contract/upstream-auth-config-snapshot.test.ts` — diff status-map keys against pinned snapshot keys.
 - `tests/cli-e2e/cli-compat.sh` (existing) — augmented to verify `supabase config get` returns 0 against the new response.

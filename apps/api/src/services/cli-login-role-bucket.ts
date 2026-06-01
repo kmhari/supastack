@@ -3,10 +3,10 @@
  * endpoint (feature 012).
  *
  * Decision 8 in specs/012-cli-login-role/research.md:
- *   Selfbase's deploy model is single-VM (one api replica), so a
+ *   Supastack's deploy model is single-VM (one api replica), so a
  *   process-local Map keyed by `${patId}:${projectRef}` is correct. The
  *   limit is 30 calls / 60 seconds (matches spec Clarifications Q3 +
- *   FR-010). If/when selfbase later scales horizontally, this helper is
+ *   FR-010). If/when supastack later scales horizontally, this helper is
  *   swapped for a Redis token bucket using INCR + EXPIRE — same interface.
  *
  * Approximation: discrete-counter sliding window. Worst-case overshoot at a
@@ -15,7 +15,7 @@
  * true sliding-window-log.
  *
  * Memory bound: at most ~(PATs × active-projects) entries, expected ≪1000
- * on a real selfbase deployment. Lazy eviction at the top of every call
+ * on a real supastack deployment. Lazy eviction at the top of every call
  * drops entries idle for more than IDLE_EVICTION_MS (default: 10× the
  * window) so the Map can't grow unboundedly if traffic patterns change.
  */

@@ -31,14 +31,14 @@
 
 **Purpose**: DB migrations + Drizzle schema + per-instance compose changes (remove per-instance supavisor; publish per-instance db on the new host port). These are prereqs for both US1 (proxy needs the published port + DB schema) and US3 (supavisor needs the `_supavisor` schema).
 
-- [X] T004 Create `packages/db/migrations/0004_supavisor_schema.sql` — idempotent: `CREATE SCHEMA IF NOT EXISTS _supavisor;` plus a `GRANT ALL ON SCHEMA _supavisor TO selfbase;` (supavisor's Ecto migrations will create the tables on first boot — we just need the schema to exist).
+- [X] T004 Create `packages/db/migrations/0004_supavisor_schema.sql` — idempotent: `CREATE SCHEMA IF NOT EXISTS _supavisor;` plus a `GRANT ALL ON SCHEMA _supavisor TO supastack;` (supavisor's Ecto migrations will create the tables on first boot — we just need the schema to exist).
 - [X] T005 Create `packages/db/migrations/0005_pooler_tenants.sql` — idempotent: `pooler_tenants` table (id, instance_ref FK, external_id UNIQUE, sni_hostname, pool_size, max_clients, registered_at, last_health_at, status CHECK, last_error, created_at, updated_at) + `pooler_events` table (id, tenant_id FK, external_id, event CHECK, detail jsonb, created_at) + indexes per `data-model.md`.
 - [X] T006 [P] Create `packages/db/src/schema/pooler.ts` — Drizzle schema for `poolerTenants` and `poolerEvents` matching the migration. Export both.
 - [X] T007 Edit `packages/db/src/schema/index.ts` — add `export * from './pooler.js';`.
 - [X] T008 [P] Edit `packages/docker-control/src/compose-template.ts` — (a) ADD `POSTGRES_DIRECT_HOST_PORT: ports.dbDirect` to the rendered env; (b) REMOVE all `POOLER_*` env vars (POOLER_PROXY_PORT_TRANSACTION, POOLER_DEFAULT_POOL_SIZE, POOLER_MAX_CLIENT_CONN, POOLER_TENANT_ID, POOLER_DB_POOL_SIZE, POOLER_POOL_MODE, POOLER_TRANSACTION_HOST_PORT — anything that only existed for per-instance supavisor); (c) update the test in `packages/docker-control/tests/compose-template.test.ts` to assert POSTGRES_DIRECT_HOST_PORT is present and POOLER_* keys are NOT present.
 - [X] T009 Edit `infra/supabase-template/docker-compose.yml` — REMOVE the entire `supavisor:` service block. ADD `ports: - "${POSTGRES_DIRECT_HOST_PORT}:5432"` to the `db:` service. Revert the earlier patch comment about `POOLER_TRANSACTION_HOST_PORT` since that var no longer exists.
 
-**Checkpoint**: `pnpm --filter @selfbase/db typecheck` + `pnpm --filter @selfbase/docker-control test` pass. Migration applied to fresh DB without error. Per-instance compose validates with `docker compose config -q` (using sample env).
+**Checkpoint**: `pnpm --filter @supastack/db typecheck` + `pnpm --filter @supastack/docker-control test` pass. Migration applied to fresh DB without error. Per-instance compose validates with `docker compose config -q` (using sample env).
 
 ---
 
@@ -48,15 +48,15 @@
 
 **Independent Test**:
 ```bash
-SELFBASE_APEX=... SELFBASE_PAT=... SELFBASE_PROJECT_REF=... SELFBASE_DB_PASSWORD=... \
+SUPASTACK_APEX=... SUPASTACK_PAT=... SUPASTACK_PROJECT_REF=... SUPASTACK_DB_PASSWORD=... \
   bash tests/cli-e2e/db-push.sh
 # → exits 0, all 7 steps ✓
 ```
 
 ### Backend — pg-edge proxy service
 
-- [X] T010 [US1] Create `apps/api/src/services/pg-edge-proxy.ts` — implement the STARTTLS+SNI proxy per `contracts/pg-edge-proxy.md`. Exports `startPgEdgeProxy(opts: { port, certPath, keyPath, apexDomain })`. Reads first 8 bytes; matches Postgres SSLRequest magic (`0x00000008 0x04D2162F`); writes `'S'`; wraps socket in `tls.TLSSocket` with `secureContext` from cert files + `SNICallback`; on `secure` event extracts `tlsSocket.servername`; validates regex `^db\.([a-z]{20})\.${apexDomain}$`; calls `lookupBackend(ref)` to get `{host, port}`; opens `net.connect(backend)`; bidirectionally pipes `tlsSocket ↔ backendSocket`; handles close/error propagation on both sides. Include `lookupBackend(ref)` with 60s in-memory cache backed by a `SELECT port_postgres_direct FROM supabase_instances WHERE ref=$1 AND status != 'deleting'` query. Subscribe to Redis pub/sub channels `selfbase:wildcard-cert:reloaded` (re-read cert files, swap `tls.createSecureContext`) and `selfbase:instance:deleted` (invalidate cache for that ref). Export a metrics object that Fastify can expose later.
-- [X] T011 [US1] Edit `apps/api/src/server.ts` — after `app.listen({ port, host })`, import `startPgEdgeProxy` and start it on port 5432 reading `apex` from `org.apex_domain` and cert paths from `SELFBASE_CERTS_DIR`. Only start if BOTH (a) apex is set in DB AND (b) cert files exist at the expected path — otherwise log and skip (so dev boots without wildcard cert don't crash). Wire a graceful shutdown handler that closes the proxy listener on SIGTERM.
+- [X] T010 [US1] Create `apps/api/src/services/pg-edge-proxy.ts` — implement the STARTTLS+SNI proxy per `contracts/pg-edge-proxy.md`. Exports `startPgEdgeProxy(opts: { port, certPath, keyPath, apexDomain })`. Reads first 8 bytes; matches Postgres SSLRequest magic (`0x00000008 0x04D2162F`); writes `'S'`; wraps socket in `tls.TLSSocket` with `secureContext` from cert files + `SNICallback`; on `secure` event extracts `tlsSocket.servername`; validates regex `^db\.([a-z]{20})\.${apexDomain}$`; calls `lookupBackend(ref)` to get `{host, port}`; opens `net.connect(backend)`; bidirectionally pipes `tlsSocket ↔ backendSocket`; handles close/error propagation on both sides. Include `lookupBackend(ref)` with 60s in-memory cache backed by a `SELECT port_postgres_direct FROM supabase_instances WHERE ref=$1 AND status != 'deleting'` query. Subscribe to Redis pub/sub channels `supastack:wildcard-cert:reloaded` (re-read cert files, swap `tls.createSecureContext`) and `supastack:instance:deleted` (invalidate cache for that ref). Export a metrics object that Fastify can expose later.
+- [X] T011 [US1] Edit `apps/api/src/server.ts` — after `app.listen({ port, host })`, import `startPgEdgeProxy` and start it on port 5432 reading `apex` from `org.apex_domain` and cert paths from `SUPASTACK_CERTS_DIR`. Only start if BOTH (a) apex is set in DB AND (b) cert files exist at the expected path — otherwise log and skip (so dev boots without wildcard cert don't crash). Wire a graceful shutdown handler that closes the proxy listener on SIGTERM.
 
 ### Infra wiring
 
@@ -78,7 +78,7 @@ SELFBASE_APEX=... SELFBASE_PAT=... SELFBASE_PROJECT_REF=... SELFBASE_DB_PASSWORD
 
 > NOTE: This requires investigation of the Studio image to find the right env var. If no clean env var exists, the implementation may patch the Studio image or use a build-arg override. The decision in `research.md` Decision 9 deferred this to a follow-up — keeping it scoped here as a small standalone task.
 
-- [ ] T014 [US2] Investigate Studio env vars by inspecting `selfbase-<ref>-studio-1` env on a running VM (`docker inspect`) AND skimming the Supabase Studio source for "Direct connection" rendering. Document the finding in a comment in `packages/docker-control/src/compose-template.ts`.
+- [ ] T014 [US2] Investigate Studio env vars by inspecting `supastack-<ref>-studio-1` env on a running VM (`docker inspect`) AND skimming the Supabase Studio source for "Direct connection" rendering. Document the finding in a comment in `packages/docker-control/src/compose-template.ts`.
 - [ ] T015 [US2] Based on T014 finding, either: (a) set the appropriate env var in `compose-template.ts` (e.g., `DEFAULT_PROJECT_PG_HOST: \`db.${ref}.${apex}\``), OR (b) if no env var exists, scope creep — punt to a separate issue and mark this US2 as DEFERRED in the spec.
 
 **Checkpoint**: Newly-provisioned project shows correct host in Studio. Existing projects unchanged until restarted.
@@ -98,8 +98,8 @@ Dashboard Settings → Database panel shows "Pooler: healthy" with active connec
 
 ### Infra — supavisor service
 
-- [X] T016 [US3] Edit `infra/docker-compose.yml` — add a top-level `supavisor:` service per `plan.md` §2. Image `supabase/supavisor:2.7.4`. Ports `'6543:6543'`. Mount `certs-data:/var/selfbase/certs:ro`. Env: `PORT=4000`, `DATABASE_URL=ecto://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase`, `CLUSTER_POSTGRES=true`, `SECRET_KEY_BASE=${SUPAVISOR_SECRET_KEY_BASE}`, `VAULT_ENC_KEY=${SUPAVISOR_VAULT_ENC_KEY}`, `API_JWT_SECRET=${SUPAVISOR_API_JWT_SECRET}`, `METRICS_JWT_SECRET=${SUPAVISOR_API_JWT_SECRET}`, `REGION=local`, `ERL_AFLAGS=-proto_dist inet_tcp`, `GLOBAL_DOWNSTREAM_CERT_PATH=/var/selfbase/certs/${SELFBASE_APEX}/cert.pem`, `GLOBAL_DOWNSTREAM_KEY_PATH=/var/selfbase/certs/${SELFBASE_APEX}/key.pem`. Healthcheck via `wget http://localhost:4000/api/health`. `depends_on: db: healthy`. `extra_hosts: host.docker.internal:host-gateway` (so supavisor can reach per-instance Postgres via host port).
-- [X] T017 [P] [US3] Edit `infra/.env.example` — document the three new required env vars: `SUPAVISOR_SECRET_KEY_BASE` (≥64 chars), `SUPAVISOR_VAULT_ENC_KEY` (32 hex), `SUPAVISOR_API_JWT_SECRET` (64 hex). Include `openssl rand` examples. Also document `SELFBASE_APEX` (already in .env but mandatory for supavisor cert path interpolation).
+- [X] T016 [US3] Edit `infra/docker-compose.yml` — add a top-level `supavisor:` service per `plan.md` §2. Image `supabase/supavisor:2.7.4`. Ports `'6543:6543'`. Mount `certs-data:/var/supastack/certs:ro`. Env: `PORT=4000`, `DATABASE_URL=ecto://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack`, `CLUSTER_POSTGRES=true`, `SECRET_KEY_BASE=${SUPAVISOR_SECRET_KEY_BASE}`, `VAULT_ENC_KEY=${SUPAVISOR_VAULT_ENC_KEY}`, `API_JWT_SECRET=${SUPAVISOR_API_JWT_SECRET}`, `METRICS_JWT_SECRET=${SUPAVISOR_API_JWT_SECRET}`, `REGION=local`, `ERL_AFLAGS=-proto_dist inet_tcp`, `GLOBAL_DOWNSTREAM_CERT_PATH=/var/supastack/certs/${SUPASTACK_APEX}/cert.pem`, `GLOBAL_DOWNSTREAM_KEY_PATH=/var/supastack/certs/${SUPASTACK_APEX}/key.pem`. Healthcheck via `wget http://localhost:4000/api/health`. `depends_on: db: healthy`. `extra_hosts: host.docker.internal:host-gateway` (so supavisor can reach per-instance Postgres via host port).
+- [X] T017 [P] [US3] Edit `infra/.env.example` — document the three new required env vars: `SUPAVISOR_SECRET_KEY_BASE` (≥64 chars), `SUPAVISOR_VAULT_ENC_KEY` (32 hex), `SUPAVISOR_API_JWT_SECRET` (64 hex). Include `openssl rand` examples. Also document `SUPASTACK_APEX` (already in .env but mandatory for supavisor cert path interpolation).
 - [X] T018 [US3] **Resolved-as no-op**: supavisor 2.7.4 runs its Ecto migrations on first boot via libcluster — no explicit bootstrap service needed. Original task: Add a one-time bootstrap step that runs supavisor's Ecto migrations: either (a) a separate `supavisor-migrate` one-shot service in docker-compose that runs `bin/supavisor eval "Supavisor.Release.migrate"` and exits, with the main `supavisor` service depending on it; OR (b) a startup probe in the api container that detects "table _supavisor.tenants does not exist" and `docker exec`s the migration command.
 
 ### Backend — supavisor admin HTTP client + tenant lifecycle
@@ -108,7 +108,7 @@ Dashboard Settings → Database panel shows "Pooler: healthy" with active connec
 - [X] T020 [US3] Create `apps/api/src/services/pooler-tenants.ts` — high-level lifecycle: `registerTenantForInstance(ref, tx?)` and `unregisterTenantForInstance(ref, tx?)`. Inside `registerTenantForInstance`: load instance → decrypt secrets → INSERT pooler_tenants row with status='registering' → call `poolerClient.registerTenant(...)` → on success UPDATE status='active' + INSERT pooler_events; on failure mark status='failed' + last_error, rethrow so caller can roll back. The `tx` arg lets callers wrap this in their own transaction.
 - [X] T021 [US3] **Implemented differently**: registration moved from route to worker — `apps/worker/src/jobs/provision.ts` calls `POST /internal/pooler/tenants` after the instance reaches `running`; `apps/worker/src/jobs/lifecycle.ts` calls `DELETE /internal/pooler/tenants/:ref` on delete. Keeps the synchronous route handler decoupled from a pooler outage (best-effort, reconciler handles drift). Original task: Edit `apps/api/src/routes/instances.ts` — POST `/instances` handler: ...
 - [X] T022 [P] [US3] Create `apps/api/scripts/backfill-pooler-tenants.ts` — one-shot script. Iterate all `supabase_instances` rows where `status != 'deleting'`. For each, check if a `pooler_tenants` row already exists; if yes skip with log; else call `registerTenantForInstance(ref)` and log result (`✓ ref` or `✗ ref: <error>`). Idempotent — safe to re-run. Document invocation in the script header comment.
-- [ ] T023 [P] [US3] **Deferred to #7** Create `apps/api/src/services/pooler-reconciler.ts` — BullMQ daily cron at `0 3 * * *`. Steps: (1) list supavisor tenants via `poolerClient.listTenants()`, (2) list selfbase instances, (3) detect drift per `research.md` Decision 8 (orphan / missing / rotated password / stuck-registering), (4) reconcile by calling appropriate register/unregister, (5) log each action to `pooler_events`. Export `createPoolerReconcilerQueue(redisUrl)` and `createPoolerReconcilerWorker(redisUrl)` matching the cert-check pattern in feature 004.
+- [ ] T023 [P] [US3] **Deferred to #7** Create `apps/api/src/services/pooler-reconciler.ts` — BullMQ daily cron at `0 3 * * *`. Steps: (1) list supavisor tenants via `poolerClient.listTenants()`, (2) list supastack instances, (3) detect drift per `research.md` Decision 8 (orphan / missing / rotated password / stuck-registering), (4) reconcile by calling appropriate register/unregister, (5) log each action to `pooler_events`. Export `createPoolerReconcilerQueue(redisUrl)` and `createPoolerReconcilerWorker(redisUrl)` matching the cert-check pattern in feature 004.
 - [ ] T024 [US3] **Deferred to #7** Edit `apps/api/src/server.ts` — in `main()`, after starting the api: import and schedule the pooler-reconciler queue with cron `0 3 * * *`.
 
 ### Backend — dashboard health endpoint
@@ -138,7 +138,7 @@ Dashboard Settings → Database panel shows "Pooler: healthy" with active connec
 
 - [ ] T034 [P] Create `packages/db/migrations/0006_pg_edge_certs.sql` — table `pg_edge_certs (id, instance_ref FK, hostname UNIQUE, cert_pem text, key_pem bytea encrypted, not_before, not_after, status CHECK('pending','issued','failed','expired'), last_error, last_issued_at, last_attempt_at, created_at, updated_at)`. Indexes on `instance_ref` and `not_after` (for renewal scans).
 - [ ] T035 [P] Create `packages/db/src/schema/pg-edge-certs.ts` — Drizzle schema. Export `pgEdgeCerts`. Add to `schema/index.ts`.
-- [ ] T036 [US1] Extend `apps/api/src/services/acme.ts` with `issuePerProjectCert(ref, apex)`: open ACME order for `db.<ref>.<apex>`; LE returns HTTP-01 challenge tokens; INSERT rows into a new in-memory `acmeChallengeTokens` map keyed by token; complete challenge; finalize order; download cert; INSERT/UPDATE `pg_edge_certs` row with `cert_pem` + encrypted `key_pem`; publish Redis pub/sub `selfbase:pg-edge-cert:issued` with `{ref, hostname}`. Reuse account key from `wildcard_certs.account_key_pem` (same LE account).
+- [ ] T036 [US1] Extend `apps/api/src/services/acme.ts` with `issuePerProjectCert(ref, apex)`: open ACME order for `db.<ref>.<apex>`; LE returns HTTP-01 challenge tokens; INSERT rows into a new in-memory `acmeChallengeTokens` map keyed by token; complete challenge; finalize order; download cert; INSERT/UPDATE `pg_edge_certs` row with `cert_pem` + encrypted `key_pem`; publish Redis pub/sub `supastack:pg-edge-cert:issued` with `{ref, hostname}`. Reuse account key from `wildcard_certs.account_key_pem` (same LE account).
 
 ### Backend — HTTP-01 challenge endpoint
 
@@ -151,7 +151,7 @@ Dashboard Settings → Database panel shows "Pooler: healthy" with active connec
 
 ### Proxy — SNICallback for per-project certs
 
-- [ ] T040 [US1] Edit `apps/api/src/services/pg-edge-proxy.ts` — replace the single `tlsContext` with: (a) wildcard context (loaded at startup, reload via existing Redis cert:reloaded subscriber); (b) `perProjectContextCache: Map<string, tls.SecureContext>` populated lazily on SNICallback. Add `selfbase:pg-edge-cert:issued` subscriber that invalidates the cache entry for the issued ref. SNICallback: extract ref from SNI, query `pg_edge_certs` for matching row (with 60s cache), build context from cert_pem + decrypted key_pem; on miss, return wildcard context.
+- [ ] T040 [US1] Edit `apps/api/src/services/pg-edge-proxy.ts` — replace the single `tlsContext` with: (a) wildcard context (loaded at startup, reload via existing Redis cert:reloaded subscriber); (b) `perProjectContextCache: Map<string, tls.SecureContext>` populated lazily on SNICallback. Add `supastack:pg-edge-cert:issued` subscriber that invalidates the cache entry for the issued ref. SNICallback: extract ref from SNI, query `pg_edge_certs` for matching row (with 60s cache), build context from cert_pem + decrypted key_pem; on miss, return wildcard context.
 
 ### Instance lifecycle integration
 
@@ -173,7 +173,7 @@ Dashboard Settings → Database panel shows "Pooler: healthy" with active connec
 
 - [ ] T030 [P] **Deferred** (pg-edge-proxy verified by live E2E only — unit tests pending) Create `apps/api/src/services/__tests__/pg-edge-proxy.test.ts` — vitest unit tests per `contracts/pg-edge-proxy.md` test list: (1) valid SSLRequest → handshake → backend pipe, (2) wrong preamble → close, (3) SNI doesn't match regex → close after handshake, (4) ref not in DB → close, (5) backend dial fails → graceful close, (6) cert reload signal swaps context, (7) apex change signal updates regex. Mock `net.createServer`, `tls.TLSSocket`, DB queries. Aim for >80% branch coverage on the proxy module.
 - [ ] T031 [P] Create `docs/pooler.md` — operator guide covering: two endpoints (direct vs pooler), when to use which, connection string formats for each, troubleshooting (pooler down, tenant drift), pool size tuning, cert rotation behavior.
-- [ ] T032 [P] Create `apps/api/scripts/cleanup-per-instance-supavisor.ts` — one-shot OPT-IN script for operators who want to remove the idle per-instance supavisor container from EXISTING projects. For each instance: `docker compose --project-name selfbase-<ref> rm -sf supavisor`. Prints a summary. Operators run manually; not auto-triggered.
+- [ ] T032 [P] Create `apps/api/scripts/cleanup-per-instance-supavisor.ts` — one-shot OPT-IN script for operators who want to remove the idle per-instance supavisor container from EXISTING projects. For each instance: `docker compose --project-name supastack-<ref> rm -sf supavisor`. Prints a summary. Operators run manually; not auto-triggered.
 - [ ] T033 Run full VM end-to-end verification per `quickstart.md` scenarios 1-10. Capture output for the PR description.
 
 ---
@@ -280,6 +280,6 @@ T028: PoolerHealthCard.tsx
 
 - The `pg-edge-proxy` is the **only new code surface we own**. All other tasks are config, schema, and integration glue. Keep the proxy small and well-tested.
 - Existing instances keep their per-instance supavisor running idle — no migration is forced (FR-004). Operators may run T032 cleanup script if they want.
-- Both endpoints use the same wildcard cert from `/var/selfbase/certs/<apex>/`. Cert renewal (feature 004) → publish Redis pub/sub event → both pg-edge-proxy AND supavisor reload.
+- Both endpoints use the same wildcard cert from `/var/supastack/certs/<apex>/`. Cert renewal (feature 004) → publish Redis pub/sub event → both pg-edge-proxy AND supavisor reload.
 - US3 is P2 — Phase 1 PR can ship without it. Operators who want pooling wait one more PR.
 - US2 (Studio display) is independent of routing — feel free to bundle with either phase or ship separately. The CLI test (`db-push.sh`) does NOT depend on Studio display.

@@ -5,21 +5,20 @@
  *   - authorization_code (with PKCE verification)
  *   - refresh_token      (with rotation + reuse-detection)
  *
- * Issues JWT access tokens via @selfbase/oauth; rotates opaque refresh
+ * Issues JWT access tokens via @supastack/oauth; rotates opaque refresh
  * tokens via oauth-refresh-store. RFC 6749 §5.2 error envelope.
  *
  * Spec: 014-mcp-http-oauth — FR-004, FR-008, FR-009,
  *   contracts/oauth-token-endpoint.md.
  */
+import { loadMasterKey } from '@supastack/crypto';
+import { db, schema } from '@supastack/db';
+import { signAccessToken } from '@supastack/oauth';
+import { logger, OAuthTokenRequestSchema } from '@supastack/shared';
 import type { FastifyPluginAsync } from 'fastify';
-import { db, schema } from '@selfbase/db';
-import { logger } from '@selfbase/shared';
-import { signAccessToken } from '@selfbase/oauth';
-import { loadMasterKey } from '@selfbase/crypto';
-import { OAuthTokenRequestSchema } from '@selfbase/shared';
 
-import { verifyChallenge } from '../../services/oauth-pkce.js';
 import { consumeCode } from '../../services/oauth-codes-store.js';
+import { verifyChallenge } from '../../services/oauth-pkce.js';
 import { issueRefresh, rotateRefresh } from '../../services/oauth-refresh-store.js';
 
 const ACCESS_TOKEN_TTL_SEC = 3600; // 1 hour (matches Cloud gotrue defaults)
@@ -41,7 +40,7 @@ export const oauthTokenRoutes: FastifyPluginAsync = async (app) => {
     }
     const body = parsed.data;
 
-    const apex = process.env.SELFBASE_APEX;
+    const apex = process.env.SUPASTACK_APEX;
     if (!apex) {
       return reply
         .status(503)

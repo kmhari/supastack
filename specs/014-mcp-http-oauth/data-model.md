@@ -90,17 +90,17 @@ The existing PAT system stays. The auth plugin learns to recognize a second cred
 ### Revocation set
 
 ```
-KEY:    selfbase:oauth:revoked:<jti>
+KEY:    supastack:oauth:revoked:<jti>
 VALUE:  "1"   (presence is the signal; value unused)
 TTL:    <remaining_lifetime_of_token_in_seconds>  (set at insert; auto-expires)
 ```
 
-Check on every authenticated request: `EXISTS selfbase:oauth:revoked:<jti>` → if 1, return 401.
+Check on every authenticated request: `EXISTS supastack:oauth:revoked:<jti>` → if 1, return 401.
 
 ### DCR rate-limit (existing token-bucket pattern from feature 012)
 
 ```
-KEY:    selfbase:oauth:dcr:<ip>
+KEY:    supastack:oauth:dcr:<ip>
 TYPE:   token bucket (refresh ~1 per 6 min, capacity 10)
 ```
 
@@ -155,7 +155,7 @@ operator (user)                           OAuth client (DCR-registered)
      │                                            │
      │ (uses access token as Bearer)              │
      ▼                                            │
-selfbase api OR selfbase-mcp                      │
+supastack api OR supastack-mcp                      │
      ├─ JWT verify (HS256, HKDF key)              │
      ├─ Redis revocation check (jti)              │
      ├─ scope check (RBAC)                        │
@@ -180,7 +180,7 @@ operator (dashboard /settings/mcp-clients)
      │
      ├─ DELETE oauth_refresh_token row(s) for (user, client)
      ├─ INSERT oauth_revocation audit row(s) for the live access token's jti
-     ├─ Redis SET selfbase:oauth:revoked:<jti> EX <remaining_seconds>
+     ├─ Redis SET supastack:oauth:revoked:<jti> EX <remaining_seconds>
      │
      ▼
 next api/mcp request with the access token → Redis EXISTS hits → 401

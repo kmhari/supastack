@@ -248,7 +248,7 @@ function ContainerRow({ c, i }: { c: Container; i: number }): React.ReactElement
     <div
       className="grid grid-cols-[3px_1fr_auto_auto] items-stretch border-b border-border-soft/60 last:border-b-0 hover:bg-secondary/30"
       style={{
-        animation: 'selfbase-row-in 240ms ease-out both',
+        animation: 'supastack-row-in 240ms ease-out both',
         animationDelay: `${i * 30}ms`,
       }}
     >
@@ -309,7 +309,7 @@ function LiveDot({
         <span
           aria-hidden
           className={cn('absolute inset-0 rounded-full', ring)}
-          style={{ animation: 'selfbase-pulse 1.4s ease-in-out infinite' }}
+          style={{ animation: 'supastack-pulse 1.4s ease-in-out infinite' }}
         />
       )}
       <span className={cn('relative inline-block size-2 rounded-full', bg)} />
@@ -397,7 +397,7 @@ function ShimmerBar({ width }: { width: string }): React.ReactElement {
           'linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 100%)',
         backgroundSize: '200px 100%',
         backgroundRepeat: 'no-repeat',
-        animation: 'selfbase-shimmer 1.4s linear infinite',
+        animation: 'supastack-shimmer 1.4s linear infinite',
       }}
     />
   );

@@ -22,7 +22,7 @@ open http://localhost:5173/dashboard
 # Path: /dashboard/project/<ref>/auth/url-configuration
 
 # 4. Watch the auth container env after each save:
-docker exec selfbase-<ref>-auth-1 env | grep -E "SITE_URL|URI_ALLOW_LIST"
+docker exec supastack-<ref>-auth-1 env | grep -E "SITE_URL|URI_ALLOW_LIST"
 ```
 
 ## Unit + component tests
@@ -52,8 +52,8 @@ pnpm test:e2e url-configuration
 
 ```bash
 # 1. Deploy
-rsync -az --exclude=node_modules apps/web/ ubuntu@148.113.1.164:/opt/selfbase/apps/web/
-ssh ubuntu@148.113.1.164 'cd /opt/selfbase/infra && \
+rsync -az --exclude=node_modules apps/web/ ubuntu@148.113.1.164:/opt/supastack/apps/web/
+ssh ubuntu@148.113.1.164 'cd /opt/supastack/infra && \
   sudo docker compose build web && sudo docker compose up -d web'
 
 # 2. Open the page
@@ -64,7 +64,7 @@ open https://<ref>.supaviser.dev/dashboard/project/<ref>/auth/url-configuration
 1. Enter `https://app.example.com` in the Site URL input.
 2. Click Save changes.
 3. Watch the restart toast flip from "Restarting…" to "Saved".
-4. Verify: `ssh ubuntu@148.113.1.164 'sudo docker exec selfbase-<ref>-auth-1 env | grep SITE_URL'`
+4. Verify: `ssh ubuntu@148.113.1.164 'sudo docker exec supastack-<ref>-auth-1 env | grep SITE_URL'`
    Expected: `GOTRUE_SITE_URL=https://app.example.com`
 
 ### Smoke 2: Add Redirect URLs (batch)
@@ -74,7 +74,7 @@ open https://<ref>.supaviser.dev/dashboard/project/<ref>/auth/url-configuration
 4. Click Save URLs.
 5. Watch the restart toast.
 6. Verify list shows both URLs.
-7. Verify: `ssh ubuntu@148.113.1.164 'sudo docker exec selfbase-<ref>-auth-1 env | grep URI_ALLOW_LIST'`
+7. Verify: `ssh ubuntu@148.113.1.164 'sudo docker exec supastack-<ref>-auth-1 env | grep URI_ALLOW_LIST'`
    Expected: `GOTRUE_URI_ALLOW_LIST=http://localhost:3000,http://localhost:8765/**`
 
 ### Smoke 3: OAuth round-trip (the original motivation)
@@ -90,7 +90,7 @@ open https://<ref>.supaviser.dev/dashboard/project/<ref>/auth/url-configuration
 1. Click the trash icon next to `http://localhost:3000`.
 2. Watch the restart toast.
 3. Verify list now shows only `http://localhost:8765/**`.
-4. Verify: `sudo docker exec selfbase-<ref>-auth-1 env | grep URI_ALLOW_LIST`
+4. Verify: `sudo docker exec supastack-<ref>-auth-1 env | grep URI_ALLOW_LIST`
    Expected: `GOTRUE_URI_ALLOW_LIST=http://localhost:8765/**`
 
 ### Smoke 5: Member RBAC
@@ -121,4 +121,4 @@ open https://<ref>.supaviser.dev/dashboard/project/<ref>/auth/url-configuration
 | Page loads but Site URL input is empty for an existing project | `site_url` is null in DB | Expected — type your value and save |
 | Save button stays disabled after typing | Input fails URL validation | Check scheme, no whitespace |
 | Restart toast flips to Retry with red bar | Auth container failed healthcheck after env reload | Most likely a malformed glob in a Redirect URL — delete the most recent entry |
-| OAuth still bounces to project URL even after adding `http://localhost:8765/**` | env var didn't propagate | `docker exec selfbase-<ref>-auth-1 env | grep URI_ALLOW_LIST` to verify; if missing, the auth-config PATCH didn't run — re-save |
+| OAuth still bounces to project URL even after adding `http://localhost:8765/**` | env var didn't propagate | `docker exec supastack-<ref>-auth-1 env | grep URI_ALLOW_LIST` to verify; if missing, the auth-config PATCH didn't run — re-save |

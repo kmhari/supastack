@@ -5,7 +5,7 @@
 
 ## What changed
 
-`supabase login` (with no flags) now works against selfbase exactly like it does against Supabase Cloud:
+`supabase login` (with no flags) now works against supastack exactly like it does against Supabase Cloud:
 
 1. Operator runs `supabase login`
 2. Browser opens `https://<apex>/dashboard/cli/login?session_id=…&token_name=…&public_key=…`
@@ -32,12 +32,12 @@ operator terminal                          browser                              
    │                                          │                                       │ AES-256-GCM encrypt (12B nonce)
    │                                          │                                       │ append auth tag to ciphertext
    │                                          │                                       │ generateDeviceCode (4 random bytes hex)
-   │                                          │                                       │ Redis SET selfbase:cli-login:<id>
+   │                                          │                                       │ Redis SET supastack:cli-login:<id>
    │                                          │                                       │   EX 300 with {device_code, access_token,
    │                                          │                                       │     public_key, nonce, …}
    │                                          │ ◄────────────────────────────── 200 {device_code}
    │                                          ├ replaceState → ?device_code=<code>    │
-   │                                          ├ render "Authorize selfbase CLI"       │
+   │                                          ├ render "Authorize supastack CLI"       │
    │ operator pastes code into terminal       │ + 8 monospace cells + Copy code btn   │
    │                                          │                                       │
    ├ GET /platform/cli/login/<id>?device_code=<code> ───────────────────────────────►
@@ -58,10 +58,10 @@ None. The TTL (5 min) and device_code length (8 hex) are constants; revisit only
 
 ### Per-project auto-routing (optional)
 
-If you work across multiple deployments (Cloud + selfbase, or multiple selfbase installs), the global `~/.supabase/profile` default is awkward. Selfbase's `/settings/cli` page (Section 6 + 7) walks through a `.selfbase`-file convention + zsh wrapper:
+If you work across multiple deployments (Cloud + supastack, or multiple supastack installs), the global `~/.supabase/profile` default is awkward. Supastack's `/settings/cli` page (Section 6 + 7) walks through a `.supastack`-file convention + zsh wrapper:
 
-1. Drop a one-line `.selfbase` at the project's git root containing just the apex (e.g., `supaviser.dev`). Safe to commit.
-2. Install the wrapper into `~/.zshrc` (shown on `/settings/cli`). It walks up to git root looking for `.selfbase`, auto-generates `~/.config/selfbase/<apex>.toml` on first use, and passes `--profile` to the CLI on every invocation.
+1. Drop a one-line `.supastack` at the project's git root containing just the apex (e.g., `supaviser.dev`). Safe to commit.
+2. Install the wrapper into `~/.zshrc` (shown on `/settings/cli`). It walks up to git root looking for `.supastack`, auto-generates `~/.config/supastack/<apex>.toml` on first use, and passes `--profile` to the CLI on every invocation.
 3. `cd` into the project → `supabase` Just Works. `cd` out → it falls back to whatever global default you have (Cloud, typically).
 
 The same wrapper also handles the existing `.supabase_token` per-project token injection; both are independent.
@@ -75,7 +75,7 @@ CLI-minted tokens show in `/settings/tokens` with a small `cli` badge next to th
 | Symptom                                                                                      | Cause                                                                                                                 | Fix                                                                                                                                                                                            |
 | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Dashboard shows "Unable to create CLI sign-in"                                               | session_id already used (replay)                                                                                      | Re-run `supabase login` in the terminal to get a fresh session_id; the URL with the old one is invalid                                                                                         |
-| CLI prints "cannot decrypt access token"                                                     | Wire-protocol mismatch (extremely unlikely; selfbase + upstream CLI agree on the bytes per the test-vector unit test) | Check `supabase --version` vs `infra/supabase-template/docker-compose.yml`'s edge-runtime version. If they diverge by >3 minor versions, file an issue and pin selfbase to a matching runtime. |
+| CLI prints "cannot decrypt access token"                                                     | Wire-protocol mismatch (extremely unlikely; supastack + upstream CLI agree on the bytes per the test-vector unit test) | Check `supabase --version` vs `infra/supabase-template/docker-compose.yml`'s edge-runtime version. If they diverge by >3 minor versions, file an issue and pin supastack to a matching runtime. |
 | CLI prints "Enter your verification code:" but operator never sees the code in the dashboard | Browser didn't open, or operator opened a different URL                                                               | Use the fallback link the CLI prints; copy it manually                                                                                                                                         |
 | Dashboard redirects to /login then back to /dashboard (not /dashboard/cli/login)             | `?next=` didn't survive the bounce                                                                                    | Check that `RequireAuth` in `apps/web/src/App.tsx` is encoding `pathname + window.location.search`. Verify with browser devtools network tab.                                                  |
 | HTTP 404 from polling endpoint when operator pastes the right code                           | Either: session expired (>5 min between dashboard visit and CLI paste), OR session was already consumed (single-use)  | Re-run `supabase login`                                                                                                                                                                        |
@@ -89,7 +89,7 @@ CLI-minted tokens show in `/settings/tokens` with a small `cli` badge next to th
 
 ### What if Cloud's wire protocol changes upstream?
 
-Selfbase's tests pin against a hardcoded vector from the current `supabase/cli` `develop` branch. If the upstream changes ECDH curve, nonce length, response field names, or hex encoding, the test vector test in `apps/api/tests/unit/cli-login-crypto.test.ts` will fail. Update accordingly + bump the vector.
+Supastack's tests pin against a hardcoded vector from the current `supabase/cli` `develop` branch. If the upstream changes ECDH curve, nonce length, response field names, or hex encoding, the test vector test in `apps/api/tests/unit/cli-login-crypto.test.ts` will fail. Update accordingly + bump the vector.
 
 ## Caveats
 

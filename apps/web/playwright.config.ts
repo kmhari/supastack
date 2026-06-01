@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 /**
- * Playwright config for the selfbase dashboard browser-test suite.
+ * Playwright config for the supastack dashboard browser-test suite.
  *
  * Spec: specs/021-dashboard-browser-tests/spec.md
  * Plan: specs/021-dashboard-browser-tests/plan.md §A2

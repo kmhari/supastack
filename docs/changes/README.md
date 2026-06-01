@@ -1,4 +1,4 @@
-# Selfbase change log — per-feature documentation
+# Supastack change log — per-feature documentation
 
 One markdown file per shipped feature. Each documents what changed, why it changed, the architecture decisions taken, the bugs found during implementation, and pointers to the key files.
 

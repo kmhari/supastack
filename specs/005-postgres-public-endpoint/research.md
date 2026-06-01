@@ -6,7 +6,7 @@
 
 ## Decision 1: Routing Technology — Supavisor (Top-Level)
 
-**Decision**: Add a single `supabase/supavisor:2.7.4` service to the selfbase control plane. It owns the external `:5432` port, terminates TLS using the wildcard cert, extracts the tenant ref from SNI, and proxies to the per-instance Postgres backend with built-in connection pooling.
+**Decision**: Add a single `supabase/supavisor:2.7.4` service to the supastack control plane. It owns the external `:5432` port, terminates TLS using the wildcard cert, extracts the tenant ref from SNI, and proxies to the per-instance Postgres backend with built-in connection pooling.
 
 **Rationale**:
 - Supavisor was designed by Supabase specifically for multi-tenant Postgres routing — it's the same component running Supabase Cloud's database-edge layer.
@@ -25,27 +25,27 @@
 
 ## Decision 2: Supavisor Metadata DB Location
 
-**Decision**: Use the existing selfbase control-plane Postgres (`db` service in `infra/docker-compose.yml`) as supavisor's metadata DB. Supavisor's Ecto migrations create tables in a `_supavisor` schema on first boot.
+**Decision**: Use the existing supastack control-plane Postgres (`db` service in `infra/docker-compose.yml`) as supavisor's metadata DB. Supavisor's Ecto migrations create tables in a `_supavisor` schema on first boot.
 
 **Rationale**:
 - No new database to provision, back up, or monitor.
 - Supavisor's tenant CRUD becomes a same-host transaction (low latency).
 - The control-plane DB is already protected by `pg-data` volume backups, `CONTROL_DB_PASSWORD` secret, and `MASTER_KEY` for any secrets we encrypt before passing to supavisor.
-- Selfbase's own tracking table (`pooler_tenants`) can JOIN against `_supavisor.tenants` if needed for debug/reconciliation.
+- Supastack's own tracking table (`pooler_tenants`) can JOIN against `_supavisor.tenants` if needed for debug/reconciliation.
 
 **Alternatives considered**:
 - Dedicated supavisor Postgres — extra container, extra backup story, no benefit for our scale.
 
 **Connection string** (Supavisor's `DATABASE_URL`):
 ```
-postgres://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
+postgres://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack
 ```
 
 ---
 
 ## Decision 3: Tenant Lifecycle Ownership
 
-**Decision**: Selfbase's `api` owns tenant lifecycle. On project provision: api INSERTs `pooler_tenants` row + calls supavisor's HTTP API to register the tenant. On project destroy: api DELETEs + calls supavisor to unregister.
+**Decision**: Supastack's `api` owns tenant lifecycle. On project provision: api INSERTs `pooler_tenants` row + calls supavisor's HTTP API to register the tenant. On project destroy: api DELETEs + calls supavisor to unregister.
 
 **Why HTTP API and not direct SQL into `_supavisor.tenants`**:
 - Supavisor's Ecto schema has invariants (auth_query format, user role mapping, encrypted password handling) that we shouldn't bypass. Direct SQL would mean re-implementing supavisor's encryption.
@@ -53,7 +53,7 @@ postgres://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
 
 **JWT auth for the admin API**: Supavisor expects `Authorization: Bearer <jwt>` signed with `API_JWT_SECRET` (HS256). The api mints a short-TTL JWT (5 min) per request — no JWT cache.
 
-**Atomicity**: Tenant registration runs INSIDE the same database transaction that creates the `supabase_instances` row. On supavisor HTTP failure, the transaction rolls back the entire provision — operator never sees a half-created project. Selfbase's `pooler_tenants` row carries `status='registering'` while the supavisor call is in flight; flipped to `'active'` only after success. The reconciler picks up `'registering'` rows older than 60s and either retries or marks `'failed'`.
+**Atomicity**: Tenant registration runs INSIDE the same database transaction that creates the `supabase_instances` row. On supavisor HTTP failure, the transaction rolls back the entire provision — operator never sees a half-created project. Supastack's `pooler_tenants` row carries `status='registering'` while the supavisor call is in flight; flipped to `'active'` only after success. The reconciler picks up `'registering'` rows older than 60s and either retries or marks `'failed'`.
 
 ---
 
@@ -62,8 +62,8 @@ postgres://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
 **Decision**: Supavisor connects to per-instance Postgres via `host.docker.internal:<published-port>`. Each per-instance compose stack publishes its db on a unique host port (`POSTGRES_DIRECT_HOST_PORT`, allocated from the existing port pool).
 
 **Why not Docker network bridging**:
-- Per-instance compose stacks run on isolated docker networks (`selfbase-<ref>_default`). Supavisor would need to join each per-instance network — Docker doesn't easily support a container being on N dynamically-changing networks.
-- `host.docker.internal` is already wired in selfbase (Caddy uses it for per-instance Kong/Studio routing). Reusing this pattern keeps networking consistent.
+- Per-instance compose stacks run on isolated docker networks (`supastack-<ref>_default`). Supavisor would need to join each per-instance network — Docker doesn't easily support a container being on N dynamically-changing networks.
+- `host.docker.internal` is already wired in supastack (Caddy uses it for per-instance Kong/Studio routing). Reusing this pattern keeps networking consistent.
 
 **Why publishing per-instance db is safe**:
 - The host port is on the VM's loopback / internal network. Not exposed externally unless the operator opens the firewall.
@@ -75,7 +75,7 @@ postgres://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
 
 ## Decision 5: TLS Cert Distribution to Supavisor
 
-**Decision**: Mount the shared `certs-data` Docker volume into supavisor as read-only at `/var/selfbase/certs`. Supavisor's `SUPAVISOR_SSL_CERT` and `SUPAVISOR_SSL_KEY` env vars point at the file paths.
+**Decision**: Mount the shared `certs-data` Docker volume into supavisor as read-only at `/var/supastack/certs`. Supavisor's `SUPAVISOR_SSL_CERT` and `SUPAVISOR_SSL_KEY` env vars point at the file paths.
 
 **Cert rotation**: When the wildcard cert renews (feature 004 daily cron), the cert files on the shared volume update in place. Supavisor needs to be signaled to reload. Two paths:
 - **Auto** — supavisor 2.x supports SIGHUP for cert reload; the api sends SIGHUP after cert renewal succeeds
@@ -85,12 +85,12 @@ Preferred: SIGHUP via the api's existing cert-renewal flow. Fallback to restart 
 
 ---
 
-## Decision 6: Selfbase Tracking Table (`pooler_tenants`)
+## Decision 6: Supastack Tracking Table (`pooler_tenants`)
 
-**Decision**: Keep a selfbase-side `pooler_tenants` table separate from supavisor's `_supavisor.tenants`. Selfbase owns its source-of-truth row; the reconciler reconciles between the two.
+**Decision**: Keep a supastack-side `pooler_tenants` table separate from supavisor's `_supavisor.tenants`. Supastack owns its source-of-truth row; the reconciler reconciles between the two.
 
 **Why two tables**:
-- Selfbase's `pooler_tenants` can carry selfbase-specific state (last health check, retry counters, audit-friendly fields) without polluting supavisor's schema.
+- Supastack's `pooler_tenants` can carry supastack-specific state (last health check, retry counters, audit-friendly fields) without polluting supavisor's schema.
 - If we ever migrate off supavisor (unlikely), our DB still has the canonical list of which instances have public Postgres endpoints.
 - Reconciler logic compares the two and surfaces drift.
 

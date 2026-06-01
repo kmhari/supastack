@@ -1,11 +1,11 @@
 # Feature 012 — CLI login-role (passwordless `supabase db push`)
 
 **Spec**: [specs/012-cli-login-role/spec.md](../../specs/012-cli-login-role/spec.md)
-**Closes**: [issue #31](https://github.com/kmhari/selfbase/issues/31) — every `supabase` CLI command that touches per-project Postgres directly needed `--password` against selfbase, but ran password-less against Cloud.
+**Closes**: [issue #31](https://github.com/kmhari/supastack/issues/31) — every `supabase` CLI command that touches per-project Postgres directly needed `--password` against supastack, but ran password-less against Cloud.
 
 ## What changed
 
-`supabase db push` (and `db pull`, `db diff`, `migration list`, `migration fetch`, `migration repair`, `inspect db`, `db dump`) now work against selfbase with **only** a PAT — no `--password` flag, no `SUPABASE_DB_PASSWORD` env var, no interactive prompt — exactly like they work against Supabase Cloud.
+`supabase db push` (and `db pull`, `db diff`, `migration list`, `migration fetch`, `migration repair`, `inspect db`, `db dump`) now work against supastack with **only** a PAT — no `--password` flag, no `SUPABASE_DB_PASSWORD` env var, no interactive prompt — exactly like they work against Supabase Cloud.
 
 Operators who have always passed `--password "$PW"` lose nothing — the legacy path continues to work byte-identically (US2 regression guard, `tests/cli-e2e/db-push.sh` Pass A).
 
@@ -21,7 +21,7 @@ Content-Type: application/json
 { "read_only": false }
 ```
 
-Selfbase responds with:
+Supastack responds with:
 
 ```json
 {
@@ -81,7 +81,7 @@ A future implementation will need either (a) the api container to connect as `su
 
 ## Precedence rules
 
-The CLI's password resolution (unchanged by selfbase) is:
+The CLI's password resolution (unchanged by supastack) is:
 
 ```
 explicit --password  →  $SUPABASE_DB_PASSWORD  →  POST /cli/login-role  →  interactive prompt
@@ -100,7 +100,7 @@ The legacy path is therefore fully back-compatible: every existing CI pipeline k
 ```bash
 curl -X DELETE \
   "https://api.${APEX}/v1/projects/${REF}/cli/login-role" \
-  -H "Authorization: Bearer ${SELFBASE_PAT}"
+  -H "Authorization: Bearer ${SUPASTACK_PAT}"
 # → 200 {"message":"ok"}
 ```
 
@@ -113,7 +113,7 @@ The lockdown is **single-shot**: the next POST from any PAT re-rotates the passw
 If the CLI role itself becomes problematic, connect as the per-project superuser:
 
 ```bash
-PGPASSWORD="${SELFBASE_DB_SUPERUSER_PASSWORD}" psql \
+PGPASSWORD="${SUPASTACK_DB_SUPERUSER_PASSWORD}" psql \
   "postgresql://postgres@db.${REF}.${APEX}:5432/postgres" <<'SQL'
 DROP ROLE IF EXISTS cli_login_postgres;
 DROP ROLE IF EXISTS cli_login_supabase_read_only_user;
@@ -149,7 +149,7 @@ DELETE emits `event: cli_login_role_invalidated` with the same fields minus `sco
 | Attack window if credential leaks | Until operator-initiated rotation (typically months)                                                         | ≤5 minutes after the leak moment                                                                    |
 | Rate-limit on credential mint     | N/A (it's a long-lived password, no minting)                                                                 | 30/min/PAT/project (HTTP 429 with `Retry-After` if exceeded)                                        |
 
-For nearly every operator the new flow is strictly better posture-wise. The legacy `--password` flow is kept as an escape hatch (operators may have CI systems that can't be migrated mid-cycle; selfbase doesn't force the migration).
+For nearly every operator the new flow is strictly better posture-wise. The legacy `--password` flow is kept as an escape hatch (operators may have CI systems that can't be migrated mid-cycle; supastack doesn't force the migration).
 
 ## Architecture
 
@@ -195,7 +195,7 @@ operator terminal                                    api container              
 | Rate-limit bucket                    | `apps/api/src/services/cli-login-role-bucket.ts`             | `apps/api/tests/unit/cli-login-role-bucket.test.ts` (6 cases)                                         |
 | Service layer (rotate + invalidate)  | `apps/api/src/services/cli-login-role-service.ts`            | `apps/api/tests/integration/management-api/cli-login-role.test.ts` (20 cases, mocked per-instance PG) |
 | Route handler (POST + DELETE)        | `apps/api/src/routes/management/cli-login-role.ts`           | Same as above                                                                                         |
-| Wire-shape contract                  | n/a (interlock with `@selfbase/shared` schemas)              | `apps/api/tests/integration/management-api/cli-login-role-contract.test.ts` (11 cases, offline)       |
+| Wire-shape contract                  | n/a (interlock with `@supastack/shared` schemas)              | `apps/api/tests/integration/management-api/cli-login-role-contract.test.ts` (11 cases, offline)       |
 | RBAC action                          | `packages/shared/src/rbac.ts` (`database.create-login-role`) | Existing rbac matrix contract test                                                                    |
 | Live-VM E2E (TTL + RO + DELETE)      | `tests/cli-e2e/login-role.sh`                                | One 7-step shell script (320s sleep for TTL test; skippable via `SKIP_TTL_TEST=1`)                    |
 | Dual-pass legacy + password-less E2E | `tests/cli-e2e/db-push.sh`                                   | Pass A + Pass B; evidence files emitted to `tests/cli-e2e/.evidence/012-sc-{002,003}.txt`             |
@@ -211,4 +211,4 @@ See [specs/012-cli-login-role/quickstart.md](../../specs/012-cli-login-role/quic
 - **Research** (12 numbered decisions): [specs/012-cli-login-role/research.md](../../specs/012-cli-login-role/research.md)
 - **Contracts** (upstream snapshot + POST/DELETE shapes): [specs/012-cli-login-role/contracts/](../../specs/012-cli-login-role/contracts/)
 - **Upstream PR #3885**: <https://github.com/supabase/cli/pull/3885>
-- **Issue**: [#31](https://github.com/kmhari/selfbase/issues/31)
+- **Issue**: [#31](https://github.com/kmhari/supastack/issues/31)

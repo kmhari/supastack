@@ -95,9 +95,9 @@ export function CliLoginPage(): React.ReactElement {
         const code = e.response?.data?.error?.code;
         const message =
           code === 'session_in_use'
-            ? 'selfbase could not create the CLI sign-in session. Error: Could not create CLI login session'
+            ? 'supastack could not create the CLI sign-in session. Error: Could not create CLI login session'
             : (e.response?.data?.error?.message ??
-              'selfbase could not create the CLI sign-in session.');
+              'supastack could not create the CLI sign-in session.');
         setState({ kind: 'error', message });
       });
   }, [params]);
@@ -158,9 +158,9 @@ function CodeDisplay({
 }): React.ReactElement {
   return (
     <>
-      <h1 className="m-0 text-center text-xl font-medium">Authorize selfbase CLI</h1>
+      <h1 className="m-0 text-center text-xl font-medium">Authorize supastack CLI</h1>
       <p className="mb-6 mt-2 text-center text-sm text-muted-foreground">
-        Enter this verification code in selfbase CLI to finish signing in
+        Enter this verification code in supastack CLI to finish signing in
       </p>
 
       <div role="group" aria-label="Verification code" className="mb-4 flex justify-center gap-2">
@@ -212,7 +212,7 @@ function ErrorState({ message }: { message: string }): React.ReactElement {
     <>
       <h1 className="m-0 text-center text-xl font-medium">Unable to create CLI sign-in</h1>
       <p className="mb-6 mt-2 text-center text-sm text-muted-foreground">
-        Retry the sign-in command from selfbase CLI
+        Retry the sign-in command from supastack CLI
       </p>
       <Alert variant="default" className="mb-4 border-warning/40 bg-warning/10">
         <AlertTriangle className="size-4" />

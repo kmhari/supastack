@@ -1,8 +1,8 @@
 -- 0005_pooler_tenants.sql
 --
--- Selfbase's own bookkeeping for top-level Supavisor pooler tenants
+-- Supastack's own bookkeeping for top-level Supavisor pooler tenants
 -- (feature 005). Separate from supavisor's _supavisor.tenants (which it
--- manages via Ecto). Selfbase reconciles between the two.
+-- manages via Ecto). Supastack reconciles between the two.
 --
 -- Adds the `port_db_direct` column to supabase_instances for new instances
 -- created after this feature ships. Pre-existing instances have NULL until
@@ -21,7 +21,7 @@ ALTER TABLE port_allocations
   ADD CONSTRAINT port_allocations_kind_check
   CHECK (kind IN ('kong','studio','postgres','pooler','analytics','dbDirect'));
 
--- ─── 2. pooler_tenants — selfbase's tracking table ────────────────────────────
+-- ─── 2. pooler_tenants — supastack's tracking table ────────────────────────────
 CREATE TABLE IF NOT EXISTS pooler_tenants (
   id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   instance_ref    text        NOT NULL REFERENCES supabase_instances(ref) ON DELETE CASCADE,

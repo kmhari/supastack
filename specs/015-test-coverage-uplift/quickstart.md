@@ -13,10 +13,10 @@ Reads `scripts/coverage.mjs`; prints a per-package table. Compare against [contr
 
 ```bash
 # unit watch
-pnpm --filter @selfbase/shared test:watch
+pnpm --filter @supastack/shared test:watch
 
 # one-shot coverage for one package
-pnpm --filter @selfbase/shared exec vitest run --coverage
+pnpm --filter @supastack/shared exec vitest run --coverage
 ```
 
 ## Order of work (recommended — priority-driven, matches tasks.md)

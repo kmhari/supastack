@@ -1,14 +1,14 @@
-# Implementation Plan: Selfbase — Self-Hosted Supabase Platform
+# Implementation Plan: Supastack — Self-Hosted Supabase Platform
 
-**Branch**: `001-selfbase-supabase-platform` | **Date**: 2026-05-21 | **Spec**: [spec.md](./spec.md)
+**Branch**: `001-supastack-supabase-platform` | **Date**: 2026-05-21 | **Spec**: [spec.md](./spec.md)
 
-**Input**: Feature specification from `specs/001-selfbase-supabase-platform/spec.md`
+**Input**: Feature specification from `specs/001-supastack-supabase-platform/spec.md`
 
 **Project-root context**: `plan.md` (root) — the engineering blueprint produced during the interview phase. This file is the speckit-formatted condensation that points to it.
 
 ## Summary
 
-Build **Selfbase**, a self-hosted control plane that lets an operator provision and manage multiple full-stack Supabase instances on a single Linux host through a web dashboard, with per-instance HTTPS via Caddy on-demand TLS (HTTP-01), encrypted secrets at rest, daily backups, and pause/resume lifecycle. Technical approach mirrors `/Users/lord/Code/open-frontend`: TypeScript monorepo, Fastify API + BullMQ worker + React/Vite dashboard, plain Postgres for control-plane state, vendored upstream `supabase/docker/*` templated per instance with a one-time-built Studio image (`NEXT_PUBLIC_BASE_PATH=/studio`).
+Build **Supastack**, a self-hosted control plane that lets an operator provision and manage multiple full-stack Supabase instances on a single Linux host through a web dashboard, with per-instance HTTPS via Caddy on-demand TLS (HTTP-01), encrypted secrets at rest, daily backups, and pause/resume lifecycle. Technical approach mirrors `/Users/lord/Code/open-frontend`: TypeScript monorepo, Fastify API + BullMQ worker + React/Vite dashboard, plain Postgres for control-plane state, vendored upstream `supabase/docker/*` templated per instance with a one-time-built Studio image (`NEXT_PUBLIC_BASE_PATH=/studio`).
 
 ## Technical Context
 
@@ -26,12 +26,12 @@ Build **Selfbase**, a self-hosted control plane that lets an operator provision 
 - Control plane DB: PostgreSQL 16 (Drizzle migrations, idempotent)
 - Session + queue: Redis 7
 - Per-instance secrets: AES-256-GCM blob in control DB, KEK from `MASTER_KEY` env (32 random bytes)
-- Backups: pluggable `BackupStore` — `LocalDiskStore` (default, `/var/selfbase/backups/<ref>/`) + `S3Store`
-- Per-instance data: bind-mounted on host at `/var/selfbase/instances/<ref>/` (one directory per provisioned Supabase stack)
+- Backups: pluggable `BackupStore` — `LocalDiskStore` (default, `/var/supastack/backups/<ref>/`) + `S3Store`
+- Per-instance data: bind-mounted on host at `/var/supastack/instances/<ref>/` (one directory per provisioned Supabase stack)
 
 **Testing**:
 - Unit: Vitest in each package (crypto round-trips, port allocator, BackupStore impls, RBAC matrix)
-- Integration: a per-PR suite that spins selfbase + a single managed instance under Docker and verifies real REST + Studio + cert issuance against a test apex (`localtest.me` or self-signed for local)
+- Integration: a per-PR suite that spins supastack + a single managed instance under Docker and verifies real REST + Studio + cert issuance against a test apex (`localtest.me` or self-signed for local)
 - Contract: tests that hit each REST endpoint with both admin and member tokens and assert authorization matrix
 - E2E (dashboard): Playwright, golden path through first-time setup → create instance → view credentials → pause → resume → backup → delete
 
@@ -56,7 +56,7 @@ Build **Selfbase**, a self-hosted control plane that lets an operator provision 
 
 **Scale/Scope**:
 - ~15 concurrent full-stack instances per 32 GB host (≈1.5–2 GB RAM each).
-- ~3–4 k LOC of selfbase code (excluding vendored Supabase template).
+- ~3–4 k LOC of supastack code (excluding vendored Supabase template).
 - v1 ships dashboard + REST API only (no CLI, no MCP).
 
 ## Constitution Check
@@ -85,7 +85,7 @@ No violations to track in Complexity Tracking.
 ### Documentation (this feature)
 
 ```text
-specs/001-selfbase-supabase-platform/
+specs/001-supastack-supabase-platform/
 ├── plan.md              # this file
 ├── spec.md              # user-facing specification (already written)
 ├── research.md          # Phase 0 output (generated below)
@@ -103,7 +103,7 @@ specs/001-selfbase-supabase-platform/
 ### Source Code (repository root)
 
 ```text
-selfbase/
+supastack/
 ├── apps/
 │   ├── api/                            # Fastify control-plane
 │   │   ├── src/
@@ -146,7 +146,7 @@ selfbase/
 │   ├── docker-control/                 # compose-template.ts (consumes a pinned .env.example), dockerode-wrappers.ts
 │   └── backup-store/                   # interface + LocalDiskStore + S3Store + tests
 ├── infra/
-│   ├── docker-compose.yml              # selfbase stack: postgres, redis, caddy, api, worker, web
+│   ├── docker-compose.yml              # supastack stack: postgres, redis, caddy, api, worker, web
 │   ├── supabase-template/              # vendored copy of upstream supabase/docker/* (pinned commit)
 │   │   ├── docker-compose.yml
 │   │   ├── .env.example                # source of truth for required vars
@@ -159,7 +159,7 @@ selfbase/
 ├── package.json                        # pnpm workspaces root
 ├── pnpm-workspace.yaml
 ├── plan.md                             # engineering blueprint (project-root, already exists)
-└── specs/001-selfbase-supabase-platform/  # this directory
+└── specs/001-supastack-supabase-platform/  # this directory
 ```
 
 **Structure Decision**: Web application monorepo (extended Option 2). Backend = `apps/api` + `apps/worker`; frontend = `apps/web`; the `caddy/` app and the `infra/supabase-template/` + `infra/studio/` vendored bits are first-class members of the structure rather than ad-hoc scripts. Shared concerns (DB, crypto, docker, backup store, shared types) live in `packages/` so they can be unit-tested in isolation and consumed by both API and worker.

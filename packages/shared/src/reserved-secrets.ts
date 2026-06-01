@@ -1,5 +1,5 @@
 /**
- * Env vars selfbase injects into the per-project **functions** container at
+ * Env vars supastack injects into the per-project **functions** container at
  * start time. These are the names visible to edge functions via
  * `Deno.env.get(...)` that are managed by the platform — operators cannot
  * set them via the secrets API/dashboard (api would 409, runtime would
@@ -28,22 +28,22 @@ export type ReservedSecret = {
 };
 
 const DESCRIPTIONS: Record<string, string> = {
-  JWT_SECRET: 'HS256 signing secret for legacy JWTs — managed by selfbase',
-  SUPABASE_URL: 'Project API base URL (Kong, internal) — managed by selfbase',
-  SUPABASE_PUBLIC_URL: 'Public-facing project URL — managed by selfbase',
-  SUPABASE_ANON_KEY: 'Anonymous API key — managed by selfbase',
-  SUPABASE_SERVICE_ROLE_KEY: 'Service-role API key — managed by selfbase',
-  SUPABASE_PUBLISHABLE_KEYS: 'Publishable API key set — managed by selfbase',
-  SUPABASE_SECRET_KEYS: 'Secret API key set — managed by selfbase',
-  SUPABASE_DB_URL: 'Per-project Postgres connection string — managed by selfbase',
-  VERIFY_JWT: 'Toggle for JWT verification at the functions edge — managed by selfbase',
-  SB_REF: 'Project ref (selfbase metadata) — managed by selfbase',
-  SELFBASE_VAULT_TTL_MS: 'Vault cache TTL in milliseconds — managed by selfbase',
+  JWT_SECRET: 'HS256 signing secret for legacy JWTs — managed by supastack',
+  SUPABASE_URL: 'Project API base URL (Kong, internal) — managed by supastack',
+  SUPABASE_PUBLIC_URL: 'Public-facing project URL — managed by supastack',
+  SUPABASE_ANON_KEY: 'Anonymous API key — managed by supastack',
+  SUPABASE_SERVICE_ROLE_KEY: 'Service-role API key — managed by supastack',
+  SUPABASE_PUBLISHABLE_KEYS: 'Publishable API key set — managed by supastack',
+  SUPABASE_SECRET_KEYS: 'Secret API key set — managed by supastack',
+  SUPABASE_DB_URL: 'Per-project Postgres connection string — managed by supastack',
+  VERIFY_JWT: 'Toggle for JWT verification at the functions edge — managed by supastack',
+  SB_REF: 'Project ref (supastack metadata) — managed by supastack',
+  SUPASTACK_VAULT_TTL_MS: 'Vault cache TTL in milliseconds — managed by supastack',
 };
 
 export const RESERVED_SECRETS: ReservedSecret[] = (data.reserved as string[]).map((name) => ({
   name,
-  description: DESCRIPTIONS[name] ?? 'Managed by selfbase',
+  description: DESCRIPTIONS[name] ?? 'Managed by supastack',
 }));
 
 export const RESERVED_SECRET_NAMES: ReadonlySet<string> = new Set(

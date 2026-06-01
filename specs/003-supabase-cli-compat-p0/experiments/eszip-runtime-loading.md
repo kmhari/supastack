@@ -1,7 +1,7 @@
 # Experiment: Does `supabase/edge-runtime:v1.71.2` load eszips directly?
 
 **Date**: 2026-05-22
-**Host**: `148.113.1.164` (the production selfbase VM)
+**Host**: `148.113.1.164` (the production supastack VM)
 **Runtime**: `supabase/edge-runtime:v1.71.2` — the exact image our per-instance compose template already uses
 **Status**: ✅ **CONFIRMED VIABLE.** Option A from the planning trade-off works with no runtime patches.
 
@@ -262,7 +262,7 @@ These don't block planning but are worth knowing about:
 
 - **Entrypoint URL mapping.** The eszip embeds `file://...` URLs reflecting whatever path the bundler's working tree used. The CLI's `bundle.go` mounts the project root as `/app/supabase` (or similar) inside its bundler container — we'd verify the exact mount path at implementation time. If the runtime rejects the entrypoint we pass, we can fall back to parsing the eszip's module listing (CBOR-ish; small self-contained parser, ~50 LoC) and picking the entrypoint heuristically.
 
-- **`ezbr_sha256` calculation.** The CLI computes this client-side (during the bundle step). Selfbase needs to compute the same thing on receive, so we can return it on subsequent `GET /v1/projects/{ref}/functions` calls and the CLI's skip-no-change check works. The CLI's hash is `SHA256(eszip bytes)` — trivial.
+- **`ezbr_sha256` calculation.** The CLI computes this client-side (during the bundle step). Supastack needs to compute the same thing on receive, so we can return it on subsequent `GET /v1/projects/{ref}/functions` calls and the CLI's skip-no-change check works. The CLI's hash is `SHA256(eszip bytes)` — trivial.
 
 - **Future runtime upgrades.** v1.71.2 exposes the eszip API as we documented. If a future runtime version changes the signature (e.g., renames `maybeEszip`), our main router needs updating. This is the same risk profile as any other dependency on the runtime's behavior; nothing eszip-specific.
 

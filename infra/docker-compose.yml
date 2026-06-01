@@ -1,11 +1,11 @@
-# Selfbase control-plane stack.
+# Supastack control-plane stack.
 #
 # This is *not* a managed Supabase instance — it's the platform that manages
 # them. It owns: control-plane Postgres, Redis (sessions + queue), Caddy
 # (HTTPS + on-demand TLS), the Fastify API, the BullMQ worker, and the static
 # React dashboard.
 
-name: selfbase
+name: supastack
 
 networks:
   internal:
@@ -23,14 +23,14 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: selfbase
+      POSTGRES_USER: supastack
       POSTGRES_PASSWORD: ${CONTROL_DB_PASSWORD:?CONTROL_DB_PASSWORD required}
-      POSTGRES_DB: selfbase
+      POSTGRES_DB: supastack
     volumes:
       - pg-data:/var/lib/postgresql/data
     networks: [internal]
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U selfbase -d selfbase']
+      test: ['CMD-SHELL', 'pg_isready -U supastack -d supastack']
       interval: 5s
       timeout: 5s
       retries: 12
@@ -60,7 +60,7 @@ services:
       - NET_BIND_SERVICE
     environment:
       # Feature 014 — needed by the explicit mcp.<apex> server block in Caddyfile.
-      SELFBASE_APEX: ${SELFBASE_APEX:?SELFBASE_APEX required}
+      SUPASTACK_APEX: ${SUPASTACK_APEX:?SUPASTACK_APEX required}
     ports:
       - '80:80'
       - '443:443'
@@ -69,7 +69,7 @@ services:
       - ../apps/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-      - certs-data:/var/selfbase/certs:ro
+      - certs-data:/var/supastack/certs:ro
     networks: [internal]
     # Allow Caddy to reach per-instance Supabase containers which publish
     # their ports on the host (Kong 30000, Studio 30001, etc.). The
@@ -87,7 +87,7 @@ services:
       retries: 6
 
   api:
-    image: selfbase/api:${SELFBASE_VERSION:-dev}
+    image: supastack/api:${SUPASTACK_VERSION:-dev}
     build:
       context: ..
       dockerfile: apps/api/Dockerfile
@@ -95,16 +95,16 @@ services:
     environment:
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      SELFBASE_SERVICE: api
-      DATABASE_URL: postgres://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
+      SUPASTACK_SERVICE: api
+      DATABASE_URL: postgres://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack
       REDIS_URL: redis://redis:6379
       MASTER_KEY: ${MASTER_KEY:?MASTER_KEY required}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET required}
       CADDY_ADMIN_URL: http://caddy:2019
-      INSTANCES_DIR: /var/selfbase/instances
-      BACKUPS_DIR: /var/selfbase/backups
-      SELFBASE_PUBLIC_IP: ${SELFBASE_PUBLIC_IP:-}
-      SELFBASE_CERTS_DIR: /var/selfbase/certs
+      INSTANCES_DIR: /var/supastack/instances
+      BACKUPS_DIR: /var/supastack/backups
+      SUPASTACK_PUBLIC_IP: ${SUPASTACK_PUBLIC_IP:-}
+      SUPASTACK_CERTS_DIR: /var/supastack/certs
       ACME_DIRECTORY_URL: ${ACME_DIRECTORY_URL:-}
       # COOKIE_SECURE=0 (default) lets the session cookie work over plain HTTP
       # — required for /setup + /login before an apex + HTTPS cert exist.
@@ -115,17 +115,17 @@ services:
       SUPAVISOR_URL: http://supavisor:4000
       SUPAVISOR_API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET:-}
       # Feature 014 — OAuth issuer + JWT iss/aud derivation. Same value mcp + supavisor use.
-      SELFBASE_APEX: ${SELFBASE_APEX:?SELFBASE_APEX required}
+      SUPASTACK_APEX: ${SUPASTACK_APEX:?SUPASTACK_APEX required}
     ports:
       - 3001:3001
       # pg-edge proxy — direct Postgres endpoint for db.<ref>.<apex>:5432
       # (feature 005). Runs inside the api Node.js process.
       - '5432:5432'
     volumes:
-      - /var/selfbase/instances:/var/selfbase/instances
-      - /var/selfbase/backups:/var/selfbase/backups
+      - /var/supastack/instances:/var/supastack/instances
+      - /var/supastack/backups:/var/supastack/backups
       - /var/run/docker.sock:/var/run/docker.sock
-      - certs-data:/var/selfbase/certs
+      - certs-data:/var/supastack/certs
       # Docker CLI + compose plugin — needed by ssl-enforcement-store and any
       # service that shells out to `docker compose exec` (composeExec helper).
       - /usr/bin/docker:/usr/bin/docker:ro
@@ -154,7 +154,7 @@ services:
       retries: 12
 
   worker:
-    image: selfbase/worker:${SELFBASE_VERSION:-dev}
+    image: supastack/worker:${SUPASTACK_VERSION:-dev}
     build:
       context: ..
       dockerfile: apps/worker/Dockerfile
@@ -162,20 +162,20 @@ services:
     environment:
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      SELFBASE_SERVICE: worker
-      DATABASE_URL: postgres://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
+      SUPASTACK_SERVICE: worker
+      DATABASE_URL: postgres://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack
       REDIS_URL: redis://redis:6379
       MASTER_KEY: ${MASTER_KEY:?MASTER_KEY required}
       CADDY_ADMIN_URL: http://caddy:2019
-      INSTANCES_DIR: /var/selfbase/instances
-      BACKUPS_DIR: /var/selfbase/backups
-      STUDIO_IMAGE: ${STUDIO_IMAGE:-selfbase/studio:latest}
+      INSTANCES_DIR: /var/supastack/instances
+      BACKUPS_DIR: /var/supastack/backups
+      STUDIO_IMAGE: ${STUDIO_IMAGE:-supastack/studio:latest}
       # Feature 008 — worker pooler-reconciler needs to call supavisor admin API.
       SUPAVISOR_URL: http://supavisor:4000
       SUPAVISOR_API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET:-}
     volumes:
-      - /var/selfbase/instances:/var/selfbase/instances
-      - /var/selfbase/backups:/var/selfbase/backups
+      - /var/supastack/instances:/var/supastack/instances
+      - /var/supastack/backups:/var/supastack/backups
       - /var/run/docker.sock:/var/run/docker.sock
       - ../infra/supabase-template:/app/infra/supabase-template:ro
     networks: [internal]
@@ -190,10 +190,10 @@ services:
         condition: service_healthy
 
   # MCP HTTP service — wraps upstream @supabase/mcp-server-supabase as a
-  # Streamable HTTP transport at mcp.<apex>/mcp, gated by selfbase OAuth
+  # Streamable HTTP transport at mcp.<apex>/mcp, gated by supastack OAuth
   # bearer tokens (feature 014).
   mcp:
-    image: selfbase/mcp:${SELFBASE_VERSION:-dev}
+    image: supastack/mcp:${SUPASTACK_VERSION:-dev}
     build:
       context: ..
       dockerfile: apps/mcp/Dockerfile
@@ -201,12 +201,12 @@ services:
     environment:
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      SELFBASE_SERVICE: mcp
-      DATABASE_URL: postgres://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
+      SUPASTACK_SERVICE: mcp
+      DATABASE_URL: postgres://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack
       REDIS_URL: redis://redis:6379
       MASTER_KEY: ${MASTER_KEY:?MASTER_KEY required}
-      SELFBASE_API_URL: http://api:3001
-      SELFBASE_APEX: ${SELFBASE_APEX:?SELFBASE_APEX required}
+      SUPASTACK_API_URL: http://api:3001
+      SUPASTACK_APEX: ${SUPASTACK_APEX:?SUPASTACK_APEX required}
     networks: [internal]
     depends_on:
       db:
@@ -230,7 +230,7 @@ services:
   # Top-level Supavisor — multi-tenant Postgres pooler (feature 005 Phase 5).
   # Provides pooler.<apex>:6543 (transaction mode). Each project is registered
   # as a tenant; clients connect with username postgres.<ref> per Supabase Cloud
-  # convention. Tenants are managed by the selfbase api via supavisor's HTTP
+  # convention. Tenants are managed by the supastack api via supavisor's HTTP
   # admin API. See specs/005-postgres-public-endpoint/.
   supavisor:
     image: supabase/supavisor:2.7.4
@@ -241,10 +241,10 @@ services:
     ports:
       - '6543:6543'
     volumes:
-      - certs-data:/var/selfbase/certs:ro
+      - certs-data:/var/supastack/certs:ro
     environment:
       PORT: 4000
-      DATABASE_URL: ecto://selfbase:${CONTROL_DB_PASSWORD}@db:5432/selfbase
+      DATABASE_URL: ecto://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack
       CLUSTER_POSTGRES: 'true'
       SECRET_KEY_BASE: ${SUPAVISOR_SECRET_KEY_BASE:?SUPAVISOR_SECRET_KEY_BASE required}
       VAULT_ENC_KEY: ${SUPAVISOR_VAULT_ENC_KEY:?SUPAVISOR_VAULT_ENC_KEY required}
@@ -252,8 +252,8 @@ services:
       METRICS_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET}
       REGION: local
       ERL_AFLAGS: -proto_dist inet_tcp
-      GLOBAL_DOWNSTREAM_CERT_PATH: /var/selfbase/certs/${SELFBASE_APEX:?SELFBASE_APEX required}/cert.pem
-      GLOBAL_DOWNSTREAM_KEY_PATH: /var/selfbase/certs/${SELFBASE_APEX}/key.pem
+      GLOBAL_DOWNSTREAM_CERT_PATH: /var/supastack/certs/${SUPASTACK_APEX:?SUPASTACK_APEX required}/cert.pem
+      GLOBAL_DOWNSTREAM_KEY_PATH: /var/supastack/certs/${SUPASTACK_APEX}/key.pem
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     networks: [internal]
@@ -265,7 +265,7 @@ services:
       start_period: 30s
 
   web:
-    image: selfbase/web:${SELFBASE_VERSION:-dev}
+    image: supastack/web:${SUPASTACK_VERSION:-dev}
     build:
       context: ..
       dockerfile: apps/web/Dockerfile

@@ -6,20 +6,20 @@
 
 **Status**: Draft
 
-**Input**: User description: "Add a URL Configuration page under Authentication in selfbase settings, mirroring Supabase Cloud's /auth/url-configuration page. Operators set Site URL (default redirect destination when no redirect_to is supplied or when the supplied one fails allow-list matching) and Redirect URLs (the allow-list of permitted post-auth redirect destinations, with wildcard glob support — `*` for single-segment, `**` for any segment). Selfbase's backend already honors both fields (`site_url` → `SITE_URL`; `uri_allow_list` → `GOTRUE_URI_ALLOW_LIST` via env-field-mapper); only the UI is missing. Page content must visually match the Cloud page closely enough that a screenshot diff is unsurprising."
+**Input**: User description: "Add a URL Configuration page under Authentication in supastack settings, mirroring Supabase Cloud's /auth/url-configuration page. Operators set Site URL (default redirect destination when no redirect_to is supplied or when the supplied one fails allow-list matching) and Redirect URLs (the allow-list of permitted post-auth redirect destinations, with wildcard glob support — `*` for single-segment, `**` for any segment). Supastack's backend already honors both fields (`site_url` → `SITE_URL`; `uri_allow_list` → `GOTRUE_URI_ALLOW_LIST` via env-field-mapper); only the UI is missing. Page content must visually match the Cloud page closely enough that a screenshot diff is unsurprising."
 
 ## Clarifications
 
 ### Session 2026-05-28
 
 - Q: When the operator clicks 'Add URL' in the Redirect URLs section, what UX shape should the input use? → A: Modal dialog with batch-add (replicating Cloud verbatim: dialog titled "Add new redirect URLs", first-class URL input row, internal "+ Add URL" button to insert additional rows, trash icon next to each row, full-width green "Save URLs" submit that PATCHes the merged list in one call).
-- Q: What should happen when an operator saves an empty Site URL? → A: Refuse empty + require non-empty value (Save button stays disabled while input is empty/whitespace-only). Site URL is the OPERATOR'S frontend application URL (where their app is hosted, e.g. https://app.example.com), NOT anything selfbase can derive — selfbase MUST NOT seed it or default it. New + existing projects start with an empty `site_url`; the operator types their app URL before first save.
+- Q: What should happen when an operator saves an empty Site URL? → A: Refuse empty + require non-empty value (Save button stays disabled while input is empty/whitespace-only). Site URL is the OPERATOR'S frontend application URL (where their app is hosted, e.g. https://app.example.com), NOT anything supastack can derive — supastack MUST NOT seed it or default it. New + existing projects start with an empty `site_url`; the operator types their app URL before first save.
 - Q: When checking whether a newly-added Redirect URL is a duplicate, how should we compare? → A: Case-insensitive scheme+host, exact path (lowercase the scheme + host before comparing; the path/query/wildcard segments stay byte-exact so /foo vs /foo/ are NOT folded).
 - Q: How should existing projects (whose `site_url` is currently null/empty) behave when the URL Configuration page loads? → A: Don't seed, don't auto-fill, don't migrate. The page renders with an empty Site URL input; Save stays disabled until the operator types a non-empty value. Operators are expected to know their own app URL.
 
 ## Motivation
 
-GoTrue gates every OAuth/passwordless/magic-link redirect through (a) the `SITE_URL` fallback and (b) the `URI_ALLOW_LIST` whitelist. When the dashboard saves an OAuth provider but the operator's app lives on a host that isn't in the allow list, GoTrue silently rewrites the post-flow redirect back to `SITE_URL`. Today selfbase operators experience this as "OAuth seems to work but I get bounced to a no-match error page on my project URL" — there's no UI surface to add their app's URL.
+GoTrue gates every OAuth/passwordless/magic-link redirect through (a) the `SITE_URL` fallback and (b) the `URI_ALLOW_LIST` whitelist. When the dashboard saves an OAuth provider but the operator's app lives on a host that isn't in the allow list, GoTrue silently rewrites the post-flow redirect back to `SITE_URL`. Today supastack operators experience this as "OAuth seems to work but I get bounced to a no-match error page on my project URL" — there's no UI surface to add their app's URL.
 
 A real example surfaced this week: operator tested GitHub OAuth from `http://localhost:8765/`, GitHub authorization succeeded, but GoTrue's final redirect landed on `https://<ref>.supaviser.dev/?code=…` instead of localhost because localhost wasn't in the allow list. The only workaround today is editing the per-instance `.env` file via SSH or PATCHing the auth-config endpoint directly with curl — both unacceptable for a dashboard product.
 
@@ -33,7 +33,7 @@ An operator opens the Auth → URL Configuration page, sees the current Site URL
 
 **Why this priority**: Site URL is the operator's frontend app URL — the place users land after clicking password-reset emails, email-confirmation links, and OAuth flows that omit `redirect_to`. It's also the destination used for email-template links (`{{ .SiteURL }}`). Wrong value = users bounced to the wrong domain after auth events.
 
-**Independent Test**: With selfbase running and a project created, navigate to `/dashboard/project/<ref>/auth/url-configuration`. Enter `https://example.com` in Site URL, click Save changes. Confirm:
+**Independent Test**: With supastack running and a project created, navigate to `/dashboard/project/<ref>/auth/url-configuration`. Enter `https://example.com` in Site URL, click Save changes. Confirm:
 1. Dashboard shows success toast.
 2. `GET /api/v1/projects/<ref>/config/auth` returns `site_url: "https://example.com"`.
 3. The project's `.env` file contains `SITE_URL=https://example.com`.
@@ -73,7 +73,7 @@ An operator opens the page, clicks "Add URL", a modal dialog ("Add new redirect 
 
 ### User Story 3 — Visual parity with Supabase Cloud (Priority: P2)
 
-A side-by-side screenshot of the selfbase `/auth/url-configuration` page and the Cloud `/auth/url-configuration` page should be unsurprising — same layout (Site URL section on top, Redirect URLs section below), same headings, same descriptions verbatim where they apply, same empty-state copy, same "Docs" link button next to the Redirect URLs description, same overall card + section structure as the Auth Providers page (feature 020) already uses.
+A side-by-side screenshot of the supastack `/auth/url-configuration` page and the Cloud `/auth/url-configuration` page should be unsurprising — same layout (Site URL section on top, Redirect URLs section below), same headings, same descriptions verbatim where they apply, same empty-state copy, same "Docs" link button next to the Redirect URLs description, same overall card + section structure as the Auth Providers page (feature 020) already uses.
 
 **Why this priority**: Matching Cloud is what makes the page learnable for operators coming from supabase.com. It's not P1 because the functionality of P1+P2 above is what unblocks the real-world bug; parity is the polish.
 
@@ -122,9 +122,9 @@ The Auth → Configuration sidebar group in `ProjectShell` gains a new "URL Conf
 - **FR-009**: System MUST cap the Redirect URLs list at 50 entries; the Add URL button is disabled at the cap with a tooltip.
 - **FR-010**: System MUST show the existing non-blocking restart toast pattern (poll per-instance health for ~30s, flip to success/Retry) after each save. Existing utility `use-restart-toast.ts` from feature 020 SHOULD be reused.
 - **FR-011**: System MUST gate writes on the `admin` role. Member-role operators see the page as read-only: inputs disabled, Save button hidden, Add URL button hidden, delete icons hidden.
-- **FR-012**: System MUST refuse to save an empty (or whitespace-only) Site URL — the Save button stays disabled until the input contains a non-empty, validly-shaped URL. **Site URL is the operator's frontend application URL** (e.g. `https://app.example.com`, `http://localhost:3000`) — the URL of the app that authenticates against this project — NOT the project's kong URL or anything selfbase can derive. Selfbase MUST NOT seed, migrate, or auto-default `site_url`. New and existing projects start with `site_url = null/empty`; the operator types the value once before first save. Once set, operators can overwrite to a new value but not clear it.
+- **FR-012**: System MUST refuse to save an empty (or whitespace-only) Site URL — the Save button stays disabled until the input contains a non-empty, validly-shaped URL. **Site URL is the operator's frontend application URL** (e.g. `https://app.example.com`, `http://localhost:3000`) — the URL of the app that authenticates against this project — NOT the project's kong URL or anything supastack can derive. Supastack MUST NOT seed, migrate, or auto-default `site_url`. New and existing projects start with `site_url = null/empty`; the operator types the value once before first save. Once set, operators can overwrite to a new value but not clear it.
 - **FR-013**: Browser test coverage (Playwright) MUST cover: page renders for admin and member; adding a URL persists across reload; deleting a URL persists across reload; member sees read-only state; deep-link to the URL loads the page. Add as a new spec file `apps/web/tests/e2e/url-configuration.spec.ts` and register in `EXPECTED_PAGES`.
-- **FR-014**: `_selfbase.fieldStatus.site_url` and `_selfbase.fieldStatus.uri_allow_list` MUST already report `status: "honored"` (they already do — this is a regression-guard requirement, not new work).
+- **FR-014**: `_supastack.fieldStatus.site_url` and `_supastack.fieldStatus.uri_allow_list` MUST already report `status: "honored"` (they already do — this is a regression-guard requirement, not new work).
 
 ### Out of Scope (this feature)
 
@@ -137,7 +137,7 @@ The Auth → Configuration sidebar group in `ProjectShell` gains a new "URL Conf
 ## Success Criteria
 
 1. **Time to add allow-list entry**: from page load, operator can add a redirect URL in under 30 seconds (no SSH, no curl, no doc-reading required).
-2. **Visual parity**: side-by-side screenshot diff of selfbase vs Cloud at 1440px viewport produces a reviewer's "yep, that's the same page" reaction. No exact-pixel match required.
+2. **Visual parity**: side-by-side screenshot diff of supastack vs Cloud at 1440px viewport produces a reviewer's "yep, that's the same page" reaction. No exact-pixel match required.
 3. **Zero regressions** in feature 020's auth-config PATCH flow: existing fields and the snapshot-drift contract test continue to pass.
 4. **Functional verification**: a fresh project + `http://localhost:8765/**` added to allow list + the OAuth tester at `scripts/oauth-test/index.html` completes a GitHub round-trip landing back on localhost (not on the project URL).
 5. **Member RBAC**: a member-role session loads the page without 403, sees current values, cannot mutate. Verified by Playwright spec.
@@ -147,7 +147,7 @@ The Auth → Configuration sidebar group in `ProjectShell` gains a new "URL Conf
 
 - The existing `PATCH /api/v1/projects/<ref>/config/auth` endpoint accepts partial updates and re-writes only the requested fields (verified — this is how feature 020 works).
 - The `uri_allow_list` field stores a comma-separated string (matches GoTrue's expected env-var format). Empty list = empty string.
-- Wildcard syntax is opaque to selfbase — we store and forward whatever the operator types; GoTrue validates at consumption time. The Cloud docs page is the authority on syntax (`*`, `**`, `?` with `.` and `/` as separators).
+- Wildcard syntax is opaque to supastack — we store and forward whatever the operator types; GoTrue validates at consumption time. The Cloud docs page is the authority on syntax (`*`, `**`, `?` with `.` and `/` as separators).
 - The existing restart-toast utility from feature 020 handles arbitrary auth-config PATCHes (not just provider toggles) and works here unchanged.
 - No backend API changes are needed; this feature is dashboard-only. The env-field-mapper, runtime-config-store, and compose template already map both fields correctly.
 
