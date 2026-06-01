@@ -17,7 +17,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { Redis } from 'ioredis';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -162,8 +162,7 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
           }
           // sub claim references a user no longer in org_members → reject (FR-010a)
         } catch (err) {
-          // Expected verification failures: silently fall through to session
-          // cookie path / no-auth state. The 401 emerges from requireAuth().
+          // Expected verification failures: try studio session JWT next.
           if (
             !(err instanceof ExpiredTokenError) &&
             !(err instanceof InvalidSignatureError) &&
@@ -172,6 +171,24 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
             !(err instanceof MalformedTokenError)
           ) {
             throw err;
+          }
+          // 1c. Studio session JWT (feature 025 — IS_PLATFORM=true GoTrue shim)
+          if (apex) {
+            try {
+              const claims = verifyStudioJwt(loadMasterKey(), raw, `https://${apex}`);
+              const rows = await db()
+                .select({ userId: schema.users.id, email: schema.users.email, role: schema.orgMembers.role })
+                .from(schema.users)
+                .innerJoin(schema.orgMembers, eq(schema.orgMembers.userId, schema.users.id))
+                .where(eq(schema.users.id, claims.sub))
+                .limit(1);
+              if (rows[0]) {
+                req.user = { id: rows[0].userId, email: rows[0].email, role: rows[0].role as Role };
+                return;
+              }
+            } catch {
+              // Invalid studio JWT — fall through to session cookie / 401
+            }
           }
         }
       }
@@ -204,6 +221,48 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
 
 export function sha256(s: string): Buffer {
   return createHash('sha256').update(s, 'utf8').digest();
+}
+
+// ── Studio session JWT ──────────────────────────────────────────────────────
+// Feature 025: short-lived HS256 JWT returned by the GoTrue shim on Studio login.
+// Signed with an HKDF-derived key (separate label from OAuth JWTs).
+const STUDIO_JWT_HKDF_LABEL = 'supastack-studio-session-v1';
+const STUDIO_JWT_TTL_SEC = 86400; // 24h
+
+function deriveStudioKey(masterKey: Buffer): Buffer {
+  return Buffer.from(hkdfSync('sha256', masterKey, Buffer.alloc(0), STUDIO_JWT_HKDF_LABEL, 32) as ArrayBuffer);
+}
+
+export interface StudioJwtClaims {
+  sub: string;
+  email: string;
+  supastack_role: string;
+  aud: string;
+  iss: string;
+  iat: number;
+  exp: number;
+}
+
+export function signStudioJwt(masterKey: Buffer, claims: Omit<StudioJwtClaims, 'iat' | 'exp'>): string {
+  const now = Math.floor(Date.now() / 1000);
+  const payload: StudioJwtClaims = { ...claims, iat: now, exp: now + STUDIO_JWT_TTL_SEC };
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = createHmac('sha256', deriveStudioKey(masterKey)).update(`${header}.${body}`).digest().toString('base64url');
+  return `${header}.${body}.${sig}`;
+}
+
+export function verifyStudioJwt(masterKey: Buffer, token: string, expectedIss: string): StudioJwtClaims {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('malformed JWT');
+  const [h, p, sig] = parts as [string, string, string];
+  const expected = createHmac('sha256', deriveStudioKey(masterKey)).update(`${h}.${p}`).digest().toString('base64url');
+  if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) throw new Error('invalid signature');
+  const claims = JSON.parse(Buffer.from(p, 'base64url').toString('utf8')) as StudioJwtClaims;
+  const now = Math.floor(Date.now() / 1000);
+  if (claims.exp < now) throw new Error('expired');
+  if (claims.iss !== expectedIss) throw new Error('invalid issuer');
+  return claims;
 }
 
 declare module 'fastify' {
