@@ -207,11 +207,11 @@ describe('instancesApi', () => {
       body: { supabaseVersion: 'v', backupFirst: true },
     });
   });
-  it('reveal posts password', async () => {
-    await apiMod.instancesApi.reveal('r', { password: 'p' });
+  it('reveal posts no body (password gate removed)', async () => {
+    await apiMod.instancesApi.reveal('r');
     expect(lastCall()).toMatchObject({
       url: '/instances/r/credentials/reveal',
-      body: { password: 'p' },
+      method: 'post',
     });
   });
   it('health → GET /instances/:ref/health', async () => {
