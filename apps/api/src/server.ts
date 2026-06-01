@@ -50,6 +50,9 @@ import { oauthTokenRoutes } from './routes/oauth/token.js';
 import { orgRoutes } from './routes/org.js';
 import { pgEdgeCertInternalRoutes } from './routes/pg-edge-cert-internal.js';
 import { platformCliLoginRoutes } from './routes/platform-cli-login.js';
+import { platformProxyRoutes } from './routes/platform-proxy.js';
+import { platformMiscRoutes } from './routes/platform-misc.js';
+import { studioGotrueRoutes } from './routes/studio-gotrue.js';
 import { poolerInternalRoutes } from './routes/pooler-internal.js';
 import { poolerReconcilerRunRoutes } from './routes/pooler-reconciler-run.js';
 import { poolerReregisterRoutes } from './routes/pooler-reregister.js';
@@ -222,6 +225,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(secretsDashboardRoutes); // /api/v1/projects/:ref/secrets (feature 010 FR-006/007)
   await app.register(cliLoginRoutes); // /api/v1/cli/login (feature 011 — dashboard mint)
   await app.register(platformCliLoginRoutes); // /platform/cli/login/:session_id (feature 011 — CLI poll)
+  await app.register(platformProxyRoutes); // /platform/{pg-meta,storage,auth,projects}/:ref/* (feature 025 — shared Studio proxy)
+  await app.register(platformMiscRoutes, { prefix: '/api/v1' }); // /api/v1/platform/telemetry/feature-flags (feature 025)
+  await app.register(studioGotrueRoutes, { prefix: '/api/v1' }); // GoTrue shim for Studio IS_PLATFORM=true login (feature 025)
   await app.register(oauthDiscoveryRoutes); // /.well-known/oauth-authorization-server (feature 014 FR-006)
   await app.register(oauthClientsDashboardRoutes); // /api/v1/oauth/clients{,/:id} (feature 014 US3)
   // Feature 020 — dashboard mounts the auth-config route alongside the /v1 mgmt mount

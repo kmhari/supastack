@@ -102,9 +102,10 @@ export const apiTokens = pgTable('api_tokens', {
   label: text('label').notNull(),
   prefix: text('prefix'),
   // Feature 011 — 'manual' for tokens minted via the settings page;
-  // 'cli' for tokens minted via the CLI device-code login flow. Default
-  // 'manual' so existing callers + rows are unaffected.
-  source: text('source', { enum: ['manual', 'cli'] })
+  // 'cli' for tokens minted via the CLI device-code login flow.
+  // Feature 025 — 'studio' for tokens minted by the GoTrue shim on Studio login.
+  // Default 'manual' so existing callers + rows are unaffected.
+  source: text('source', { enum: ['manual', 'cli', 'studio'] })
     .notNull()
     .default('manual'),
   lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
