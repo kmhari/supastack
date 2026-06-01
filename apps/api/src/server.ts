@@ -225,7 +225,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(secretsDashboardRoutes); // /api/v1/projects/:ref/secrets (feature 010 FR-006/007)
   await app.register(cliLoginRoutes); // /api/v1/cli/login (feature 011 — dashboard mint)
   await app.register(platformCliLoginRoutes); // /platform/cli/login/:session_id (feature 011 — CLI poll)
-  await app.register(platformProxyRoutes); // /platform/{pg-meta,storage,auth,projects}/:ref/* (feature 025 — shared Studio proxy)
+  await app.register(platformProxyRoutes); // /platform/* (direct Caddy /platform/* rule)
+  // Studio calls ${NEXT_PUBLIC_API_URL}/platform/* = /api/v1/platform/*
+  // Register proxy routes AGAIN with /api/v1 prefix so both paths work
+  await app.register(platformProxyRoutes, { prefix: '/api/v1' }); // /api/v1/platform/* (Studio via API_URL)
   await app.register(platformMiscRoutes, { prefix: '/api/v1' }); // /api/v1/platform/* stubs (feature 025)
   // Studio Next.js API routes that the Supastack API stubs at the root level
   app.get('/api/get-deployment-commit', async (_req, reply) =>
@@ -241,6 +244,15 @@ export async function buildApp(): Promise<FastifyInstance> {
   );
   app.delete<RefP>('/v1/projects/:ref/network-bans', async (_req, reply) =>
     reply.status(204).send(),
+  );
+  app.get<RefP>('/v1/projects/:ref/network-restrictions', async (_req, reply) =>
+    reply.send({ entitlement: 'disallowed', config: { dbAllowedCidrs: [], dbAllowedCidrsReadReplicas: [] } }),
+  );
+  app.post<RefP>('/v1/projects/:ref/network-restrictions/apply', async (req, reply) =>
+    reply.send(req.body ?? {}),
+  );
+  app.get<RefP>('/v1/projects/:ref/custom-hostname', async (_req, reply) =>
+    reply.send({ status: 'not_started', customHostname: null, data: {} }),
   );
   app.get<RefP>('/v1/projects/:ref/branches', async (_req, reply) => reply.send([]));
   app.get<RefP>('/v1/projects/:ref/read-replicas', async (_req, reply) => reply.send([]));
@@ -292,6 +304,11 @@ export async function buildApp(): Promise<FastifyInstance> {
       const services = req.query.services ? req.query.services.split(',') : ['auth', 'rest', 'realtime', 'storage', 'db'];
       return reply.send(services.map((name) => ({ name, status: 'ACTIVE_HEALTHY', error: null })));
     },
+  );
+
+  // Third-party auth providers — not supported in self-hosted
+  app.get<RefP>('/v1/projects/:ref/config/auth/third-party-auth', async (_req, reply) =>
+    reply.send([]),
   );
 
   // Double-v1 fix: Studio IS_PLATFORM=true builds URLs as
