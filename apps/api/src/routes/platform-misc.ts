@@ -159,6 +159,35 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(buildOrg(orgRow.id, orgRow.name, user.role === 'admin'));
   });
 
+  // ── Top-level project listing ──────────────────────────────────────────────
+  // Studio also calls /platform/projects directly (not org-scoped) for some views.
+  app.get<{ Querystring: { limit?: string; offset?: string } }>(
+    '/platform/projects',
+    async (req, reply) => {
+      const user = app.requireAuth(req);
+      const apex = process.env.SUPASTACK_APEX ?? '';
+      const limit = parseInt(req.query.limit ?? '100', 10);
+      const offset = parseInt(req.query.offset ?? '0', 10);
+      const instances = await db()
+        .select({
+          ref: schema.supabaseInstances.ref,
+          name: schema.supabaseInstances.name,
+          status: schema.supabaseInstances.status,
+          portKong: schema.supabaseInstances.portKong,
+          insertedAt: schema.supabaseInstances.createdAt,
+          updatedAt: schema.supabaseInstances.updatedAt,
+          orgId: schema.supabaseInstances.orgId,
+        })
+        .from(schema.supabaseInstances)
+        .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
+        .where(eq(schema.orgMembers.userId, user.id))
+        .limit(limit)
+        .offset(offset);
+      const projects = instances.map((inst) => buildProject(inst, apex));
+      return reply.send({ pagination: { count: projects.length, limit, offset }, projects });
+    },
+  );
+
   // ── Project-level platform routes ─────────────────────────────────────────
   type RefParams = { Params: { ref: string } };
 
@@ -407,12 +436,17 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ result: [], count: 0 });
   });
 
+  // invitations: Studio destructures as `orgInvites.invitations.map(...)` — must be { invitations: [] }
+  app.get<SlugParams>('/platform/organizations/:slug/members/invitations', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ invitations: [] });
+  });
+
   for (const path of [
     '/platform/organizations/:slug/sso',
     '/platform/organizations/:slug/apps',
     '/platform/organizations/:slug/apps/installations',
     '/platform/organizations/:slug/oauth/apps',
-    '/platform/organizations/:slug/members/invitations',
     '/platform/organizations/:slug/members/reached-free-project-limit',
   ] as const) {
     app.get(path, async (req, reply) => {
