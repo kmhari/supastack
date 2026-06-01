@@ -231,6 +231,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.get('/api/get-deployment-commit', async (_req, reply) =>
     reply.send({ commit: 'dev', date: new Date().toISOString() }),
   );
+  app.get('/api/incident-banner', async (_req, reply) => reply.send(null));
 
   // Management API stubs for Studio IS_PLATFORM=true — registered before the
   // /v1 management plugin so they respond without the mgmt error envelope.
