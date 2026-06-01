@@ -46,11 +46,14 @@
 ### Implementation
 
 - [X] T004 [US1] Rewrite `ProjectJwtKeys.tsx` in `apps/web/src/pages/ProjectJwtKeys.tsx`:
+  - Add `const { user } = useAuth()` and `const isAdmin = user?.role === 'admin'`
   - Remove `RevealDialog` import and JSX usage
-  - Change `useRevealCredentials` usage: replace `reveal.openDialog` with `() => void reveal.reveal()`; pass `pending` down
-  - Update `JwtSecretInput` props to accept `onReveal: () => void` and `pending: boolean`
-  - `JwtSecretInput` before reveal: `value={masked}`, `noCopy={true}`, `rightSlot={<FrameButton onClick={onReveal} disabled={pending}>{pending ? 'Loading…' : 'Reveal'}</FrameButton>}`
+  - Change `useRevealCredentials` usage: replace `reveal.openDialog` with `() => void reveal.reveal()`; destructure `pending` and `error` from `reveal`
+  - Update `JwtSecretInput` props to accept `onReveal: () => void`, `pending: boolean`, `isAdmin: boolean`
+  - `JwtSecretInput` before reveal: `value={masked}`, `noCopy={true}`, `rightSlot={isAdmin ? <FrameButton onClick={onReveal} disabled={pending}>{pending ? 'Loading…' : 'Reveal'}</FrameButton> : undefined}`
   - `JwtSecretInput` after reveal: `value={actual}`, `noCopy={false}`, `rightSlot={undefined}` (built-in Copy button appears)
+  - Below the input: `{reveal.error && <p className="text-sm text-destructive mt-1">{reveal.error}</p>}`
+  - Confirm Reveal button re-enables after a failure so the user can retry without reloading
   - Remove `Eye`/`EyeOff` imports and the show/hide toggle — reveal is one-way
 
 **Checkpoint**: JWT Keys page works end-to-end with no RevealDialog. US1 is independently testable.
@@ -66,11 +69,14 @@
 ### Implementation
 
 - [X] T005 [US2] Rewrite `ProjectApiKeys.tsx` in `apps/web/src/pages/ProjectApiKeys.tsx`:
+  - Add `const { user } = useAuth()` and `const isAdmin = user?.role === 'admin'`
   - Remove `RevealDialog` import and JSX usage
-  - Change `useRevealCredentials` usage: wire Reveal button directly to `() => void reveal.reveal()` with `reveal.pending` for loading state
-  - Update `KeyRow` to accept `onReveal: () => void` and `pending: boolean` instead of just `onReveal`
-  - `KeyRow` before reveal: `displayValue = masked`, `noCopy={true}`, `rightSlot={<FrameButton onClick={onReveal} disabled={pending}>{pending ? 'Loading…' : 'Reveal'}</FrameButton>}`
+  - Change `useRevealCredentials` usage: wire Reveal button directly to `() => void reveal.reveal()`; destructure `pending` and `error` from `reveal`
+  - Update `KeyRow` to accept `onReveal: () => void`, `pending: boolean`, `isAdmin: boolean`
+  - `KeyRow` before reveal: `displayValue = masked`, `noCopy={true}`, `rightSlot={isAdmin ? <FrameButton onClick={onReveal} disabled={pending}>{pending ? 'Loading…' : 'Reveal'}</FrameButton> : undefined}`
   - `KeyRow` after reveal: `displayValue = value` (always, for both keys — no re-mask), `noCopy={false}`, `rightSlot={undefined}` (built-in Copy appears)
+  - Below each KeyRow: `{reveal.error && <p className="text-sm text-destructive mt-1">{reveal.error}</p>}`
+  - Confirm button re-enables after failure so user can retry
   - Remove `Eye`/`EyeOff` imports and the `shown` toggle — reveal is one-way for both keys
 
 **Checkpoint**: API Keys page works end-to-end with no RevealDialog. Both US1 and US2 are independently testable.
@@ -87,6 +93,7 @@
 
 - [X] T006 Export `getPlaintextConfig` from `apps/api/src/services/runtime-config-store.ts` — add a new exported async function `getPlaintextConfig(ref: string, surface: ConfigSurface): Promise<ConfigJson>` that calls the already-private `loadCurrentPlaintext(ref, surface)` and returns the result directly (no redaction)
 - [X] T007 Add `GET /projects/:ref/config/auth/reveal` to `apps/api/src/routes/management/auth-config.ts` — requires `app.requireAuth` + `app.authorize(req, 'auth_config.read')`; calls `getPlaintextConfig(req.params.ref, 'auth')`; inserts audit log row `{ action: 'secret.reveal', targetKind: 'instance', targetId: ref, payload: { surface: 'auth' } }`; returns plaintext config JSON; 404 if project not found
+  - If `getPlaintextConfig` returns null or the snapshot is absent (new/paused project never configured): return 404 `{ error: 'not_found', message: 'No auth config snapshot for this project' }` — do NOT let it propagate as a 500
 
 ### Shared frontend prerequisites (T008 + T009 parallelizable with each other)
 
@@ -96,22 +103,41 @@
 ### OAuth form updates (T010–T015 all parallelizable, all depend on T008 + T009)
 
 - [X] T010 [P] [US3] Update `apps/web/src/pages/auth-providers/CommonFour.tsx`:
+  - Add `const { user } = useAuth()` and `const isAdmin = user?.role === 'admin'`
   - Add `import { instancesApi } from '@/lib/api'`
-  - Add `revealed` (boolean) and `revealing` (boolean) state
-  - Add `async function handleReveal()`: calls `instancesApi.revealAuthConfig(projectRef)`, extracts `cfg[fm.secret!]`, sets `secret` state to plaintext value, sets `revealed = true`
-  - `hasSavedSecret = Boolean(authConfig[fm.secret!])`: only show Reveal button when true
-  - `suffix` of `InputWithSuffix`: `revealed ? undefined : (hasSavedSecret ? <Button ... onClick={handleReveal} disabled={revealing}>{revealing ? 'Loading…' : 'Reveal'}</Button> : undefined)`
+  - Add `revealed` (boolean), `revealing` (boolean), and `revealError` (string | null) state
+  - `hasSavedSecret = authConfig[fm.secret!] !== null && authConfig[fm.secret!] !== undefined`
+    (sentinel is `'***'` when saved — truthy and correct; explicit null check is more resilient)
+  - `async function handleReveal()`:
+    ```
+    try {
+      setRevealing(true); setRevealError(null);
+      const cfg = await instancesApi.revealAuthConfig(projectRef);
+      const val = cfg[fm.secret!] as string | null;
+      if (val && val !== '***') { setSecret(val); setRevealed(true); }
+    } catch (err) {
+      setRevealError('Failed to load secret. Try again.');
+    } finally { setRevealing(false); }
+    ```
+  - Reveal button only rendered when `isAdmin && hasSavedSecret && !revealed`
+  - `suffix` of `InputWithSuffix`: `revealed ? undefined : (isAdmin && hasSavedSecret ? <Button ... onClick={handleReveal} disabled={revealing}>{revealing ? 'Loading…' : 'Reveal'}</Button> : undefined)`
   - `<Input type={revealed ? 'text' : 'password'} ...>` (switches to plain text after reveal)
+  - Below InputWithSuffix: `{revealError && <p className="text-sm text-destructive mt-1">{revealError}</p>}`
 
-- [X] T011 [P] [US3] Update `apps/web/src/pages/auth-providers/GoogleForm.tsx` — same pattern as T010; field is `fm.secret!`; both client secret fields use the single `handleReveal` call that fetches the whole auth config and reads `fm.secret!`
+- [X] T011 [P] [US3] Update `apps/web/src/pages/auth-providers/GoogleForm.tsx` — same pattern as T010 (isAdmin gate, revealError state, try/catch handleReveal, inline error)
+  - Per-form note: Google has `external_google_secret` as `fm.secret!`. `additional_client_ids` is NOT a secret — do not add a Reveal button to that field
 
-- [X] T012 [P] [US3] Update `apps/web/src/pages/auth-providers/PlusUrl.tsx` — same pattern as T010
+- [X] T012 [P] [US3] Update `apps/web/src/pages/auth-providers/PlusUrl.tsx` — same pattern as T010 (isAdmin gate, revealError state, try/catch handleReveal, inline error)
+  - Per-form note: Confirm `fm.secret` is defined in the PlusUrl provider field map before adding Reveal; if absent, no Reveal button for this template
 
-- [X] T013 [P] [US3] Update `apps/web/src/pages/auth-providers/AppleForm.tsx` — same pattern as T010; Apple's secret key is `fm.secret!` per the field map
+- [X] T013 [P] [US3] Update `apps/web/src/pages/auth-providers/AppleForm.tsx` — same pattern as T010 (isAdmin gate, revealError state, try/catch handleReveal, inline error)
+  - Per-form deviation: Apple has multiple sensitive fields (`key_id`, `team_id`, `private_key`). `fm.secret!` maps to `external_apple_secret` (the private key). Add Reveal only to the private key InputWithSuffix; `key_id` and `team_id` are not secrets and need no Reveal button
 
-- [X] T014 [P] [US3] Update `apps/web/src/pages/auth-providers/WorkOsShape.tsx` — same pattern as T010
+- [X] T014 [P] [US3] Update `apps/web/src/pages/auth-providers/WorkOsShape.tsx` — same pattern as T010 (isAdmin gate, revealError state, try/catch handleReveal, inline error)
+  - Per-form note: WorkOsShape also has `organization_url` — that is NOT a secret. Apply Reveal only to `fm.secret!` field
 
-- [X] T015 [P] [US3] Update `apps/web/src/pages/auth-providers/OidcForm.tsx` — same pattern as T010
+- [X] T015 [P] [US3] Update `apps/web/src/pages/auth-providers/OidcForm.tsx` — same pattern as T010 (isAdmin gate, revealError state, try/catch handleReveal, inline error)
+  - Per-form note: OIDC client secret maps to `fm.secret!` (`external_oidc_secret`). Same single-field pattern as CommonFour
 
 **Checkpoint**: All three user stories are fully functional. OAuth reveal works end-to-end.
 

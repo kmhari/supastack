@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ExternalLink } from 'lucide-react';
 import { instancesApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import { ProjectShell } from '@/components/ProjectShell';
 import { CardRow } from '@/components/CardRow';
 import { InputWithCopy, FrameButton } from '@/components/InputWithCopy';
@@ -19,6 +20,8 @@ interface InstanceMeta {
 export function ProjectJwtKeysPage(): React.ReactElement {
   const { ref = '' } = useParams<{ ref: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const reveal = useRevealCredentials(ref);
 
   const { data } = useQuery<InstanceMeta>({
@@ -74,7 +77,11 @@ export function ProjectJwtKeysPage(): React.ReactElement {
               value={reveal.creds?.jwtSecret ?? null}
               onReveal={() => void reveal.reveal()}
               pending={reveal.pending}
+              isAdmin={isAdmin}
             />
+            {reveal.error && (
+              <p className="mt-1 text-sm text-destructive">{reveal.error}</p>
+            )}
           </CardRow>
 
           <CardRow
@@ -111,10 +118,12 @@ function JwtSecretInput({
   value,
   onReveal,
   pending,
+  isAdmin,
 }: {
   value: string | null;
   onReveal: () => void;
   pending: boolean;
+  isAdmin: boolean;
 }): React.ReactElement {
   const masked = '•'.repeat(40);
 
@@ -126,7 +135,7 @@ function JwtSecretInput({
       copyValue={value ?? ''}
       noCopy={!value}
       rightSlot={
-        !value ? (
+        !value && isAdmin ? (
           <FrameButton onClick={onReveal} disabled={pending}>
             {pending ? 'Loading…' : 'Reveal'}
           </FrameButton>

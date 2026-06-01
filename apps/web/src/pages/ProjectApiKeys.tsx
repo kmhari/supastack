@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { useAuth } from '@/lib/auth-context';
 import { ProjectShell } from '@/components/ProjectShell';
 import { InputWithCopy, FrameButton } from '@/components/InputWithCopy';
 import { useRevealCredentials } from '@/lib/use-reveal-credentials';
@@ -7,6 +8,8 @@ import { Card } from '@/components/ui/card';
 
 export function ProjectApiKeysPage(): React.ReactElement {
   const { ref = '' } = useParams<{ ref: string }>();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const reveal = useRevealCredentials(ref);
 
   return (
@@ -27,6 +30,7 @@ export function ProjectApiKeysPage(): React.ReactElement {
             value={reveal.creds?.anonKey ?? null}
             onReveal={() => void reveal.reveal()}
             pending={reveal.pending}
+            isAdmin={isAdmin}
           />
           <KeyRow
             name="service_role"
@@ -36,7 +40,11 @@ export function ProjectApiKeysPage(): React.ReactElement {
             value={reveal.creds?.serviceRoleKey ?? null}
             onReveal={() => void reveal.reveal()}
             pending={reveal.pending}
+            isAdmin={isAdmin}
           />
+          {reveal.error && (
+            <p className="px-6 pb-4 text-sm text-destructive">{reveal.error}</p>
+          )}
         </Card>
       </div>
     </ProjectShell>
@@ -51,6 +59,7 @@ function KeyRow({
   value,
   onReveal,
   pending,
+  isAdmin,
 }: {
   name: string;
   badgeText: string;
@@ -59,6 +68,7 @@ function KeyRow({
   value: string | null;
   onReveal: () => void;
   pending: boolean;
+  isAdmin: boolean;
 }): React.ReactElement {
   const masked = '•'.repeat(40);
 
@@ -79,7 +89,7 @@ function KeyRow({
           copyValue={value ?? ''}
           noCopy={!value}
           rightSlot={
-            !value ? (
+            !value && isAdmin ? (
               <FrameButton onClick={onReveal} disabled={pending}>
                 {pending ? 'Loading…' : 'Reveal'}
               </FrameButton>
