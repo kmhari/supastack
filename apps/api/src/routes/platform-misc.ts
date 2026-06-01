@@ -9,11 +9,18 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
 
 export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── Feature flags ──────────────────────────────────────────────────────────
   app.get('/platform/telemetry/feature-flags', async (_req, reply) => {
     return reply.send({ flags: {} });
+  });
+
+  // ── Deployment mode ────────────────────────────────────────────────────────
+  // Studio uses this to distinguish cloud vs self-hosted behavior.
+  app.get('/platform/deployment-mode', async (_req, reply) => {
+    return reply.send({ mode: 'self_hosted' });
   });
 
   // ── Profile ────────────────────────────────────────────────────────────────
@@ -296,6 +303,90 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(req.body ?? {});
   });
 
+  // pgBouncer config PATCH (GET is in the stub loop below)
+  app.patch<RefParams>('/platform/projects/:ref/config/pgbouncer', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  // Realtime config
+  app.get<RefParams>('/platform/projects/:ref/config/realtime', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ max_concurrent_users: 200 });
+  });
+
+  app.patch<RefParams>('/platform/projects/:ref/config/realtime', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  // Secrets config — proxy to management API secrets routes
+  app.get<RefParams>('/platform/projects/:ref/config/secrets', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/secrets`,
+      headers: req.headers as Record<string, string>,
+    });
+    if (resp.statusCode === 200) return reply.status(200).send(resp.json<unknown>());
+    return reply.send([]);
+  });
+
+  app.patch<RefParams>('/platform/projects/:ref/config/secrets', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({
+      method: 'POST',
+      url: `/v1/projects/${req.params.ref}/secrets`,
+      headers: req.headers as Record<string, string>,
+      payload: JSON.stringify(req.body),
+    });
+    if (resp.statusCode === 200 || resp.statusCode === 201) return reply.status(200).send(resp.json<unknown>());
+    return reply.send(req.body ?? {});
+  });
+
+  // Auto API config — Studio project home page
+  app.get<RefParams>('/platform/projects/:ref/api', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const apex = process.env.SUPASTACK_APEX ?? '';
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong, encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
+      .where(eq(schema.supabaseInstances.ref, req.params.ref) && eq(schema.orgMembers.userId, user.id) as never)
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
+    const secrets = inst.encryptedSecrets
+      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as { anonKey?: string; serviceRoleKey?: string })
+      : {};
+    return reply.send({
+      autoApiService: {
+        endpoint: kongUrl,
+        defaultApiKey: secrets.anonKey ?? '',
+        serviceApiKey: secrets.serviceRoleKey ?? '',
+      },
+    });
+  });
+
+  app.get<RefParams>('/platform/projects/:ref/api/rest', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const apex = process.env.SUPASTACK_APEX ?? '';
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
+      .where(eq(schema.supabaseInstances.ref, req.params.ref) && eq(schema.orgMembers.userId, user.id) as never)
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
+    return reply.send({
+      endpoint: `${kongUrl}/rest/v1`,
+      schema: 'public',
+      extraSearchPath: ['public', 'extensions'],
+      maxRows: 1000,
+    });
+  });
+
   // Resource warnings
   app.get('/platform/projects-resource-warnings', async (req, reply) => {
     app.requireAuth(req);
@@ -365,6 +456,63 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     app.requireAuth(req);
     return reply.send({ count: 0 });
   });
+
+  // Get a specific folder by id
+  app.get<{ Params: { ref: string; id: string } }>(
+    '/platform/projects/:ref/content/folders/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ id: req.params.id });
+    },
+  );
+
+  // Save a SQL snippet
+  app.post<RefParams>('/platform/projects/:ref/content', async (req, reply) => {
+    app.requireAuth(req);
+    const body = req.body as Record<string, unknown> | undefined;
+    return reply.send({ ...(body ?? {}), id: Date.now() });
+  });
+
+  // Get a specific content item by id (no persistent store)
+  app.get<{ Params: { ref: string; id: string } }>(
+    '/platform/projects/:ref/content/item/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(404).send({ error: 'not found' });
+    },
+  );
+
+  // Service versions — static stub (no per-service version surface in self-hosted)
+  app.get<RefParams>('/platform/projects/:ref/service-versions', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({});
+  });
+
+  // Temporary API keys — return the project anon + service_role keys
+  app.get<RefParams>('/platform/projects/:ref/api-keys/temporary', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
+      .where(
+        (eq(schema.supabaseInstances.ref, req.params.ref) &&
+          eq(schema.orgMembers.userId, user.id)) as never,
+      )
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    const secrets = inst.encryptedSecrets
+      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as {
+          anonKey?: string;
+          serviceRoleKey?: string;
+        })
+      : {};
+    return reply.send({
+      anon_key: secrets.anonKey ?? '',
+      service_role_key: secrets.serviceRoleKey ?? '',
+    });
+  });
+
   // Misc project stubs — key is always path.split('/').pop()
   for (const path of [
     '/platform/projects/:ref/settings',
@@ -400,6 +548,48 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       return reply.send(stub[key] ?? {});
     });
   }
+
+  // ── Analytics log-drains ───────────────────────────────────────────────────
+  // Log-drain CRUD stubs — supastack does not yet have a log forwarding service.
+  // Studio's Logs > Log Drains page lists/creates/deletes drain configs.
+  type LogDrainParams = { Params: { ref: string; token: string } };
+
+  // Analytics usage endpoints — Studio calls these for project home metrics
+  app.get<RefParams & { Querystring: Record<string, string> }>(
+    '/platform/projects/:ref/analytics/endpoints/:name',
+    async (req, reply) => {
+      app.requireAuth(req);
+      // Return empty result for all analytics usage endpoints
+      return reply.send({ result: [] });
+    },
+  );
+
+  app.get<RefParams>('/platform/projects/:ref/analytics/log-drains', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.post<RefParams>('/platform/projects/:ref/analytics/log-drains', async (req, reply) => {
+    app.requireAuth(req);
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    return reply.status(201).send({ token: 'stub', ...body });
+  });
+
+  app.put<LogDrainParams>(
+    '/platform/projects/:ref/analytics/log-drains/:token',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send((req.body ?? {}) as Record<string, unknown>);
+    },
+  );
+
+  app.delete<LogDrainParams>(
+    '/platform/projects/:ref/analytics/log-drains/:token',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
 
   // ── Org-scoped project listing ─────────────────────────────────────────────
   // Studio calls /platform/organizations/:slug/projects to populate the project list.
@@ -515,6 +705,745 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   app.get<SlugParams>('/platform/organizations/:slug/members/mfa/enforcement', async (req, reply) => {
     app.requireAuth(req);
     return reply.send({ required: false });
+  });
+
+  app.patch<SlugParams>('/platform/organizations/:slug/members/mfa/enforcement', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? { required: false });
+  });
+
+  // GET invite by token — Studio shows invitation details before accepting
+  app.get<{ Params: { slug: string; token: string } }>(
+    '/platform/organizations/:slug/members/invitations/:token',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ token: req.params.token });
+    },
+  );
+
+  // POST accept invitation by token
+  app.post<{ Params: { slug: string; token: string } }>(
+    '/platform/organizations/:slug/members/invitations/:token',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  // POST send invitation
+  app.post<SlugParams>('/platform/organizations/:slug/members/invitations', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(201).send({ id: 1 });
+  });
+
+  // DELETE cancel invitation by id
+  app.delete<{ Params: { slug: string; id: string } }>(
+    '/platform/organizations/:slug/members/invitations/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  // PATCH update member (role change etc.)
+  app.patch<{ Params: { slug: string; gotrue_id: string } }>(
+    '/platform/organizations/:slug/members/:gotrue_id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
+
+  // DELETE remove member from org
+  app.delete<{ Params: { slug: string; gotrue_id: string } }>(
+    '/platform/organizations/:slug/members/:gotrue_id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  // POST assign role to member
+  app.post<{ Params: { slug: string; gotrue_id: string; role_id: string } }>(
+    '/platform/organizations/:slug/members/:gotrue_id/roles/:role_id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(200).send({});
+    },
+  );
+
+  // DELETE remove role from member
+  app.delete<{ Params: { slug: string; gotrue_id: string; role_id: string } }>(
+    '/platform/organizations/:slug/members/:gotrue_id/roles/:role_id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  // ── Org Apps (platform marketplace apps / installations) ───────────────────
+  type SlugAppParams = { Params: { slug: string; app_id: string } };
+  type SlugAppKeyParams = { Params: { slug: string; app_id: string; id: string } };
+  type SlugInstallParams = { Params: { slug: string; id: string } };
+
+  app.post<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/apps/installations',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  app.delete<SlugInstallParams>(
+    '/platform/organizations/:slug/apps/installations/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  app.get<SlugAppParams>(
+    '/platform/organizations/:slug/apps/:app_id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  app.patch<SlugAppParams>(
+    '/platform/organizations/:slug/apps/:app_id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
+
+  app.delete<SlugAppParams>(
+    '/platform/organizations/:slug/apps/:app_id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  app.post<SlugAppParams>(
+    '/platform/organizations/:slug/apps/:app_id/signing-keys',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(201).send({ id: 'mock-signing-key' });
+    },
+  );
+
+  app.delete<SlugAppKeyParams>(
+    '/platform/organizations/:slug/apps/:app_id/signing-keys/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  // ── Org OAuth Apps ─────────────────────────────────────────────────────────
+  type SlugOAuthAppParams = { Params: { slug: string; id: string } };
+  type SlugOAuthSecretParams = { Params: { slug: string; id: string; sid: string } };
+
+  app.post<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/oauth/apps',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(201).send({ id: 'mock-oauth-app' });
+    },
+  );
+
+  app.get<SlugOAuthAppParams>(
+    '/platform/organizations/:slug/oauth/apps/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  app.delete<SlugOAuthAppParams>(
+    '/platform/organizations/:slug/oauth/apps/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  app.post<SlugOAuthAppParams>(
+    '/platform/organizations/:slug/oauth/apps/:id/revoke',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(200).send({});
+    },
+  );
+
+  app.post<SlugOAuthAppParams>(
+    '/platform/organizations/:slug/oauth/apps/:id/client-secrets',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(201).send({ secret: 'mock-client-secret' });
+    },
+  );
+
+  app.delete<SlugOAuthSecretParams>(
+    '/platform/organizations/:slug/oauth/apps/:id/client-secrets/:sid',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  app.get<SlugOAuthAppParams>(
+    '/platform/organizations/:slug/oauth/authorizations/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  // ── Global OAuth authorization lookup ─────────────────────────────────────
+  app.get<{ Params: { id: string } }>(
+    '/platform/oauth/authorizations/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  // ── Project Infrastructure ─────────────────────────────────────────────────
+  // Disk info / config (no real disk management — static stubs)
+  app.get<RefParams>('/platform/projects/:ref/disk', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ size_gb: 8, type: 'gp3', iops: 3000, throughput_mbps: 125 });
+  });
+
+  app.post<RefParams>('/platform/projects/:ref/disk', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ size_gb: 8 });
+  });
+
+  app.get<RefParams>('/platform/projects/:ref/disk/custom-config', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({});
+  });
+
+  app.post<RefParams>('/platform/projects/:ref/disk/custom-config', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  app.get<RefParams>('/platform/projects/:ref/disk/util', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ usage_bytes: 0, total_bytes: 8589934592 });
+  });
+
+  // Read replicas (not supported in self-hosted)
+  app.get<RefParams>('/platform/projects/:ref/read-replicas', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  // Live queries
+  app.get<RefParams>('/platform/projects/:ref/live-queries', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  // Compute resources
+  app.get<{ Params: { ref: string; id: string } }>(
+    '/platform/projects/:ref/resources/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ id: req.params.id });
+    },
+  );
+
+  app.patch<{ Params: { ref: string; id: string } }>(
+    '/platform/projects/:ref/resources/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
+
+  // PrivateLink associations (not supported in self-hosted)
+  app.get<RefParams>('/platform/projects/:ref/privatelink/associations', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ associations: [] });
+  });
+
+  app.post<RefParams>(
+    '/platform/projects/:ref/privatelink/associations/aws-account',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  app.get<{ Params: { ref: string; id: string } }>(
+    '/platform/projects/:ref/privatelink/associations/aws-account/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  // Settings sensitivity (no-op for self-hosted)
+  app.patch<RefParams>('/platform/projects/:ref/settings/sensitivity', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  // ── Storage — stubs for Supabase-specific storage features not in Kong ────
+  // Real bucket CRUD is proxied to Kong's storage API in platform-proxy.ts
+  // via the wildcard /platform/storage/:ref/* route.
+  // These endpoints (vector-buckets, analytics-buckets, archive) don't exist
+  // in Kong's storage API, so we stub them here. Fastify prioritises specific
+  // routes over wildcards, so these match before the proxy wildcard fires.
+  type StorageRefIdParams = { Params: { ref: string; id: string } };
+  type StorageRefIdNameParams = { Params: { ref: string; id: string; name: string } };
+
+  app.get<RefParams>('/platform/storage/:ref/vector-buckets', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.post<RefParams>('/platform/storage/:ref/vector-buckets', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(201).send({ id: 'stub' });
+  });
+
+  app.delete<StorageRefIdParams>('/platform/storage/:ref/vector-buckets/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(204).send();
+  });
+
+  app.post<StorageRefIdParams>(
+    '/platform/storage/:ref/vector-buckets/:id/indexes',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(201).send({});
+    },
+  );
+
+  app.delete<StorageRefIdNameParams>(
+    '/platform/storage/:ref/vector-buckets/:id/indexes/:name',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  app.get<RefParams>('/platform/storage/:ref/analytics-buckets', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.post<RefParams>('/platform/storage/:ref/analytics-buckets', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(201).send({ id: 'stub' });
+  });
+
+  app.delete<StorageRefIdParams>(
+    '/platform/storage/:ref/analytics-buckets/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  app.get<StorageRefIdParams>(
+    '/platform/storage/:ref/analytics-buckets/:id/namespaces',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send([]);
+    },
+  );
+
+  app.post<StorageRefIdParams>(
+    '/platform/storage/:ref/analytics-buckets/:id/namespaces',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(201).send({});
+    },
+  );
+
+  app.get<RefParams>('/platform/storage/:ref/archive', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({});
+  });
+
+  // ── Feedback — fire-and-forget, self-hosted has no feedback service ────────
+  app.post('/platform/feedback/send', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send();
+  });
+
+  app.post('/platform/feedback/upgrade', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send();
+  });
+
+  app.post('/platform/feedback/downgrade', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send();
+  });
+
+  app.patch<{ Params: { id: string } }>(
+    '/platform/feedback/conversations/:id/custom-fields',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  // ── Project Lifecycle ──────────────────────────────────────────────────────
+  // Pause: proxy to /v1/projects/:ref/pause (pause-restore management route)
+  app.post<RefParams>('/platform/projects/:ref/pause', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({
+      method: 'POST',
+      url: `/v1/projects/${req.params.ref}/pause`,
+      headers: req.headers as Record<string, string>,
+    });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
+  });
+
+  // Restore (un-pause): proxy to /v1/projects/:ref/restore
+  app.post<RefParams>('/platform/projects/:ref/restore', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({
+      method: 'POST',
+      url: `/v1/projects/${req.params.ref}/restore`,
+      headers: req.headers as Record<string, string>,
+    });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
+  });
+
+  // Restart: proxy to /api/v1/instances/:ref/restart (dashboard instances route)
+  app.post<RefParams>('/platform/projects/:ref/restart', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({
+      method: 'POST',
+      url: `/api/v1/instances/${req.params.ref}/restart`,
+      headers: req.headers as Record<string, string>,
+    });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
+  });
+
+  // Restart-services: same as restart for self-hosted (no per-service granularity)
+  app.post<RefParams>('/platform/projects/:ref/restart-services', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({
+      method: 'POST',
+      url: `/api/v1/instances/${req.params.ref}/restart`,
+      headers: req.headers as Record<string, string>,
+    });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
+  });
+
+  // Resize compute — no-op for self-hosted (all instances are same size)
+  app.post<RefParams>('/platform/projects/:ref/resize', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send({});
+  });
+
+  // Reset DB password — no-op stub for self-hosted
+  app.patch<RefParams>('/platform/projects/:ref/db-password', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send({});
+  });
+
+  // Transfer project to another org — not applicable for self-hosted
+  app.post<RefParams>('/platform/projects/:ref/transfer', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send({});
+  });
+
+  // Transfer preview — not applicable for self-hosted
+  app.get<RefParams>('/platform/projects/:ref/transfer/preview', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({});
+  });
+
+  // ── Replication (self-hosted: all stubbed as empty / no-op) ──────────────
+  type ReplicationSourceParams = { Params: { ref: string; source_id: string } };
+  type ReplicationSourcePubParams = { Params: { ref: string; source_id: string; name: string } };
+  type ReplicationDestParams = { Params: { ref: string; id: string } };
+  type ReplicationPipelineParams = { Params: { ref: string; id: string } };
+  type ReplicationDestPipelineParams = { Params: { ref: string; did: string; pid: string } };
+
+  // Sources
+  app.get<RefParams>('/platform/replication/:ref/sources', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.get<ReplicationSourceParams>(
+    '/platform/replication/:ref/sources/:source_id/tables',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send([]);
+    },
+  );
+
+  app.get<ReplicationSourceParams>(
+    '/platform/replication/:ref/sources/:source_id/publications',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send([]);
+    },
+  );
+
+  app.post<ReplicationSourceParams>(
+    '/platform/replication/:ref/sources/:source_id/publications',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  app.delete<ReplicationSourcePubParams>(
+    '/platform/replication/:ref/sources/:source_id/publications/:name',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  // Destinations — /validate must be registered before /:id
+  app.get<RefParams>('/platform/replication/:ref/destinations', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.post<RefParams>(
+    '/platform/replication/:ref/destinations/validate',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ valid: true });
+    },
+  );
+
+  app.post<RefParams>('/platform/replication/:ref/destinations', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(201).send({ id: 'mock' });
+  });
+
+  app.patch<ReplicationDestParams>(
+    '/platform/replication/:ref/destinations/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
+
+  app.delete<ReplicationDestParams>(
+    '/platform/replication/:ref/destinations/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  // Pipelines — /validate must be registered before /:id
+  app.get<RefParams>('/platform/replication/:ref/pipelines', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.post<RefParams>(
+    '/platform/replication/:ref/pipelines/validate',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ valid: true });
+    },
+  );
+
+  app.post<RefParams>('/platform/replication/:ref/pipelines', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(201).send({ id: 'mock' });
+  });
+
+  app.delete<ReplicationPipelineParams>(
+    '/platform/replication/:ref/pipelines/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  app.post<ReplicationPipelineParams>(
+    '/platform/replication/:ref/pipelines/:id/start',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(200).send();
+    },
+  );
+
+  app.post<ReplicationPipelineParams>(
+    '/platform/replication/:ref/pipelines/:id/stop',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(200).send();
+    },
+  );
+
+  app.get<ReplicationPipelineParams>(
+    '/platform/replication/:ref/pipelines/:id/status',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ status: 'stopped' });
+    },
+  );
+
+  app.get<ReplicationPipelineParams>(
+    '/platform/replication/:ref/pipelines/:id/version',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ version: '1.0.0' });
+    },
+  );
+
+  app.get<ReplicationPipelineParams>(
+    '/platform/replication/:ref/pipelines/:id/replication-status',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  app.post<ReplicationPipelineParams>(
+    '/platform/replication/:ref/pipelines/:id/rollback-tables',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  // Destinations+Pipelines combined
+  app.post<RefParams>(
+    '/platform/replication/:ref/destinations-pipelines',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  app.delete<ReplicationDestPipelineParams>(
+    '/platform/replication/:ref/destinations-pipelines/:did/:pid',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  // Tenants
+  app.get<RefParams>('/platform/replication/:ref/tenants', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.post<RefParams>('/platform/replication/:ref/tenants-sources', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({});
+  });
+
+  app.delete<RefParams>('/platform/replication/:ref/tenants', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(204).send();
+  });
+
+  // ── Account management stubs — self-hosted uses its own auth flow ────────
+  app.post('/platform/signup', async (_req, reply) => {
+    return reply.send({});
+  });
+
+  app.post('/platform/reset-password', async (_req, reply) => {
+    return reply.send({});
+  });
+
+  app.post('/platform/update-email', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({});
+  });
+
+  // Organization PATCH (rename, etc.) — echo the body back
+  app.patch<SlugParams>('/platform/organizations/:slug', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  // Organization available Postgres versions
+  app.get<SlugParams>('/platform/organizations/:slug/available-versions', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  // Org billing mutations — no-op for self-hosted
+  app.post<SlugParams>(
+    '/platform/organizations/:slug/billing/subscription/confirm',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
+
+  app.post<SlugParams>(
+    '/platform/organizations/:slug/billing/upgrade-request',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(200).send({});
+    },
+  );
+
+  app.post<SlugParams>(
+    '/platform/organizations/:slug/payments/setup-intent',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ client_secret: null });
+    },
+  );
+
+  // Marketplace / confirm-subscription stubs
+  app.post('/platform/organizations/cloud-marketplace', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({});
+  });
+
+  app.post('/platform/organizations/confirm-subscription', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({});
+  });
+
+  // Database backup operations not yet wired to the backup service
+  app.post<RefParams>('/platform/database/:ref/backups/restore', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ status: 'restoring' });
+  });
+
+  app.post<RefParams>('/platform/database/:ref/backups/restore-physical', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ status: 'restoring' });
+  });
+
+  app.post<RefParams>(
+    '/platform/database/:ref/backups/enable-physical-backups',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(200).send({});
+    },
+  );
+
+  app.post<RefParams>('/platform/database/:ref/clone', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ status: 'cloning' });
+  });
+
+  app.post<RefParams>('/platform/database/:ref/hook-enable', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send({});
   });
 
   // ── Stripe / billing stubs — self-hosted has no billing ───────────────────
