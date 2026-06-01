@@ -61,12 +61,14 @@ export async function buildCaddyConfig(): Promise<unknown> {
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
     {
-      match: [{ path: ['/api/*'] }],
+      // Only /api/v1* goes to the Supastack API.
+      // Other /api/* paths (Studio Next.js internal routes like /api/ai/*,
+      // /api/get-deployment-commit) fall through to Studio.
+      match: [{ path: ['/api/v1*'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
     {
       // Platform proxy routes (feature 025 — shared Studio IS_PLATFORM=true).
-      // /platform/pg-meta/:ref/*, /platform/storage/:ref/*, etc.
       match: [{ path: ['/platform/*'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
