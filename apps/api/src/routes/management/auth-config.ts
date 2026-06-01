@@ -7,9 +7,10 @@
  * Contract: specs/009-runtime-config-tunables/contracts/auth-config.md
  */
 import type { FastifyPluginAsync } from 'fastify';
+import { db, schema } from '@supastack/db';
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { getProjectByRef } from '../../services/project-store.js';
-import { getConfig, patchConfig } from '../../services/runtime-config-store.js';
+import { getConfig, getPlaintextConfig, patchConfig } from '../../services/runtime-config-store.js';
 
 export const authConfigRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Params: { ref: string } }>('/projects/:ref/config/auth', async (req) => {
@@ -25,6 +26,25 @@ export const authConfigRoutes: FastifyPluginAsync = async (app) => {
     // state is informational only — paused projects still return their
     // last-known config (spec edge case).
     return getConfig(req.params.ref, 'auth');
+  });
+
+  app.get<{ Params: { ref: string } }>('/projects/:ref/config/auth/reveal', async (req) => {
+    const user = app.requireAuth(req);
+    app.authorize(req, 'auth_config.read');
+    const inst = await getProjectByRef(user.id, req.params.ref);
+    if (!inst) {
+      throw new ManagementApiError(404, 'Project not found', 'not_found', {
+        ref: req.params.ref,
+      });
+    }
+    await db().insert(schema.auditLog).values({
+      actorUserId: user.id,
+      action: 'secret.reveal',
+      targetKind: 'instance',
+      targetId: req.params.ref,
+      payload: { surface: 'auth' },
+    });
+    return getPlaintextConfig(req.params.ref, 'auth');
   });
 
   app.patch<{ Params: { ref: string }; Body: unknown }>(

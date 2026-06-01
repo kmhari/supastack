@@ -1,4 +1,4 @@
-import { decryptJson, generateRef, loadMasterKey, verifyPassword } from '@supastack/crypto';
+import { decryptJson, generateRef, loadMasterKey } from '@supastack/crypto';
 import { allocatePorts, assignPortsToInstance, db, schema } from '@supastack/db';
 import { composePs } from '@supastack/docker-control';
 import { canTransition, errors, schemas, type InstanceState } from '@supastack/shared';
@@ -316,23 +316,12 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(202).send({ ref: row.ref, status: 'deleting' });
   });
 
-  // ─── CREDENTIALS REVEAL (re-auth + audit) ────────────────────────────────
+  // ─── CREDENTIALS REVEAL (audit) ──────────────────────────────────────────
   app.post<{ Params: { ref: string } }>(
     '/instances/:ref/credentials/reveal',
     async (req, reply) => {
       app.authorize(req, 'instance.reveal-credentials');
       const user = app.requireAuth(req);
-      const body = schemas.CredentialRevealRequest.parse(req.body);
-
-      // Re-authenticate against the user's password.
-      const [u] = await db()
-        .select({ hash: schema.users.hashedPassword })
-        .from(schema.users)
-        .where(eq(schema.users.id, user.id))
-        .limit(1);
-      if (!u || !(await verifyPassword(u.hash, body.password))) {
-        throw errors.reauthRequired();
-      }
 
       const row = await fetchInstance(req.params.ref);
       const secrets = decryptJson<InstanceSecrets>(row.encryptedSecrets, loadMasterKey());

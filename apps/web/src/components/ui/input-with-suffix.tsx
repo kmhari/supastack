@@ -13,7 +13,7 @@ export function InputWithSuffix({
 }: {
   className?: string;
   children: React.ReactNode;
-  suffix: React.ReactNode;
+  suffix?: React.ReactNode;
 }): React.ReactElement {
   return (
     <div

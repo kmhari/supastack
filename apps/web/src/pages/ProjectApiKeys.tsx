@@ -1,9 +1,6 @@
-import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
 import { ProjectShell } from '@/components/ProjectShell';
 import { InputWithCopy, FrameButton } from '@/components/InputWithCopy';
-import { RevealDialog } from '@/components/RevealDialog';
 import { useRevealCredentials } from '@/lib/use-reveal-credentials';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -28,8 +25,8 @@ export function ProjectApiKeysPage(): React.ReactElement {
             badgeVariant="outline"
             description="This key is safe to use in a browser if you have enabled Row Level Security for your tables and configured policies."
             value={reveal.creds?.anonKey ?? null}
-            isSecret={false}
-            onReveal={reveal.openDialog}
+            onReveal={() => void reveal.reveal()}
+            pending={reveal.pending}
           />
           <KeyRow
             name="service_role"
@@ -37,21 +34,11 @@ export function ProjectApiKeysPage(): React.ReactElement {
             badgeVariant="destructive"
             description="This key has the ability to bypass Row Level Security. Never share it publicly. If leaked, generate a new JWT secret immediately."
             value={reveal.creds?.serviceRoleKey ?? null}
-            isSecret
-            onReveal={reveal.openDialog}
+            onReveal={() => void reveal.reveal()}
+            pending={reveal.pending}
           />
         </Card>
       </div>
-
-      <RevealDialog
-        open={reveal.dialogOpen}
-        onOpenChange={(o) => (o ? reveal.openDialog() : reveal.closeDialog())}
-        password={reveal.password}
-        onPasswordChange={reveal.setPassword}
-        onSubmit={() => void reveal.reveal()}
-        error={reveal.error}
-        pending={reveal.pending}
-      />
     </ProjectShell>
   );
 }
@@ -62,23 +49,18 @@ function KeyRow({
   badgeVariant,
   description,
   value,
-  isSecret,
   onReveal,
+  pending,
 }: {
   name: string;
   badgeText: string;
   badgeVariant: 'outline' | 'destructive';
   description: string;
   value: string | null;
-  isSecret: boolean;
   onReveal: () => void;
+  pending: boolean;
 }): React.ReactElement {
-  const [shown, setShown] = useState(!isSecret);
   const masked = '•'.repeat(40);
-  // For a public anon key we ALWAYS show the value (when loaded). For
-  // service_role we mask until the user hits Reveal AND toggles Show.
-  const displayValue = !value ? masked : isSecret ? (shown ? value : masked) : value;
-  const isRevealed = value !== null;
 
   return (
     <div className="grid grid-cols-[220px_1fr] items-start gap-8 px-6 py-5">
@@ -88,24 +70,18 @@ function KeyRow({
         <Badge variant={badgeVariant}>{badgeText}</Badge>
       </div>
 
-      {/* Right column: framed input + Reveal/Hide button, description below */}
+      {/* Right column: framed input + Reveal/Copy button, description below */}
       <div className="flex flex-col gap-3">
         <InputWithCopy
           mono
           readOnly
-          value={displayValue}
+          value={value ?? masked}
           copyValue={value ?? ''}
-          noCopy={!isRevealed}
+          noCopy={!value}
           rightSlot={
-            !isRevealed ? (
-              <FrameButton onClick={onReveal}>Reveal</FrameButton>
-            ) : isSecret ? (
-              <FrameButton
-                onClick={() => setShown((v) => !v)}
-                aria-label={shown ? 'Hide' : 'Show'}
-                title={shown ? 'Hide' : 'Show'}
-              >
-                {shown ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
+            !value ? (
+              <FrameButton onClick={onReveal} disabled={pending}>
+                {pending ? 'Loading…' : 'Reveal'}
               </FrameButton>
             ) : undefined
           }

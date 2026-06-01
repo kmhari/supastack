@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ExternalLink } from 'lucide-react';
+import { instancesApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InputWithSuffix } from '@/components/ui/input-with-suffix';
@@ -47,8 +48,25 @@ export function WorkOsShape({
   const [clientId, setClientId] = useState<string>(String(authConfig[fm.clientId!] ?? ''));
   const [secret, setSecret] = useState<string>('');
   const [url, setUrl] = useState<string>(String(authConfig[fm.url!] ?? ''));
+  const [revealed, setRevealed] = useState(false);
+  const [revealing, setRevealing] = useState(false);
 
+  const hasSavedSecret = Boolean(authConfig[fm.secret!]);
   const callbackUrl = buildCallbackUrl(projectRef, apex);
+
+  async function handleReveal(): Promise<void> {
+    setRevealing(true);
+    try {
+      const cfg = await instancesApi.revealAuthConfig(projectRef);
+      const val = cfg[fm.secret!] as string | null;
+      if (val && val !== '***') {
+        setSecret(val);
+        setRevealed(true);
+      }
+    } finally {
+      setRevealing(false);
+    }
+  }
 
   function handleSave(): void {
     const patch: Record<string, unknown> = {
@@ -97,24 +115,26 @@ export function WorkOsShape({
         <FieldRow id="workos-secret" label="Secret Key">
           <InputWithSuffix
             suffix={
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                disabled
-                title="Reveal coming soon — see #73"
-              >
-                Reveal
-              </Button>
+              !revealed && hasSavedSecret ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => void handleReveal()}
+                  disabled={revealing}
+                >
+                  {revealing ? 'Loading…' : 'Reveal'}
+                </Button>
+              ) : undefined
             }
           >
             <Input
               id="workos-secret"
-              type="password"
+              type={revealed ? 'text' : 'password'}
               value={secret}
               onChange={(e) => setSecret(e.target.value)}
               disabled={!isAdmin}
-              placeholder={authConfig[fm.secret!] === null ? '••••••••' : 'paste secret here'}
+              placeholder={hasSavedSecret ? '••••••••' : 'paste secret here'}
               autoComplete="off"
             />
           </InputWithSuffix>
