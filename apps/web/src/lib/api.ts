@@ -110,8 +110,9 @@ export const instancesApi = {
   restartDb: (ref: string) => unwrap(client.post(`/instances/${ref}/restart-db`)),
   upgrade: (ref: string, body: { supabaseVersion: string; backupFirst?: boolean }) =>
     unwrap(client.post(`/instances/${ref}/upgrade`, body)),
-  reveal: (ref: string, body: { password: string }) =>
-    unwrap(client.post(`/instances/${ref}/credentials/reveal`, body)),
+  reveal: (ref: string) => unwrap(client.post(`/instances/${ref}/credentials/reveal`)),
+  revealAuthConfig: (ref: string) =>
+    unwrap<Record<string, unknown>>(client.get(`/projects/${ref}/config/auth/reveal`)),
   health: (ref: string) => unwrap(client.get(`/instances/${ref}/health`)),
 };
 

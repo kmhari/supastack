@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ExternalLink } from 'lucide-react';
+import { instancesApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InputWithSuffix } from '@/components/ui/input-with-suffix';
@@ -54,8 +55,25 @@ export function PlusUrl({
   const [emailOptional, setEmailOptional] = useState<boolean>(
     Boolean(authConfig[fm.emailOptional!]),
   );
+  const [revealed, setRevealed] = useState(false);
+  const [revealing, setRevealing] = useState(false);
 
+  const hasSavedSecret = Boolean(authConfig[fm.secret!]);
   const callbackUrl = buildCallbackUrl(projectRef, apex);
+
+  async function handleReveal(): Promise<void> {
+    setRevealing(true);
+    try {
+      const cfg = await instancesApi.revealAuthConfig(projectRef);
+      const val = cfg[fm.secret!] as string | null;
+      if (val && val !== '***') {
+        setSecret(val);
+        setRevealed(true);
+      }
+    } finally {
+      setRevealing(false);
+    }
+  }
 
   function handleSave(): void {
     const patch: Record<string, unknown> = {
@@ -105,24 +123,26 @@ export function PlusUrl({
         <FieldRow id={`${provider.key}-secret`} label={secretLabelFor(provider.key)}>
           <InputWithSuffix
             suffix={
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                disabled
-                title="Reveal coming soon — see #73"
-              >
-                Reveal
-              </Button>
+              !revealed && hasSavedSecret ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => void handleReveal()}
+                  disabled={revealing}
+                >
+                  {revealing ? 'Loading…' : 'Reveal'}
+                </Button>
+              ) : undefined
             }
           >
             <Input
               id={`${provider.key}-secret`}
-              type="password"
+              type={revealed ? 'text' : 'password'}
               value={secret}
               onChange={(e) => setSecret(e.target.value)}
               disabled={!isAdmin}
-              placeholder={authConfig[fm.secret!] === null ? '••••••••' : 'paste secret here'}
+              placeholder={hasSavedSecret ? '••••••••' : 'paste secret here'}
               autoComplete="off"
             />
           </InputWithSuffix>

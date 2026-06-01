@@ -1,12 +1,10 @@
-import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import { AlertTriangle, ExternalLink } from 'lucide-react';
 import { instancesApi } from '@/lib/api';
 import { ProjectShell } from '@/components/ProjectShell';
 import { CardRow } from '@/components/CardRow';
 import { InputWithCopy, FrameButton } from '@/components/InputWithCopy';
-import { RevealDialog } from '@/components/RevealDialog';
 import { useRevealCredentials } from '@/lib/use-reveal-credentials';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -72,7 +70,11 @@ export function ProjectJwtKeysPage(): React.ReactElement {
           </div>
 
           <CardRow label="Legacy JWT secret (still used)" hint="Used to verify JWTs.">
-            <JwtSecretInput value={reveal.creds?.jwtSecret ?? null} onReveal={reveal.openDialog} />
+            <JwtSecretInput
+              value={reveal.creds?.jwtSecret ?? null}
+              onReveal={() => void reveal.reveal()}
+              pending={reveal.pending}
+            />
           </CardRow>
 
           <CardRow
@@ -101,16 +103,6 @@ export function ProjectJwtKeysPage(): React.ReactElement {
           </CardRow>
         </Card>
       </div>
-
-      <RevealDialog
-        open={reveal.dialogOpen}
-        onOpenChange={(o) => (o ? reveal.openDialog() : reveal.closeDialog())}
-        password={reveal.password}
-        onPasswordChange={reveal.setPassword}
-        onSubmit={() => void reveal.reveal()}
-        error={reveal.error}
-        pending={reveal.pending}
-      />
     </ProjectShell>
   );
 }
@@ -118,33 +110,27 @@ export function ProjectJwtKeysPage(): React.ReactElement {
 function JwtSecretInput({
   value,
   onReveal,
+  pending,
 }: {
   value: string | null;
   onReveal: () => void;
+  pending: boolean;
 }): React.ReactElement {
-  const [shown, setShown] = useState(false);
   const masked = '•'.repeat(40);
-  const displayValue = !value ? masked : shown ? value : masked;
 
   return (
     <InputWithCopy
       mono
       readOnly
-      value={displayValue}
+      value={value ?? masked}
       copyValue={value ?? ''}
       noCopy={!value}
       rightSlot={
         !value ? (
-          <FrameButton onClick={onReveal}>Reveal</FrameButton>
-        ) : (
-          <FrameButton
-            onClick={() => setShown((v) => !v)}
-            aria-label={shown ? 'Hide' : 'Show'}
-            title={shown ? 'Hide' : 'Show'}
-          >
-            {shown ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
+          <FrameButton onClick={onReveal} disabled={pending}>
+            {pending ? 'Loading…' : 'Reveal'}
           </FrameButton>
-        )
+        ) : undefined
       }
     />
   );
