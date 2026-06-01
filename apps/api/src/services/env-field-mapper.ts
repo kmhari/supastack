@@ -17,8 +17,8 @@
  *     diffs the map keys against the upstream OpenAPI snapshot.
  *
  * Counts at merge time (target 165 ± 5; see feature 020 research R-001):
- *   - honored:     169
- *   - stored_only:  59
+ *   - honored:     188
+ *   - stored_only:  40
  *   - unsupported:   6
  *   - total:       234
  *
@@ -478,6 +478,41 @@ const RATE_LIMIT_HONORED: Record<string, FieldStatus> = {
   rate_limit_web3: { kind: 'honored', envName: 'GOTRUE_RATE_LIMIT_WEB3' },
 };
 
+// ─── Auth hooks (feature 082 / issue #64, Phase 1 — pg-functions:// only) ───
+// URI scheme enforcement is in crossFieldValidate() in runtime-config-store.ts.
+// Static status is 'honored' because all fields can be written to env; value
+// constraints are validated at write time, not classified out of the status map.
+
+const HOOKS_HONORED: Record<string, FieldStatus> = {
+  hook_custom_access_token_enabled: { kind: 'honored', envName: 'GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED' },
+  hook_custom_access_token_uri:     { kind: 'honored', envName: 'GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI' },
+  hook_custom_access_token_secrets: { kind: 'honored', envName: 'GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_SECRETS', secret: true },
+
+  hook_mfa_verification_attempt_enabled: { kind: 'honored', envName: 'GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_ENABLED' },
+  hook_mfa_verification_attempt_uri:     { kind: 'honored', envName: 'GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_URI' },
+  hook_mfa_verification_attempt_secrets: { kind: 'honored', envName: 'GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_SECRETS', secret: true },
+
+  hook_password_verification_attempt_enabled: { kind: 'honored', envName: 'GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_ENABLED' },
+  hook_password_verification_attempt_uri:     { kind: 'honored', envName: 'GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_URI' },
+  hook_password_verification_attempt_secrets: { kind: 'honored', envName: 'GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_SECRETS', secret: true },
+
+  hook_send_sms_enabled:   { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_SMS_ENABLED' },
+  hook_send_sms_uri:       { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_SMS_URI' },
+  hook_send_sms_secrets:   { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_SMS_SECRETS', secret: true },
+
+  hook_send_email_enabled: { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_EMAIL_ENABLED' },
+  hook_send_email_uri:     { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_EMAIL_URI' },
+  hook_send_email_secrets: { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_EMAIL_SECRETS', secret: true },
+
+  hook_before_user_created_enabled: { kind: 'honored', envName: 'GOTRUE_HOOK_BEFORE_USER_CREATED_ENABLED' },
+  hook_before_user_created_uri:     { kind: 'honored', envName: 'GOTRUE_HOOK_BEFORE_USER_CREATED_URI' },
+  hook_before_user_created_secrets: { kind: 'honored', envName: 'GOTRUE_HOOK_BEFORE_USER_CREATED_SECRETS', secret: true },
+
+  hook_after_user_created_enabled:  { kind: 'honored', envName: 'GOTRUE_HOOK_AFTER_USER_CREATED_ENABLED' },
+  hook_after_user_created_uri:      { kind: 'honored', envName: 'GOTRUE_HOOK_AFTER_USER_CREATED_URI' },
+  hook_after_user_created_secrets:  { kind: 'honored', envName: 'GOTRUE_HOOK_AFTER_USER_CREATED_SECRETS', secret: true },
+};
+
 // ─── Stored-only clusters (T027) — per-cluster reasons linking follow-up issues ─
 
 const STORED_ONLY_REASONS: Record<string, string> = {};
@@ -488,7 +523,6 @@ const ADD_STORED = (prefix: string, reason: string): void => {
   }
 };
 ADD_STORED('sms_', 'SMS providers — tracked in #66');
-ADD_STORED('hook_', 'Auth hooks dispatcher — tracked in #64');
 ADD_STORED('mfa_', 'MFA flags require GoTrue image bump — tracked in #65');
 ADD_STORED('security_captcha_', 'Captcha env wiring — tracked in #62');
 ADD_STORED('saml_', 'SAML SSO infrastructure — tracked in #61');
@@ -526,6 +560,7 @@ function buildFieldStatus(): Record<string, FieldStatus> {
     ...MAILER_HONORED,
     ...SESSIONS_PW_ETC_HONORED,
     ...RATE_LIMIT_HONORED,
+    ...HOOKS_HONORED,
   };
 
   const out: Record<string, FieldStatus> = {};
