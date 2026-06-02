@@ -265,7 +265,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                   <div className={cn(IconContainerVariants({ size, type }))}>{_iconLeft}</div>
                 ) : null),
               children.props.children && (
-                <span className={'truncate'}>{children.props.children}</span>
+                <span className={'inline-flex items-center gap-1.5 truncate [&_svg]:inline-block [&_svg]:align-middle'}>{children.props.children}</span>
               ),
               iconRight && !loading && (
                 <div className={cn(IconContainerVariants({ size, type }))}>{iconRight}</div>
@@ -282,7 +282,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
               ) : _iconLeft ? (
                 <div className={cn(IconContainerVariants({ size, type }))}>{_iconLeft}</div>
               ) : null)}{' '}
-            {children && <span className={'truncate'}>{children}</span>}{' '}
+            {children && <span className={'inline-flex items-center gap-1.5 truncate [&_svg]:inline-block [&_svg]:align-middle'}>{children}</span>}{' '}
             {iconRight && !loading && (
               <div className={cn(IconContainerVariants({ size, type }))}>{iconRight}</div>
             )}
