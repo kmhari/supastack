@@ -89,12 +89,12 @@ profile/permissions and the setup-created org — with no `sb_sid` cookie.
 **Independent test**: create two orgs (assert 20-char ids), rename one, delete an empty one, and have
 delete refused when the org owns a project.
 
-- [ ] T029 [P] [US3] `POST /platform/organizations` (create; `generateRef` 20-char id with clash retry; owner membership; `tier` → plan marker) in `apps/api/src/routes/platform-organizations.ts`
-- [ ] T030 [P] [US3] `GET /platform/organizations/:slug` (detail, `OrganizationSlugResponse`) in `apps/api/src/routes/platform-organizations.ts`
-- [ ] T031 [P] [US3] `PATCH /platform/organizations/:slug` (rename; authorize `org.update`) in `apps/api/src/routes/platform-organizations.ts`
-- [ ] T032 [US3] `DELETE /platform/organizations/:slug` (authorize `org.delete`, owner-only; 409 if it owns projects) in `apps/api/src/routes/platform-organizations.ts`
-- [ ] T033 [US3] Contract test `apps/api/tests/unit/platform-organizations.test.ts` — happy (create/list/rename/delete-empty; assert 20-char id) + sad (blank name 400, delete-with-projects 409, non-owner 403)
-- [ ] T034 [US3] Live-VM E2E `tests/cli-e2e/orgs-crud.sh` — two orgs with 20-char ids, rename, delete-empty, delete-with-project refused (SC-008, SC-010)
+- [X] T029 [P] [US3] `POST /platform/organizations` (create; `generateRef` 20-char id with clash retry; owner membership; `tier` → plan marker) in `apps/api/src/routes/platform-organizations.ts`
+- [X] T030 [P] [US3] `GET /platform/organizations/:slug` (detail, `OrganizationSlugResponse`) in `apps/api/src/routes/platform-organizations.ts`
+- [X] T031 [P] [US3] `PATCH /platform/organizations/:slug` (rename; authorize `org.update`) in `apps/api/src/routes/platform-organizations.ts`
+- [X] T032 [US3] `DELETE /platform/organizations/:slug` (authorize `org.delete`, owner-only; 409 if it owns projects) in `apps/api/src/routes/platform-organizations.ts`
+- [X] T033 [US3] Contract test `apps/api/tests/unit/platform-organizations.test.ts` — happy (create/list/rename/delete-empty; assert 20-char id) + sad (blank name 400, delete-with-projects 409, non-owner 403)
+- [X] T034 [US3] Live-VM E2E `tests/cli-e2e/orgs-crud.sh` — two orgs with 20-char ids, rename, delete-empty, delete-with-project refused (SC-008, SC-010)
 
 **Checkpoint**: organizations are first-class + isolated from installation routing/backups.
 
@@ -107,18 +107,18 @@ delete refused when the org owns a project.
 **Independent test**: invite an email as Developer, accept end-to-end, change to Read-only, confirm a
 write is then refused; the only Owner can't be removed/demoted.
 
-- [ ] T035 [P] [US4] `GET /platform/organizations/:slug/roles` — `{org_scoped_roles:[{id,name,description,base_role_id,projects:[]}], project_scoped_roles:[]}` (4 numeric-id roles) in `apps/api/src/routes/platform-members.ts`
-- [ ] T036 [P] [US4] `GET /platform/organizations/:slug/members` (`Member[]` with `role_ids:[n]`, email/username from `auth.users`) in `apps/api/src/routes/platform-members.ts`
-- [ ] T037 [US4] `PATCH /platform/organizations/:slug/members/:gotrue_id` (role by `role_id`; last-owner guard → 409) in `apps/api/src/routes/platform-members.ts`
-- [ ] T038 [US4] `DELETE /platform/organizations/:slug/members/:gotrue_id` (last-owner guard → 409) in `apps/api/src/routes/platform-members.ts`
-- [ ] T039 [P] [US4] `GET /platform/organizations/:slug/members/invitations` (pending list) in `apps/api/src/routes/platform-members.ts`
-- [ ] T040 [US4] `POST /platform/organizations/:slug/members/invitations` (`emails[]` + `role_id`; insert rows + GoTrue mailer; `{succeeded,failed}`; 409 if SMTP unset) in `apps/api/src/routes/platform-members.ts`
-- [ ] T041 [US4] `DELETE /platform/organizations/:slug/members/invitations/:id` (cancel) in `apps/api/src/routes/platform-members.ts`
-- [ ] T042 [US4] `GET /platform/organizations/:slug/members/invitations/:token` (status object) in `apps/api/src/routes/platform-members.ts`
-- [ ] T043 [US4] `POST /platform/organizations/:slug/members/invitations/:token` (accept: create GoTrue user if new + membership; mark consumed) in `apps/api/src/routes/platform-members.ts`
-- [ ] T044 [P] [US4] Invite-token + last-owner-count helpers in `apps/api/src/services/org-membership.ts`
-- [ ] T045 [US4] Contract test `apps/api/tests/unit/platform-members.test.ts` — happy (roles list; invite Developer → accept → role_ids:[3]; change to 4) + sad (last-owner 409, SMTP-unset 409, expired token 410, invalid role_id 400)
-- [ ] T046 [US4] Live-VM E2E `tests/cli-e2e/members-invites.sh` — invite email → accept → role; change role → write 403 (SC-004, SC-005)
+- [X] T035 [P] [US4] `GET /platform/organizations/:slug/roles` — `{org_scoped_roles:[{id,name,description,base_role_id,projects:[]}], project_scoped_roles:[]}` (4 numeric-id roles) in `apps/api/src/routes/platform-members.ts`
+- [X] T036 [P] [US4] `GET /platform/organizations/:slug/members` (`Member[]` with `role_ids:[n]`, email/username from `auth.users`) in `apps/api/src/routes/platform-members.ts`
+- [X] T037 [US4] `PATCH /platform/organizations/:slug/members/:gotrue_id` (role by `role_id`; last-owner guard → 409) in `apps/api/src/routes/platform-members.ts`
+- [X] T038 [US4] `DELETE /platform/organizations/:slug/members/:gotrue_id` (last-owner guard → 409) in `apps/api/src/routes/platform-members.ts`
+- [X] T039 [P] [US4] `GET /platform/organizations/:slug/members/invitations` (pending list) in `apps/api/src/routes/platform-members.ts`
+- [X] T040 [US4] `POST /platform/organizations/:slug/members/invitations` (`emails[]` + `role_id`; insert rows + GoTrue mailer; `{succeeded,failed}`; 409 if SMTP unset) in `apps/api/src/routes/platform-members.ts`
+- [X] T041 [US4] `DELETE /platform/organizations/:slug/members/invitations/:id` (cancel) in `apps/api/src/routes/platform-members.ts`
+- [X] T042 [US4] `GET /platform/organizations/:slug/members/invitations/:token` (status object) in `apps/api/src/routes/platform-members.ts`
+- [X] T043 [US4] `POST /platform/organizations/:slug/members/invitations/:token` (accept: create GoTrue user if new + membership; mark consumed) in `apps/api/src/routes/platform-members.ts`
+- [X] T044 [P] [US4] Invite-token + last-owner-count helpers in `apps/api/src/services/org-membership.ts`
+- [X] T045 [US4] Contract test `apps/api/tests/unit/platform-members.test.ts` — happy (roles list; invite Developer → accept → role_ids:[3]; change to 4) + sad (last-owner 409, SMTP-unset 409, expired token 410, invalid role_id 400)
+- [X] T046 [US4] Live-VM E2E `tests/cli-e2e/members-invites.sh` — invite email → accept → role; change role → write 403 (SC-004, SC-005)
 
 **Checkpoint**: full member/role/invitation lifecycle with Cloud-shaped responses.
 
