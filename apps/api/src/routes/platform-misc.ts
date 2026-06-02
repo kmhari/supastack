@@ -7,7 +7,7 @@
  * (instances, auth, etc.).
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
 import { decryptJson, loadMasterKey } from '@supastack/crypto';
 
@@ -166,6 +166,69 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(buildOrg(orgRow.id, orgRow.name, user.role === 'admin'));
   });
 
+  // ── Create organization ────────────────────────────────────────────────────
+  // Supastack is single-org. We can't create additional orgs via Studio, but we
+  // return the existing org in the expected shape so Studio navigates correctly.
+  app.post('/platform/organizations', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [orgRow] = await db()
+      .select({ id: schema.org.id, name: schema.org.name })
+      .from(schema.org)
+      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.org.id))
+      .where(eq(schema.orgMembers.userId, user.id))
+      .limit(1);
+    if (!orgRow) return reply.status(400).send({ error: 'No organization found for this user' });
+    return reply.status(201).send(buildOrg(orgRow.id, orgRow.name, true));
+  });
+
+  // ── Create project ─────────────────────────────────────────────────────────
+  // Studio POSTs to /platform/projects to create a new project.
+  // We delegate to the existing Supastack instance creation endpoint.
+  app.post<{ Body: { name: string; organization_slug?: string; db_pass?: string; db_region?: string } }>(
+    '/platform/projects',
+    async (req, reply) => {
+      const user = app.requireAuth(req);
+      const body = req.body as Record<string, unknown>;
+      const name = (body?.name as string) || 'New Project';
+      const dbPass = (body?.db_pass as string) || '';
+
+      // Delegate to the Supastack provisioning endpoint
+      // Map Studio's db_pass → Supastack's dbPassword
+      const instanceBody: Record<string, unknown> = { name };
+      if (dbPass) instanceBody.dbPassword = dbPass;
+      const payload = JSON.stringify(instanceBody);
+      const resp = await app.inject({
+        method: 'POST',
+        url: '/api/v1/instances',
+        // Use fresh headers — don't pass original Content-Length (payload size differs)
+        headers: {
+          authorization: req.headers['authorization'] as string,
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(payload).toString(),
+        },
+        payload,
+      });
+
+      if (resp.statusCode >= 400) {
+        return reply.status(resp.statusCode).send(resp.json<unknown>());
+      }
+
+      const created = resp.json<{ ref: string; name: string; status: string }>();
+      const apex = process.env.SUPASTACK_APEX ?? '';
+      return reply.status(201).send({
+        ref: created.ref,
+        name: created.name,
+        status: 'COMING_UP',
+        cloud_provider: 'SUPASTACK',
+        region: 'local',
+        organization_id: user.id,
+        insertedAt: new Date().toISOString(),
+        restUrl: apex ? `https://${created.ref}.${apex}/rest/v1` : '',
+        databases: [{ identifier: created.ref, status: 'COMING_UP', region: 'local', cloud_provider: 'SUPASTACK', inserted_at: new Date().toISOString(), infra_compute_size: 'nano' }],
+      });
+    },
+  );
+
   // ── Top-level project listing ──────────────────────────────────────────────
   // Studio also calls /platform/projects directly (not org-scoped) for some views.
   app.get<{ Querystring: { limit?: string; offset?: string } }>(
@@ -214,7 +277,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       })
       .from(schema.supabaseInstances)
       .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-      .where(eq(schema.supabaseInstances.ref, req.params.ref) && eq(schema.orgMembers.userId, user.id) as never)
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     return reply.send(buildProject(inst, apex));
@@ -233,7 +296,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong, insertedAt: schema.supabaseInstances.createdAt })
       .from(schema.supabaseInstances)
       .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-      .where(eq(schema.supabaseInstances.ref, req.params.ref) && eq(schema.orgMembers.userId, user.id) as never)
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.send([]);
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
@@ -352,7 +415,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong, encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
       .from(schema.supabaseInstances)
       .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-      .where(eq(schema.supabaseInstances.ref, req.params.ref) && eq(schema.orgMembers.userId, user.id) as never)
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
@@ -375,7 +438,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong })
       .from(schema.supabaseInstances)
       .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-      .where(eq(schema.supabaseInstances.ref, req.params.ref) && eq(schema.orgMembers.userId, user.id) as never)
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
@@ -497,8 +560,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       .from(schema.supabaseInstances)
       .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
       .where(
-        (eq(schema.supabaseInstances.ref, req.params.ref) &&
-          eq(schema.orgMembers.userId, user.id)) as never,
+        and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)),
       )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
