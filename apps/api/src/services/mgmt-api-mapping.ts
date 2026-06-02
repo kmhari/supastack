@@ -16,7 +16,7 @@ import type {
 import type { InstanceSecrets } from './instance-secrets.js';
 
 type InstanceRow = typeof schema.supabaseInstances.$inferSelect;
-type OrgRow = typeof schema.org.$inferSelect;
+type OrgRow = typeof schema.organizations.$inferSelect;
 type FunctionRow = typeof schema.projectFunctions.$inferSelect;
 type SecretRow = typeof schema.projectSecrets.$inferSelect;
 

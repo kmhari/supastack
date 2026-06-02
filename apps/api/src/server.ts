@@ -41,7 +41,6 @@ import { projectsRoutes } from './routes/management/projects.js';
 import { secretsRoutes } from './routes/management/secrets.js';
 import { sslEnforcementRoutes } from './routes/management/ssl-enforcement.js';
 import { storageBucketsRoutes } from './routes/management/storage-buckets.js';
-import { membersRoutes } from './routes/members.js';
 import { oauthAuthorizeRoutes } from './routes/oauth/authorize.js';
 import { oauthClientsDashboardRoutes } from './routes/oauth/clients-dashboard.js';
 import { oauthDiscoveryRoutes } from './routes/oauth/discovery.js';
@@ -52,7 +51,6 @@ import { pgEdgeCertInternalRoutes } from './routes/pg-edge-cert-internal.js';
 import { platformCliLoginRoutes } from './routes/platform-cli-login.js';
 import { platformProxyRoutes } from './routes/platform-proxy.js';
 import { platformMiscRoutes } from './routes/platform-misc.js';
-import { studioGotrueRoutes } from './routes/studio-gotrue.js';
 import { poolerInternalRoutes } from './routes/pooler-internal.js';
 import { poolerReconcilerRunRoutes } from './routes/pooler-reconciler-run.js';
 import { poolerReregisterRoutes } from './routes/pooler-reregister.js';
@@ -208,7 +206,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(apexRoutes, { prefix: '/api/v1' });
   await app.register(instancesRoutes, { prefix: '/api/v1' });
   await app.register(backupsRoutes, { prefix: '/api/v1' });
-  await app.register(membersRoutes, { prefix: '/api/v1' });
   await app.register(auditRoutes, { prefix: '/api/v1' });
   await app.register(connectCliRoutes, { prefix: '/api/v1' });
   await app.register(wildcardCertRoutes, { prefix: '/api/v1' });
@@ -332,7 +329,6 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
     return reply.status(resp.statusCode).send(resp.payload);
   });
-  await app.register(studioGotrueRoutes, { prefix: '/api/v1' }); // GoTrue shim for Studio IS_PLATFORM=true login (feature 025)
   await app.register(oauthDiscoveryRoutes); // /.well-known/oauth-authorization-server (feature 014 FR-006)
   await app.register(oauthClientsDashboardRoutes); // /api/v1/oauth/clients{,/:id} (feature 014 US3)
   // Feature 020 — dashboard mounts the auth-config route alongside the /v1 mgmt mount
@@ -435,8 +431,11 @@ async function main(): Promise<void> {
 
 async function maybeStartPgEdgeProxy(app: FastifyInstance): Promise<PgEdgeProxy | null> {
   try {
-    const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
-    const apex = orgRow?.apex;
+    const [instRow] = await db()
+      .select({ apex: schema.installation.apexDomain })
+      .from(schema.installation)
+      .limit(1);
+    const apex = instRow?.apex;
     if (!apex) {
       app.log.info('pg-edge: skipped (no apex configured)');
       return null;

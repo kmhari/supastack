@@ -1,7 +1,7 @@
 import { decryptJson, generateRef, loadMasterKey } from '@supastack/crypto';
 import { allocatePorts, assignPortsToInstance, db, schema } from '@supastack/db';
 import { composePs } from '@supastack/docker-control';
-import { canTransition, errors, schemas, type InstanceState } from '@supastack/shared';
+import { canTransition, errors, schemas, type InstanceState, type Role } from '@supastack/shared';
 import { Queue } from 'bullmq';
 import { and, desc, eq, inArray, not } from 'drizzle-orm';
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
@@ -61,7 +61,10 @@ const PUBLIC_INSTANCE_FIELDS = (apex: string | null) => ({
 });
 
 async function getApex(): Promise<string | null> {
-  const rows = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
+  const rows = await db()
+    .select({ apex: schema.installation.apexDomain })
+    .from(schema.installation)
+    .limit(1);
   return rows[0]?.apex ?? null;
 }
 
@@ -122,8 +125,18 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
     const user = app.requireAuth(req);
     const body = schemas.InstanceCreateRequest.parse(req.body);
 
-    const [orgRow] = await db().select({ id: schema.org.id }).from(schema.org).limit(1);
-    if (!orgRow) throw errors.invalidInput('org not initialized — complete /setup first');
+    // Feature 084 — assign the new project to one of the caller's organizations
+    // (transitional: their first membership). US5 makes the org context explicit.
+    const [orgRow] = await db()
+      .select({ id: schema.organizations.id })
+      .from(schema.organizations)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.organizations.id),
+      )
+      .where(eq(schema.organizationMembers.userId, user.id))
+      .limit(1);
+    if (!orgRow) throw errors.invalidInput('no organization — create one first');
 
     const ref = generateRef();
     const secrets = generateInstanceSecrets({
@@ -368,7 +381,7 @@ async function fetchInstance(ref: string): Promise<typeof schema.supabaseInstanc
 function projectRow(
   row: typeof schema.supabaseInstances.$inferSelect,
   apex: string | null,
-  role: 'admin' | 'member',
+  role: Role,
 ) {
   const base = {
     ref: row.ref,
@@ -383,7 +396,8 @@ function projectRow(
     updatedAt: row.updatedAt,
     urls: instanceUrls(row.ref, apex),
   };
-  if (role === 'admin') {
+  // Feature 084 — reveal internal ports to write-capable roles (not read_only).
+  if (role !== 'read_only') {
     return {
       ...base,
       ports: {

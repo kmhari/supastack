@@ -31,17 +31,17 @@ Monorepo: `infra/`, `packages/db`, `packages/shared`, `packages/crypto`, `apps/a
 
 **Purpose**: schema cutover + auth/RBAC plumbing that ALL stories depend on. ⚠️ No story can start until this phase is done.
 
-- [ ] T006 Write the idempotent migration `packages/db/migrations/00NN_gotrue_orgs.sql`: create `installation` singleton (copy `apex_domain` + `backup_store_*` from `org`); create `organizations` (**`id text` 20-char ref PK**), `organization_members`, `organization_invitations`; repurpose `supabase_instances`' existing `org.id` reference into `organization_id text` → `organizations(id)`; repoint `api_tokens.user_id` → `auth.users(id)`; then `DROP TABLE IF EXISTS org_members, invites, users, org` (guarded, dependents first). Must be re-runnable (Constitution I)
-- [ ] T007 Update the Drizzle schema in `packages/db/src/schema/identity.ts` (add `installation`, `organizations`, `organization_members`, `organization_invitations`; remove `users`/`org`/`invites`) and `packages/db/src/schema/instances.ts` (`organization_id text` FK)
-- [ ] T008 Rewrite the RBAC matrix in `packages/shared/src/rbac.ts`: `ROLES = [owner, administrator, developer, read_only]`, new actions (`org.create/update/delete`, `org.members.list/invite/update-role/remove`), full role×action `MATRIX`
-- [ ] T009 [P] Add the role-id ↔ enum mapping (`1 owner, 2 administrator, 3 developer, 4 read_only` + names) in `packages/shared/src/rbac.ts`, used by the roles + members endpoints
-- [ ] T010 [P] RBAC matrix contract test (every role×action cell asserted) in `packages/shared/tests/rbac.test.ts` — happy (allowed cells) + sad (denied cells), plus the role-id mapping
-- [ ] T011 [P] Implement GoTrue JWT verify (HS256 sig + `exp` + non-empty `sub`) in `apps/api/src/services/gotrue-jwt.ts` + unit test `apps/api/tests/unit/gotrue-jwt.test.ts` — happy (valid) + sad (expired, tampered, missing sub)
-- [ ] T012 [P] Implement the `gotrue-admin` client in `apps/api/src/services/gotrue-admin.ts`: mint a `service_role` JWT + `POST /admin/users`, `POST /invite`, `POST /recover`
-- [ ] T013 Rewrite the preHandler in `apps/api/src/plugins/auth.ts`: one GoTrue-JWT branch (verify → `sub` → `organization_members` role) replacing the session-cookie + studio-JWT branches; PAT + OAuth branches join `auth.users` for email; remove the `fastify-session`/`sb_sid` registration
-- [ ] T014 Rewrite `apps/api/src/plugins/rbac.ts`: `authorize(req, action, orgId)` resolving the caller's role in `orgId` (project actions resolve project → org)
-- [ ] T015 Delete `apps/api/src/routes/studio-gotrue.ts`, remove `signStudioJwt`/`verifyStudioJwt` from `apps/api/src/plugins/auth.ts`, and drop the route registration in `apps/api/src/server.ts`
-- [ ] T016 [P] Point `apps/api/src/services/caddy-config.ts` + the backup-store loader at the `installation` singleton instead of `org` (apex_domain + backup_store_*)
+- [X] T006 Write the idempotent migration `packages/db/migrations/00NN_gotrue_orgs.sql`: create `installation` singleton (copy `apex_domain` + `backup_store_*` from `org`); create `organizations` (**`id text` 20-char ref PK**), `organization_members`, `organization_invitations`; repurpose `supabase_instances`' existing `org.id` reference into `organization_id text` → `organizations(id)`; repoint `api_tokens.user_id` → `auth.users(id)`; then `DROP TABLE IF EXISTS org_members, invites, users, org` (guarded, dependents first). Must be re-runnable (Constitution I)
+- [X] T007 Update the Drizzle schema in `packages/db/src/schema/identity.ts` (add `installation`, `organizations`, `organization_members`, `organization_invitations`; remove `users`/`org`/`invites`) and `packages/db/src/schema/instances.ts` (`organization_id text` FK)
+- [X] T008 Rewrite the RBAC matrix in `packages/shared/src/rbac.ts`: `ROLES = [owner, administrator, developer, read_only]`, new actions (`org.create/update/delete`, `org.members.list/invite/update-role/remove`), full role×action `MATRIX`
+- [X] T009 [P] Add the role-id ↔ enum mapping (`1 owner, 2 administrator, 3 developer, 4 read_only` + names) in `packages/shared/src/rbac.ts`, used by the roles + members endpoints
+- [X] T010 [P] RBAC matrix contract test (every role×action cell asserted) in `packages/shared/tests/rbac.test.ts` — happy (allowed cells) + sad (denied cells), plus the role-id mapping
+- [X] T011 [P] Implement GoTrue JWT verify (HS256 sig + `exp` + non-empty `sub`) in `apps/api/src/services/gotrue-jwt.ts` + unit test `apps/api/tests/unit/gotrue-jwt.test.ts` — happy (valid) + sad (expired, tampered, missing sub)
+- [X] T012 [P] Implement the `gotrue-admin` client in `apps/api/src/services/gotrue-admin.ts`: mint a `service_role` JWT + `POST /admin/users`, `POST /invite`, `POST /recover`
+- [X] T013 Rewrite the preHandler in `apps/api/src/plugins/auth.ts`: one GoTrue-JWT branch (verify → `sub` → `organization_members` role) replacing the session-cookie + studio-JWT branches; PAT + OAuth branches join `auth.users` for email; remove the `fastify-session`/`sb_sid` registration
+- [X] T014 Rewrite `apps/api/src/plugins/rbac.ts`: `authorize(req, action, orgId)` resolving the caller's role in `orgId` (project actions resolve project → org)
+- [X] T015 Delete `apps/api/src/routes/studio-gotrue.ts`, remove `signStudioJwt`/`verifyStudioJwt` from `apps/api/src/plugins/auth.ts`, and drop the route registration in `apps/api/src/server.ts`
+- [X] T016 [P] Point `apps/api/src/services/caddy-config.ts` + the backup-store loader at the `installation` singleton instead of `org` (apex_domain + backup_store_*)
 
 **Checkpoint**: schema migrated + re-runnable, GoTrue validates, RBAC matrix green, shim/session/`users` gone.
 

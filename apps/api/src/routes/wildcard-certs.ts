@@ -12,8 +12,8 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
     const user = app.requireAuth(req);
 
     const [orgRow] = await db()
-      .select({ id: schema.org.id, apex: schema.org.apexDomain })
-      .from(schema.org)
+      .select({ apex: schema.installation.apexDomain })
+      .from(schema.installation)
       .limit(1);
     if (!orgRow?.apex) {
       throw errors.conflict('Apex domain must be set before requesting a wildcard certificate');
@@ -27,7 +27,7 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
       .limit(1);
     const email = userRow?.email ?? 'admin@selfbase.local';
 
-    const result = await initiateWildcardOrder(orgRow.id, orgRow.apex, email);
+    const result = await initiateWildcardOrder(null, orgRow.apex, email);
     return reply.status(201).send(result);
   });
 
@@ -35,7 +35,7 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
   app.post('/wildcard-certs/verify', async (req, reply) => {
     app.authorize(req, 'org.update');
 
-    const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
+    const [orgRow] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
     if (!orgRow?.apex) throw errors.conflict('No apex domain configured');
 
     const row = await loadRow(orgRow.apex);
@@ -64,8 +64,8 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
     app.authorize(req, 'org.read');
 
     const [orgRow] = await db()
-      .select({ id: schema.org.id, apex: schema.org.apexDomain })
-      .from(schema.org)
+      .select({ id: schema.installation.id, apex: schema.installation.apexDomain })
+      .from(schema.installation)
       .limit(1);
     if (!orgRow?.apex) return reply.send({ cert: null });
 
@@ -118,8 +118,8 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
     const user = app.requireAuth(req);
 
     const [orgRow] = await db()
-      .select({ id: schema.org.id, apex: schema.org.apexDomain })
-      .from(schema.org)
+      .select({ id: schema.installation.id, apex: schema.installation.apexDomain })
+      .from(schema.installation)
       .limit(1);
     if (!orgRow?.apex) return reply.status(204).send();
 

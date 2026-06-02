@@ -13,7 +13,7 @@ export async function resolveApex(): Promise<string | null> {
   if (cachedApex !== null && now - fetchedAt < TTL_MS) return cachedApex;
 
   try {
-    const [row] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
+    const [row] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
     cachedApex = row?.apex ?? null;
     fetchedAt = now;
 

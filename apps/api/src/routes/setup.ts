@@ -1,18 +1,20 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
-import { hashPassword } from '@supastack/crypto';
+import { generateRef } from '@supastack/crypto';
 import { schemas, errors } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
 import { reloadCaddy } from '../services/caddy-reload.js';
+import { ensureGotrueUser } from '../services/gotrue-admin.js';
 
 /**
- * First-time setup. Open + gated: once a super-admin exists, subsequent
- * attempts return 410. Mirrors open-frontend's pattern (apps/api/src/routes/setup.ts).
+ * First-time setup. Open + gated: once setup is complete, subsequent attempts
+ * return 410.
  *
- * Single transaction: create user (Argon2 hash) + org (singleton) + org_members
- * row + mark setup_state.completed_at. Optional apex registration triggers a
- * Caddy reload so the apex starts serving the dashboard.
+ * Feature 084 — the first operator is created in GoTrue (the identity source);
+ * supastack stores the `installation` singleton (apex + backups), the first
+ * `organizations` row (20-char ref), and an owner membership keyed by the
+ * GoTrue user id. No local password hashing, no session.
  */
 export const setupRoutes: FastifyPluginAsync = async (app) => {
   app.get('/setup/status', async (_req, reply) => {
@@ -28,34 +30,50 @@ export const setupRoutes: FastifyPluginAsync = async (app) => {
   app.post('/setup', async (req, reply) => {
     const body = schemas.SetupRequest.parse(req.body);
 
-    // Hash before the transaction (Argon2 is expensive — keep tx short).
-    const hashed = await hashPassword(body.password);
+    // Refuse early if setup already ran (the tx re-checks for the race).
+    const pre = await db()
+      .select({ completedAt: schema.setupState.completedAt })
+      .from(schema.setupState)
+      .where(eq(schema.setupState.id, 1))
+      .limit(1);
+    if (pre[0]?.completedAt) throw errors.setupComplete();
 
+    // Create (idempotently) the first operator in GoTrue — the identity source.
+    const operator = await ensureGotrueUser({
+      email: body.email,
+      password: body.password,
+      emailConfirm: true,
+    });
+
+    const orgId = generateRef();
     const result = await db().transaction(async (tx) => {
-      // Re-check inside the tx to avoid TOCTOU races on simultaneous POSTs.
       const state = await tx
         .select({ completedAt: schema.setupState.completedAt })
         .from(schema.setupState)
         .where(eq(schema.setupState.id, 1))
         .limit(1);
-      if (state[0]?.completedAt) {
-        throw errors.setupComplete();
-      }
+      if (state[0]?.completedAt) throw errors.setupComplete();
 
+      // Installation singleton (apex + backups).
+      await tx
+        .insert(schema.installation)
+        .values({ id: 1, apexDomain: body.apexDomain ?? null })
+        .onConflictDoUpdate({
+          target: schema.installation.id,
+          set: { apexDomain: body.apexDomain ?? null, updatedAt: new Date() },
+        });
+
+      // First tenant organization.
       const [orgRow] = await tx
-        .insert(schema.org)
-        .values({ name: body.orgName, apexDomain: body.apexDomain ?? null })
-        .returning({ id: schema.org.id });
+        .insert(schema.organizations)
+        .values({ id: orgId, name: body.orgName })
+        .returning({ id: schema.organizations.id });
 
-      const [userRow] = await tx
-        .insert(schema.users)
-        .values({ email: body.email, hashedPassword: hashed })
-        .returning({ id: schema.users.id, email: schema.users.email });
-
-      await tx.insert(schema.orgMembers).values({
-        orgId: orgRow!.id,
-        userId: userRow!.id,
-        role: 'admin',
+      // Owner membership keyed by the GoTrue user id.
+      await tx.insert(schema.organizationMembers).values({
+        organizationId: orgRow!.id,
+        userId: operator.id,
+        role: 'owner',
       });
 
       await tx
@@ -67,7 +85,7 @@ export const setupRoutes: FastifyPluginAsync = async (app) => {
         });
 
       await tx.insert(schema.auditLog).values({
-        actorUserId: userRow!.id,
+        actorUserId: operator.id,
         action: 'setup.complete',
         targetKind: 'org',
         targetId: orgRow!.id,
@@ -75,13 +93,10 @@ export const setupRoutes: FastifyPluginAsync = async (app) => {
       });
 
       // Mint a master API token (shown once).
-      const { raw: rawToken } = await mintApiToken(tx, userRow!.id, 'master');
+      const { raw: rawToken } = await mintApiToken(tx, operator.id, 'master');
 
-      return { userId: userRow!.id, orgId: orgRow!.id, email: userRow!.email, apiToken: rawToken };
+      return { userId: operator.id, orgId: orgRow!.id, email: operator.email, apiToken: rawToken };
     });
-
-    // Establish session so the operator is logged in immediately.
-    req.session.userId = result.userId;
 
     // If an apex domain was set, reload Caddy so the dashboard starts serving.
     if (body.apexDomain) {

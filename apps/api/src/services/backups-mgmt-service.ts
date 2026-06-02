@@ -22,8 +22,8 @@ const _INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/supastack/instances';
 
 export async function resolveBackupStore(): Promise<{ kind: 'local' | 's3'; store: BackupStore }> {
   const [row] = await db()
-    .select({ kind: schema.org.backupStoreKind, cfg: schema.org.backupStoreConfigEncrypted })
-    .from(schema.org)
+    .select({ kind: schema.installation.backupStoreKind, cfg: schema.installation.backupStoreConfigEncrypted })
+    .from(schema.installation)
     .limit(1);
   if (!row || row.kind === 'local') {
     return { kind: 'local', store: new LocalDiskStore(BACKUPS_DIR) };

@@ -1,41 +1,12 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
-import { verifyPassword } from '@supastack/crypto';
 import { schemas, errors } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
 
+// Feature 084 — login/logout moved to the real GoTrue at /auth/v1/{token,logout}.
+// This route keeps /auth/me (identity echo) + PAT (sbp_) management only.
 export const authRoutes: FastifyPluginAsync = async (app) => {
-  // ─── login / logout / me ──────────────────────────────────────────────────
-  app.post('/auth/login', async (req, reply) => {
-    const body = schemas.LoginRequest.parse(req.body);
-    const rows = await db()
-      .select({
-        id: schema.users.id,
-        hash: schema.users.hashedPassword,
-        role: schema.orgMembers.role,
-      })
-      .from(schema.users)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.userId, schema.users.id))
-      .where(eq(schema.users.email, body.email))
-      .limit(1);
-
-    // Constant-time-ish: always verify (with a dummy hash if missing).
-    const ok = rows[0] !== undefined && (await verifyPassword(rows[0].hash, body.password));
-
-    if (!ok || !rows[0]) {
-      throw errors.unauthenticated('invalid credentials');
-    }
-
-    req.session.userId = rows[0].id;
-    return reply.send({ userId: rows[0].id, email: body.email, role: rows[0].role });
-  });
-
-  app.post('/auth/logout', async (req, reply) => {
-    await req.session.destroy();
-    return reply.status(204).send();
-  });
-
   app.get('/auth/me', async (req, reply) => {
     const user = app.requireAuth(req);
     return reply.send({ userId: user.id, email: user.email, role: user.role });

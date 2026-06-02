@@ -52,7 +52,7 @@ const { AppError } = await import('@supastack/shared');
 interface FakeUser {
   id: string;
   email: string;
-  role: 'admin' | 'member';
+  role: 'owner' | 'administrator' | 'developer' | 'read_only';
   tokenId?: string;
 }
 
@@ -60,7 +60,7 @@ async function buildApp(
   opts: {
     user: FakeUser | null;
     authorizeThrows?: boolean;
-  } = { user: { id: 'u1', email: 'a@b.c', role: 'admin' } },
+  } = { user: { id: 'u1', email: 'a@b.c', role: 'owner' } },
 ): Promise<FastifyInstance> {
   const app = Fastify();
   app.decorate('requireAuth', (_req: unknown) => {
@@ -234,7 +234,7 @@ describe('POST /v1/projects/:ref/database/query', () => {
 
   it('returns 403 for member role + audits the denial', async () => {
     const app = await buildApp({
-      user: { id: 'u1', email: 'm@b.c', role: 'member' },
+      user: { id: 'u1', email: 'm@b.c', role: 'read_only' },
       authorizeThrows: true,
     });
     const res = await app.inject({

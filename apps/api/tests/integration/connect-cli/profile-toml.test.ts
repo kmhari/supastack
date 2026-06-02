@@ -33,7 +33,10 @@ describe.skipIf(!hasTestEnv)('/api/v1/cli/* helpers', () => {
     orgId = seeded.orgId;
     // Ensure the org has an apex configured so profile.toml has something
     // concrete to render. Updates rather than depending on seed default.
-    await db().update(schema.org).set({ apexDomain: TEST_APEX }).where(eq(schema.org.id, orgId));
+    await db()
+      .insert(schema.installation)
+      .values({ id: 1, apexDomain: TEST_APEX })
+      .onConflictDoUpdate({ target: schema.installation.id, set: { apexDomain: TEST_APEX } });
   });
 
   afterAll(async () => {

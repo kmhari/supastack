@@ -51,10 +51,10 @@ const { AppError } = await import('@supastack/shared');
 const REF = 'bbbbbbbbbbbbbbbbbbbb';
 
 async function buildApp(
-  opts: { user?: { id: string; email: string; role: 'admin' | 'member' } | null } = {},
+  opts: { user?: { id: string; email: string; role: 'owner' | 'administrator' | 'developer' | 'read_only' } | null } = {},
 ): Promise<FastifyInstance> {
   const user =
-    opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'member' as const } : opts.user;
+    opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'read_only' as const } : opts.user;
   const app = Fastify();
   app.decorate('requireAuth', () => {
     if (!user) throw new AppError(401, 'unauthenticated', 'PAT required');
