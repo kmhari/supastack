@@ -288,7 +288,8 @@ services:
       sh -c "apk add --no-cache python3 make g++ &&
              corepack enable &&
              pnpm install --frozen-lockfile &&
-             pnpm --filter studio exec next dev -p 3000"
+             (test -f apps/studio/.next/BUILD_ID || NODE_OPTIONS=--max-old-space-size=14336 NEXT_TELEMETRY_DISABLED=1 pnpm --filter studio build) &&
+             pnpm --filter studio exec next start -p 3000"
     volumes:
       - ${STUDIO_SOURCE_DIR:-/opt/supabase-vanilla}:/studio
       - studio-node-modules:/studio/node_modules
@@ -298,4 +299,12 @@ services:
       NEXT_PUBLIC_GOTRUE_URL: "https://${SUPASTACK_APEX}/api/v1"
     networks: [internal]
     restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    # Cap CPU + memory so the build can't starve the host (the next-dev
+    # load-1047 incident). Builds once → .next/BUILD_ID, then `next start`.
+    cpus: 6.0
+    mem_limit: 18g
     # Fronted by Caddy catch-all /* — no public port published.
