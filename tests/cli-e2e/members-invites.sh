@@ -51,7 +51,12 @@ if [ "${SUPASTACK_SMTP_CONFIGURED:-0}" = "1" ]; then
   # Invalid role_id → 400 (reached only past the SMTP guard).
   ok "invite-bad-role-400" 400 "$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${AUTH[@]}" -d '{"emails":["x@y.z"],"role_id":99}' "${ORG}/members/invitations")"
 else
-  ok "invite-without-smtp-409" 409 "$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${AUTH[@]}" -d "{\"emails\":[\"${INVITE_EMAIL}\"],\"role_id\":3}" "${ORG}/members/invitations")"
+  # Assign body+code to a var first: a -d "{\"k\":..}" nested inside an outer
+  # "$(...)" lets the outer double-quote context strip the braces (bash then
+  # brace-expands {a,b} into two -d args), corrupting the JSON → 500. The other
+  # branches/scripts avoid this by assigning $(...) to a var (no outer quotes).
+  NOSMTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${AUTH[@]}" -d "{\"emails\":[\"${INVITE_EMAIL}\"],\"role_id\":3}" "${ORG}/members/invitations")
+  ok "invite-without-smtp-409" 409 "$NOSMTP_CODE"
   echo "[MEMBERS] invite-happy-path STATUS=SKIP (set SUPASTACK_SMTP_CONFIGURED=1 + GOTRUE_SMTP_* to verify)"
 fi
 
