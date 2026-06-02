@@ -166,6 +166,57 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(buildOrg(orgRow.id, orgRow.name, user.role === 'admin'));
   });
 
+  // ── New-project wizard endpoints ──────────────────────────────────────────
+  // Available regions — Wizard crashes at recommendations.smartGroup.name if missing
+  app.get('/platform/projects/available-regions', async (req, reply) => {
+    app.requireAuth(req);
+    const LOCAL_REGION = {
+      name: 'local',
+      displayName: 'Local (Self-hosted)',
+      country: 'Local',
+      continent: 'Local',
+      available_instance_sizes: ['micro', 'small', 'medium', 'large', 'xlarge'],
+    };
+    return reply.send({
+      recommendations: {
+        smartGroup: { name: 'local', region: LOCAL_REGION },
+        specific: [],
+      },
+      all: {
+        smartGroup: [LOCAL_REGION],
+        specific: [],
+      },
+    });
+  });
+
+  // Postgres versions for new project wizard (oriole / pg engine)
+  app.post<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/available-versions',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send([
+        {
+          postgres_engine: 'postgres',
+          release_channel: 'ga',
+          displayName: 'PostgreSQL 15',
+          postgresVersion: '15.8.1.085',
+        },
+      ]);
+    },
+  );
+
+  // Organization preview creation (billing estimate before creating)
+  app.post('/platform/organizations/preview-creation', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ has_payment_method: true, project_count: 0, free_project_count: 0 });
+  });
+
+  // Postgres versions list for project settings
+  app.get('/platform/projects/available-versions', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
   // ── Create organization ────────────────────────────────────────────────────
   // Supastack is single-org. We can't create additional orgs via Studio, but we
   // return the existing org in the expected shape so Studio navigates correctly.
