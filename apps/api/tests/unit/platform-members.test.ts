@@ -79,6 +79,7 @@ describe('Org roles + members + invitations (feature 084 US4)', () => {
   });
 
   it('invite: emails[] + role_id → {succeeded, failed}', async () => {
+    process.env.GOTRUE_SMTP_HOST = 'smtp.test';
     const app = await buildApp();
     const res = await app.inject({
       method: 'POST',
@@ -91,6 +92,7 @@ describe('Org roles + members + invitations (feature 084 US4)', () => {
   });
 
   it('invite: invalid role_id → 400', async () => {
+    process.env.GOTRUE_SMTP_HOST = 'smtp.test';
     const app = await buildApp();
     const res = await app.inject({
       method: 'POST',
@@ -98,6 +100,18 @@ describe('Org roles + members + invitations (feature 084 US4)', () => {
       payload: { emails: ['x@y.z'], role_id: 99 },
     });
     expect(res.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it('sad: invite when SMTP is not configured → 409 (US6)', async () => {
+    delete process.env.GOTRUE_SMTP_HOST;
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: `/platform/organizations/${SLUG}/members/invitations`,
+      payload: { emails: ['dev@x.dev'], role_id: 3 },
+    });
+    expect(res.statusCode).toBe(409);
     await app.close();
   });
 

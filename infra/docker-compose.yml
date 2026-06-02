@@ -77,8 +77,17 @@ services:
       GOTRUE_EXTERNAL_EMAIL_ENABLED: 'true'
       GOTRUE_EXTERNAL_PHONE_ENABLED: 'false'
       GOTRUE_MFA_ENABLED: 'false'
-      # Until SMTP lands (US6), directly-created accounts are usable without an email round-trip.
-      GOTRUE_MAILER_AUTOCONFIRM: 'true'
+      # Feature 084 US6 — auto-confirm until SMTP is configured, then operators set
+      # GOTRUE_MAILER_AUTOCONFIRM=false in infra/.env to require email confirmation.
+      GOTRUE_MAILER_AUTOCONFIRM: ${GOTRUE_MAILER_AUTOCONFIRM:-true}
+      # SMTP — operator-provided in infra/.env. When GOTRUE_SMTP_HOST is set,
+      # GoTrue sends invite / recovery / confirmation emails.
+      GOTRUE_SMTP_HOST: ${GOTRUE_SMTP_HOST:-}
+      GOTRUE_SMTP_PORT: ${GOTRUE_SMTP_PORT:-587}
+      GOTRUE_SMTP_USER: ${GOTRUE_SMTP_USER:-}
+      GOTRUE_SMTP_PASS: ${GOTRUE_SMTP_PASS:-}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${GOTRUE_SMTP_ADMIN_EMAIL:-}
+      GOTRUE_SMTP_SENDER_NAME: ${GOTRUE_SMTP_SENDER_NAME:-supastack}
     networks: [internal]
     depends_on:
       db:
@@ -157,6 +166,9 @@ services:
       SUPAVISOR_API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET:-}
       # Feature 014 — OAuth issuer + JWT iss/aud derivation. Same value mcp + supavisor use.
       SUPASTACK_APEX: ${SUPASTACK_APEX:?SUPASTACK_APEX required}
+      # Feature 084 US6 — the api checks this to gate email-dependent actions
+      # (e.g. invitations 409 when unset). Mirrors the auth service's SMTP config.
+      GOTRUE_SMTP_HOST: ${GOTRUE_SMTP_HOST:-}
     ports:
       - 3001:3001
       # pg-edge proxy — direct Postgres endpoint for db.<ref>.<apex>:5432

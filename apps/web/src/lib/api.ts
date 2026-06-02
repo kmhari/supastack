@@ -24,6 +24,9 @@ export const setupApi = {
 };
 
 export const authApi = {
+  // Feature 084 — login/logout moved to GoTrue (/auth/v1/{token,logout}); these
+  // two helpers are dead pending the apps/web retirement to /setup (Studio owns
+  // login). `me` still resolves via the api.
   login: (body: { email: string; password: string }) => unwrap(client.post('/auth/login', body)),
   logout: () => unwrap(client.post('/auth/logout')),
   me: () =>
