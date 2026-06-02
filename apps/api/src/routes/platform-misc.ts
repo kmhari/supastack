@@ -7,9 +7,10 @@
  * (instances, auth, etc.).
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
 import { decryptJson, loadMasterKey } from '@supastack/crypto';
+import { mintApiToken } from '../services/api-tokens.js';
 
 export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── Feature flags ──────────────────────────────────────────────────────────
@@ -95,27 +96,50 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     );
   });
 
-  // Access tokens (PATs) — delegate to auth routes for real data
+  // Access tokens (PATs) — feature 084 US2. Backed by the real `api_tokens`
+  // store (same tokens the CLI/MCP use); mapped to Studio's AccessToken shape.
   app.get('/platform/profile/access-tokens', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send([]);
+    const user = app.requireAuth(req);
+    const rows = await db()
+      .select({
+        id: schema.apiTokens.id,
+        name: schema.apiTokens.label,
+        tokenAlias: schema.apiTokens.prefix,
+        createdAt: schema.apiTokens.createdAt,
+        lastUsedAt: schema.apiTokens.lastUsedAt,
+      })
+      .from(schema.apiTokens)
+      .where(and(eq(schema.apiTokens.userId, user.id), isNull(schema.apiTokens.revokedAt)))
+      .orderBy(desc(schema.apiTokens.createdAt));
+    return reply.send(rows.map((r) => toAccessToken(r)));
   });
 
   app.post('/platform/profile/access-tokens', async (req, reply) => {
-    app.requireAuth(req);
-    const body = req.body as Record<string, unknown> | undefined;
+    const user = app.requireAuth(req);
+    const body = (req.body ?? {}) as { name?: string };
+    const name = body.name?.trim() || 'Access token';
+    const { raw, id, prefix } = await mintApiToken(db(), user.id, name, 'studio');
     return reply.status(201).send({
-      id: 1,
-      name: body?.name ?? 'token',
-      token: 'sbp_placeholder',
-      created_at: new Date().toISOString(),
+      ...toAccessToken({ id, name, tokenAlias: prefix, createdAt: new Date(), lastUsedAt: null }),
+      token: raw, // shown once
     });
   });
 
   app.delete<{ Params: { id: string } }>(
     '/platform/profile/access-tokens/:id',
     async (req, reply) => {
-      app.requireAuth(req);
+      const user = app.requireAuth(req);
+      // Own tokens only.
+      const [row] = await db()
+        .select({ userId: schema.apiTokens.userId })
+        .from(schema.apiTokens)
+        .where(eq(schema.apiTokens.id, req.params.id))
+        .limit(1);
+      if (!row || row.userId !== user.id) return reply.status(204).send();
+      await db()
+        .update(schema.apiTokens)
+        .set({ revokedAt: new Date() })
+        .where(eq(schema.apiTokens.id, req.params.id));
       return reply.status(204).send();
     },
   );
@@ -1602,6 +1626,24 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ client_secret: null });
   });
 };
+
+function toAccessToken(r: {
+  id: string;
+  name: string;
+  tokenAlias: string | null;
+  createdAt: Date;
+  lastUsedAt: Date | null;
+}) {
+  return {
+    id: r.id,
+    name: r.name,
+    token_alias: r.tokenAlias ?? '',
+    scope: 'V0' as const,
+    created_at: r.createdAt.toISOString(),
+    expires_at: null,
+    last_used_at: r.lastUsedAt?.toISOString() ?? null,
+  };
+}
 
 function buildProject(
   inst: { ref: string; name: string; status: string; portKong: number; insertedAt: Date | null; updatedAt: Date | null; orgId: string },
