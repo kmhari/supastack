@@ -65,8 +65,10 @@ services:
       GOTRUE_DB_DATABASE_URL: "postgres://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack?search_path=auth&sslmode=disable"
       GOTRUE_DB_NAMESPACE: auth
       GOTRUE_SITE_URL: "https://${SUPASTACK_APEX}"
-      # External URL where GoTrue is reachable (Caddy /auth/v1/* → auth:9999). Required.
-      GOTRUE_API_EXTERNAL_URL: "https://${SUPASTACK_APEX}/auth/v1"
+      # External URL where GoTrue is reachable (Caddy /auth/v1/* → auth:9999).
+      # Required — and read WITHOUT the GOTRUE_ prefix (matches the per-instance template).
+      API_EXTERNAL_URL: "https://${SUPASTACK_APEX}/auth/v1"
+      GOTRUE_JWT_ISSUER: "https://${SUPASTACK_APEX}/auth/v1"
       # HKDF(MASTER_KEY,'supastack-gotrue-jwt-v1') — the api verifies with the same value.
       GOTRUE_JWT_SECRET: "${GOTRUE_JWT_SECRET:?GOTRUE_JWT_SECRET required - run scripts/derive-gotrue-secret.mjs}"
       GOTRUE_JWT_AUD: authenticated
