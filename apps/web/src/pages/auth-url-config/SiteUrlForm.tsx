@@ -54,7 +54,7 @@ export function SiteUrlForm({
         {isAdmin ? (
           <div className="mt-5 flex justify-end border-t border-border-soft pt-4">
             <Button
-              type="button"
+              htmlType="button"
               onClick={() => onSave(trimmed)}
               disabled={!canSave}
               className="bg-emerald-700 text-white hover:bg-emerald-600 disabled:bg-emerald-900/40 disabled:text-emerald-200/60"

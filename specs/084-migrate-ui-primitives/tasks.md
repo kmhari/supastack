@@ -14,7 +14,7 @@
 
 **Purpose**: Establish source reference for vendoring
 
-- [ ] T001 Confirm source commit: read `infra/supabase-template/COMMIT` and verify `/Users/lord/Code/supabase/supabase` is checked out at that commit (or note the commit SHA for manual diff); document the SHA in `specs/084-migrate-ui-primitives/research.md` under "Pinned commit"
+- [x] T001 Confirm source commit: read `infra/supabase-template/COMMIT` and verify `/Users/lord/Code/supabase/supabase` is checked out at that commit (or note the commit SHA for manual diff); document the SHA in `specs/084-migrate-ui-primitives/research.md` under "Pinned commit"
 
 ---
 
@@ -24,11 +24,11 @@
 
 **⚠️ CRITICAL**: No component vendoring can begin until this phase is complete and the build passes.
 
-- [ ] T002 Audit `apps/web/src/index.css`: list every CSS variable in the `@theme {}` block that is referenced by name in `.tsx` files outside `components/ui/` (run `grep -rn "bg-primary\|text-muted-foreground\|border-border\|text-foreground-light\|bg-muted\|bg-secondary\|bg-accent\|bg-destructive\|bg-success\|bg-warn\|bg-info\|ring-ring" apps/web/src --include="*.tsx" --include="*.ts"` and record the hits)
-- [ ] T003 Rewrite the `@theme {}` block in `apps/web/src/index.css` with Supabase's semantic dark-mode tokens: add all `--brand-*` (200–600 + default), `--destructive-*`, `--warning-*` scales; add all `--border-*`, `--background-*`, `--foreground-*` semantic tokens per the mapping table in `specs/084-migrate-ui-primitives/data-model.md`; retain local overrides for `--ring`, `--info`, and radius tokens (`--radius-sm/md/lg/xl`) which have no Supabase equivalent
-- [ ] T004 Update every non-`components/ui/` `.tsx` file found in T002 that uses old shadcn token classes: replace with Supabase equivalents per data-model.md token mapping table (e.g. `bg-primary` → `bg-brand-400`, `text-muted-foreground` → `text-foreground-muted`, `border-border` → `border-default`, `bg-destructive` → `bg-destructive`)
-- [ ] T005 Update token class references inside the two excluded component files: `apps/web/src/components/ui/sonner.tsx` and `apps/web/src/components/ui/input-with-suffix.tsx` — replace any old `--color-*` variable or shadcn token class with the new Supabase equivalents
-- [ ] T006 Verify: run `pnpm --filter @supastack/web build`; confirm zero TypeScript errors and zero Tailwind "unknown utility" warnings; open the dashboard dev server and visually confirm pages render with correct dark palette (no blown-out colours, no invisible text)
+- [x] T002 Audit `apps/web/src/index.css`: list every CSS variable in the `@theme {}` block that is referenced by name in `.tsx` files outside `components/ui/` (run `grep -rn "bg-primary\|text-muted-foreground\|border-border\|text-foreground-light\|bg-muted\|bg-secondary\|bg-accent\|bg-destructive\|bg-success\|bg-warn\|bg-info\|ring-ring" apps/web/src --include="*.tsx" --include="*.ts"` and record the hits)
+- [x] T003 Rewrite the `@theme {}` block in `apps/web/src/index.css` with Supabase's semantic dark-mode tokens: add all `--brand-*` (200–600 + default), `--destructive-*`, `--warning-*` scales; add all `--border-*`, `--background-*`, `--foreground-*` semantic tokens per the mapping table in `specs/084-migrate-ui-primitives/data-model.md`; retain local overrides for `--ring`, `--info`, and radius tokens (`--radius-sm/md/lg/xl`) which have no Supabase equivalent
+- [x] T004 Update every non-`components/ui/` `.tsx` file found in T002 that uses old shadcn token classes: replace with Supabase equivalents per data-model.md token mapping table (e.g. `bg-primary` → `bg-brand-400`, `text-muted-foreground` → `text-foreground-muted`, `border-border` → `border-default`, `bg-destructive` → `bg-destructive`)
+- [x] T005 Update token class references inside the two excluded component files: `apps/web/src/components/ui/sonner.tsx` and `apps/web/src/components/ui/input-with-suffix.tsx` — replace any old `--color-*` variable or shadcn token class with the new Supabase equivalents
+- [x] T006 Verify: run `pnpm --filter @supastack/web build`; confirm zero TypeScript errors and zero Tailwind "unknown utility" warnings; open the dashboard dev server and visually confirm pages render with correct dark palette (no blown-out colours, no invisible text)
 
 **Checkpoint**: Build passes. Tailwind resolves `bg-brand-400`, `text-foreground-muted`, `border-control` etc. Dashboard looks visually equivalent to pre-migration.
 
@@ -40,13 +40,13 @@
 
 **Independent Test**: Import `{ Button }` from `@/components/ui/button` in any file; render `<Button type="primary">Save</Button>` and `<Button type="danger" loading>Deleting…</Button>`; both render correctly with Supabase brand styling and the spinner.
 
-- [ ] T007 [US1] Copy `Button.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/Button/Button.tsx` into `apps/web/src/components/ui/button.tsx` (replacing the existing file)
-- [ ] T008 [US1] Copy `Button.module.css` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/Button/Button.module.css` into `apps/web/src/components/ui/button.module.css`
-- [ ] T009 [US1] Create `apps/web/src/components/ui/constants.ts` with the `SIZE_VARIANTS` and `SIZE_VARIANTS_DEFAULT` exports copied from `/Users/lord/Code/supabase/supabase/packages/ui/src/lib/constants.ts`
-- [ ] T010 [US1] Fix all internal imports in the vendored `apps/web/src/components/ui/button.tsx`: `cn` → `@/lib/utils`, `SIZE_VARIANTS` → `./constants`, `cva`/`VariantProps` from `class-variance-authority`, `Loader2` from `lucide-react`, `Slot` from `radix-ui`; remove any relative paths that pointed into packages/ui internals
-- [ ] T011 [US1] Update `apps/web/src/components/CopyButton.tsx`: replace `variant="outline" size="xs"` with `type="outline" size="tiny"`; verify the copy-icon `iconLeft` prop if applicable
-- [ ] T012 [US1] Update all Button call sites in `apps/web/src/` (33 files) — run `grep -rln "from '@/components/ui/button'" apps/web/src --include="*.tsx"` to get the full list, then apply these mechanical renames in every file: `variant="default"` → `type="primary"`, `variant="secondary"` → `type="default"`, `variant="outline"` → `type="outline"`, `variant="ghost"` → `type="text"`, `variant="link"` → `type="link"`, `variant="destructive"` → `type="danger"`; `size="xs"` → `size="tiny"`, `size="sm"` → `size="small"`, `size="lg"` → `size="large"`, `size="icon"` / `size="icon-xs"` / `size="icon-sm"` / `size="icon-lg"` → appropriate `size="tiny/small/large"` + explicit `className="w-[26px]"` or equivalent; any `<button type="submit">` rendered via asChild → move to `htmlType="submit"`
-- [ ] T013 [US1] Run `pnpm --filter @supastack/web typecheck`; fix any remaining type errors from the Button migration (common: missing `type=` prop where `variant=` was omitted and defaulted, `htmlType` vs `type` conflicts)
+- [x] T007 [US1] Copy `Button.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/Button/Button.tsx` into `apps/web/src/components/ui/button.tsx` (replacing the existing file)
+- [x] T008 [US1] Copy `Button.module.css` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/Button/Button.module.css` into `apps/web/src/components/ui/button.module.css`
+- [x] T009 [US1] Create `apps/web/src/components/ui/constants.ts` with the `SIZE_VARIANTS` and `SIZE_VARIANTS_DEFAULT` exports copied from `/Users/lord/Code/supabase/supabase/packages/ui/src/lib/constants.ts`
+- [x] T010 [US1] Fix all internal imports in the vendored `apps/web/src/components/ui/button.tsx`: `cn` → `@/lib/utils`, `SIZE_VARIANTS` → `./constants`, `cva`/`VariantProps` from `class-variance-authority`, `Loader2` from `lucide-react`, `Slot` from `radix-ui`; remove any relative paths that pointed into packages/ui internals
+- [x] T011 [US1] Update `apps/web/src/components/CopyButton.tsx`: replace `variant="outline" size="xs"` with `type="outline" size="tiny"`; verify the copy-icon `iconLeft` prop if applicable
+- [x] T012 [US1] Update all Button call sites in `apps/web/src/` (33 files) — run `grep -rln "from '@/components/ui/button'" apps/web/src --include="*.tsx"` to get the full list, then apply these mechanical renames in every file: `variant="default"` → `type="primary"`, `variant="secondary"` → `type="default"`, `variant="outline"` → `type="outline"`, `variant="ghost"` → `type="text"`, `variant="link"` → `type="link"`, `variant="destructive"` → `type="danger"`; `size="xs"` → `size="tiny"`, `size="sm"` → `size="small"`, `size="lg"` → `size="large"`, `size="icon"` / `size="icon-xs"` / `size="icon-sm"` / `size="icon-lg"` → appropriate `size="tiny/small/large"` + explicit `className="w-[26px]"` or equivalent; any `<button type="submit">` rendered via asChild → move to `htmlType="submit"`
+- [x] T013 [US1] Run `pnpm --filter @supastack/web typecheck`; fix any remaining type errors from the Button migration (common: missing `type=` prop where `variant=` was omitted and defaulted, `htmlType` vs `type` conflicts)
 
 **Checkpoint**: TypeScript passes. All button-bearing pages render Supabase DS buttons. `<Button type="primary" loading>` shows spinner.
 
@@ -60,27 +60,27 @@
 
 ### High-attention components (API or export differences)
 
-- [ ] T014 [P] [US1] Vendor `apps/web/src/components/ui/input.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/input.tsx`; fix internal imports (cn → `@/lib/utils`, SIZE_VARIANTS → `./constants`); the new Input gains an optional `size=` prop — existing call sites without `size=` continue to work (default is `"small"`)
-- [ ] T015 [P] [US1] Vendor `apps/web/src/components/ui/badge.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/badge.tsx`; compare exported variant names against current call sites (`grep -rn "variant=" apps/web/src --include="*.tsx" | grep badge`) and update any variant names that changed
-- [ ] T016 [P] [US1] Vendor `apps/web/src/components/ui/card.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/card.tsx`; check if any call site uses `CardAction` (grep for it) — if found, replace with a plain `<div>` wrapper since `CardAction` does not exist in the Supabase version
+- [x] T014 [P] [US1] Vendor `apps/web/src/components/ui/input.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/input.tsx`; fix internal imports (cn → `@/lib/utils`, SIZE_VARIANTS → `./constants`); the new Input gains an optional `size=` prop — existing call sites without `size=` continue to work (default is `"small"`)
+- [x] T015 [P] [US1] Vendor `apps/web/src/components/ui/badge.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/badge.tsx`; compare exported variant names against current call sites (`grep -rn "variant=" apps/web/src --include="*.tsx" | grep badge`) and update any variant names that changed
+- [x] T016 [P] [US1] Vendor `apps/web/src/components/ui/card.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/card.tsx`; check if any call site uses `CardAction` (grep for it) — if found, replace with a plain `<div>` wrapper since `CardAction` does not exist in the Supabase version
 
 ### Drop-in shadcn components (no API changes expected)
 
-- [ ] T017 [P] [US1] Vendor `apps/web/src/components/ui/alert.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/alert.tsx`; fix cn import
-- [ ] T018 [P] [US1] Vendor `apps/web/src/components/ui/dialog.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/dialog.tsx`; fix cn + Radix imports
-- [ ] T019 [P] [US1] Vendor `apps/web/src/components/ui/sheet.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/sheet.tsx`; fix imports
-- [ ] T020 [P] [US1] Vendor `apps/web/src/components/ui/select.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/select.tsx`; fix imports
-- [ ] T021 [P] [US1] Vendor `apps/web/src/components/ui/dropdown-menu.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/dropdown-menu.tsx`; fix imports
-- [ ] T022 [P] [US1] Vendor `apps/web/src/components/ui/separator.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/separator.tsx`; fix imports
-- [ ] T023 [P] [US1] Vendor `apps/web/src/components/ui/checkbox.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/checkbox.tsx`; fix imports
-- [ ] T024 [P] [US1] Vendor `apps/web/src/components/ui/radio-group.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/radio-group.tsx`; fix imports
-- [ ] T025 [P] [US1] Vendor `apps/web/src/components/ui/switch.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/switch.tsx`; fix imports
-- [ ] T026 [P] [US1] Vendor `apps/web/src/components/ui/textarea.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/textarea.tsx`; fix imports
-- [ ] T027 [P] [US1] Vendor `apps/web/src/components/ui/tabs.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/tabs.tsx`; the upstream file re-exports as `Tabs_Shadcn_` — in the vendored copy, change the export names back to `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` to match current supastack call sites
-- [ ] T028 [P] [US1] Vendor `apps/web/src/components/ui/tooltip.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/tooltip.tsx`; fix imports
-- [ ] T029 [P] [US1] Vendor `apps/web/src/components/ui/label.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/label.tsx`; fix imports
-- [ ] T030 [P] [US1] Vendor `apps/web/src/components/ui/scroll-area.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/scroll-area.tsx`; fix imports
-- [ ] T031 [US1] Run `pnpm --filter @supastack/web typecheck` after all T014–T030 are complete; fix any type errors from shadcn component vendoring (likely: changed prop types, missing sub-component exports)
+- [x] T017 [P] [US1] Vendor `apps/web/src/components/ui/alert.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/alert.tsx`; fix cn import
+- [x] T018 [P] [US1] Vendor `apps/web/src/components/ui/dialog.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/dialog.tsx`; fix cn + Radix imports
+- [x] T019 [P] [US1] Vendor `apps/web/src/components/ui/sheet.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/sheet.tsx`; fix imports
+- [x] T020 [P] [US1] Vendor `apps/web/src/components/ui/select.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/select.tsx`; fix imports
+- [x] T021 [P] [US1] Vendor `apps/web/src/components/ui/dropdown-menu.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/dropdown-menu.tsx`; fix imports
+- [x] T022 [P] [US1] Vendor `apps/web/src/components/ui/separator.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/separator.tsx`; fix imports
+- [x] T023 [P] [US1] Vendor `apps/web/src/components/ui/checkbox.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/checkbox.tsx`; fix imports
+- [x] T024 [P] [US1] Vendor `apps/web/src/components/ui/radio-group.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/radio-group.tsx`; fix imports
+- [x] T025 [P] [US1] Vendor `apps/web/src/components/ui/switch.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/switch.tsx`; fix imports
+- [x] T026 [P] [US1] Vendor `apps/web/src/components/ui/textarea.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/textarea.tsx`; fix imports
+- [x] T027 [P] [US1] Vendor `apps/web/src/components/ui/tabs.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/tabs.tsx`; the upstream file re-exports as `Tabs_Shadcn_` — in the vendored copy, change the export names back to `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` to match current supastack call sites
+- [x] T028 [P] [US1] Vendor `apps/web/src/components/ui/tooltip.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/tooltip.tsx`; fix imports
+- [x] T029 [P] [US1] Vendor `apps/web/src/components/ui/label.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/label.tsx`; fix imports
+- [x] T030 [P] [US1] Vendor `apps/web/src/components/ui/scroll-area.tsx` from `/Users/lord/Code/supabase/supabase/packages/ui/src/components/shadcn/ui/scroll-area.tsx`; fix imports
+- [x] T031 [US1] Run `pnpm --filter @supastack/web typecheck` after all T014–T030 are complete; fix any type errors from shadcn component vendoring (likely: changed prop types, missing sub-component exports)
 
 **Checkpoint**: TypeScript passes. All 18 component files are vendored. No call sites needed updating for non-Button components.
 
@@ -92,8 +92,8 @@
 
 **Independent Test**: Load any page using `<InputWithSuffix>` (e.g. secrets page) and any page with toast notifications; both render correctly with Supabase token-based styling.
 
-- [ ] T032 [P] [US2] Update `apps/web/src/components/ui/input-with-suffix.tsx`: replace internal composition with the newly-vendored `Input` (import from `./input`); pass the `size` prop through to the underlying Input; ensure the suffix slot renders alongside the Input correctly
-- [ ] T033 [P] [US2] Review `apps/web/src/components/ui/sonner.tsx` for any hardcoded colour values or old token class names missed in T005; update to Supabase token equivalents; verify `<Toaster>` renders with correct dark-theme styling
+- [x] T032 [P] [US2] Update `apps/web/src/components/ui/input-with-suffix.tsx`: replace internal composition with the newly-vendored `Input` (import from `./input`); pass the `size` prop through to the underlying Input; ensure the suffix slot renders alongside the Input correctly
+- [x] T033 [P] [US2] Review `apps/web/src/components/ui/sonner.tsx` for any hardcoded colour values or old token class names missed in T005; update to Supabase token equivalents; verify `<Toaster>` renders with correct dark-theme styling
 
 **Checkpoint**: InputWithSuffix and toast render correctly. Visual consistency with Supabase Studio achieved.
 
@@ -105,10 +105,10 @@
 
 **Independent Test**: Full `pnpm --filter @supastack/web test:e2e` run returns 0 failures.
 
-- [ ] T034 [US3] Run the full Playwright e2e suite: `pnpm --filter @supastack/web test:e2e`; capture output; list any failing tests
-- [ ] T035 [US3] For each failing test from T034: determine if the failure is a genuine regression (component broke) or a stale selector (test asserted on old class/attribute names like `data-variant="default"` that changed to `data-type="primary"`); fix stale selectors; if genuine regression, fix the component
-- [ ] T036 [US3] Run `pnpm --filter @supastack/web build` for a final production build check; confirm zero errors and zero warnings
-- [ ] T037 [US3] Visual spot-check: load these 5 key pages in the dashboard dev server and confirm no layout regressions: `/dashboard` (overview), `/dashboard/project/:ref/auth/providers` (drawer-heavy), `/dashboard/project/:ref/secrets` (InputWithSuffix), `/dashboard/settings/tokens` (table + badge), `/dashboard/project/:ref/auth/hooks` (form with Button variants); compare against pre-migration screenshots if available
+- [x] T034 [US3] Run the full Playwright e2e suite: `pnpm --filter @supastack/web test:e2e`; capture output; list any failing tests
+- [x] T035 [US3] For each failing test from T034: determine if the failure is a genuine regression (component broke) or a stale selector (test asserted on old class/attribute names like `data-variant="default"` that changed to `data-type="primary"`); fix stale selectors; if genuine regression, fix the component
+- [x] T036 [US3] Run `pnpm --filter @supastack/web build` for a final production build check; confirm zero errors and zero warnings
+- [x] T037 [US3] Visual spot-check: load these 5 key pages in the dashboard dev server and confirm no layout regressions: `/dashboard` (overview), `/dashboard/project/:ref/auth/providers` (drawer-heavy), `/dashboard/project/:ref/secrets` (InputWithSuffix), `/dashboard/settings/tokens` (table + badge), `/dashboard/project/:ref/auth/hooks` (form with Button variants); compare against pre-migration screenshots if available
 
 **Checkpoint**: Zero new Playwright failures. Build clean. Visual spot-check passes.
 
@@ -116,9 +116,9 @@
 
 ## Phase 7: Polish
 
-- [ ] T038 [P] Update `apps/web/src/components/ui/README.md`: revise the primitives table to reflect vendored sources (column: "Source" pointing to packages/ui path), remove the "Customize freely — we own them" note for vendored components, add a "Vendoring" section explaining the pinned commit process
-- [ ] T039 [P] Update `specs/084-migrate-ui-primitives/research.md` with the actual pinned commit SHA confirmed in T001
-- [ ] T040 Commit all changes with message: `feat(web): migrate UI primitives to Supabase design system (084)`
+- [x] T038 [P] Update `apps/web/src/components/ui/README.md`: revise the primitives table to reflect vendored sources (column: "Source" pointing to packages/ui path), remove the "Customize freely — we own them" note for vendored components, add a "Vendoring" section explaining the pinned commit process
+- [x] T039 [P] Update `specs/084-migrate-ui-primitives/research.md` with the actual pinned commit SHA confirmed in T001
+- [x] T040 Commit all changes with message: `feat(web): migrate UI primitives to Supabase design system (084)`
 
 ---
 

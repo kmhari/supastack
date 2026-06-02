@@ -1,45 +1,116 @@
-'use client';
+'use client'
 
-import * as React from 'react';
-import { CircleIcon } from 'lucide-react';
-import { RadioGroup as RadioGroupPrimitive } from 'radix-ui';
+import { RadioGroup as RadioGroupPrimitive } from 'radix-ui'
+import { Circle } from 'lucide-react'
+import * as React from 'react'
 
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils'
 
-function RadioGroup({
-  className,
-  ...props
-}: React.ComponentProps<typeof RadioGroupPrimitive.Root>) {
-  return (
-    <RadioGroupPrimitive.Root
-      data-slot="radio-group"
-      className={cn('grid gap-3', className)}
-      {...props}
-    />
-  );
-}
+const RadioGroup = React.forwardRef<
+  React.ElementRef<typeof RadioGroupPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Root>
+>(({ className, ...props }, ref) => {
+  return <RadioGroupPrimitive.Root className={cn('grid gap-2', className)} {...props} ref={ref} />
+})
+RadioGroup.displayName = RadioGroupPrimitive.Root.displayName
 
-function RadioGroupItem({
-  className,
-  ...props
-}: React.ComponentProps<typeof RadioGroupPrimitive.Item>) {
+const RadioGroupItem = React.forwardRef<
+  React.ElementRef<typeof RadioGroupPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Item>
+>(({ className, children, ...props }, ref) => {
   return (
     <RadioGroupPrimitive.Item
-      data-slot="radio-group-item"
+      ref={ref}
       className={cn(
-        'aspect-square size-4 shrink-0 rounded-full border border-input text-primary shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:ring-destructive/40',
-        className,
+        'relative aspect-square h-4 w-4 rounded-full border border-primary text-primary ring-offset-background focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+        className
       )}
       {...props}
     >
-      <RadioGroupPrimitive.Indicator
-        data-slot="radio-group-indicator"
-        className="relative flex items-center justify-center"
-      >
-        <CircleIcon className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 fill-primary" />
+      <RadioGroupPrimitive.Indicator className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+        <Circle size={10} strokeWidth={0} className="fill-current text-current" />
       </RadioGroupPrimitive.Indicator>
     </RadioGroupPrimitive.Item>
-  );
+  )
+})
+RadioGroupItem.displayName = RadioGroupPrimitive.Item.displayName
+
+interface RadioGroupLargeItemProps {
+  image?: React.ReactNode
+  label: string
+  showIndicator?: boolean
 }
 
-export { RadioGroup, RadioGroupItem };
+const RadioGroupLargeItem = React.forwardRef<
+  React.ElementRef<typeof RadioGroupPrimitive.Item>,
+  RadioGroupLargeItemProps & React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Item>
+>(({ image, label, showIndicator = true, ...props }, ref) => {
+  return (
+    <RadioGroupPrimitive.Item
+      ref={ref}
+      {...props}
+      className={cn(
+        'flex flex-col gap-2',
+        'w-48',
+        'bg-surface-200',
+        'rounded-md border border-strong',
+        'p-2',
+        'shadow-xs',
+        'hover:border-stronger hover:bg-surface-300',
+        'data-[state=checked]:border-primary',
+        'data-[state=checked]:ring-1 data-[state=checked]:ring-border',
+        'data-[state=checked]:bg-selection data-[state=checked]:border-foreground',
+        'transition-colors',
+        'group',
+        props.className
+      )}
+    >
+      {props.children}
+      <div className="flex gap-2 w-full">
+        {showIndicator && (
+          <div className="relative w-3 h-3 min-w-3 mt-0.5">
+            <RadioGroupPrimitive.Indicator
+              className={cn(
+                'absolute',
+                'w-[10px] h-[10px]',
+                'left-px top-px',
+                'border border-background-surface-300',
+                'rounded-full',
+                'data-[state=checked]:border-background-surface-300',
+                'data-[state=checked]:ring-foreground',
+                'data-[state=checked]:bg-foreground'
+              )}
+            />
+            <div
+              className={cn(
+                'absolute',
+                'w-3 h-3',
+                'border border-stronger',
+                'rounded-full',
+                'group-hover:border-foreground-light',
+                'group-data-[state=checked]:border-foreground',
+                'transition-colors'
+              )}
+            ></div>
+          </div>
+        )}
+
+        <label
+          htmlFor={props.value}
+          className={cn(
+            'text-xs transition-colors text-left',
+            'text-light',
+            'group-hover:text-foreground group-data-[state=checked]:text-foreground',
+            props.disabled ? 'cursor-not-allowed' : 'cursor-pointer'
+          )}
+        >
+          {label}
+        </label>
+      </div>
+    </RadioGroupPrimitive.Item>
+  )
+})
+
+RadioGroupLargeItem.displayName = RadioGroupPrimitive.Item.displayName
+
+export { RadioGroup, RadioGroupItem, RadioGroupLargeItem }

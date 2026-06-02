@@ -101,7 +101,7 @@ export function Shell({
         </div>
         <div className="flex items-center gap-3.5 text-sm">
           <span className="text-muted-foreground">{user?.email ?? ''}</span>
-          <Button variant="outline" size="sm" onClick={() => void logout()}>
+          <Button type="outline" size="small" onClick={() => void logout()}>
             Sign out
           </Button>
         </div>

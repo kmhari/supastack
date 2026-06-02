@@ -73,7 +73,7 @@ export function AcceptInvitePage(): React.ReactElement {
           </Alert>
         )}
 
-        <Button disabled={submitting} type="submit" className="w-full">
+        <Button disabled={submitting} htmlType="submit" className="w-full">
           {submitting ? 'Joining…' : 'Join'}
         </Button>
       </form>

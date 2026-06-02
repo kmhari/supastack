@@ -156,7 +156,7 @@ export function ProjectGeneralPage(): React.ReactElement {
             </CardRow>
             <CardFooter>
               <Button
-                type="submit"
+                htmlType="submit"
                 disabled={saveName.isPending || !name.trim() || name.trim() === data.name}
               >
                 {saveName.isPending ? 'Saving…' : 'Save changes'}
@@ -219,7 +219,7 @@ export function ProjectGeneralPage(): React.ReactElement {
       >
         <Card>
           <CardContent>
-            <Button variant="outline" onClick={() => navigate('/settings/members')}>
+            <Button type="outline" onClick={() => navigate('/settings/members')}>
               Manage members
             </Button>
           </CardContent>
@@ -257,7 +257,7 @@ export function ProjectGeneralPage(): React.ReactElement {
                 hint="Bring the project back up. Containers will start in a few seconds."
               >
                 <Button
-                  variant="outline"
+                  type="outline"
                   className="w-full"
                   onClick={() => lifecycle.mutate('resume')}
                 >
@@ -271,7 +271,7 @@ export function ProjectGeneralPage(): React.ReactElement {
                 hint="Your project will not be accessible while it is paused."
               >
                 <Button
-                  variant="outline"
+                  type="outline"
                   className="w-full"
                   disabled={data.status !== 'running'}
                   onClick={() => lifecycle.mutate('pause')}
@@ -304,8 +304,8 @@ export function ProjectGeneralPage(): React.ReactElement {
                     Make sure you have made a backup if you want to keep your data.
                   </div>
                   <Button
-                    variant="destructive"
-                    size="sm"
+                    type="danger"
+                    size="small"
                     className="mt-2.5 self-start"
                     onClick={() => setDeleteOpen(true)}
                   >
@@ -340,11 +340,11 @@ export function ProjectGeneralPage(): React.ReactElement {
             autoFocus
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+            <Button type="outline" onClick={() => setDeleteOpen(false)}>
               Cancel
             </Button>
             <Button
-              variant="destructive"
+              type="danger"
               disabled={deleteConfirm !== data.name}
               onClick={() => {
                 lifecycle.mutate('delete');
@@ -368,7 +368,7 @@ export function ProjectGeneralPage(): React.ReactElement {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRestartOpen(false)}>
+            <Button type="outline" onClick={() => setRestartOpen(false)}>
               Cancel
             </Button>
             <Button
@@ -394,7 +394,7 @@ export function ProjectGeneralPage(): React.ReactElement {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRestartDbOpen(false)}>
+            <Button type="outline" onClick={() => setRestartDbOpen(false)}>
               Cancel
             </Button>
             <Button
@@ -456,8 +456,8 @@ function SplitButton({
   return (
     <div className="flex w-full">
       <Button
-        type="button"
-        variant="outline"
+        htmlType="button"
+        type="outline"
         disabled={disabled}
         onClick={onPrimary}
         className="flex-1 rounded-r-none border-r-0"
@@ -468,8 +468,8 @@ function SplitButton({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            type="button"
-            variant="outline"
+            htmlType="button"
+            type="outline"
             disabled={disabled}
             aria-label="More restart options"
             className="rounded-l-none border-l border-border-soft px-2"

@@ -1,5 +1,9 @@
 # Research: Migrate UI Primitives to Supabase Design System
 
+## Pinned commit
+
+`8cd39680ef7614bbb36ad4f3803c4e7446d22714` — verified present in `/Users/lord/Code/supabase/supabase`. All packages/ui component source files confirmed at this SHA.
+
 ## Decision 1: How to consume packages/ui
 
 **Decision**: Vendor component source files directly into `apps/web/src/components/ui/`

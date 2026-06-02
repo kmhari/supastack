@@ -60,8 +60,8 @@ export function ProjectJwtKeysPage(): React.ReactElement {
                   project must be considered compromised.
                 </p>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  type="outline"
+                  size="small"
                   className="mt-2 self-start"
                   onClick={() => navigate(`/dashboard/project/${ref}/api-keys`)}
                 >

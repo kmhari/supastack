@@ -129,9 +129,9 @@ export function PlusUrl({
             suffix={
               !revealed && hasSavedSecret ? (
                 <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
+                  htmlType="button"
+                  type="text"
+                  size="tiny"
                   onClick={() => void handleReveal()}
                   disabled={revealing}
                 >
@@ -201,10 +201,10 @@ export function PlusUrl({
         >
           Docs <ExternalLink className="size-3.5" />
         </a>
-        <Button type="button" variant="secondary" onClick={onCancel}>
+        <Button htmlType="button" type="default" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="button" onClick={handleSave} disabled={!isAdmin}>
+        <Button htmlType="button" onClick={handleSave} disabled={!isAdmin}>
           Save
         </Button>
       </SheetFooter>

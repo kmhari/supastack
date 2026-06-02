@@ -41,7 +41,7 @@ export function RedirectUrlsList({
             Docs <ExternalLink className="size-3.5" />
           </a>
           {isAdmin ? (
-            <Button type="button" variant="outline" size="sm" onClick={onAddClick}>
+            <Button htmlType="button" type="outline" size="small" onClick={onAddClick}>
               <Plus className="size-3.5" /> Add URL
             </Button>
           ) : null}
@@ -66,9 +66,9 @@ export function RedirectUrlsList({
                 <span className="flex-1 truncate font-mono text-sm text-foreground">{url}</span>
                 {isAdmin ? (
                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
+                    htmlType="button"
+                    type="text"
+                    size="small"
                     aria-label={`Remove ${url}`}
                     onClick={() => onDelete(url)}
                   >

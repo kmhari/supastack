@@ -112,7 +112,7 @@ export function SettingsMembersPage(): React.ReactElement {
           </div>
           <div className="ml-auto flex items-center gap-2">
             {isAdmin && (
-              <Button size="sm" onClick={() => setInviteOpen(true)}>
+              <Button size="small" onClick={() => setInviteOpen(true)}>
                 <UserPlus className="size-3.5" />
                 Invite members
               </Button>
@@ -179,7 +179,7 @@ export function SettingsMembersPage(): React.ReactElement {
                     {new Date(i.expiresAt).toLocaleDateString()}
                   </div>
                   <div className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => revokeInvite.mutate(i.id)}>
+                    <Button type="outline" size="small" onClick={() => revokeInvite.mutate(i.id)}>
                       Revoke
                     </Button>
                   </div>
@@ -231,7 +231,7 @@ function MemberRow({
         {canRemove && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="member actions">
+              <Button type="text" size="small" aria-label="member actions">
                 <MoreVertical className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
@@ -343,10 +343,10 @@ function InviteDialog({
               </Alert>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button htmlType="button" type="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createInvite.isPending}>
+              <Button htmlType="submit" disabled={createInvite.isPending}>
                 {createInvite.isPending ? 'Sending…' : 'Send invite'}
               </Button>
             </DialogFooter>

@@ -1,50 +1,44 @@
-import * as React from 'react';
-import { cva, type VariantProps } from 'class-variance-authority';
-import { Slot } from 'radix-ui';
+import { cva, type VariantProps } from 'class-variance-authority'
+import * as React from 'react'
 
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils'
 
 const badgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-sm border border-transparent px-2 py-0.5 text-[10px] font-mono tracking-wider uppercase whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [&>svg]:pointer-events-none [&>svg]:size-3',
+  'inline-flex items-center gap-1 justify-center rounded-full font-normal whitespace-nowrap tracking-[0.07em] uppercase font-medium text-[9px] leading-none px-[5.5px] py-[3px]',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground [a&]:hover:bg-primary/90',
+        default: 'bg-surface-75 text-foreground-light border border-strong',
+        warning: 'bg-warning/10 text-warning border border-warning-500',
+        warn: 'bg-warning/10 text-warning border border-warning-500',
+        success: 'bg-brand/10 text-brand-600 border border-brand-500',
+        destructive: 'bg-destructive/10 text-destructive-600 border border-destructive-500',
+        outline: 'border-border text-muted-foreground',
+        info: 'bg-info/10 text-info border border-info/40',
+        // Secondary is invisible
         secondary:
-          'bg-secondary text-secondary-foreground border-border [a&]:hover:bg-secondary/90',
-        destructive:
-          'bg-destructive-bg text-destructive border-destructive/40 [a&]:hover:bg-destructive-bg/80',
-        outline:
-          'border-border text-muted-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
-        success: 'bg-success/10 text-success border-success/40',
-        warn: 'bg-warn/10 text-warn border-warn/40',
-        info: 'bg-info/10 text-info border-info/40',
-        ghost: '[a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
-        link: 'text-primary underline-offset-4 [a&]:hover:underline',
+          'bg-secondary/50 hover:bg-secondary/80 border-transparent text-secondary-foreground',
       },
     },
     defaultVariants: {
       variant: 'default',
     },
-  },
-);
+  }
+)
 
-function Badge({
-  className,
-  variant = 'default',
-  asChild = false,
-  ...props
-}: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot.Root : 'span';
+export interface BadgeProps
+  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
 
-  return (
-    <Comp
-      data-slot="badge"
-      data-variant={variant}
-      className={cn(badgeVariants({ variant }), className)}
-      {...props}
-    />
-  );
-}
+// Forward refs in order to allow tooltips to be applied to the badge
+const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
+  ({ className, variant = 'default', children, ...props }, ref) => {
+    return (
+      <div ref={ref} className={cn(badgeVariants({ variant }), className)} {...props}>
+        {children}
+      </div>
+    )
+  }
+)
+Badge.displayName = 'Badge'
 
-export { Badge, badgeVariants };
+export { Badge }

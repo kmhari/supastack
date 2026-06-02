@@ -88,7 +88,7 @@ export function SettingsTokensPage(): React.ReactElement {
             />
           </div>
           <div className="ml-auto">
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Button size="small" onClick={() => setCreateOpen(true)}>
               <Plus className="size-3.5" />
               Create token
             </Button>
@@ -146,7 +146,7 @@ export function SettingsTokensPage(): React.ReactElement {
                 <div className="flex justify-end">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon-sm" aria-label="token actions">
+                      <Button type="text" size="small" aria-label="token actions">
                         <MoreVertical className="size-3.5" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -258,10 +258,10 @@ function CreateTokenDialog({
               </Alert>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button htmlType="button" type="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={create.isPending}>
+              <Button htmlType="submit" disabled={create.isPending}>
                 {create.isPending ? 'Creating…' : 'Create token'}
               </Button>
             </DialogFooter>

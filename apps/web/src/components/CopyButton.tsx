@@ -35,6 +35,22 @@ async function copyToClipboard(value: string): Promise<boolean> {
   }
 }
 
+const VARIANT_MAP: Record<string, string | undefined> = {
+  default: undefined,
+  secondary: 'default',
+  outline: 'outline',
+  ghost: 'text',
+  link: 'link',
+};
+
+const SIZE_MAP: Record<string, string> = {
+  default: 'medium',
+  sm: 'small',
+  xs: 'tiny',
+  icon: 'tiny',
+  'icon-sm': 'small',
+};
+
 export function CopyButton({
   value,
   label = 'Copy',
@@ -51,11 +67,13 @@ export function CopyButton({
   iconOnly?: boolean;
 }): React.ReactElement {
   const [state, setState] = useState<'idle' | 'ok' | 'fail'>('idle');
+  const mappedSize = iconOnly ? 'small' : (SIZE_MAP[size] ?? 'small');
+  const mappedType = VARIANT_MAP[variant];
   return (
     <Button
-      type="button"
-      variant={variant}
-      size={iconOnly ? 'icon-sm' : size}
+      htmlType="button"
+      {...(mappedType ? { type: mappedType as 'outline' | 'text' | 'default' | 'link' } : {})}
+      size={mappedSize as 'tiny' | 'small' | 'medium' | 'large'}
       className={cn(className)}
       onClick={async () => {
         const ok = await copyToClipboard(value);

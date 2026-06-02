@@ -100,8 +100,8 @@ export function SettingsMcpClientsPage(): React.ReactElement {
                 </div>
                 <div className="flex justify-end">
                   <Button
-                    variant="ghost"
-                    size="sm"
+                    type="text"
+                    size="small"
                     className="text-destructive hover:text-destructive"
                     onClick={() => {
                       if (
