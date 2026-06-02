@@ -9,8 +9,15 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
-import { decryptJson, loadMasterKey } from '@supastack/crypto';
+import { decryptJson, generateRef, loadMasterKey } from '@supastack/crypto';
+import { ROLE_IDS, ROLE_NAMES, roleFromId, type Role } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
+import {
+  hashInviteToken,
+  memberRole,
+  newInviteToken,
+  ownerCount,
+} from '../services/org-membership.js';
 
 export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── Feature flags ──────────────────────────────────────────────────────────
@@ -270,18 +277,21 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ── Create organization ────────────────────────────────────────────────────
-  // Supastack is single-org. We can't create additional orgs via Studio, but we
-  // return the existing org in the expected shape so Studio navigates correctly.
+  // Feature 084 (US3) — create a new organization; the creator becomes owner.
+  // org.create is allowed for every authenticated role (no org context needed).
   app.post('/platform/organizations', async (req, reply) => {
     const user = app.requireAuth(req);
-    const [orgRow] = await db()
-      .select({ id: schema.organizations.id, name: schema.organizations.name })
-      .from(schema.organizations)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.organizations.id))
-      .where(eq(schema.organizationMembers.userId, user.id))
-      .limit(1);
-    if (!orgRow) return reply.status(400).send({ error: 'No organization found for this user' });
-    return reply.status(201).send(buildOrg(orgRow.id, orgRow.name, true));
+    const body = (req.body ?? {}) as { name?: string };
+    const name = body.name?.trim();
+    if (!name) return reply.status(400).send({ error: 'name is required' });
+    const id = generateRef();
+    await db().transaction(async (tx) => {
+      await tx.insert(schema.organizations).values({ id, name });
+      await tx
+        .insert(schema.organizationMembers)
+        .values({ organizationId: id, userId: user.id, role: 'owner' });
+    });
+    return reply.status(201).send({ pending_payment_intent_secret: null, ...buildOrg(id, name, true) });
   });
 
   // ── Create project ─────────────────────────────────────────────────────────
@@ -791,14 +801,44 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── Org-scoped stubs ───────────────────────────────────────────────────────
   type SlugParams = { Params: { slug: string } };
 
+  // Feature 084 (US4) — list org members with their role_ids.
   app.get<SlugParams>('/platform/organizations/:slug/members', async (req, reply) => {
-    const user = app.requireAuth(req);
-    return reply.send([{ gotrue_id: user.id, username: user.email.split('@')[0], primary_email: user.email, role_ids: [1] }]);
+    await app.authorizeOrg(req, 'member.list', req.params.slug);
+    const rows = await db()
+      .select({
+        gotrueId: schema.organizationMembers.userId,
+        role: schema.organizationMembers.role,
+        email: schema.users.email,
+      })
+      .from(schema.organizationMembers)
+      .innerJoin(schema.users, eq(schema.users.id, schema.organizationMembers.userId))
+      .where(eq(schema.organizationMembers.organizationId, req.params.slug));
+    return reply.send(
+      rows.map((r) => ({
+        gotrue_id: r.gotrueId,
+        primary_email: r.email,
+        username: r.email.split('@')[0],
+        role_ids: [ROLE_IDS[r.role as Role]],
+        mfa_enabled: false,
+        is_sso_user: false,
+        metadata: {},
+      })),
+    );
   });
 
+  // Feature 084 (US4) — the four fixed org roles as numeric-id objects.
   app.get<SlugParams>('/platform/organizations/:slug/roles', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ org_scoped_roles: [{ id: 1, name: 'Owner', description: null, base_role_id: 1, projects: [] }], project_scoped_roles: [] });
+    await app.authorizeOrg(req, 'member.list', req.params.slug);
+    const orgScopedRoles = (['owner', 'administrator', 'developer', 'read_only'] as Role[]).map(
+      (r) => ({
+        id: ROLE_IDS[r],
+        name: ROLE_NAMES[r],
+        description: null,
+        base_role_id: ROLE_IDS[r],
+        projects: [],
+      }),
+    );
+    return reply.send({ org_scoped_roles: orgScopedRoles, project_scoped_roles: [] });
   });
 
   app.get<SlugParams>('/platform/organizations/:slug/billing/subscription', async (req, reply) => {
@@ -847,10 +887,31 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ result: [], count: 0 });
   });
 
-  // invitations: Studio destructures as `orgInvites.invitations.map(...)` — must be { invitations: [] }
+  // Feature 084 (US4) — pending invitations for the org.
   app.get<SlugParams>('/platform/organizations/:slug/members/invitations', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ invitations: [] });
+    await app.authorizeOrg(req, 'member.list', req.params.slug);
+    const rows = await db()
+      .select({
+        id: schema.organizationInvitations.id,
+        email: schema.organizationInvitations.email,
+        role: schema.organizationInvitations.role,
+        createdAt: schema.organizationInvitations.createdAt,
+      })
+      .from(schema.organizationInvitations)
+      .where(
+        and(
+          eq(schema.organizationInvitations.organizationId, req.params.slug),
+          isNull(schema.organizationInvitations.consumedAt),
+        ),
+      );
+    return reply.send({
+      invitations: rows.map((r) => ({
+        id: r.id,
+        invited_email: r.email,
+        invited_at: r.createdAt.toISOString(),
+        role_id: ROLE_IDS[r.role as Role],
+      })),
+    });
   });
 
   for (const path of [
@@ -879,53 +940,175 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(req.body ?? { required: false });
   });
 
-  // GET invite by token — Studio shows invitation details before accepting
+  // Feature 084 (US4) — invitee checks an invite's validity before accepting.
   app.get<{ Params: { slug: string; token: string } }>(
     '/platform/organizations/:slug/members/invitations/:token',
     async (req, reply) => {
-      app.requireAuth(req);
-      return reply.send({ token: req.params.token });
+      const user = app.requireAuth(req);
+      const sha = hashInviteToken(req.params.token);
+      const [inv] = await db()
+        .select()
+        .from(schema.organizationInvitations)
+        .where(eq(schema.organizationInvitations.tokenSha256, sha))
+        .limit(1);
+      const [org] = await db()
+        .select({ name: schema.organizations.name })
+        .from(schema.organizations)
+        .where(eq(schema.organizations.id, req.params.slug))
+        .limit(1);
+      const orgName = org?.name ?? '';
+      if (!inv || inv.organizationId !== req.params.slug) {
+        return reply.send({
+          authorized_user: false,
+          email_match: false,
+          expired_token: false,
+          organization_name: orgName,
+          sso_mismatch: false,
+          token_does_not_exist: true,
+        });
+      }
+      const emailMatch = user.email.toLowerCase() === inv.email.toLowerCase();
+      return reply.send({
+        authorized_user: emailMatch,
+        email_match: emailMatch,
+        expired_token: inv.consumedAt != null || inv.expiresAt < new Date(),
+        invite_id: inv.id,
+        organization_name: orgName,
+        sso_mismatch: false,
+        token_does_not_exist: false,
+      });
     },
   );
 
-  // POST accept invitation by token
+  // Feature 084 (US4) — accept an invitation (invitee is already a GoTrue user).
   app.post<{ Params: { slug: string; token: string } }>(
     '/platform/organizations/:slug/members/invitations/:token',
     async (req, reply) => {
-      app.requireAuth(req);
+      const user = app.requireAuth(req);
+      const sha = hashInviteToken(req.params.token);
+      const [inv] = await db()
+        .select()
+        .from(schema.organizationInvitations)
+        .where(
+          and(
+            eq(schema.organizationInvitations.tokenSha256, sha),
+            isNull(schema.organizationInvitations.consumedAt),
+          ),
+        )
+        .limit(1);
+      if (!inv || inv.organizationId !== req.params.slug) {
+        return reply.status(404).send({ error: 'invitation not found' });
+      }
+      if (inv.expiresAt < new Date()) {
+        return reply.status(410).send({ error: 'invitation expired' });
+      }
+      await db().transaction(async (tx) => {
+        await tx
+          .insert(schema.organizationMembers)
+          .values({ organizationId: inv.organizationId, userId: user.id, role: inv.role })
+          .onConflictDoNothing();
+        await tx
+          .update(schema.organizationInvitations)
+          .set({ consumedAt: new Date() })
+          .where(eq(schema.organizationInvitations.id, inv.id));
+      });
       return reply.send({});
     },
   );
 
-  // POST send invitation
+  // Feature 084 (US4) — send invitations (emails[] + role_id). Email delivery via
+  // the GoTrue mailer lands in US6; the invite token is the accept link for now.
   app.post<SlugParams>('/platform/organizations/:slug/members/invitations', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(201).send({ id: 1 });
+    await app.authorizeOrg(req, 'member.invite', req.params.slug);
+    const inviter = app.requireAuth(req);
+    const body = (req.body ?? {}) as { emails?: string[]; role_id?: number };
+    const emails = Array.isArray(body.emails) ? body.emails : [];
+    const role = roleFromId(Number(body.role_id));
+    if (!role) return reply.status(400).send({ error: 'invalid role_id' });
+    const succeeded: string[] = [];
+    const failed: { email: string; error: string }[] = [];
+    for (const email of emails) {
+      try {
+        const { sha256, expiresAt } = newInviteToken();
+        await db()
+          .insert(schema.organizationInvitations)
+          .values({
+            organizationId: req.params.slug,
+            email,
+            tokenSha256: sha256,
+            role,
+            invitedByUserId: inviter.id,
+            expiresAt,
+          });
+        succeeded.push(email);
+      } catch (e) {
+        failed.push({ email, error: (e as Error).message });
+      }
+    }
+    return reply.send({ succeeded, failed });
   });
 
-  // DELETE cancel invitation by id
+  // Feature 084 (US4) — cancel a pending invitation.
   app.delete<{ Params: { slug: string; id: string } }>(
     '/platform/organizations/:slug/members/invitations/:id',
     async (req, reply) => {
-      app.requireAuth(req);
+      await app.authorizeOrg(req, 'member.invite', req.params.slug);
+      await db()
+        .delete(schema.organizationInvitations)
+        .where(
+          and(
+            eq(schema.organizationInvitations.id, req.params.id),
+            eq(schema.organizationInvitations.organizationId, req.params.slug),
+          ),
+        );
       return reply.status(204).send();
     },
   );
 
-  // PATCH update member (role change etc.)
+  // Feature 084 (US4) — change a member's role (last-owner invariant).
   app.patch<{ Params: { slug: string; gotrue_id: string } }>(
     '/platform/organizations/:slug/members/:gotrue_id',
     async (req, reply) => {
-      app.requireAuth(req);
-      return reply.send(req.body ?? {});
+      await app.authorizeOrg(req, 'member.update-role', req.params.slug);
+      const body = (req.body ?? {}) as { role_id?: number };
+      const newRole = roleFromId(Number(body.role_id));
+      if (!newRole) return reply.status(400).send({ error: 'invalid role_id' });
+      const current = await memberRole(req.params.slug, req.params.gotrue_id);
+      if (!current) return reply.status(404).send({ error: 'member not found' });
+      if (current === 'owner' && newRole !== 'owner' && (await ownerCount(req.params.slug)) <= 1) {
+        return reply.status(409).send({ error: 'cannot demote the last owner' });
+      }
+      await db()
+        .update(schema.organizationMembers)
+        .set({ role: newRole })
+        .where(
+          and(
+            eq(schema.organizationMembers.organizationId, req.params.slug),
+            eq(schema.organizationMembers.userId, req.params.gotrue_id),
+          ),
+        );
+      return reply.send({});
     },
   );
 
-  // DELETE remove member from org
+  // Feature 084 (US4) — remove a member (last-owner invariant).
   app.delete<{ Params: { slug: string; gotrue_id: string } }>(
     '/platform/organizations/:slug/members/:gotrue_id',
     async (req, reply) => {
-      app.requireAuth(req);
+      await app.authorizeOrg(req, 'member.remove', req.params.slug);
+      const current = await memberRole(req.params.slug, req.params.gotrue_id);
+      if (!current) return reply.status(204).send();
+      if (current === 'owner' && (await ownerCount(req.params.slug)) <= 1) {
+        return reply.status(409).send({ error: 'cannot remove the last owner' });
+      }
+      await db()
+        .delete(schema.organizationMembers)
+        .where(
+          and(
+            eq(schema.organizationMembers.organizationId, req.params.slug),
+            eq(schema.organizationMembers.userId, req.params.gotrue_id),
+          ),
+        );
       return reply.status(204).send();
     },
   );
@@ -1538,10 +1721,42 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({});
   });
 
-  // Organization PATCH (rename, etc.) — echo the body back
+  // Feature 084 (US3) — rename an organization (display name only; ref is immutable).
   app.patch<SlugParams>('/platform/organizations/:slug', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
+    const role = await app.authorizeOrg(req, 'org.update', req.params.slug);
+    const body = (req.body ?? {}) as { name?: string };
+    if (typeof body.name === 'string') {
+      const name = body.name.trim();
+      if (!name) return reply.status(400).send({ error: 'name cannot be empty' });
+      await db()
+        .update(schema.organizations)
+        .set({ name })
+        .where(eq(schema.organizations.id, req.params.slug));
+    }
+    const [row] = await db()
+      .select({ id: schema.organizations.id, name: schema.organizations.name })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, req.params.slug))
+      .limit(1);
+    if (!row) return reply.status(404).send({ error: 'Organization not found' });
+    return reply.send(buildOrg(row.id, row.name, role === 'owner'));
+  });
+
+  // Feature 084 (US3) — delete an organization (owner only; refused if it owns projects).
+  app.delete<SlugParams>('/platform/organizations/:slug', async (req, reply) => {
+    await app.authorizeOrg(req, 'org.delete', req.params.slug);
+    const [proj] = await db()
+      .select({ ref: schema.supabaseInstances.ref })
+      .from(schema.supabaseInstances)
+      .where(eq(schema.supabaseInstances.orgId, req.params.slug))
+      .limit(1);
+    if (proj) {
+      return reply
+        .status(409)
+        .send({ error: 'Organization still owns projects; delete them first' });
+    }
+    await db().delete(schema.organizations).where(eq(schema.organizations.id, req.params.slug));
+    return reply.status(204).send();
   });
 
   // Organization available Postgres versions
