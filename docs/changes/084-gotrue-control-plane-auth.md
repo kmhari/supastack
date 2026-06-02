@@ -54,10 +54,23 @@ Built/real: `/platform/profile`, `/platform/profile/permissions`,
 
 Native (GoTrue): `/auth/v1/{token,logout,user,settings,recover,verify,otp,health}`.
 
+## Deploy notes (greenfield cutover)
+
+1. GoTrue needs a `postgres` role in the control DB (its migrations `GRANT ... TO postgres`):
+   `CREATE ROLE postgres SUPERUSER LOGIN;` once.
+2. GoTrue's external URL env is `API_EXTERNAL_URL` (NO `GOTRUE_` prefix); also set `GOTRUE_JWT_ISSUER`.
+3. **Recreate the `studio` container and clear its build.** Studio's dashboard auth client URL is
+   `NEXT_PUBLIC_GOTRUE_URL`, which Next.js **inlines at `next build` time**. Editing the compose
+   file and running `docker compose up -d` does NOT recreate the container or rebuild, so the old
+   `…/api/v1` value stays baked and sign-in 404s on `/api/v1/token`. Required on the host:
+   `rm -rf "$STUDIO_SOURCE_DIR/apps/studio/.next" && docker compose up -d --force-recreate studio`.
+   Verify the new build baked `…/auth/v1`: `grep -rho 'supaviser.dev/auth/v1' …/.next/static | head`.
+
 ## Verification (live VM)
 
 `tests/cli-e2e/`: `gotrue-signin.sh`, `cli-mcp-regression.sh`, `orgs-crud.sh`,
-`members-invites.sh`, `org-scoped-projects.sh`, `email-flows.sh`.
+`members-invites.sh`, `org-scoped-projects.sh`, `email-flows.sh` — 33/33 PASS on supaviser.dev.
+Browser sign-in confirmed: `POST /auth/v1/token` → 200 → `GET /api/v1/platform/profile` → 200.
 
 Unit/contract (CI): `apps/api/tests/unit/{platform-profile,access-tokens,platform-organizations,platform-members,org-projects}.test.ts`
 + `packages/shared/tests/rbac.test.ts` (186) — 209 tests.
