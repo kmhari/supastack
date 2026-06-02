@@ -39,12 +39,15 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       is_alpha_user: false,
       is_sso_user: false,
       disabled_features: [
-        // feature 025 — reduce the IS_PLATFORM Studio to a self-hosted "supastack cloud".
-        // POST-LOGIN features only (runtime, no Studio rebuild). See docs/studio-feature-flags.md.
-        // NOTE: pre-login/sign-in-page flags (dashboard_auth:*) are NOT controllable here
-        // — there is no profile pre-login — so they live in the Studio source
-        // enabled-features.json (build-time) instead.
-        'billing:all',
+        // Feature 084 — hide what supastack doesn't implement (billing + cross-org
+        // project transfer). Org/member/project create+delete stay ENABLED. Runtime,
+        // no Studio rebuild. Pre-login dashboard_auth:* flags live in the fork's
+        // enabled-features.json (build-time), not here. See docs/studio-feature-flags.md.
+        'billing:account_data',
+        'billing:credits',
+        'billing:invoices',
+        'billing:payment_methods',
+        'projects:transfer',
       ],
       free_project_limit: 999,
     });
@@ -67,27 +70,29 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ── Permissions ────────────────────────────────────────────────────────────
-  // Studio uses this to gate UI — wildcard grant gives full access.
+  // Feature 084 — one permission entry per org the caller belongs to. These drive
+  // client-side UI gating only; the server-side authorize()/authorizeOrg() RBAC is
+  // authoritative. Wildcard actions keep the UI fully enabled; read_only is still
+  // blocked at the API by the matrix.
   app.get('/platform/profile/permissions', async (req, reply) => {
     const user = app.requireAuth(req);
-    // Look up org id for this user (Supastack orgs have no slug — use id)
-    const [orgRow] = await db()
-      .select({ id: schema.organizations.id, name: schema.organizations.name })
-      .from(schema.organizations)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.organizations.id))
-      .where(eq(schema.organizationMembers.userId, user.id))
-      .limit(1);
+    const memberships = await db()
+      .select({ orgId: schema.organizationMembers.organizationId })
+      .from(schema.organizationMembers)
+      .where(eq(schema.organizationMembers.userId, user.id));
 
-    return reply.send([
-      {
+    return reply.send(
+      memberships.map((m) => ({
         actions: ['%'],
         resources: ['%'],
-        organization_slug: orgRow?.id ?? 'local-org',
-        project_refs: [],
+        organization_id: m.orgId,
+        organization_slug: m.orgId,
+        project_ids: null,
+        project_refs: null,
         restrictive: false,
         condition: null,
-      },
-    ]);
+      })),
+    );
   });
 
   // Access tokens (PATs) — delegate to auth routes for real data
@@ -147,30 +152,46 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ── Organizations ──────────────────────────────────────────────────────────
-  // Studio calls /platform/organizations to show the org switcher.
-  // Supastack is single-org — return the singleton org in Studio's shape.
+  // Feature 084 — list ALL organizations the caller is a member of (multi-org).
   app.get('/platform/organizations', async (req, reply) => {
     const user = app.requireAuth(req);
-    const [orgRow] = await db()
-      .select({ id: schema.organizations.id, name: schema.organizations.name })
+    const rows = await db()
+      .select({
+        id: schema.organizations.id,
+        name: schema.organizations.name,
+        role: schema.organizationMembers.role,
+      })
       .from(schema.organizations)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.organizations.id))
-      .where(eq(schema.organizationMembers.userId, user.id))
-      .limit(1);
-    if (!orgRow) return reply.send([]);
-    return reply.send([buildOrg(orgRow.id, orgRow.name, user.role === 'owner')]);
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.organizations.id),
+      )
+      .where(eq(schema.organizationMembers.userId, user.id));
+    return reply.send(rows.map((r) => buildOrg(r.id, r.name, r.role === 'owner')));
   });
 
   app.get<{ Params: { slug: string } }>('/platform/organizations/:slug', async (req, reply) => {
     const user = app.requireAuth(req);
     const [orgRow] = await db()
-      .select({ id: schema.organizations.id, name: schema.organizations.name })
+      .select({
+        id: schema.organizations.id,
+        name: schema.organizations.name,
+        role: schema.organizationMembers.role,
+      })
       .from(schema.organizations)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.organizations.id))
-      .where(eq(schema.organizationMembers.userId, user.id))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.organizations.id),
+      )
+      .where(
+        and(
+          eq(schema.organizationMembers.userId, user.id),
+          eq(schema.organizations.id, req.params.slug),
+        ),
+      )
       .limit(1);
     if (!orgRow) return reply.status(404).send({ error: 'Organization not found' });
-    return reply.send(buildOrg(orgRow.id, orgRow.name, user.role === 'owner'));
+    return reply.send(buildOrg(orgRow.id, orgRow.name, orgRow.role === 'owner'));
   });
 
   // ── New-project wizard endpoints ──────────────────────────────────────────

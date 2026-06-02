@@ -54,13 +54,13 @@ Monorepo: `infra/`, `packages/db`, `packages/shared`, `packages/crypto`, `apps/a
 **Independent test**: run `/setup`, sign in at the apex, confirm the dashboard renders the operator's
 profile/permissions and the setup-created org — with no `sb_sid` cookie.
 
-- [ ] T017 [US1] Rework `apps/api/src/routes/setup.ts`: create the first operator via `gotrue-admin` (`POST /admin/users`), insert the `installation` row, create the first organization (20-char ref via `generateRef`), insert the owner membership
-- [ ] T018 [P] [US1] `GET /platform/profile` in `apps/api/src/routes/platform-profile.ts` → `{id, gotrue_id, primary_email, username, first_name, last_name, free_project_limit, disabled_features:[billing:*, projects:transfer]}`
-- [ ] T019 [P] [US1] `PATCH /platform/profile` (first/last name, username) in `apps/api/src/routes/platform-profile.ts`
-- [ ] T020 [P] [US1] `GET /platform/profile/permissions` in `apps/api/src/routes/platform-profile.ts` — derive org-scoped `Permission[]` from memberships + the matrix
-- [ ] T021 [US1] `GET /platform/organizations` (list caller's orgs with `is_owner` + self-hosted `plan` marker) in `apps/api/src/routes/platform-organizations.ts`
-- [ ] T022 [P] [US1] Contract test `apps/api/tests/unit/platform-profile.test.ts` — happy (authed → profile + permissions) + sad (401 unauth, `[]` permissions for zero-org operator)
-- [ ] T023 [US1] Live-VM E2E `tests/cli-e2e/gotrue-signin.sh` — happy (sign in → dashboard bootstrap) + sad (expired/tampered JWT → 401, non-member → 403); assert no `sb_sid` cookie (SC-001, SC-006)
+- [X] T017 [US1] Rework `apps/api/src/routes/setup.ts`: create the first operator via `gotrue-admin` (`POST /admin/users`), insert the `installation` row, create the first organization (20-char ref via `generateRef`), insert the owner membership
+- [X] T018 [P] [US1] `GET /platform/profile` in `apps/api/src/routes/platform-profile.ts` → `{id, gotrue_id, primary_email, username, first_name, last_name, free_project_limit, disabled_features:[billing:*, projects:transfer]}`
+- [X] T019 [P] [US1] `PATCH /platform/profile` (first/last name, username) in `apps/api/src/routes/platform-profile.ts`
+- [X] T020 [P] [US1] `GET /platform/profile/permissions` in `apps/api/src/routes/platform-profile.ts` — derive org-scoped `Permission[]` from memberships + the matrix
+- [X] T021 [US1] `GET /platform/organizations` (list caller's orgs with `is_owner` + self-hosted `plan` marker) in `apps/api/src/routes/platform-organizations.ts`
+- [X] T022 [P] [US1] Contract test `apps/api/tests/unit/platform-profile.test.ts` — happy (authed → profile + permissions) + sad (401 unauth, `[]` permissions for zero-org operator)
+- [X] T023 [US1] Live-VM E2E `tests/cli-e2e/gotrue-signin.sh` — happy (sign in → dashboard bootstrap) + sad (expired/tampered JWT → 401, non-member → 403); assert no `sb_sid` cookie (SC-001, SC-006)
 - [ ] T024 [P] [US1] Remove the bespoke `apps/web` login page + cookie usage; authed `apps/web` pages attach the GoTrue Bearer token (`apps/web/src/`)
 
 **Checkpoint**: MVP — sign-in + dashboard bootstrap works end-to-end against real GoTrue.
