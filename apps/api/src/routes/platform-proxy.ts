@@ -9,15 +9,23 @@ import {
 import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import type { InstanceSecrets } from '../services/instance-secrets.js';
 
-async function readBody(req: { raw: import('node:http').IncomingMessage }): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req.raw) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
-  }
-  return Buffer.concat(chunks);
+// Forward the request body to Kong. By the time the handler runs, Fastify has
+// already parsed the body (default JSON parser → object; server.ts buffer
+// parsers → Buffer; urlencoded → string) AND parsing drains `req.raw`, so
+// reading the raw stream here returns empty for any parsed content type — that
+// was the JSON-POST body-drop bug (SQL exec/writes 500'd). Derive the bytes from
+// the already-parsed `req.body` instead. `content-length` is stripped below so
+// undici recomputes it from the actual buffer (re-serialized JSON may differ in
+// length from the original).
+function bodyOf(req: { body?: unknown }): Buffer {
+  const b = req.body;
+  if (b == null) return Buffer.alloc(0);
+  if (Buffer.isBuffer(b)) return b;
+  if (typeof b === 'string') return Buffer.from(b);
+  return Buffer.from(JSON.stringify(b));
 }
 
-const STRIP_REQUEST_HEADERS = new Set(['x-connection-encrypted']);
+const STRIP_REQUEST_HEADERS = new Set(['x-connection-encrypted', 'content-length']);
 const STRIP_RESPONSE_HEADERS = new Set([
   'access-control-allow-origin',
   'access-control-allow-credentials',
@@ -54,7 +62,7 @@ async function handleProxy(
 
   const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
   const upstreamPath = `${upstreamPrefix}${pathSuffix}${qs}`;
-  const body = await readBody(req);
+  const body = bodyOf(req);
 
   const forwardHeaders: Record<string, string | string[] | undefined> = {};
   for (const [k, v] of Object.entries(req.headers)) {
@@ -117,7 +125,7 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
       // Rewrite: buckets → bucket (storage API uses singular)
       const upstreamSuffix = suffix.replace(/^buckets/, 'bucket');
       const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-      const body = await readBody(req);
+      const body = bodyOf(req);
       const upstreamPath = `/storage/v1/${upstreamSuffix}${qs}`;
       // Inject service role JWT as Authorization — storage validates via GoTrue
       const forwardHeaders = { ...req.headers, authorization: `Bearer ${inst.serviceRoleKey}` } as Record<string, string | string[] | undefined>;
