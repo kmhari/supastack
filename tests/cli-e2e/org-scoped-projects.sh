@@ -30,14 +30,14 @@ PASS=0; FAIL=0
 ok() { if [ "$2" = "$3" ]; then echo "[ORGPROJ] $1 STATUS=PASS ($3)"; PASS=$((PASS+1)); else echo "[ORGPROJ] $1 STATUS=FAIL (want $2 got $3)"; FAIL=$((FAIL+1)); fi; }
 
 # Member sees the org's project list (paginated shape).
-RESP=$(curl -sS "${AUTH[@]}" "${BASE}/platform/organizations/${SUPASTACK_ORG}/projects?limit=96&offset=0")
+RESP=$(curl -sS "${AUTH[@]}" "${BASE}/api/v1/platform/organizations/${SUPASTACK_ORG}/projects?limit=96&offset=0")
 echo "$RESP" | grep -q '"pagination"' && ok "org-projects-paginated" yes yes || ok "org-projects-paginated" yes no
 echo "$RESP" | grep -q '"projects"' && ok "org-projects-has-projects-array" yes yes || ok "org-projects-has-projects-array" yes no
 
 # A non-member of an org gets 403 on its projects (SC-003).
 if [ -n "${SUPASTACK_OTHER_ORG:-}" ]; then
   ok "non-member-org-projects-403" 403 \
-    "$(curl -sS -o /dev/null -w '%{http_code}' "${AUTH[@]}" "${BASE}/platform/organizations/${SUPASTACK_OTHER_ORG}/projects")"
+    "$(curl -sS -o /dev/null -w '%{http_code}' "${AUTH[@]}" "${BASE}/api/v1/platform/organizations/${SUPASTACK_OTHER_ORG}/projects")"
 else
   echo "[ORGPROJ] non-member-403 STATUS=SKIP (set SUPASTACK_OTHER_ORG)"
 fi

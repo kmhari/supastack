@@ -30,24 +30,24 @@ notcode() { if [ "$2" != "$3" ]; then echo "[CLIMCP] $1 STATUS=PASS (got $3, not
 
 # ── CLI: PAT authenticates against the Management API ────────────────────────
 # A valid PAT must NOT 401 on the management surface (the CLI's `supabase` calls).
-ORGS=$(curl -sS -o /dev/null -w '%{http_code}' "${PAT_AUTH[@]}" "${BASE}/v1/organizations")
+ORGS=$(curl -sS -o /dev/null -w '%{http_code}' "${PAT_AUTH[@]}" "https://api.${SUPASTACK_APEX}/v1/organizations")
 notcode "pat-mgmt-organizations-not-401" 401 "$ORGS"
-PROJ=$(curl -sS -o /dev/null -w '%{http_code}' "${PAT_AUTH[@]}" "${BASE}/v1/projects")
+PROJ=$(curl -sS -o /dev/null -w '%{http_code}' "${PAT_AUTH[@]}" "https://api.${SUPASTACK_APEX}/v1/projects")
 notcode "pat-mgmt-projects-not-401" 401 "$PROJ"
 
 # Sad: a garbage PAT must 401.
-ok "bad-pat-401" 401 "$(curl -sS -o /dev/null -w '%{http_code}' -H 'authorization: Bearer sbp_0000000000000000000000000000000000000000' "${BASE}/v1/organizations")"
+ok "bad-pat-401" 401 "$(curl -sS -o /dev/null -w '%{http_code}' -H 'authorization: Bearer sbp_0000000000000000000000000000000000000000' "https://api.${SUPASTACK_APEX}/v1/organizations")"
 
 # ── Studio token UI alias resolves the same api_tokens store ─────────────────
-ok "platform-access-tokens-200" 200 "$(curl -sS -o /dev/null -w '%{http_code}' "${PAT_AUTH[@]}" "${BASE}/platform/profile/access-tokens")"
+ok "platform-access-tokens-200" 200 "$(curl -sS -o /dev/null -w '%{http_code}' "${PAT_AUTH[@]}" "${BASE}/api/v1/platform/profile/access-tokens")"
 
 # Create + revoke a token via the platform alias (round-trips the real store).
 CREATED=$(curl -sS -X POST "${PAT_AUTH[@]}" -H 'content-type: application/json' \
-  -d '{"name":"cli-mcp-regression"}' "${BASE}/platform/profile/access-tokens")
+  -d '{"name":"cli-mcp-regression"}' "${BASE}/api/v1/platform/profile/access-tokens")
 echo "$CREATED" | grep -qE '"token":"sbp_[a-f0-9]{40}"' && ok "platform-token-create" yes yes || ok "platform-token-create" yes no
 NEW_ID=$(printf '%s' "$CREATED" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 if [ -n "$NEW_ID" ]; then
-  ok "platform-token-revoke-204" 204 "$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE "${PAT_AUTH[@]}" "${BASE}/platform/profile/access-tokens/${NEW_ID}")"
+  ok "platform-token-revoke-204" 204 "$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE "${PAT_AUTH[@]}" "${BASE}/api/v1/platform/profile/access-tokens/${NEW_ID}")"
 fi
 
 # ── MCP: discovery reachable; full OAuth round-trip is in mcp-roundtrip.sh ────
