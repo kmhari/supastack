@@ -65,6 +65,20 @@ export async function buildCaddyConfig(): Promise<unknown> {
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
     {
+      // Same two overrides under the Studio basePath (/dashboard, feature 025).
+      // Studio fetches them as `${BASE_PATH}/api/...`, which would otherwise fall
+      // through to Studio's own routes — incident-banner hits Supabase's status
+      // page and 500s self-hosted. Strip /dashboard so the api's root handlers
+      // (server.ts) serve them. MUST precede the studio catch-all below.
+      match: [
+        { path: ['/dashboard/api/get-deployment-commit', '/dashboard/api/incident-banner'] },
+      ],
+      handle: [
+        { handler: 'rewrite', strip_path_prefix: '/dashboard' },
+        { handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] },
+      ],
+    },
+    {
       // /api/v1/v1/* — double-v1 paths from Studio IS_PLATFORM=true.
       // Handled by Fastify catch-all that strips the outer /api/v1 internally.
       match: [{ path: ['/api/v1*'] }],
