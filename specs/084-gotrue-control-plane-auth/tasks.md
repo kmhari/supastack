@@ -73,10 +73,10 @@ profile/permissions and the setup-created org — with no `sb_sid` cookie.
 
 **Independent test**: `supabase login` (PAT) → Management API call succeeds; MCP OAuth tool call succeeds.
 
-- [ ] T025 [US2] Regression-guard the PAT + OAuth branches in `apps/api/src/plugins/auth.ts`: resolve email from `auth.users`, role from `organization_members`; `api_tokens.user_id` = GoTrue user id
-- [ ] T026 [P] [US2] Access-tokens platform alias `GET/POST/DELETE /platform/profile/access-tokens` → existing `api_tokens` store, `AccessToken` shape, in `apps/api/src/routes/platform-profile.ts`
-- [ ] T027 [P] [US2] Contract test `apps/api/tests/unit/access-tokens.test.ts` — happy (list/create/revoke) + sad (revoked token → 401)
-- [ ] T028 [US2] Live-VM E2E `tests/cli-e2e/cli-mcp-regression.sh` — `supabase login` PAT → Mgmt API call passes; MCP OAuth tool call passes (SC-002)
+- [X] T025 [US2] Regression-guard the PAT + OAuth branches in `apps/api/src/plugins/auth.ts`: resolve email from `auth.users`, role from `organization_members`; `api_tokens.user_id` = GoTrue user id
+- [X] T026 [P] [US2] Access-tokens platform alias `GET/POST/DELETE /platform/profile/access-tokens` → existing `api_tokens` store, `AccessToken` shape, in `apps/api/src/routes/platform-profile.ts`
+- [X] T027 [P] [US2] Contract test `apps/api/tests/unit/access-tokens.test.ts` — happy (list/create/revoke) + sad (revoked token → 401)
+- [X] T028 [US2] Live-VM E2E `tests/cli-e2e/cli-mcp-regression.sh` — `supabase login` PAT → Mgmt API call passes; MCP OAuth tool call passes (SC-002)
 
 **Checkpoint**: no machine-credential regression.
 
