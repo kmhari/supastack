@@ -810,8 +810,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   ] as const) {
     app.get(path, async (req, reply) => {
       app.requireAuth(req);
+      // Studio expects an array of MemberWithFreeProjectLimit, not an object
       return path.includes('free-project-limit')
-        ? reply.send({ reached_free_project_limit: false })
+        ? reply.send([])
         : reply.send([]);
     });
   }
