@@ -19,11 +19,11 @@ Monorepo: `infra/`, `packages/db`, `packages/shared`, `packages/crypto`, `apps/a
 
 **Purpose**: stand up the GoTrue service + the routing/secret plumbing every story needs.
 
-- [ ] T001 Add the `auth` (GoTrue `supabase/gotrue:v2.186.0`) service to `infra/docker-compose.yml`: `GOTRUE_DB_DATABASE_URL` → control `db` `auth` schema, `GOTRUE_DISABLE_SIGNUP=true`, `GOTRUE_MAILER_AUTOCONFIRM=true`, `GOTRUE_SITE_URL=https://${SUPASTACK_APEX}`, `GOTRUE_JWT_SECRET` (derived, see T003), MFA + external providers off
-- [ ] T002 [P] Bootstrap the `supabase_auth_admin` role + `auth` schema + grants on the control `db` via an idempotent SQL init in `packages/db/migrations/` so GoTrue can run its own migrations
-- [ ] T003 [P] Implement the GoTrue JWT secret derivation `HKDF(masterKey,'supastack-gotrue-jwt-v1')` in `apps/api/src/services/gotrue-jwt.ts` and inject the identical value as `GOTRUE_JWT_SECRET` in `infra/docker-compose.yml`
-- [ ] T004 [P] Add the Caddy route `/auth/v1/*` → `auth:9999` with `strip_path_prefix /auth/v1` in `apps/api/src/services/caddy-config.ts` (dashboard subroutes, before the catch-all)
-- [ ] T005 Repoint Studio `NEXT_PUBLIC_GOTRUE_URL` → `https://${SUPASTACK_APEX}/auth/v1` in `infra/docker-compose.yml` (studio service)
+- [X] T001 Add the `auth` (GoTrue `supabase/gotrue:v2.186.0`) service to `infra/docker-compose.yml`: `GOTRUE_DB_DATABASE_URL` → control `db` `auth` schema, `GOTRUE_DISABLE_SIGNUP=true`, `GOTRUE_MAILER_AUTOCONFIRM=true`, `GOTRUE_SITE_URL=https://${SUPASTACK_APEX}`, `GOTRUE_JWT_SECRET` (derived, see T003), MFA + external providers off
+- [X] T002 [P] Bootstrap the `supabase_auth_admin` role + `auth` schema + grants on the control `db` via an idempotent SQL init in `packages/db/migrations/` so GoTrue can run its own migrations
+- [X] T003 [P] Implement the GoTrue JWT secret derivation `HKDF(masterKey,'supastack-gotrue-jwt-v1')` in `apps/api/src/services/gotrue-jwt.ts` and inject the identical value as `GOTRUE_JWT_SECRET` in `infra/docker-compose.yml`
+- [X] T004 [P] Add the Caddy route `/auth/v1/*` → `auth:9999` with `strip_path_prefix /auth/v1` in `apps/api/src/services/caddy-config.ts` (dashboard subroutes, before the catch-all)
+- [X] T005 Repoint Studio `NEXT_PUBLIC_GOTRUE_URL` → `https://${SUPASTACK_APEX}/auth/v1` in `infra/docker-compose.yml` (studio service)
 
 ---
 
