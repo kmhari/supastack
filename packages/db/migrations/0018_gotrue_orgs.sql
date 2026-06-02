@@ -59,20 +59,32 @@ CREATE TABLE IF NOT EXISTS organization_invitations (
 CREATE UNIQUE INDEX IF NOT EXISTS organization_invitations_email_open
   ON organization_invitations (organization_id, email) WHERE consumed_at IS NULL;
 
--- 5. Drop ALL foreign keys referencing the legacy `org`/`users` tables (by any
---    name), so the type change + drops below succeed regardless of constraint
---    naming. Soft actor refs (audit_log, project-config, tls) just lose the FK.
+-- 5. Drop ALL foreign keys referencing the legacy `public.org`/`public.users`
+--    tables (by any name), so the type change + drops below succeed regardless of
+--    constraint naming. Soft actor refs (audit_log, project-config, tls) just lose
+--    the FK.
+--    IMPORTANT (idempotency): scope BOTH the FK-owning table and the referenced
+--    table to the `public` schema. GoTrue later creates `auth.users` plus many
+--    `auth.*` tables whose FKs reference a relation literally named `users`
+--    (auth.identities, auth.sessions, auth.mfa_factors, …). Without the schema
+--    filter, a re-run of this migration matches those GoTrue FKs and emits an
+--    unqualified `ALTER TABLE identities …` that resolves to a non-existent
+--    `public.identities` → crash. Post-cutover (public.users/org dropped) the
+--    filtered loop matches nothing → clean no-op.
 DO $$
 DECLARE c record;
 BEGIN
   FOR c IN
-    SELECT tc.constraint_name, tc.table_name
+    SELECT tc.table_schema, tc.constraint_name, tc.table_name
     FROM information_schema.table_constraints tc
     JOIN information_schema.constraint_column_usage ccu
       ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
-    WHERE tc.constraint_type = 'FOREIGN KEY' AND ccu.table_name IN ('org', 'users')
+    WHERE tc.constraint_type = 'FOREIGN KEY'
+      AND tc.table_schema = 'public'
+      AND ccu.table_schema = 'public'
+      AND ccu.table_name IN ('org', 'users')
   LOOP
-    EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I', c.table_name, c.constraint_name);
+    EXECUTE format('ALTER TABLE %I.%I DROP CONSTRAINT IF EXISTS %I', c.table_schema, c.table_name, c.constraint_name);
   END LOOP;
 END $$;
 
@@ -134,7 +146,9 @@ BEGIN
 END $$;
 
 -- 8. Greenfield cutover: drop the legacy tables (dependents already repointed).
-DROP TABLE IF EXISTS org_members;
-DROP TABLE IF EXISTS invites;
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS org;
+--    Schema-qualified to `public` so a stray search_path containing `auth` can
+--    never let `DROP TABLE … users` hit GoTrue's `auth.users` on a re-run.
+DROP TABLE IF EXISTS public.org_members;
+DROP TABLE IF EXISTS public.invites;
+DROP TABLE IF EXISTS public.users;
+DROP TABLE IF EXISTS public.org;

@@ -232,6 +232,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     reply.send({ commit: 'dev', date: new Date().toISOString() }),
   );
   app.get('/api/incident-banner', async (_req, reply) => reply.send(null));
+  // Studio's incident-status route queries Supabase's StatusPage (api.statuspage.io)
+  // and 500s when STATUSPAGE_* env is absent (self-hosted). The client expects an
+  // array of active incidents — return none.
+  app.get('/api/incident-status', async (_req, reply) => reply.send([]));
 
   // Management API stubs for Studio IS_PLATFORM=true — registered before the
   // /v1 management plugin so they respond without the mgmt error envelope.
