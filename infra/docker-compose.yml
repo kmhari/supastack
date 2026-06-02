@@ -297,6 +297,11 @@ services:
       NEXT_PUBLIC_IS_PLATFORM: "true"
       NEXT_PUBLIC_API_URL: "https://${SUPASTACK_APEX}/api/v1"
       NEXT_PUBLIC_GOTRUE_URL: "https://${SUPASTACK_APEX}/api/v1"
+      # Serve Studio under /dashboard (Cloud-parity URLs: <apex>/dashboard/project/<ref>).
+      # Baked at build time (next.config.ts basePath + assetPrefix) — changing this
+      # requires deleting .next/BUILD_ID to force a rebuild. next.config.ts also
+      # registers a `/` → `/dashboard` redirect whenever this is set.
+      NEXT_PUBLIC_BASE_PATH: "/dashboard"
     networks: [internal]
     restart: unless-stopped
     ulimits:
