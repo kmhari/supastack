@@ -73,7 +73,9 @@ export async function loadRow(apex: string) {
 }
 
 export async function initiateWildcardOrder(
-  orgId: string,
+  // Feature 084 — vestigial since the org singleton was split into installation
+  // + tenant orgs; certs are keyed by apex (installation-level). Nullable.
+  orgId: string | null,
   apex: string,
   email: string,
 ): Promise<InitiateResult> {

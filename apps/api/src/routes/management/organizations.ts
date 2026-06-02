@@ -17,10 +17,10 @@ export const organizationsRoutes: FastifyPluginAsync = async (app) => {
   app.get('/organizations', async (req): Promise<Organization[]> => {
     const user = app.requireAuth(req);
     const rows = await db()
-      .select({ id: schema.org.id, name: schema.org.name })
-      .from(schema.org)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.org.id))
-      .where(eq(schema.orgMembers.userId, user.id));
+      .select({ id: schema.organizations.id, name: schema.organizations.name })
+      .from(schema.organizations)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.organizations.id))
+      .where(eq(schema.organizationMembers.userId, user.id));
     return rows.map(orgToOrganization);
   });
 };

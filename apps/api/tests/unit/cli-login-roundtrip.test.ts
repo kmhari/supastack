@@ -75,7 +75,7 @@ describe('CLI device-code login — end-to-end round-trip', () => {
     mintApp.decorate('requireAuth', () => ({
       id: '00000000-0000-0000-0000-000000000001',
       email: 'op@example.com',
-      role: 'admin' as const,
+      role: 'owner' as const,
     }));
     await mintApp.register(cliLoginRoutes);
     await mintApp.ready();

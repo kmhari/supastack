@@ -26,7 +26,7 @@ export const connectCliRoutes: FastifyPluginAsync = async (app) => {
   // ─── GET /cli/profile.toml ────────────────────────────────────────────
   app.get('/cli/profile.toml', async (req, reply) => {
     app.requireAuth(req);
-    const rows = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
+    const rows = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
     const apex = rows[0]?.apex;
     if (!apex) {
       throw errors.invalidInput(

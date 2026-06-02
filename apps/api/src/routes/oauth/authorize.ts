@@ -12,6 +12,7 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { db, schema } from '@supastack/db';
 import { logger } from '@supastack/shared';
+import { loadMasterKey, verifyGotrueJwt } from '@supastack/crypto';
 
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { getClientById, validateRedirectUri } from '../../services/oauth-clients-store.js';
@@ -45,9 +46,10 @@ export const oauthAuthorizeRoutes: FastifyPluginAsync = async (app) => {
       throw new ManagementApiError(400, 'redirect_uri not in allow-list', 'invalid_request');
     }
 
-    // Session check
-    const userId = req.session?.userId;
-    if (!userId) {
+    // Feature 084 — authenticate via GoTrue (Bearer token, or the GoTrue
+    // access-token cookie for the browser navigation), not the legacy session.
+    const operator = await resolveOperator(req);
+    if (!operator) {
       const next = buildAuthorizePath(params);
       if (next.length > 4096) {
         throw new ManagementApiError(400, 'authorize URL too long', 'invalid_request');
@@ -55,24 +57,11 @@ export const oauthAuthorizeRoutes: FastifyPluginAsync = async (app) => {
       return reply.redirect(`/dashboard/login?next=${encodeURIComponent(next)}`);
     }
 
-    // Resolve operator identity for the consent UI label
-    const [userRow] = await db()
-      .select({ email: schema.users.email })
-      .from(schema.users)
-      .where(eq(schema.users.id, userId))
-      .limit(1);
-    if (!userRow) {
-      // Session points at a removed user — clear it + bounce to login
-      if (req.session) await req.session.destroy();
-      const next = buildAuthorizePath(params);
-      return reply.redirect(`/dashboard/login?next=${encodeURIComponent(next)}`);
-    }
-
     reply.header('Content-Type', 'text/html; charset=utf-8');
     return renderConsentHtml({
       clientName: client.clientName,
       redirectUris: client.redirectUris,
-      operatorEmail: userRow.email,
+      operatorEmail: operator.email,
       scope: params.scope ?? ALLOWED_SCOPE,
       params,
     });
@@ -92,10 +81,11 @@ export const oauthAuthorizeRoutes: FastifyPluginAsync = async (app) => {
     if (!validateRedirectUri(client, params.redirect_uri)) {
       throw new ManagementApiError(400, 'redirect_uri not in allow-list', 'invalid_request');
     }
-    const userId = req.session?.userId;
-    if (!userId) {
-      throw new ManagementApiError(401, 'session required', 'unauthenticated');
+    const operator = await resolveOperator(req);
+    if (!operator) {
+      throw new ManagementApiError(401, 'authentication required', 'unauthenticated');
     }
+    const userId = operator.id;
 
     const stateParam = encodeURIComponent(params.state);
 
@@ -123,6 +113,33 @@ export const oauthAuthorizeRoutes: FastifyPluginAsync = async (app) => {
     );
   });
 };
+
+/**
+ * Feature 084 — resolve the consenting operator from GoTrue auth. Accepts a
+ * Bearer access token (preHandler-set `req.user`, for programmatic clients) or a
+ * GoTrue access-token cookie for the browser navigation. Replaces the legacy
+ * `sb_sid` session anchor.
+ */
+async function resolveOperator(
+  req: FastifyRequest,
+): Promise<{ id: string; email: string } | null> {
+  if (req.user) return { id: req.user.id, email: req.user.email };
+  const cookieTok = req.cookies?.['sb-access-token'] ?? req.cookies?.['sb-access-token-0'];
+  if (cookieTok) {
+    try {
+      const claims = verifyGotrueJwt(loadMasterKey(), cookieTok);
+      const [u] = await db()
+        .select({ id: schema.users.id, email: schema.users.email })
+        .from(schema.users)
+        .where(eq(schema.users.id, claims.sub))
+        .limit(1);
+      if (u) return { id: u.id, email: u.email };
+    } catch {
+      /* invalid cookie token → unauthenticated */
+    }
+  }
+  return null;
+}
 
 function validateParams(input: Partial<AuthorizeParams> = {}): AuthorizeParams {
   if (input.response_type !== 'code') {

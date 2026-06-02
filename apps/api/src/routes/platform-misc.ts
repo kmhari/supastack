@@ -72,10 +72,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const user = app.requireAuth(req);
     // Look up org id for this user (Supastack orgs have no slug — use id)
     const [orgRow] = await db()
-      .select({ id: schema.org.id, name: schema.org.name })
-      .from(schema.org)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.org.id))
-      .where(eq(schema.orgMembers.userId, user.id))
+      .select({ id: schema.organizations.id, name: schema.organizations.name })
+      .from(schema.organizations)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.organizations.id))
+      .where(eq(schema.organizationMembers.userId, user.id))
       .limit(1);
 
     return reply.send([
@@ -152,25 +152,25 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   app.get('/platform/organizations', async (req, reply) => {
     const user = app.requireAuth(req);
     const [orgRow] = await db()
-      .select({ id: schema.org.id, name: schema.org.name })
-      .from(schema.org)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.org.id))
-      .where(eq(schema.orgMembers.userId, user.id))
+      .select({ id: schema.organizations.id, name: schema.organizations.name })
+      .from(schema.organizations)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.organizations.id))
+      .where(eq(schema.organizationMembers.userId, user.id))
       .limit(1);
     if (!orgRow) return reply.send([]);
-    return reply.send([buildOrg(orgRow.id, orgRow.name, user.role === 'admin')]);
+    return reply.send([buildOrg(orgRow.id, orgRow.name, user.role === 'owner')]);
   });
 
   app.get<{ Params: { slug: string } }>('/platform/organizations/:slug', async (req, reply) => {
     const user = app.requireAuth(req);
     const [orgRow] = await db()
-      .select({ id: schema.org.id, name: schema.org.name })
-      .from(schema.org)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.org.id))
-      .where(eq(schema.orgMembers.userId, user.id))
+      .select({ id: schema.organizations.id, name: schema.organizations.name })
+      .from(schema.organizations)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.organizations.id))
+      .where(eq(schema.organizationMembers.userId, user.id))
       .limit(1);
     if (!orgRow) return reply.status(404).send({ error: 'Organization not found' });
-    return reply.send(buildOrg(orgRow.id, orgRow.name, user.role === 'admin'));
+    return reply.send(buildOrg(orgRow.id, orgRow.name, user.role === 'owner'));
   });
 
   // ── New-project wizard endpoints ──────────────────────────────────────────
@@ -230,10 +230,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   app.post('/platform/organizations', async (req, reply) => {
     const user = app.requireAuth(req);
     const [orgRow] = await db()
-      .select({ id: schema.org.id, name: schema.org.name })
-      .from(schema.org)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.org.id))
-      .where(eq(schema.orgMembers.userId, user.id))
+      .select({ id: schema.organizations.id, name: schema.organizations.name })
+      .from(schema.organizations)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.organizations.id))
+      .where(eq(schema.organizationMembers.userId, user.id))
       .limit(1);
     if (!orgRow) return reply.status(400).send({ error: 'No organization found for this user' });
     return reply.status(201).send(buildOrg(orgRow.id, orgRow.name, true));
@@ -307,8 +307,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
           orgId: schema.supabaseInstances.orgId,
         })
         .from(schema.supabaseInstances)
-        .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-        .where(eq(schema.orgMembers.userId, user.id))
+        .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+        .where(eq(schema.organizationMembers.userId, user.id))
         .limit(limit)
         .offset(offset);
       const projects = instances.map((inst) => buildProject(inst, apex));
@@ -334,8 +334,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         orgId: schema.supabaseInstances.orgId,
       })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)))
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     return reply.send(buildProject(inst, apex));
@@ -353,8 +353,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong, insertedAt: schema.supabaseInstances.createdAt })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)))
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.send([]);
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
@@ -472,8 +472,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong, encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)))
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
@@ -495,8 +495,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)))
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
@@ -616,9 +616,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
       .where(
-        and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)),
+        and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)),
       )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
@@ -733,8 +733,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
           orgId: schema.supabaseInstances.orgId,
         })
         .from(schema.supabaseInstances)
-        .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-        .where(eq(schema.orgMembers.userId, user.id))
+        .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+        .where(eq(schema.organizationMembers.userId, user.id))
         .limit(limit)
         .offset(offset);
 

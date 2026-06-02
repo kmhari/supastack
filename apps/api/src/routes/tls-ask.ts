@@ -42,7 +42,7 @@ export const tlsAskRoutes: FastifyPluginAsync = async (app) => {
 };
 
 async function isAdmissible(domain: string): Promise<boolean> {
-  const orgRow = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
+  const orgRow = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
   const apex = orgRow[0]?.apex;
   if (!apex) return false;
 

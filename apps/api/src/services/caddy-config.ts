@@ -25,7 +25,7 @@ const CERTS_DIR = process.env.SUPASTACK_CERTS_DIR ?? '/var/supastack/certs';
  * The caller POSTs the result to Caddy admin `/load` which swaps atomically.
  */
 export async function buildCaddyConfig(): Promise<unknown> {
-  const orgRows = await db().select().from(schema.org).limit(1);
+  const orgRows = await db().select().from(schema.installation).limit(1);
   const org = orgRows[0];
   const apex = org?.apexDomain ?? null;
 

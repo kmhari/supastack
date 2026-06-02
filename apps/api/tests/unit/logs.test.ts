@@ -31,12 +31,12 @@ const REF = 'aaaaaaaaaaaaaaaaaaaa';
 
 async function buildApp(
   opts: {
-    user?: { id: string; email: string; role: 'admin' | 'member' } | null;
+    user?: { id: string; email: string; role: 'owner' | 'administrator' | 'developer' | 'read_only' } | null;
     authorizeThrows?: boolean;
   } = {},
 ): Promise<FastifyInstance> {
   const user =
-    opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'admin' as const } : opts.user;
+    opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'owner' as const } : opts.user;
   const app = Fastify();
   app.decorate('requireAuth', () => {
     if (!user) throw new AppError(401, 'unauthenticated', 'PAT required');

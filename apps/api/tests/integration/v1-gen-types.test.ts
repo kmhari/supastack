@@ -14,7 +14,7 @@ describe.skipIf(!hasTestEnv)('/v1/projects/:ref/types/typescript', () => {
 
   beforeAll(async () => {
     app = await buildAuthedApp();
-    const admin = await seedTestUser({ role: 'admin' });
+    const admin = await seedTestUser({ role: 'owner' });
     adminToken = admin.token;
     await withMockInstance(ref, { orgId: admin.orgId });
   });
