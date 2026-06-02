@@ -35,8 +35,12 @@ test.describe('Auth Hooks page — admin session', () => {
     const ref = await testProjectRef();
     const page = await adminContext.newPage();
     await page.goto(`/dashboard/project/${ref}/auth/hooks`);
+    // Wait for the page to fully render (auth config loaded, HookForms mounted)
+    await expect(page.getByRole('heading', { name: /^Auth Hooks$/ })).toBeVisible();
 
+    // HookForm uses a native <input type="checkbox"> — use the role locator
     const checkboxes = page.locator('input[type="checkbox"]');
+    await expect(checkboxes.first()).toBeVisible({ timeout: 10_000 });
     const count = await checkboxes.count();
     expect(count).toBe(7);
 
