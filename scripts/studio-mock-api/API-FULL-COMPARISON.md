@@ -3,20 +3,24 @@
 **Legend:**
 | Symbol | Meaning |
 |---|---|
-| ✅ | Implemented in Supastack |
-| 🔧 | Partial — exists but incomplete |
+| ✅ | Implemented in Supastack (real backing logic) |
+| 🔧 | Partial / platform stub — route exists and returns a valid (often empty/static) payload so Studio renders, but has no real backing yet |
 | 🔀 | Proxy only — forward to per-instance Kong/service (`http://localhost:{portKong}/...`) |
-| ❌ | Missing — needs platform-level logic |
-| 🚫 | Out of scope (billing, marketplace, enterprise) |
+| ❌ | Missing — no route (404), needs platform-level logic |
+| 🚫 | Out of scope (billing, Stripe, marketplace, enterprise) |
 
-**Coverage (297 total routes):**
+> Updated for **feature 084** (control-plane GoTrue auth + multi-tenant orgs + Cloud RBAC) and **feature 025** (shared Studio `IS_PLATFORM=true`). Human session auth is now served by a real GoTrue at `/auth/v1/*` (Caddy → `auth:9999`); profile, organizations, members, invitations, roles and personal access tokens are real platform endpoints at `/api/v1/platform/*`. Feature 025 added a broad set of platform stubs so Studio's pages render without errors.
+
+**Coverage (298 total rows):**
 | Status | Count | % |
 |---|---|---|
-| ✅ Covered | 34 | 11% |
-| 🔧 Partial | 9 | 3% |
-| 🔀 Proxy only (add route → forward to Kong) | 56 | 19% |
-| ❌ Missing (needs platform-level logic) | 185 | 62% |
-| 🚫 Out of scope | 13 | 4% |
+| ✅ Covered (real backing) | 72 | 24% |
+| 🔧 Partial / platform stub | 143 | 48% |
+| 🔀 Proxy only (add route → forward to Kong) | 48 | 16% |
+| ❌ Missing (needs platform-level logic) | 27 | 9% |
+| 🚫 Out of scope (billing/Stripe/marketplace) | 8 | 3% |
+
+> Most of the 🔧 jump vs. earlier revisions is feature 025: it stubs ~130 platform routes (replication, org apps/OAuth, disk, content, notifications, integrations, analytics usage, feedback, …) with valid empty/static payloads so Studio renders, pending real backends.
 
 ---
 
@@ -34,29 +38,31 @@
 
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/signup` | POST | ❌ | Create new account | — |
-| `/platform/reset-password` | POST | ❌ | Send password reset email | — |
-| `/platform/update-email` | POST | ❌ | Update account email | — |
+| `/platform/signup` | POST | 🔧 | Create new account (signups disabled — `GOTRUE_DISABLE_SIGNUP`) | `POST /api/v1/platform/signup` (stub) |
+| `/platform/reset-password` | POST | ✅ | Send password reset email (GoTrue recover, SMTP-gated) | `POST /api/v1/platform/reset-password` |
+| `/platform/update-email` | POST | 🔧 | Update account email | `POST /api/v1/platform/update-email` (stub) |
 
 ---
 
 ## Auth (Session)
 
+> Feature 084: served by the real control-plane GoTrue at `/auth/v1/*` (Caddy → `auth:9999`). No more `sb_sid` session / `studio-gotrue` shim.
+
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/token` | POST | ✅ | Sign in with password / refresh token / PKCE | `POST /auth/login` |
-| `/logout` | POST | ❌ | Sign out current session | `POST /auth/logout` (different path) |
-| `/user` | GET | ❌ | Get current authenticated user | — |
-| `/user` | PUT | ❌ | Update current user (email, password) | — |
-| `/signup` | POST | ❌ | Register new user | — |
-| `/health` | GET | 🔧 | GoTrue health check | `/health` |
-| `/settings` | GET | ❌ | Get GoTrue server settings | — |
-| `/otp` | POST | ❌ | Request OTP / magic link | — |
-| `/recover` | POST | ❌ | Initiate password recovery | — |
-| `/verify` | POST | ❌ | Verify OTP / magic link token | — |
-| `/authorize` | GET | ❌ | OAuth authorize redirect | — |
-| `/mfa/authenticator/assurance-level` | GET | ❌ | Get MFA assurance level for session | — |
-| `/factors` | GET | ❌ | List MFA factors for current user | — |
+| `/token` | POST | ✅ | Sign in with password / refresh token / PKCE | `→ GoTrue /auth/v1/token` |
+| `/logout` | POST | ✅ | Sign out current session | `→ GoTrue /auth/v1/logout` |
+| `/user` | GET | ✅ | Get current authenticated user | `→ GoTrue /auth/v1/user` |
+| `/user` | PUT | ✅ | Update current user (email, password) | `→ GoTrue /auth/v1/user` |
+| `/signup` | POST | 🔧 | Register new user (disabled — `GOTRUE_DISABLE_SIGNUP`) | `→ GoTrue /auth/v1/signup` |
+| `/health` | GET | ✅ | GoTrue health check | `→ GoTrue /auth/v1/health` |
+| `/settings` | GET | ✅ | Get GoTrue server settings | `→ GoTrue /auth/v1/settings` |
+| `/otp` | POST | ✅ | Request OTP / magic link (SMTP-gated) | `→ GoTrue /auth/v1/otp` |
+| `/recover` | POST | ✅ | Initiate password recovery (SMTP-gated) | `→ GoTrue /auth/v1/recover` |
+| `/verify` | POST | ✅ | Verify OTP / magic link token | `→ GoTrue /auth/v1/verify` |
+| `/authorize` | GET | 🔧 | OAuth authorize redirect (no social providers configured) | `→ GoTrue /auth/v1/authorize` |
+| `/mfa/authenticator/assurance-level` | GET | 🔧 | Get MFA assurance level (MFA out of scope) | `→ GoTrue /auth/v1/...` |
+| `/factors` | GET | 🔧 | List MFA factors (MFA out of scope) | `→ GoTrue /auth/v1/factors` |
 
 ---
 
@@ -65,9 +71,9 @@
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
 | `/platform/auth/:ref/config` | GET | ✅ | Get GoTrue auth settings (providers, JWT, etc.) | `GET /projects/:ref/config/auth` |
-| `/platform/auth/:ref/config` | PATCH | ✅ | Update GoTrue auth settings | `PATCH /projects/:ref/config/auth` |
-| `/platform/auth/:ref/config/hooks` | GET | ❌ | Get auth hook configs (stored in instance config/env) | — |
-| `/platform/auth/:ref/config/hooks` | PATCH | ❌ | Update auth hook configs (requires env_file + restart) | — |
+| `/platform/auth/:ref/config` | PATCH | ✅ | Update GoTrue auth settings (incl. `hook_*`, feature 082) | `PATCH /projects/:ref/config/auth` |
+| `/platform/auth/:ref/config/hooks` | GET | ❌ | Get auth hook configs (hooks flow through `config/auth`) | — |
+| `/platform/auth/:ref/config/hooks` | PATCH | ❌ | Update auth hook configs (hooks flow through `config/auth`) | — |
 
 ---
 
@@ -107,56 +113,65 @@
 
 ## Profile
 
+> Feature 084: real, backed by `auth.users` (GoTrue) + `api_tokens`.
+
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/profile` | GET | ❌ | Get logged-in user's profile | `GET /profile` (basic) |
-| `/platform/profile` | PUT | ❌ | Update profile (name, etc.) | — |
-| `/platform/profile` | PATCH | ❌ | Partial update profile | — |
-| `/platform/profile/permissions` | GET | ❌ | Get user's RBAC permissions | — |
-| `/platform/profile/access-tokens` | GET | ❌ | List personal access tokens | `GET /auth/tokens` |
-| `/platform/profile/access-tokens` | POST | ❌ | Create PAT | `POST /auth/tokens` |
-| `/platform/profile/access-tokens/:id` | DELETE | ❌ | Revoke PAT | `DELETE /auth/tokens/:id` |
-| `/platform/profile/scoped-access-tokens` | GET | ❌ | List scoped tokens | — |
-| `/platform/profile/audit` | GET | ❌ | Get user login audit log | — |
-| `/platform/profile/audit-login` | POST | ❌ | Record login audit event | — |
+| `/platform/profile` | GET | ✅ | Get logged-in user's profile (+ `disabled_features`) | `GET /api/v1/platform/profile` |
+| `/platform/profile` | PUT | ✅ | Update profile (name, etc.) | `PUT /api/v1/platform/profile` |
+| `/platform/profile` | PATCH | ✅ | Partial update profile | `PATCH /api/v1/platform/profile` |
+| `/platform/profile/permissions` | GET | ✅ | Get user's RBAC permissions (per-org) | `GET /api/v1/platform/profile/permissions` |
+| `/platform/profile/access-tokens` | GET | ✅ | List personal access tokens | `GET /api/v1/platform/profile/access-tokens` |
+| `/platform/profile/access-tokens` | POST | ✅ | Create PAT | `POST /api/v1/platform/profile/access-tokens` |
+| `/platform/profile/access-tokens/:id` | DELETE | ✅ | Revoke PAT | `DELETE /api/v1/platform/profile/access-tokens/:id` |
+| `/platform/profile/scoped-access-tokens` | GET | 🔧 | List scoped tokens | `GET /api/v1/platform/profile/scoped-access-tokens` (stub) |
+| `/platform/profile/audit` | GET | 🔧 | Get user login audit log | `GET /api/v1/platform/profile/audit` (stub) |
+| `/platform/profile/audit-login` | POST | 🔧 | Record login audit event | `POST /api/v1/platform/profile/audit-login` (stub) |
 
 ---
 
 ## Organizations
 
+> Feature 084: real multi-tenant orgs. Org id = 20-char ref (not uuid). `slug` == id.
+
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/organizations` | GET | ❌ | List user's organizations | `GET /organizations` (Supastack) |
-| `/platform/organizations/:slug` | GET | ❌ | Get organization details | `GET /org` |
-| `/platform/organizations/:slug` | PATCH | ❌ | Update organization (name, etc.) | `PATCH /org` |
-| `/platform/organizations/:slug/projects` | GET | ❌ | List org projects (paginated) | `GET /instances` |
-| `/platform/organizations/:slug/usage` | GET | ❌ | Get org usage metrics | — |
-| `/platform/organizations/:slug/usage/daily` | GET | ❌ | Get daily usage breakdown | — |
-| `/platform/organizations/:slug/entitlements` | GET | ❌ | Get feature entitlements | — |
-| `/platform/organizations/:slug/audit` | GET | ❌ | Get org audit log | — |
-| `/platform/organizations/:slug/available-versions` | GET | ❌ | List available Postgres versions | — |
+| `/platform/organizations` | GET | ✅ | List user's organizations (all memberships) | `GET /api/v1/platform/organizations` |
+| `/platform/organizations` | POST | ✅ | Create an organization (creator → owner) | `POST /api/v1/platform/organizations` |
+| `/platform/organizations/preview-creation` | POST | 🔧 | Preview org creation (validation) | `POST /api/v1/platform/organizations/preview-creation` (stub) |
+| `/platform/organizations/:slug` | GET | ✅ | Get organization details | `GET /api/v1/platform/organizations/:slug` |
+| `/platform/organizations/:slug` | PATCH | ✅ | Update organization (name) | `PATCH /api/v1/platform/organizations/:slug` |
+| `/platform/organizations/:slug` | DELETE | ✅ | Delete organization (refused if it owns projects) | `DELETE /api/v1/platform/organizations/:slug` |
+| `/platform/organizations/:slug/projects` | GET | ✅ | List org projects (paginated, org-scoped authz) | `GET /api/v1/platform/organizations/:slug/projects` |
+| `/platform/organizations/:slug/available-versions` | GET | 🔧 | List available Postgres versions | `GET .../organizations/:slug/available-versions` (stub) |
+| `/platform/organizations/:slug/usage` | GET | 🔧 | Get org usage metrics | `GET .../organizations/:slug/usage` (stub) |
+| `/platform/organizations/:slug/usage/daily` | GET | 🔧 | Get daily usage breakdown | `GET .../organizations/:slug/usage/daily` (stub) |
+| `/platform/organizations/:slug/entitlements` | GET | 🔧 | Get feature entitlements | `GET .../organizations/:slug/entitlements` (stub) |
+| `/platform/organizations/:slug/audit` | GET | 🔧 | Get org audit log | `GET .../organizations/:slug/audit` (stub) |
 | `/platform/organizations/:slug/sso` | GET | ❌ | List SSO configurations | — |
 
 ---
 
 ## Org Members
 
+> Feature 084: real members + invitations + numeric-id roles (Owner/Administrator/Developer/Read-only).
+
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/organizations/:slug/members` | GET | ❌ | List org members | `GET /members` |
-| `/platform/organizations/:slug/members/:gotrue_id` | PATCH | ❌ | Update member role | — |
-| `/platform/organizations/:slug/members/:gotrue_id` | DELETE | ❌ | Remove member | `DELETE /members/:userId` |
-| `/platform/organizations/:slug/members/invitations` | GET | ❌ | List pending invitations | `GET /members/invites` |
-| `/platform/organizations/:slug/members/invitations` | POST | ❌ | Send invitation | `POST /members/invites` |
-| `/platform/organizations/:slug/members/invitations/:id` | DELETE | ❌ | Cancel invitation | `DELETE /members/invites/:id` |
-| `/platform/organizations/:slug/members/invitations/:token` | GET | ❌ | Get invite by token | — |
-| `/platform/organizations/:slug/members/invitations/:token` | POST | ❌ | Accept invitation | `POST /members/invites/accept` |
-| `/platform/organizations/:slug/members/mfa/enforcement` | GET | ❌ | Get MFA policy | — |
-| `/platform/organizations/:slug/members/mfa/enforcement` | PATCH | ❌ | Set MFA enforcement | — |
-| `/platform/organizations/:slug/members/reached-free-project-limit` | GET | ❌ | Check free project limit | — |
-| `/platform/organizations/:slug/members/:gotrue_id/roles/:role_id` | POST | ❌ | Assign role to member | — |
-| `/platform/organizations/:slug/members/:gotrue_id/roles/:role_id` | DELETE | ❌ | Remove role from member | — |
-| `/platform/organizations/:slug/roles` | GET | ❌ | List available roles | — |
+| `/platform/organizations/:slug/members` | GET | ✅ | List org members (with `role_ids[]`) | `GET .../organizations/:slug/members` |
+| `/platform/organizations/:slug/members/:gotrue_id` | PATCH | ✅ | Update member role | `PATCH .../members/:gotrue_id` |
+| `/platform/organizations/:slug/members/:gotrue_id` | DELETE | ✅ | Remove member (last-owner guard) | `DELETE .../members/:gotrue_id` |
+| `/platform/organizations/:slug/members/invitations` | GET | ✅ | List pending invitations | `GET .../members/invitations` |
+| `/platform/organizations/:slug/members/invitations` | POST | ✅ | Send invitation (SMTP-gated) | `POST .../members/invitations` |
+| `/platform/organizations/:slug/members/invitations/:id` | DELETE | ✅ | Cancel invitation | `DELETE .../members/invitations/:id` |
+| `/platform/organizations/:slug/members/invitations/:token` | GET | ✅ | Get invite by token | `GET .../members/invitations/:token` |
+| `/platform/organizations/:slug/members/invitations/:token` | POST | ✅ | Accept invitation | `POST .../members/invitations/:token` |
+| `/platform/organizations/:slug/members/mfa/enforcement` | GET | 🔧 | Get MFA policy (MFA out of scope) | `GET .../members/mfa/enforcement` (stub) |
+| `/platform/organizations/:slug/members/mfa/enforcement` | PATCH | 🔧 | Set MFA enforcement (MFA out of scope) | `PATCH .../members/mfa/enforcement` (stub) |
+| `/platform/organizations/:slug/members/reached-free-project-limit` | GET | 🔧 | Check free project limit | `GET .../members/reached-free-project-limit` (stub) |
+| `/platform/organizations/:slug/members/:gotrue_id/roles/:role_id` | POST | ✅ | Assign role to member | `POST .../members/:gotrue_id/roles/:role_id` |
+| `/platform/organizations/:slug/members/:gotrue_id/roles/:role_id` | DELETE | ✅ | Remove role from member | `DELETE .../members/:gotrue_id/roles/:role_id` |
+| `/platform/organizations/:slug/roles` | GET | ✅ | List available roles (4 numeric-id objects) | `GET .../organizations/:slug/roles` |
 
 ---
 
@@ -164,13 +179,13 @@
 
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/organizations/:slug/billing/subscription` | GET | 🚫 | Get current subscription plan | — |
+| `/platform/organizations/:slug/billing/subscription` | GET | 🔧 | Get current subscription plan (always Free) | `GET .../billing/subscription` (stub) |
 | `/platform/organizations/:slug/billing/subscription/confirm` | POST | 🚫 | Confirm plan change | — |
 | `/platform/organizations/:slug/billing/upgrade-request` | POST | 🚫 | Request plan upgrade | — |
-| `/platform/organizations/:slug/billing/plans` | GET | 🚫 | List available plans | — |
-| `/platform/organizations/:slug/billing/invoices` | GET | 🚫 | List invoices | — |
+| `/platform/organizations/:slug/billing/plans` | GET | 🔧 | List available plans (Free only) | `GET .../billing/plans` (stub) |
+| `/platform/organizations/:slug/billing/invoices` | GET | 🔧 | List invoices (empty) | `GET .../billing/invoices` (stub) |
 | `/platform/organizations/:slug/billing/invoices` | HEAD | 🚫 | Count invoices (X-Total-Count) | — |
-| `/platform/organizations/:slug/billing/credits/balance` | GET | 🚫 | Get credit balance | — |
+| `/platform/organizations/:slug/billing/credits/balance` | GET | 🔧 | Get credit balance (zero) | `GET .../billing/credits/balance` (stub) |
 | `/platform/organizations/:slug/payments/setup-intent` | POST | 🚫 | Create Stripe setup intent | — |
 | `/platform/stripe/invoices/overdue` | GET | 🚫 | List overdue invoices | — |
 | `/platform/stripe/setup-intent` | POST | 🚫 | Global Stripe setup intent | — |
@@ -183,24 +198,24 @@
 
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/organizations/:slug/apps` | GET | ❌ | List platform apps | — |
-| `/platform/organizations/:slug/apps/installations` | GET | ❌ | List app installations | — |
-| `/platform/organizations/:slug/apps/installations` | POST | ❌ | Install app | — |
-| `/platform/organizations/:slug/apps/installations/:id` | DELETE | ❌ | Uninstall app | — |
-| `/platform/organizations/:slug/apps/:app_id` | GET | ❌ | Get app details | — |
-| `/platform/organizations/:slug/apps/:app_id` | PATCH | ❌ | Update app | — |
-| `/platform/organizations/:slug/apps/:app_id` | DELETE | ❌ | Delete app | — |
-| `/platform/organizations/:slug/apps/:app_id/signing-keys` | POST | ❌ | Create signing key | — |
-| `/platform/organizations/:slug/apps/:app_id/signing-keys/:id` | DELETE | ❌ | Delete signing key | — |
-| `/platform/organizations/:slug/oauth/apps` | GET | ❌ | List OAuth apps | `GET /api/v1/oauth/clients` (partial) |
-| `/platform/organizations/:slug/oauth/apps` | POST | ❌ | Create OAuth app | — |
-| `/platform/organizations/:slug/oauth/apps/:id` | GET | ❌ | Get OAuth app | — |
-| `/platform/organizations/:slug/oauth/apps/:id` | DELETE | ❌ | Delete OAuth app | — |
-| `/platform/organizations/:slug/oauth/apps/:id/revoke` | POST | ❌ | Revoke OAuth app | — |
-| `/platform/organizations/:slug/oauth/apps/:id/client-secrets` | POST | ❌ | Create client secret | — |
-| `/platform/organizations/:slug/oauth/apps/:id/client-secrets/:sid` | DELETE | ❌ | Delete client secret | — |
-| `/platform/organizations/:slug/oauth/authorizations/:id` | GET | ❌ | Get OAuth authorization | — |
-| `/platform/oauth/authorizations/:id` | GET | ❌ | Get global OAuth authorization | — |
+| `/platform/organizations/:slug/apps` | GET | 🔧 | List platform apps (empty) | `GET .../apps` (stub) |
+| `/platform/organizations/:slug/apps/installations` | GET | 🔧 | List app installations (empty) | `GET .../apps/installations` (stub) |
+| `/platform/organizations/:slug/apps/installations` | POST | 🔧 | Install app | `POST .../apps/installations` (stub) |
+| `/platform/organizations/:slug/apps/installations/:id` | DELETE | 🔧 | Uninstall app | `DELETE .../apps/installations/:id` (stub) |
+| `/platform/organizations/:slug/apps/:app_id` | GET | 🔧 | Get app details | `GET .../apps/:app_id` (stub) |
+| `/platform/organizations/:slug/apps/:app_id` | PATCH | 🔧 | Update app | `PATCH .../apps/:app_id` (stub) |
+| `/platform/organizations/:slug/apps/:app_id` | DELETE | 🔧 | Delete app | `DELETE .../apps/:app_id` (stub) |
+| `/platform/organizations/:slug/apps/:app_id/signing-keys` | POST | 🔧 | Create signing key | `POST .../apps/:app_id/signing-keys` (stub) |
+| `/platform/organizations/:slug/apps/:app_id/signing-keys/:id` | DELETE | 🔧 | Delete signing key | `DELETE .../signing-keys/:id` (stub) |
+| `/platform/organizations/:slug/oauth/apps` | GET | 🔧 | List OAuth apps | `GET .../oauth/apps` (stub; real OAuth clients at `/api/v1/oauth/*`) |
+| `/platform/organizations/:slug/oauth/apps` | POST | 🔧 | Create OAuth app | `POST .../oauth/apps` (stub) |
+| `/platform/organizations/:slug/oauth/apps/:id` | GET | 🔧 | Get OAuth app | `GET .../oauth/apps/:id` (stub) |
+| `/platform/organizations/:slug/oauth/apps/:id` | DELETE | 🔧 | Delete OAuth app | `DELETE .../oauth/apps/:id` (stub) |
+| `/platform/organizations/:slug/oauth/apps/:id/revoke` | POST | 🔧 | Revoke OAuth app | `POST .../oauth/apps/:id/revoke` (stub) |
+| `/platform/organizations/:slug/oauth/apps/:id/client-secrets` | POST | 🔧 | Create client secret | `POST .../client-secrets` (stub) |
+| `/platform/organizations/:slug/oauth/apps/:id/client-secrets/:sid` | DELETE | 🔧 | Delete client secret | `DELETE .../client-secrets/:sid` (stub) |
+| `/platform/organizations/:slug/oauth/authorizations/:id` | GET | 🔧 | Get OAuth authorization | `GET .../oauth/authorizations/:id` (stub) |
+| `/platform/oauth/authorizations/:id` | GET | 🔧 | Get global OAuth authorization | `GET /platform/oauth/authorizations/:id` (stub) |
 
 ---
 
@@ -209,14 +224,14 @@
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
 | `/platform/projects` | GET | ✅ | List all projects (paginated) | `GET /instances` |
-| `/platform/projects` | POST | ✅ | Create a new project | `POST /instances` |
+| `/platform/projects` | POST | ✅ | Create a new project (org-scoped) | `POST /instances` |
 | `/platform/projects/:ref` | GET | ✅ | Get project details | `GET /instances/:ref` |
 | `/platform/projects/:ref` | PATCH | 🔧 | Update project name/settings | `PATCH /instances/:ref` |
 | `/platform/projects/:ref` | DELETE | ✅ | Delete project | `DELETE /instances/:ref` |
 | `/platform/projects/:ref/settings` | GET | ✅ | Get project JWT secret + API keys | included in `GET /instances/:ref` |
-| `/platform/projects/:ref/api` | GET | ❌ | Get Auto API (Kong) config | — |
-| `/platform/projects/:ref/api/rest` | GET | ❌ | Get REST API config | — |
-| `/platform/projects/:ref/members` | GET | ❌ | List project members | — |
+| `/platform/projects/:ref/api` | GET | 🔧 | Get Auto API (Kong) config | `GET .../projects/:ref/api` (stub) |
+| `/platform/projects/:ref/api/rest` | GET | 🔧 | Get REST API config | `GET .../projects/:ref/api/rest` (stub) |
+| `/platform/projects/:ref/members` | GET | 🔧 | List project members | `GET .../projects/:ref/members` (stub) |
 
 ---
 
@@ -230,10 +245,10 @@
 | `/platform/projects/:ref/restart-services` | POST | 🔧 | Restart specific services | `POST /instances/:ref/restart` |
 | `/platform/projects/:ref/restore` | POST | ✅ | Restore a paused project | `POST /projects/:ref/restore` |
 | `/platform/projects/:ref/restore/versions` | GET | ❌ | List restore versions | — |
-| `/platform/projects/:ref/resize` | POST | ❌ | Resize compute | — |
-| `/platform/projects/:ref/db-password` | PATCH | ❌ | Reset database password | — |
-| `/platform/projects/:ref/transfer` | POST | ❌ | Transfer project to another org | — |
-| `/platform/projects/:ref/transfer/preview` | GET | ❌ | Preview transfer (billing impact) | — |
+| `/platform/projects/:ref/resize` | POST | 🔧 | Resize compute | `POST .../projects/:ref/resize` (stub) |
+| `/platform/projects/:ref/db-password` | PATCH | 🔧 | Reset database password | `PATCH .../projects/:ref/db-password` (stub) |
+| `/platform/projects/:ref/transfer` | POST | 🔧 | Transfer project to another org | `POST .../projects/:ref/transfer` (stub) |
+| `/platform/projects/:ref/transfer/preview` | GET | 🔧 | Preview transfer (billing impact) | `GET .../projects/:ref/transfer/preview` (stub) |
 
 ---
 
@@ -244,11 +259,11 @@
 | `/platform/projects/:ref/config/postgrest` | GET | ✅ | Get PostgREST config (schema, max_rows) | `GET /projects/:ref/postgrest` |
 | `/platform/projects/:ref/config/postgrest` | PATCH | ✅ | Update PostgREST config | `PATCH /projects/:ref/postgrest` |
 | `/platform/projects/:ref/config/pgbouncer` | GET | ❌ | Get pgBouncer/pooler config | — |
-| `/platform/projects/:ref/config/pgbouncer` | PATCH | ❌ | Update pgBouncer config | — |
-| `/platform/projects/:ref/config/pgbouncer/status` | GET | ❌ | Get pgBouncer status | `GET /api/v1/pooler/status` (partial) |
-| `/platform/projects/:ref/config/realtime` | GET | ❌ | Get Realtime config | — |
-| `/platform/projects/:ref/config/realtime` | PATCH | ❌ | Update Realtime config | — |
-| `/platform/projects/:ref/config/storage` | GET | ❌ | Get storage config (file size limits) | — |
+| `/platform/projects/:ref/config/pgbouncer` | PATCH | 🔧 | Update pgBouncer config | `PATCH .../config/pgbouncer` (stub) |
+| `/platform/projects/:ref/config/pgbouncer/status` | GET | 🔧 | Get pgBouncer status | `GET /api/v1/pooler/status` (partial) |
+| `/platform/projects/:ref/config/realtime` | GET | 🔧 | Get Realtime config | `GET .../config/realtime` (stub) |
+| `/platform/projects/:ref/config/realtime` | PATCH | 🔧 | Update Realtime config | `PATCH .../config/realtime` (stub) |
+| `/platform/projects/:ref/config/storage` | GET | 🔧 | Get storage config (file size limits) | `GET .../config/storage` (stub) |
 | `/platform/projects/:ref/config/secrets` | GET | ✅ | List project secrets | `GET /projects/:ref/secrets` |
 | `/platform/projects/:ref/config/secrets` | PATCH | ✅ | Upsert secrets | `POST /projects/:ref/secrets` |
 | `/platform/projects/:ref/config/secrets/update-status` | GET | ❌ | Get secret sync status | — |
@@ -261,18 +276,18 @@
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
 | `/v1/projects/:ref/health` | GET | ✅ | Get service health statuses | `GET /instances/:ref/health` |
-| `/platform/projects/:ref/databases` | GET | ❌ | List databases for project | — |
-| `/platform/projects/:ref/disk` | GET | ❌ | Get disk info | — |
-| `/platform/projects/:ref/disk` | POST | ❌ | Configure disk size | — |
-| `/platform/projects/:ref/disk/custom-config` | GET | ❌ | Get custom disk config | — |
-| `/platform/projects/:ref/disk/custom-config` | POST | ❌ | Set custom disk config | — |
-| `/platform/projects/:ref/disk/util` | GET | ❌ | Get disk utilization | — |
+| `/platform/projects/:ref/databases` | GET | 🔧 | List databases for project | `GET .../projects/:ref/databases` (stub) |
+| `/platform/projects/:ref/disk` | GET | 🔧 | Get disk info | `GET .../projects/:ref/disk` (stub) |
+| `/platform/projects/:ref/disk` | POST | 🔧 | Configure disk size | `POST .../projects/:ref/disk` (stub) |
+| `/platform/projects/:ref/disk/custom-config` | GET | 🔧 | Get custom disk config | `GET .../disk/custom-config` (stub) |
+| `/platform/projects/:ref/disk/custom-config` | POST | 🔧 | Set custom disk config | `POST .../disk/custom-config` (stub) |
+| `/platform/projects/:ref/disk/util` | GET | 🔧 | Get disk utilization | `GET .../disk/util` (stub) |
 | `/platform/projects/:ref/load-balancers` | GET | ❌ | List load balancers | — |
-| `/platform/projects/:ref/read-replicas` | GET | ❌ | List read replicas | — |
+| `/platform/projects/:ref/read-replicas` | GET | 🔧 | List read replicas (empty) | `GET .../read-replicas` (stub) |
 | `/v1/projects/:ref/read-replicas` | GET | ❌ | List read replicas (v1) | — |
-| `/platform/projects/:ref/live-queries` | GET | ❌ | List active live queries | — |
-| `/platform/projects/:ref/resources/:id` | GET | ❌ | Get compute resource | — |
-| `/platform/projects/:ref/resources/:id` | PATCH | ❌ | Update compute resource | — |
+| `/platform/projects/:ref/live-queries` | GET | 🔧 | List active live queries (empty) | `GET .../live-queries` (stub) |
+| `/platform/projects/:ref/resources/:id` | GET | 🔧 | Get compute resource | `GET .../resources/:id` (stub) |
+| `/platform/projects/:ref/resources/:id` | PATCH | 🔧 | Update compute resource | `PATCH .../resources/:id` (stub) |
 | `/platform/projects/:ref/infra-monitoring` | GET | ❌ | Get infra monitoring data | — |
 | `/platform/projects/:ref/daily-stats` | GET | ❌ | Get daily usage stats | — |
 | `/v1/projects/:ref/upgrade/eligibility` | GET | ❌ | Check upgrade eligibility | — |
@@ -288,11 +303,11 @@
 | `/v1/projects/:ref/network-bans` | DELETE | ❌ | Remove IP ban | — |
 | `/v1/projects/:ref/network-restrictions` | GET | ❌ | Get network firewall rules | — |
 | `/v1/projects/:ref/network-restrictions/apply` | POST | ❌ | Apply firewall rules | — |
-| `/platform/projects/:ref/privatelink/associations` | GET | ❌ | List PrivateLink associations | — |
-| `/platform/projects/:ref/privatelink/associations/aws-account` | POST | ❌ | Create AWS PrivateLink | — |
-| `/platform/projects/:ref/privatelink/associations/aws-account/:id` | GET | ❌ | Get AWS PrivateLink | — |
+| `/platform/projects/:ref/privatelink/associations` | GET | 🔧 | List PrivateLink associations (empty) | `GET .../privatelink/associations` (stub) |
+| `/platform/projects/:ref/privatelink/associations/aws-account` | POST | 🔧 | Create AWS PrivateLink | `POST .../privatelink/associations/aws-account` (stub) |
+| `/platform/projects/:ref/privatelink/associations/aws-account/:id` | GET | 🔧 | Get AWS PrivateLink | `GET .../aws-account/:id` (stub) |
 | `/v1/projects/:ref/custom-hostname` | GET | ❌ | Get custom domain config | — |
-| `/platform/projects/:ref/settings/sensitivity` | PATCH | ❌ | Set data sensitivity level | — |
+| `/platform/projects/:ref/settings/sensitivity` | PATCH | 🔧 | Set data sensitivity level | `PATCH .../settings/sensitivity` (stub) |
 
 ---
 
@@ -320,15 +335,15 @@
 
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/database/:ref/backups` | GET | 🔧 | List available backups | `GET /projects/:ref/database/backups` |
+| `/platform/database/:ref/backups` | GET | ✅ | List available backups | `GET /projects/:ref/database/backups` |
 | `/platform/database/:ref/backups/downloadable-backups` | GET | 🔧 | List downloadable backups | `GET /projects/:ref/database/backups` |
-| `/platform/database/:ref/backups/download` | POST | ❌ | Download a backup | — |
-| `/platform/database/:ref/backups/restore` | POST | 🔧 | Restore from logical backup | `POST /projects/:ref/database/backups/restore-pitr` |
-| `/platform/database/:ref/backups/pitr` | POST | ✅ | Point-in-time restore | `POST /projects/:ref/database/backups/restore-pitr` |
-| `/platform/database/:ref/backups/restore-physical` | POST | ❌ | Restore physical backup | — |
+| `/platform/database/:ref/backups/download` | POST | 🔧 | Download a backup | `POST .../backups/download` (stub) |
+| `/platform/database/:ref/backups/restore` | POST | ✅ | Restore from logical backup (async worker) | `POST .../backups/restore` |
+| `/platform/database/:ref/backups/pitr` | POST | ✅ | Point-in-time restore | `POST .../backups/restore-pitr` |
+| `/platform/database/:ref/backups/restore-physical` | POST | 🔧 | Restore physical backup | `POST .../backups/restore-physical` (stub) |
 | `/platform/database/:ref/backups/enable-physical-backups` | POST | ❌ | Enable physical backups | — |
-| `/platform/database/:ref/clone` | POST | ❌ | Clone database to new project | — |
-| `/platform/database/:ref/hook-enable` | POST | ❌ | Enable database webhooks | — |
+| `/platform/database/:ref/clone` | POST | 🔧 | Clone database to new project | `POST .../database/:ref/clone` (stub) |
+| `/platform/database/:ref/hook-enable` | POST | 🔧 | Enable database webhooks | `POST .../database/:ref/hook-enable` (stub) |
 
 ---
 
@@ -350,17 +365,17 @@
 | `/platform/storage/:ref/credentials` | GET | 🔀 | List storage S3 credentials | `→ Kong /storage/v1/s3/accesskey` |
 | `/platform/storage/:ref/credentials` | POST | 🔀 | Create storage S3 credential | `→ Kong /storage/v1/s3/accesskey` |
 | `/platform/storage/:ref/credentials/:id` | DELETE | 🔀 | Delete storage S3 credential | `→ Kong /storage/v1/s3/accesskey/:id` |
-| `/platform/storage/:ref/vector-buckets` | GET | ❌ | List vector buckets (Supabase-specific) | — |
-| `/platform/storage/:ref/vector-buckets` | POST | ❌ | Create vector bucket | — |
-| `/platform/storage/:ref/vector-buckets/:id` | DELETE | ❌ | Delete vector bucket | — |
-| `/platform/storage/:ref/vector-buckets/:id/indexes` | POST | ❌ | Create vector index | — |
-| `/platform/storage/:ref/vector-buckets/:id/indexes/:name` | DELETE | ❌ | Delete vector index | — |
-| `/platform/storage/:ref/analytics-buckets` | GET | ❌ | List analytics buckets | — |
-| `/platform/storage/:ref/analytics-buckets` | POST | ❌ | Create analytics bucket | — |
-| `/platform/storage/:ref/analytics-buckets/:id` | DELETE | ❌ | Delete analytics bucket | — |
-| `/platform/storage/:ref/analytics-buckets/:id/namespaces` | GET | ❌ | List bucket namespaces | — |
-| `/platform/storage/:ref/analytics-buckets/:id/namespaces` | POST | ❌ | Create namespace | — |
-| `/platform/storage/:ref/archive` | GET | ❌ | Get storage archive info | — |
+| `/platform/storage/:ref/vector-buckets` | GET | 🔧 | List vector buckets (empty) | `GET .../vector-buckets` (stub) |
+| `/platform/storage/:ref/vector-buckets` | POST | 🔧 | Create vector bucket | `POST .../vector-buckets` (stub) |
+| `/platform/storage/:ref/vector-buckets/:id` | DELETE | 🔧 | Delete vector bucket | `DELETE .../vector-buckets/:id` (stub) |
+| `/platform/storage/:ref/vector-buckets/:id/indexes` | POST | 🔧 | Create vector index | `POST .../vector-buckets/:id/indexes` (stub) |
+| `/platform/storage/:ref/vector-buckets/:id/indexes/:name` | DELETE | 🔧 | Delete vector index | `DELETE .../indexes/:name` (stub) |
+| `/platform/storage/:ref/analytics-buckets` | GET | 🔧 | List analytics buckets (empty) | `GET .../analytics-buckets` (stub) |
+| `/platform/storage/:ref/analytics-buckets` | POST | 🔧 | Create analytics bucket | `POST .../analytics-buckets` (stub) |
+| `/platform/storage/:ref/analytics-buckets/:id` | DELETE | 🔧 | Delete analytics bucket | `DELETE .../analytics-buckets/:id` (stub) |
+| `/platform/storage/:ref/analytics-buckets/:id/namespaces` | GET | 🔧 | List bucket namespaces | `GET .../namespaces` (stub) |
+| `/platform/storage/:ref/analytics-buckets/:id/namespaces` | POST | 🔧 | Create namespace | `POST .../namespaces` (stub) |
+| `/platform/storage/:ref/archive` | GET | 🔧 | Get storage archive info | `GET .../storage/:ref/archive` (stub) |
 
 ---
 
@@ -396,15 +411,15 @@
 | `/platform/projects/:ref/analytics/endpoints/logs.all.otel` | GET | 🔀 | Query OpenTelemetry logs | `→ Kong /analytics/v1/otel/logs` |
 | `/platform/projects/:ref/analytics/endpoints/auth.metrics` | GET | 🔀 | Get auth performance metrics | `→ Kong /analytics/v1/endpoints/auth.metrics` |
 | `/platform/projects/:ref/analytics/endpoints/service-health` | GET | 🔀 | Get service health metrics | `→ Kong /analytics/v1/endpoints/service-health` |
-| `/platform/projects/:ref/analytics/endpoints/usage.api-counts` | GET | 🔀 | Get API request counts | `→ Kong /analytics/v1/endpoints/usage.api-counts` |
-| `/platform/projects/:ref/analytics/endpoints/usage.api-requests-count` | GET | 🔀 | Get API request totals | `→ Kong /analytics/v1/endpoints/usage.api-requests-count` |
-| `/platform/projects/:ref/analytics/endpoints/functions.combined-stats` | GET | 🔀 | Get function combined stats | `→ Kong /analytics/v1/endpoints/functions.combined-stats` |
-| `/platform/projects/:ref/analytics/endpoints/functions.req-stats` | GET | 🔀 | Get function request stats | `→ Kong /analytics/v1/endpoints/functions.req-stats` |
-| `/platform/projects/:ref/analytics/endpoints/functions.resource-usage` | GET | 🔀 | Get function resource usage | `→ Kong /analytics/v1/endpoints/functions.resource-usage` |
-| `/platform/projects/:ref/analytics/log-drains` | GET | ❌ | List log drain destinations | — |
-| `/platform/projects/:ref/analytics/log-drains` | POST | ❌ | Create log drain | — |
-| `/platform/projects/:ref/analytics/log-drains/:token` | PUT | ❌ | Update log drain | — |
-| `/platform/projects/:ref/analytics/log-drains/:token` | DELETE | ❌ | Delete log drain | — |
+| `/platform/projects/:ref/analytics/endpoints/usage.api-counts` | GET | 🔧 | Get API request counts (empty) | `GET .../usage.api-counts` (stub) |
+| `/platform/projects/:ref/analytics/endpoints/usage.api-requests-count` | GET | 🔧 | Get API request totals (empty) | `GET .../usage.api-requests-count` (stub) |
+| `/platform/projects/:ref/analytics/endpoints/functions.combined-stats` | GET | 🔧 | Get function combined stats (empty) | `GET .../functions.combined-stats` (stub) |
+| `/platform/projects/:ref/analytics/endpoints/functions.req-stats` | GET | 🔧 | Get function request stats (empty) | `GET .../functions.req-stats` (stub) |
+| `/platform/projects/:ref/analytics/endpoints/functions.resource-usage` | GET | 🔧 | Get function resource usage (empty) | `GET .../functions.resource-usage` (stub) |
+| `/platform/projects/:ref/analytics/log-drains` | GET | 🔧 | List log drain destinations (empty) | `GET .../analytics/log-drains` (stub) |
+| `/platform/projects/:ref/analytics/log-drains` | POST | 🔧 | Create log drain | `POST .../analytics/log-drains` (stub) |
+| `/platform/projects/:ref/analytics/log-drains/:token` | PUT | 🔧 | Update log drain | `PUT .../log-drains/:token` (stub) |
+| `/platform/projects/:ref/analytics/log-drains/:token` | DELETE | 🔧 | Delete log drain | `DELETE .../log-drains/:token` (stub) |
 | `/platform/projects/:ref/run-lints` | GET | ❌ | Run database lint checks | — |
 | `/platform/projects/:ref/notifications/advisor/exceptions` | GET | ❌ | Get lint exception rules | — |
 
@@ -412,56 +427,62 @@
 
 ## Notifications
 
+> Feature 025 stubs — return empty so Studio's notification bell renders.
+
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/notifications` | GET | ❌ | List platform notifications | — |
-| `/platform/notifications` | PATCH | ❌ | Mark notifications as read | — |
-| `/platform/notifications/archive-all` | PATCH | ❌ | Archive all notifications | — |
-| `/platform/notifications/summary` | GET | ❌ | Get notification counts | — |
+| `/platform/notifications` | GET | 🔧 | List platform notifications (empty) | `GET /api/v1/platform/notifications` (stub) |
+| `/platform/notifications` | PATCH | 🔧 | Mark notifications as read | `PATCH /api/v1/platform/notifications` (stub) |
+| `/platform/notifications/archive-all` | PATCH | 🔧 | Archive all notifications | `PATCH .../notifications/archive-all` (stub) |
+| `/platform/notifications/summary` | GET | 🔧 | Get notification counts (zero) | `GET .../notifications/summary` (stub) |
 
 ---
 
 ## Replication
 
+> Feature 025 stubs — return empty so Studio's replication pages render. No real replication backend.
+
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/replication/:ref/sources` | GET | ❌ | List replication sources | — |
-| `/platform/replication/:ref/sources/:id/tables` | GET | ❌ | List source tables | — |
-| `/platform/replication/:ref/sources/:id/publications` | GET | ❌ | List source publications | — |
-| `/platform/replication/:ref/sources/:id/publications` | POST | ❌ | Create publication | — |
-| `/platform/replication/:ref/sources/:id/publications/:name` | DELETE | ❌ | Delete publication | — |
-| `/platform/replication/:ref/destinations` | GET | ❌ | List replication destinations | — |
-| `/platform/replication/:ref/destinations` | POST | ❌ | Create destination | — |
-| `/platform/replication/:ref/destinations/validate` | POST | ❌ | Validate destination config | — |
-| `/platform/replication/:ref/destinations/:id` | PATCH | ❌ | Update destination | — |
-| `/platform/replication/:ref/destinations/:id` | DELETE | ❌ | Delete destination | — |
-| `/platform/replication/:ref/pipelines` | GET | ❌ | List replication pipelines | — |
-| `/platform/replication/:ref/pipelines` | POST | ❌ | Create pipeline | — |
-| `/platform/replication/:ref/pipelines/validate` | POST | ❌ | Validate pipeline config | — |
-| `/platform/replication/:ref/pipelines/:id` | DELETE | ❌ | Delete pipeline | — |
-| `/platform/replication/:ref/pipelines/:id/start` | POST | ❌ | Start pipeline | — |
-| `/platform/replication/:ref/pipelines/:id/stop` | POST | ❌ | Stop pipeline | — |
-| `/platform/replication/:ref/pipelines/:id/status` | GET | ❌ | Get pipeline status | — |
-| `/platform/replication/:ref/pipelines/:id/version` | GET | ❌ | Get pipeline version | — |
-| `/platform/replication/:ref/pipelines/:id/replication-status` | GET | ❌ | Get replication lag / status | — |
-| `/platform/replication/:ref/pipelines/:id/rollback-tables` | POST | ❌ | Rollback specific tables | — |
-| `/platform/replication/:ref/destinations-pipelines` | POST | ❌ | Create destination+pipeline together | — |
-| `/platform/replication/:ref/destinations-pipelines/:did/:pid` | DELETE | ❌ | Delete destination+pipeline | — |
-| `/platform/replication/:ref/tenants` | GET | ❌ | List tenants | — |
-| `/platform/replication/:ref/tenants` | DELETE | ❌ | Delete tenant | — |
-| `/platform/replication/:ref/tenants-sources` | POST | ❌ | Create tenant source | — |
+| `/platform/replication/:ref/sources` | GET | 🔧 | List replication sources (empty) | stub |
+| `/platform/replication/:ref/sources/:id/tables` | GET | 🔧 | List source tables | stub |
+| `/platform/replication/:ref/sources/:id/publications` | GET | 🔧 | List source publications | stub |
+| `/platform/replication/:ref/sources/:id/publications` | POST | 🔧 | Create publication | stub |
+| `/platform/replication/:ref/sources/:id/publications/:name` | DELETE | 🔧 | Delete publication | stub |
+| `/platform/replication/:ref/destinations` | GET | 🔧 | List replication destinations (empty) | stub |
+| `/platform/replication/:ref/destinations` | POST | 🔧 | Create destination | stub |
+| `/platform/replication/:ref/destinations/validate` | POST | 🔧 | Validate destination config | stub |
+| `/platform/replication/:ref/destinations/:id` | PATCH | 🔧 | Update destination | stub |
+| `/platform/replication/:ref/destinations/:id` | DELETE | 🔧 | Delete destination | stub |
+| `/platform/replication/:ref/pipelines` | GET | 🔧 | List replication pipelines (empty) | stub |
+| `/platform/replication/:ref/pipelines` | POST | 🔧 | Create pipeline | stub |
+| `/platform/replication/:ref/pipelines/validate` | POST | 🔧 | Validate pipeline config | stub |
+| `/platform/replication/:ref/pipelines/:id` | DELETE | 🔧 | Delete pipeline | stub |
+| `/platform/replication/:ref/pipelines/:id/start` | POST | 🔧 | Start pipeline | stub |
+| `/platform/replication/:ref/pipelines/:id/stop` | POST | 🔧 | Stop pipeline | stub |
+| `/platform/replication/:ref/pipelines/:id/status` | GET | 🔧 | Get pipeline status | stub |
+| `/platform/replication/:ref/pipelines/:id/version` | GET | 🔧 | Get pipeline version | stub |
+| `/platform/replication/:ref/pipelines/:id/replication-status` | GET | 🔧 | Get replication lag / status | stub |
+| `/platform/replication/:ref/pipelines/:id/rollback-tables` | POST | 🔧 | Rollback specific tables | stub |
+| `/platform/replication/:ref/destinations-pipelines` | POST | 🔧 | Create destination+pipeline together | stub |
+| `/platform/replication/:ref/destinations-pipelines/:did/:pid` | DELETE | 🔧 | Delete destination+pipeline | stub |
+| `/platform/replication/:ref/tenants` | GET | 🔧 | List tenants | stub |
+| `/platform/replication/:ref/tenants` | DELETE | 🔧 | Delete tenant | stub |
+| `/platform/replication/:ref/tenants-sources` | POST | 🔧 | Create tenant source | stub |
 
 ---
 
 ## Integrations
 
+> Feature 025 stubs — return empty so Studio's integration pages render.
+
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/integrations` | GET | ❌ | List global integrations | — |
-| `/platform/integrations/:slug` | GET | ❌ | List org integrations | — |
-| `/platform/integrations/github/authorization` | GET | ❌ | Get GitHub app auth status | — |
-| `/platform/integrations/github/connections` | GET | ❌ | List GitHub connections | — |
-| `/platform/integrations/github/repositories` | GET | ❌ | List GitHub repos | — |
+| `/platform/integrations` | GET | 🔧 | List global integrations (empty) | `GET /api/v1/platform/integrations` (stub) |
+| `/platform/integrations/:slug` | GET | 🔧 | List org integrations (empty) | `GET .../integrations/:slug` (stub) |
+| `/platform/integrations/github/authorization` | GET | 🔧 | Get GitHub app auth status | `GET .../github/authorization` (stub) |
+| `/platform/integrations/github/connections` | GET | 🔧 | List GitHub connections (empty) | `GET .../github/connections` (stub) |
+| `/platform/integrations/github/repositories` | GET | 🔧 | List GitHub repos (empty) | `GET .../github/repositories` (stub) |
 
 ---
 
@@ -469,9 +490,9 @@
 
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/telemetry/feature-flags` | GET | ❌ | Get feature flag values | — |
-| `/platform/projects-resource-warnings` | GET | ❌ | Get resource warning alerts | — |
-| `/platform/deployment-mode` | GET | ❌ | Get deployment mode (cloud/self-hosted) | — |
+| `/platform/telemetry/feature-flags` | GET | 🔧 | Get feature flag values | `GET /api/v1/platform/telemetry/feature-flags` (stub) |
+| `/platform/projects-resource-warnings` | GET | 🔧 | Get resource warning alerts (empty) | `GET /api/v1/platform/projects-resource-warnings` (stub) |
+| `/platform/deployment-mode` | GET | ✅ | Get deployment mode (self-hosted) | `GET /api/v1/platform/deployment-mode` |
 
 ---
 
@@ -479,14 +500,14 @@
 
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/projects/:ref/content` | GET | ❌ | List saved SQL queries/snippets | — |
-| `/platform/projects/:ref/content` | POST | ❌ | Save a SQL snippet | — |
-| `/platform/projects/:ref/content/count` | GET | ❌ | Count content items | — |
-| `/platform/projects/:ref/content/folders` | GET | ❌ | List content folders | — |
-| `/platform/projects/:ref/content/folders/:id` | GET | ❌ | Get content folder | — |
-| `/platform/projects/:ref/content/item/:id` | GET | ❌ | Get specific content item | — |
-| `/platform/projects/:ref/service-versions` | GET | ❌ | Get version info for each service | — |
-| `/platform/projects/:ref/api-keys/temporary` | GET | ❌ | Get short-lived API keys | — |
+| `/platform/projects/:ref/content` | GET | 🔧 | List saved SQL queries/snippets (empty) | `GET .../projects/:ref/content` (stub) |
+| `/platform/projects/:ref/content` | POST | 🔧 | Save a SQL snippet | `POST .../projects/:ref/content` (stub) |
+| `/platform/projects/:ref/content/count` | GET | 🔧 | Count content items | `GET .../content/count` (stub) |
+| `/platform/projects/:ref/content/folders` | GET | 🔧 | List content folders | `GET .../content/folders` (stub) |
+| `/platform/projects/:ref/content/folders/:id` | GET | 🔧 | Get content folder | `GET .../content/folders/:id` (stub) |
+| `/platform/projects/:ref/content/item/:id` | GET | 🔧 | Get specific content item | `GET .../content/item/:id` (stub) |
+| `/platform/projects/:ref/service-versions` | GET | 🔧 | Get version info for each service | `GET .../service-versions` (stub) |
+| `/platform/projects/:ref/api-keys/temporary` | GET | 🔧 | Get short-lived API keys | `GET .../api-keys/temporary` (stub) |
 | `/v1/projects/:ref/branches` | GET | ❌ | List database branches | — |
 | `/v1/projects/:ref/config/auth/signing-keys` | GET | ❌ | List JWT signing keys | — |
 | `/v1/projects/:ref/config/auth/third-party-auth` | GET | ❌ | List third-party auth providers | — |
@@ -504,11 +525,23 @@
 
 ---
 
+## Studio UI Overrides (apex-root / basePath)
+
+> Feature 025 + 891dde7: Studio's own Next.js API routes that 500 self-hosted are intercepted by Caddy and served by api stubs. Routed under the `/dashboard` basePath too.
+
+| SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
+|---|---|---|---|---|
+| `/api/get-deployment-commit` | GET | ✅ | Studio build/version banner | `GET /api/get-deployment-commit` (api stub) |
+| `/api/incident-banner` | GET | ✅ | Cloud incident banner (none self-hosted) | `GET /api/incident-banner` → `null` |
+| `/api/incident-status` | GET | ✅ | Active StatusPage incidents (none self-hosted) | `GET /api/incident-status` → `[]` |
+
+---
+
 ## Feedback
 
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
-| `/platform/feedback/send` | POST | ❌ | Send general feedback | — |
-| `/platform/feedback/upgrade` | POST | ❌ | Send upgrade feedback | — |
-| `/platform/feedback/downgrade` | POST | ❌ | Send downgrade feedback | — |
-| `/platform/feedback/conversations/:id/custom-fields` | PATCH | ❌ | Update feedback conversation fields | — |
+| `/platform/feedback/send` | POST | 🔧 | Send general feedback (no-op) | `POST /api/v1/platform/feedback/send` (stub) |
+| `/platform/feedback/upgrade` | POST | 🔧 | Send upgrade feedback (no-op) | `POST .../feedback/upgrade` (stub) |
+| `/platform/feedback/downgrade` | POST | 🔧 | Send downgrade feedback (no-op) | `POST .../feedback/downgrade` (stub) |
+| `/platform/feedback/conversations/:id/custom-fields` | PATCH | 🔧 | Update feedback conversation fields | `PATCH .../conversations/:id/custom-fields` (stub) |
