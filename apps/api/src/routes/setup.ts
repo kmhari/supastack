@@ -76,6 +76,18 @@ export const setupRoutes: FastifyPluginAsync = async (app) => {
         role: 'owner',
       });
 
+      // Claim any ownerless orgs (e.g. the "Legacy (pre-084)" org that holds
+      // projects migrated from the old singleton) so the first operator can see
+      // and manage them.
+      await tx.execute(sql`
+        INSERT INTO organization_members (organization_id, user_id, role)
+        SELECT o.id, ${operator.id}, 'owner'
+        FROM organizations o
+        WHERE NOT EXISTS (
+          SELECT 1 FROM organization_members m WHERE m.organization_id = o.id
+        )
+      `);
+
       await tx
         .insert(schema.setupState)
         .values({ id: 1, completedAt: sql`now()` })

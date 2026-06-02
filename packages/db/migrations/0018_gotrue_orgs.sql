@@ -78,6 +78,7 @@ END $$;
 
 -- 6. supabase_instances.org_id: uuid → text, repointed at organizations (RESTRICT).
 DO $$
+DECLARE legacy_id text;
 BEGIN
   IF EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -85,6 +86,26 @@ BEGIN
   ) THEN
     ALTER TABLE supabase_instances ALTER COLUMN org_id TYPE text USING org_id::text;
   END IF;
+
+  -- Greenfield-on-a-live-VM: any pre-existing projects reference the dropped
+  -- `org` singleton. Move them to a fresh "Legacy" tenant org (proper 20-char
+  -- lowercase ref) so the new FK is satisfiable. The first operator claims
+  -- ownership of ownerless orgs at /setup. No-op on a truly empty install.
+  IF EXISTS (SELECT 1 FROM supabase_instances)
+     AND EXISTS (
+       SELECT 1 FROM supabase_instances si
+       WHERE NOT EXISTS (SELECT 1 FROM organizations o WHERE o.id = si.org_id)
+     ) THEN
+    legacy_id := (
+      SELECT string_agg(substr('abcdefghijklmnopqrstuvwxyz', (random() * 25)::int + 1, 1), '')
+      FROM generate_series(1, 20)
+    );
+    INSERT INTO organizations (id, name) VALUES (legacy_id, 'Legacy (pre-084)');
+    UPDATE supabase_instances
+    SET org_id = legacy_id
+    WHERE NOT EXISTS (SELECT 1 FROM organizations o WHERE o.id = supabase_instances.org_id);
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.table_constraints
     WHERE constraint_name = 'supabase_instances_org_id_organizations_fk'
