@@ -87,6 +87,12 @@
   --colors-gray-dark-1100: 0deg 0% 62.7%;
   --colors-gray-dark-1200: 0deg 0% 92.9%;
 
+  /* Spacing / layout tokens used by Card, CardContent, CardHeader, CardFooter */
+  --padding-x-sm: 1rem;     /* px-4 */
+  --padding-x-md: 1.5rem;   /* px-6 */
+  --card-padding-x: var(--padding-x-sm);
+  --card-padding-x-md: var(--padding-x-md);
+
   /*
    * Supabase dark theme semantic tokens.
    * Vendored from packages/ui/build/css/themes/dark.css at commit 8cd39680ef.
