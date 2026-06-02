@@ -38,7 +38,14 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       mobile: null,
       is_alpha_user: false,
       is_sso_user: false,
-      disabled_features: [],
+      disabled_features: [
+        // feature 025 — reduce the IS_PLATFORM Studio to a self-hosted "supastack cloud".
+        // POST-LOGIN features only (runtime, no Studio rebuild). See docs/studio-feature-flags.md.
+        // NOTE: pre-login/sign-in-page flags (dashboard_auth:*) are NOT controllable here
+        // — there is no profile pre-login — so they live in the Studio source
+        // enabled-features.json (build-time) instead.
+        'billing:all',
+      ],
       free_project_limit: 999,
     });
   });
