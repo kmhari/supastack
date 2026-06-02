@@ -90,6 +90,15 @@ export async function buildCaddyConfig(): Promise<unknown> {
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
     {
+      // Feature 084 — control-plane GoTrue. Studio + clients hit /auth/v1/*;
+      // strip the prefix and forward to the `auth` (GoTrue) container at :9999.
+      match: [{ path: ['/auth/v1/*'] }],
+      handle: [
+        { handler: 'rewrite', strip_path_prefix: '/auth/v1' },
+        { handler: 'reverse_proxy', upstreams: [{ dial: 'auth:9999' }] },
+      ],
+    },
+    {
       match: [{ path: ['/socket.io/*'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },

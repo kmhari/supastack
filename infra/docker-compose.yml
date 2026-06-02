@@ -49,6 +49,46 @@ services:
       timeout: 3s
       retries: 12
 
+  auth:
+    # Control-plane GoTrue (feature 084) — owns operator identity (auth.users).
+    # Same image as the per-instance template. Reached at /auth/v1/* via Caddy
+    # (strip_path_prefix). JWT secret is HKDF-derived from MASTER_KEY — see
+    # scripts/derive-gotrue-secret.mjs (populates GOTRUE_JWT_SECRET in infra/.env).
+    image: supabase/gotrue:v2.186.0
+    restart: unless-stopped
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      # Runs as the control-plane superuser; owns the `auth` schema (created
+      # idempotently by migration 0017). sslmode=disable — internal network, no TLS on db.
+      GOTRUE_DB_DATABASE_URL: "postgres://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack?search_path=auth&sslmode=disable"
+      GOTRUE_DB_NAMESPACE: auth
+      GOTRUE_SITE_URL: "https://${SUPASTACK_APEX}"
+      # HKDF(MASTER_KEY,'supastack-gotrue-jwt-v1') — the api verifies with the same value.
+      GOTRUE_JWT_SECRET: "${GOTRUE_JWT_SECRET:?GOTRUE_JWT_SECRET required - run scripts/derive-gotrue-secret.mjs}"
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: '3600'
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      # Invite-only — no open signup; first operator is created via the admin API in /setup.
+      GOTRUE_DISABLE_SIGNUP: 'true'
+      # Email/password on; phone + social + MFA off (out of scope for 084).
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: 'true'
+      GOTRUE_EXTERNAL_PHONE_ENABLED: 'false'
+      GOTRUE_MFA_ENABLED: 'false'
+      # Until SMTP lands (US6), directly-created accounts are usable without an email round-trip.
+      GOTRUE_MAILER_AUTOCONFIRM: 'true'
+    networks: [internal]
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:9999/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   caddy:
     # Custom Caddy build with caddy-l4 module (Postgres SNI routing on :5432).
     # See apps/caddy/Dockerfile for build context. First feature requiring a
@@ -296,7 +336,9 @@ services:
     environment:
       NEXT_PUBLIC_IS_PLATFORM: "true"
       NEXT_PUBLIC_API_URL: "https://${SUPASTACK_APEX}/api/v1"
-      NEXT_PUBLIC_GOTRUE_URL: "https://${SUPASTACK_APEX}/api/v1"
+      # Feature 084 — point Studio's auth at the real control-plane GoTrue (Caddy
+      # routes /auth/v1/* → auth:9999), replacing the retired studio-gotrue shim.
+      NEXT_PUBLIC_GOTRUE_URL: "https://${SUPASTACK_APEX}/auth/v1"
       # Serve Studio under /dashboard (Cloud-parity URLs: <apex>/dashboard/project/<ref>).
       # Baked at build time (next.config.ts basePath + assetPrefix) — changing this
       # requires deleting .next/BUILD_ID to force a rebuild. next.config.ts also
