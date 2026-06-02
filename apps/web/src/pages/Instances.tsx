@@ -111,16 +111,16 @@ export function InstancesPage(): React.ReactElement {
         <div className="ml-auto flex items-center gap-2">
           <div className="inline-flex gap-0.5">
             <Button
-              variant={view === 'grid' ? 'secondary' : 'ghost'}
-              size="icon"
+              type={view === 'grid' ? 'default' : 'text'}
+              size="tiny"
               onClick={() => setView('grid')}
               aria-label="grid view"
             >
               <LayoutGrid className="size-4" />
             </Button>
             <Button
-              variant={view === 'list' ? 'secondary' : 'ghost'}
-              size="icon"
+              type={view === 'list' ? 'default' : 'text'}
+              size="tiny"
               onClick={() => setView('list')}
               aria-label="list view"
             >
@@ -243,7 +243,7 @@ function EmptyState({ role, onNew }: { role: string; onNew: () => void }): React
         Launch a complete backend built on Postgres.
       </p>
       {role === 'admin' && (
-        <Button variant="secondary" size="sm" onClick={onNew} className="mt-2">
+        <Button type="default" size="small" onClick={onNew} className="mt-2">
           <Plus className="size-3" />
           New project
         </Button>

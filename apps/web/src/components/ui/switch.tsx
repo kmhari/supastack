@@ -1,35 +1,63 @@
-import * as React from 'react';
-import * as SwitchPrimitive from '@radix-ui/react-switch';
+'use client'
 
-import { cn } from '@/lib/utils';
+import { Switch as SwitchPrimitives } from 'radix-ui'
+import { cva, VariantProps } from 'class-variance-authority'
+import * as React from 'react'
 
-/**
- * shadcn-style Switch wrapper around Radix Switch. Used for boolean
- * auth-config toggles (Enable Sign in with X, Skip nonce checks, Allow
- * users without an email, etc.) matching Cloud's UX.
- */
-function Switch({ className, ...props }: React.ComponentProps<typeof SwitchPrimitive.Root>) {
-  return (
-    <SwitchPrimitive.Root
-      data-slot="switch"
-      className={cn(
-        'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-xs transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-        'disabled:cursor-not-allowed disabled:opacity-50',
-        'data-[state=checked]:bg-emerald-600 data-[state=unchecked]:bg-foreground/25 dark:data-[state=unchecked]:bg-foreground/20',
-        className,
-      )}
+import { cn } from '@/lib/utils'
+
+const switchRootVariants = cva(
+  'peer inline-flex shrink-0 cursor-pointer items-center rounded-full border transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-brand data-[state=checked]:hover:bg-brand-600/90 data-[state=unchecked]:bg-control data-[state=unchecked]:hover:bg-border',
+  {
+    variants: {
+      size: {
+        small: 'h-[16px] w-[28px]',
+        medium: 'h-[20px] w-[34px]',
+        large: 'h-[24px] w-[44px]',
+      },
+    },
+    defaultVariants: {
+      size: 'medium',
+    },
+  }
+)
+
+const switchThumbVariants = cva(
+  'pointer-events-none block rounded-full bg-foreground-lighter data-[state=checked]:bg-white shadow-lg ring-0 transition-transform',
+  {
+    variants: {
+      size: {
+        small:
+          'h-[12px] w-[12px] data-[state=checked]:translate-x-[13px] data-[state=unchecked]:translate-x-px',
+        medium:
+          'h-[16px] w-[16px] data-[state=checked]:translate-x-[15px] data-[state=unchecked]:translate-x-px',
+        large:
+          'h-[18px] w-[18px] data-[state=checked]:translate-x-[22px] data-[state=unchecked]:translate-x-[3px]',
+      },
+    },
+    defaultVariants: {
+      size: 'medium',
+    },
+  }
+)
+
+export interface SwitchProps
+  extends
+    React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root>,
+    VariantProps<typeof switchRootVariants> {}
+
+const Switch = React.forwardRef<React.ElementRef<typeof SwitchPrimitives.Root>, SwitchProps>(
+  ({ className, size, ...props }, ref) => (
+    <SwitchPrimitives.Root
+      className={cn(switchRootVariants({ size }), className)}
+      tabIndex={0}
       {...props}
+      ref={ref}
     >
-      <SwitchPrimitive.Thumb
-        data-slot="switch-thumb"
-        className={cn(
-          'pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform',
-          'data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0',
-        )}
-      />
-    </SwitchPrimitive.Root>
-  );
-}
+      <SwitchPrimitives.Thumb className={cn(switchThumbVariants({ size }))} />
+    </SwitchPrimitives.Root>
+  )
+)
+Switch.displayName = SwitchPrimitives.Root.displayName
 
-export { Switch };
+export { Switch }

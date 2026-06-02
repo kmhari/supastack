@@ -85,7 +85,7 @@ export function LoginPage(): React.ReactElement {
           </Alert>
         )}
 
-        <Button type="submit" disabled={submitting} className="w-full">
+        <Button htmlType="submit" disabled={submitting} className="w-full">
           {submitting ? 'Signing in…' : 'Sign in'}
         </Button>
 

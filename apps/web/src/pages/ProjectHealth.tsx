@@ -106,7 +106,7 @@ function PulseBar({
           {POLL_MS / 1000}s
         </span>
       </div>
-      <Button variant="outline" size="sm" onClick={onRefresh} disabled={isFetching}>
+      <Button type="outline" size="small" onClick={onRefresh} disabled={isFetching}>
         <RefreshCw className={cn('size-3.5', isFetching && 'animate-spin')} />
         Refresh
       </Button>

@@ -1,6 +1,10 @@
 # UI primitives
 
-shadcn-style primitives copied into this directory via `pnpm dlx shadcn@latest add <name>`. Each file owns its variant configuration (`cva`) and forwards refs. Customize freely — these are not imported from npm, we own them.
+Components vendored from Supabase's `packages/ui` at commit `8cd39680ef` (pinned to match `infra/supabase-template/COMMIT`). Each file owns its variant configuration and forwards refs. Files are updated deliberately when the Supabase commit is bumped — not via shadcn CLI.
+
+**Two categories:**
+- **Vendored** — copied from `packages/ui/src/components/` with imports rewritten to resolve locally. Do not run `shadcn add` on these; re-vendor from the source instead.
+- **Local** — `input-with-suffix.tsx`, `sonner.tsx` — no upstream equivalent; supastack-specific.
 
 ## Primitives
 
@@ -8,7 +12,7 @@ shadcn-style primitives copied into this directory via `pnpm dlx shadcn@latest a
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `alert.tsx`         | Inline message banners. Variants: `default`, `destructive`, `warn`, `info`.                                                                                                                                               |
 | `badge.tsx`         | Small uppercase pills (status / labels). Variants: `default`, `secondary`, `outline`, `destructive`, `success`, `warn`, `info`, `ghost`, `link`. Used by `<StatusPill>`.                                                  |
-| `button.tsx`        | All interactive buttons. Variants: `default` (brand green), `secondary`, `outline`, `ghost`, `link`, `destructive`. Sizes: `default` (h-9), `sm` (h-8), `xs` (h-6), `lg` (h-10), `icon`, `icon-sm`, `icon-xs`, `icon-lg`. |
+| `button.tsx`        | All interactive buttons. Source: `packages/ui/src/components/Button/Button.tsx`. Variants (`type=`): `primary`, `default`, `secondary`, `outline`, `dashed`, `ghost`→`text`, `link`, `danger`, `warning`. Sizes: `tiny` (h-[26px]), `small` (h-[34px]), `medium` (h-[38px]), `large` (h-[42px]), `xlarge`. Extra props: `loading`, `iconLeft`, `iconRight`, `block`, `rounded`, `htmlType`. |
 | `card.tsx`          | Panel container. Use `<Card>` / `<CardHeader>` / `<CardTitle>` / `<CardDescription>` / `<CardContent>` / `<CardFooter>`.                                                                                                  |
 | `checkbox.tsx`      | Radix-based checkbox with the same focus ring as `<Input>`.                                                                                                                                                               |
 | `dialog.tsx`        | Modal dialog. Focus-trap, ESC, click-outside, scroll-lock from Radix. Use `<Dialog>` + `<DialogTrigger>` + `<DialogContent>` (`Header`, `Title`, `Description`, `Footer`, `Close`).                                       |

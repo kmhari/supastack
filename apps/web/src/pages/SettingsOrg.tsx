@@ -111,7 +111,7 @@ export function SettingsOrgPage(): React.ReactElement {
                   </CardRow>
                 </Card>
                 <div className="mt-3">
-                  <Button type="submit" disabled={saveOrg.isPending}>
+                  <Button htmlType="submit" disabled={saveOrg.isPending}>
                     {saveOrg.isPending ? 'Saving…' : 'Save'}
                   </Button>
                 </div>

@@ -18,8 +18,8 @@ export function InputWithSuffix({
   return (
     <div
       className={cn(
-        'flex h-9 w-full items-center rounded-md border border-border bg-input text-sm shadow-xs transition-colors',
-        'focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
+        'flex h-9 w-full items-center rounded-md border border-default bg-background-control text-sm shadow-xs transition-colors',
+        'focus-within:border-control focus-within:ring-[3px] focus-within:ring-border-control/50',
         className,
       )}
     >

@@ -122,7 +122,7 @@ export function GlobalTogglesForm({
         {isAdmin ? (
           <div className="flex justify-end border-t border-border-soft py-3">
             <Button
-              type="button"
+              htmlType="button"
               onClick={handleSave}
               disabled={!dirty}
               className="bg-emerald-700 text-white hover:bg-emerald-600 disabled:bg-emerald-900/40 disabled:text-emerald-200/60"

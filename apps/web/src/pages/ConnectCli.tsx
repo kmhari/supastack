@@ -100,7 +100,7 @@ export function ConnectCliPage(): React.ReactElement {
           </pre>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={downloadToml} disabled={!toml}>
+          <Button type="outline" size="small" onClick={downloadToml} disabled={!toml}>
             <Download className="size-3.5" />
             Download supastack.toml
           </Button>

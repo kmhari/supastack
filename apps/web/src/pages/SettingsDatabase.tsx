@@ -82,8 +82,8 @@ export function SettingsDatabasePage(): React.ReactElement {
           subtitle="Connection pooler health and per-project tenant status."
           right={
             <Button
-              variant="outline"
-              size="sm"
+              type="outline"
+              size="small"
               onClick={() => runReconciler.mutate()}
               disabled={runReconciler.isPending}
             >
@@ -130,8 +130,8 @@ function PoolerOverviewCard({ data }: { data: PoolerStatusResponse }): React.Rea
             <code className="text-sm bg-muted px-2 py-0.5 rounded">{data.endpoint ?? 'n/a'}</code>
             {data.endpoint ? (
               <Button
-                variant="ghost"
-                size="sm"
+                type="text"
+                size="small"
                 onClick={() => {
                   void navigator.clipboard.writeText(data.endpoint!);
                   toast.success('Endpoint copied');
@@ -283,8 +283,8 @@ function ProjectRow({
       <td className="py-2 pr-3 text-xs text-muted-foreground">{lastReconciled}</td>
       <td className="py-2 text-right space-x-2">
         <Button
-          variant="outline"
-          size="sm"
+          type="outline"
+          size="small"
           onClick={() => void reregister()}
           disabled={busy !== null || project.instance_status !== 'running'}
         >
@@ -292,8 +292,8 @@ function ProjectRow({
         </Button>
         {showReset ? (
           <Button
-            variant="outline"
-            size="sm"
+            type="outline"
+            size="small"
             onClick={() => void resetPassword()}
             disabled={busy !== null}
           >

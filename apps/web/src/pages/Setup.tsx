@@ -189,7 +189,7 @@ function AdminStep({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <Button type="submit" disabled={submitting} className="w-full">
+      <Button htmlType="submit" disabled={submitting} className="w-full">
         {submitting ? 'Creating…' : 'Create super-admin'}
       </Button>
     </form>
@@ -374,7 +374,7 @@ function DomainCertsStep({
             <AlertDescription>{saveError}</AlertDescription>
           </Alert>
         )}
-        <Button type="submit">Save & continue</Button>
+        <Button htmlType="submit">Save & continue</Button>
       </form>
     );
   }
@@ -529,10 +529,10 @@ function DomainCertsStep({
 
       <div className="flex gap-2">
         <Button
-          variant="secondary"
+          type="default"
           disabled={recheckLoading}
           onClick={() => void onRecheck()}
-          size="sm"
+          size="small"
         >
           {recheckLoading ? <Loader2 className="size-3.5 animate-spin" /> : 'Recheck now'}
         </Button>

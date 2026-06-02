@@ -154,9 +154,9 @@ export function AddRedirectUrlsDialog({
                   />
                 </div>
                 <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
+                  htmlType="button"
+                  type="text"
+                  size="small"
                   aria-label="Remove URL row"
                   onClick={() => removeRow(row.id)}
                 >
@@ -172,7 +172,7 @@ export function AddRedirectUrlsDialog({
           ))}
 
           <div>
-            <Button type="button" variant="outline" size="sm" onClick={addRow}>
+            <Button htmlType="button" type="outline" size="small" onClick={addRow}>
               <Plus className="size-3.5" /> Add URL
             </Button>
           </div>
@@ -185,7 +185,7 @@ export function AddRedirectUrlsDialog({
         </div>
 
         <Button
-          type="button"
+          htmlType="button"
           onClick={handleSave}
           className="w-full bg-emerald-700 text-white hover:bg-emerald-600"
         >

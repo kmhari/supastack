@@ -161,9 +161,9 @@ export function ProjectSecretsPage(): React.ReactElement {
                 )}
                 <div className="flex gap-1">
                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
+                    htmlType="button"
+                    type="text"
+                    size="small"
                     disabled={!isAdmin}
                     onClick={() => {
                       const next = [...draft];
@@ -175,9 +175,9 @@ export function ProjectSecretsPage(): React.ReactElement {
                   </Button>
                   {draft.length > 1 && (
                     <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
+                      htmlType="button"
+                      type="text"
+                      size="small"
                       disabled={!isAdmin}
                       onClick={() => setDraft(draft.filter((r) => r.id !== row.id))}
                     >
@@ -191,17 +191,17 @@ export function ProjectSecretsPage(): React.ReactElement {
 
           <div className="mt-4 flex items-center justify-between">
             <Button
-              type="button"
-              variant="outline"
-              size="sm"
+              htmlType="button"
+              type="outline"
+              size="small"
               disabled={!isAdmin || upsertMutation.isPending}
               onClick={() => setDraft([...draft, makeRow()])}
             >
               <Plus className="size-4" /> Add another
             </Button>
             <Button
-              type="button"
-              size="sm"
+              htmlType="button"
+              size="small"
               disabled={!isAdmin || upsertMutation.isPending}
               onClick={handleSave}
             >
@@ -250,9 +250,9 @@ export function ProjectSecretsPage(): React.ReactElement {
                   {s.value.slice(0, 16)}…
                 </code>
                 <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
+                  htmlType="button"
+                  type="text"
+                  size="small"
                   disabled={!isAdmin}
                   onClick={() => setPendingDelete(s.name)}
                 >
@@ -297,11 +297,11 @@ export function ProjectSecretsPage(): React.ReactElement {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPendingDelete(null)}>
+            <Button type="outline" onClick={() => setPendingDelete(null)}>
               Cancel
             </Button>
             <Button
-              variant="destructive"
+              type="danger"
               disabled={deleteMutation.isPending}
               onClick={() => {
                 if (pendingDelete) deleteMutation.mutate(pendingDelete);

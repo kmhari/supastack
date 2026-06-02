@@ -114,7 +114,7 @@ export function InstanceBackupsPage(): React.ReactElement {
                 <span>backups</span>
               </div>
               <Button
-                variant="outline"
+                type="outline"
                 onClick={() => saveConfig.mutate()}
                 disabled={saveConfig.isPending}
               >

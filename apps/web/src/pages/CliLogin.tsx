@@ -174,7 +174,7 @@ function CodeDisplay({
         ))}
       </div>
 
-      <Button type="button" onClick={onCopy} className="mb-6 w-full" aria-live="polite">
+      <Button htmlType="button" onClick={onCopy} className="mb-6 w-full" aria-live="polite">
         {copied ? (
           <>
             <Check className="size-4" /> Copied!
@@ -218,7 +218,7 @@ function ErrorState({ message }: { message: string }): React.ReactElement {
         <AlertTriangle className="size-4" />
         <AlertDescription>{message}</AlertDescription>
       </Alert>
-      <Button asChild variant="outline" className="w-full">
+      <Button asChild type="outline" className="w-full">
         <Link to="/dashboard">Back to dashboard</Link>
       </Button>
     </>

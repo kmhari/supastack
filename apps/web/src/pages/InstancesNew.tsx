@@ -131,10 +131,10 @@ export function InstancesNewPage(): React.ReactElement {
           <Separator className="bg-border-soft" />
 
           <div className="flex flex-col-reverse gap-2 bg-black/15 px-4 py-4 sm:flex-row sm:justify-end sm:px-10 sm:py-5">
-            <Button type="button" variant="outline" onClick={() => navigate('/dashboard')}>
+            <Button htmlType="button" type="outline" onClick={() => navigate('/dashboard')}>
               Cancel
             </Button>
-            <Button type="submit" disabled={disabled}>
+            <Button htmlType="submit" disabled={disabled}>
               {submitting ? 'Creating…' : 'Create new project'}
             </Button>
           </div>

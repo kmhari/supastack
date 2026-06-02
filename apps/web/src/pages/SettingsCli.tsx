@@ -223,9 +223,9 @@ function CodeBlock({ content }: { content: string }): React.ReactElement {
         <code>{content}</code>
       </pre>
       <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
+        htmlType="button"
+        type="text"
+        size="small"
         className="absolute right-1.5 top-1.5"
         onClick={() => {
           void navigator.clipboard.writeText(content).then(() => {
