@@ -7,7 +7,7 @@
  * (instances, auth, etc.).
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
 import { decryptJson, generateRef, loadMasterKey } from '@supastack/crypto';
 import { ROLE_IDS, ROLE_NAMES, roleFromId, type Role } from '@supastack/shared';
@@ -18,6 +18,7 @@ import {
   newInviteToken,
   ownerCount,
 } from '../services/org-membership.js';
+import { sendRecoveryEmail } from '../services/gotrue-admin.js';
 
 export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── Feature flags ──────────────────────────────────────────────────────────
@@ -772,7 +773,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Params: { slug: string }; Querystring: { limit?: string; offset?: string } }>(
     '/platform/organizations/:slug/projects',
     async (req, reply) => {
-      const user = app.requireAuth(req);
+      // Feature 084 (US5) — projects belong to one org; require membership and
+      // return ONLY this org's projects, paginated with a real total count.
+      await app.authorizeOrg(req, 'instance.list', req.params.slug);
       const limit = parseInt(req.query.limit ?? '96', 10);
       const offset = parseInt(req.query.offset ?? '0', 10);
       const apex = process.env.SUPASTACK_APEX ?? '';
@@ -788,13 +791,20 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
           orgId: schema.supabaseInstances.orgId,
         })
         .from(schema.supabaseInstances)
-        .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-        .where(eq(schema.organizationMembers.userId, user.id))
+        .where(eq(schema.supabaseInstances.orgId, req.params.slug))
         .limit(limit)
         .offset(offset);
 
+      const [countRow] = await db()
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.supabaseInstances)
+        .where(eq(schema.supabaseInstances.orgId, req.params.slug));
+
       const projects = instances.map((inst) => buildProject(inst, apex));
-      return reply.send({ pagination: { count: projects.length, limit, offset }, projects });
+      return reply.send({
+        pagination: { count: countRow?.count ?? projects.length, limit, offset },
+        projects,
+      });
     },
   );
 
@@ -1020,6 +1030,11 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // the GoTrue mailer lands in US6; the invite token is the accept link for now.
   app.post<SlugParams>('/platform/organizations/:slug/members/invitations', async (req, reply) => {
     await app.authorizeOrg(req, 'member.invite', req.params.slug);
+    // Feature 084 US6 (FR-031) — invitations are email-delivered; refuse clearly
+    // when SMTP isn't configured rather than creating an undeliverable invite.
+    if (!process.env.GOTRUE_SMTP_HOST) {
+      return reply.status(409).send({ error: 'email delivery is not configured (SMTP)' });
+    }
     const inviter = app.requireAuth(req);
     const body = (req.body ?? {}) as { emails?: string[]; role_id?: number };
     const emails = Array.isArray(body.emails) ? body.emails : [];
@@ -1712,7 +1727,19 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({});
   });
 
-  app.post('/platform/reset-password', async (_req, reply) => {
+  // Feature 084 US6 — password reset via GoTrue's recovery mailer (needs SMTP).
+  app.post('/platform/reset-password', async (req, reply) => {
+    const body = (req.body ?? {}) as { email?: string };
+    if (!body.email) return reply.status(400).send({ error: 'email is required' });
+    if (!process.env.GOTRUE_SMTP_HOST) {
+      return reply.status(409).send({ error: 'email delivery is not configured (SMTP)' });
+    }
+    try {
+      await sendRecoveryEmail(body.email);
+    } catch (err) {
+      req.log.warn({ err }, 'reset-password: gotrue recover failed');
+    }
+    // Always 200 (don't leak whether the email exists).
     return reply.send({});
   });
 

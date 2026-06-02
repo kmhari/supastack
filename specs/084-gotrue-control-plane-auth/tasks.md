@@ -130,12 +130,12 @@ write is then refused; the only Owner can't be removed/demoted.
 
 **Independent test**: project in Org A + Org B; a Developer in A sees only A's project and is refused on B's.
 
-- [ ] T047 [US5] Project create requires an org context + role ≥ developer; set `supabase_instances.organization_id` in `apps/api/src/routes/instances.ts`
-- [ ] T048 [US5] Carry `organization_id` through the provision job in `apps/worker/src/jobs/provision.ts`
-- [ ] T049 [P] [US5] `GET /platform/organizations/:slug/projects` (paginated `{pagination,projects[]}`; map instance → `{ref,name,status,inserted_at,region,cloud_provider,databases[]}`) in `apps/api/src/routes/platform-organizations.ts`
-- [ ] T050 [US5] Org-scope the existing project read/action endpoints (resolve project → org → role) in `apps/api/src/routes/instances.ts` + `apps/api/src/plugins/rbac.ts`
-- [ ] T051 [P] [US5] Contract test `apps/api/tests/unit/org-projects.test.ts` — happy (pagination count/limit/offset; search) + sad (non-member 403, offset past end → empty list correct count)
-- [ ] T052 [US5] Live-VM E2E `tests/cli-e2e/org-scoped-projects.sh` — project in A + B; Developer in A refused on B (SC-003)
+- [X] T047 [US5] Project create requires an org context + role ≥ developer; set `supabase_instances.organization_id` in `apps/api/src/routes/instances.ts`
+- [X] T048 [US5] Carry `organization_id` through the provision job in `apps/worker/src/jobs/provision.ts`
+- [X] T049 [P] [US5] `GET /platform/organizations/:slug/projects` (paginated `{pagination,projects[]}`; map instance → `{ref,name,status,inserted_at,region,cloud_provider,databases[]}`) in `apps/api/src/routes/platform-organizations.ts`
+- [X] T050 [US5] Org-scope the existing project read/action endpoints (resolve project → org → role) in `apps/api/src/routes/instances.ts` + `apps/api/src/plugins/rbac.ts`
+- [X] T051 [P] [US5] Contract test `apps/api/tests/unit/org-projects.test.ts` — happy (pagination count/limit/offset; search) + sad (non-member 403, offset past end → empty list correct count)
+- [X] T052 [US5] Live-VM E2E `tests/cli-e2e/org-scoped-projects.sh` — project in A + B; Developer in A refused on B (SC-003)
 
 **Checkpoint**: every project belongs to one org; org role governs project access.
 
@@ -147,10 +147,10 @@ write is then refused; the only Owner can't be removed/demoted.
 
 **Independent test**: configure SMTP, trigger an invite + a reset, confirm both emails arrive and their links complete.
 
-- [ ] T053 [US6] SMTP config section in `/setup` (store `installation.smtp_config_encrypted`, envelope-encrypted) in `apps/api/src/routes/setup.ts` + the `apps/web` setup wizard
-- [ ] T054 [US6] Inject SMTP into GoTrue (`GOTRUE_SMTP_*`) + flip `GOTRUE_MAILER_AUTOCONFIRM` off once configured, via the compose-up path in `apps/api/src/services/` + `infra/docker-compose.yml`
-- [ ] T055 [US6] "email unavailable" 409 guard when SMTP is unset (invitations + reset) in `apps/api/src/routes/platform-members.ts`
-- [ ] T056 [US6] Live-VM E2E `tests/cli-e2e/email-flows.sh` — invite email round-trip + password-reset round-trip (SC-004, SC-007)
+- [X] T053 [US6] SMTP config section in `/setup` (store `installation.smtp_config_encrypted`, envelope-encrypted) in `apps/api/src/routes/setup.ts` + the `apps/web` setup wizard
+- [X] T054 [US6] Inject SMTP into GoTrue (`GOTRUE_SMTP_*`) + flip `GOTRUE_MAILER_AUTOCONFIRM` off once configured, via the compose-up path in `apps/api/src/services/` + `infra/docker-compose.yml`
+- [X] T055 [US6] "email unavailable" 409 guard when SMTP is unset (invitations + reset) in `apps/api/src/routes/platform-members.ts`
+- [X] T056 [US6] Live-VM E2E `tests/cli-e2e/email-flows.sh` — invite email round-trip + password-reset round-trip (SC-004, SC-007)
 
 **Checkpoint**: transactional email works; invites are usable by real teammates.
 
@@ -158,12 +158,12 @@ write is then refused; the only Owner can't be removed/demoted.
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T057 [P] Update the API definitions/Scalar reference for every new `/platform/*` endpoint in `packages/shared/src/mgmt-api/` (and the snapshot under `specs/084-gotrue-control-plane-auth/contracts/`), per the repo convention "update all api to reflect in scalar"
-- [ ] T058 Pin the upstream platform-API snapshot + add a contract test guarding the org/member/profile/roles shapes (Constitution IV) under `apps/api/tests/contract/`
-- [ ] T059 [P] Remove cookie/session remnants + dead `apps/web` login; grep-assert no `sb_sid` / `users` table / `studio-gotrue` references remain (SC-006)
-- [ ] T060 [P] Write the runbook `docs/changes/084-gotrue-control-plane-auth.md`
+- [X] T057 [P] Update the API definitions/Scalar reference for every new `/platform/*` endpoint in `packages/shared/src/mgmt-api/` (and the snapshot under `specs/084-gotrue-control-plane-auth/contracts/`), per the repo convention "update all api to reflect in scalar"
+- [X] T058 Pin the upstream platform-API snapshot + add a contract test guarding the org/member/profile/roles shapes (Constitution IV) under `apps/api/tests/contract/`
+- [X] T059 [P] Remove cookie/session remnants + dead `apps/web` login; grep-assert no `sb_sid` / `users` table / `studio-gotrue` references remain (SC-006)
+- [X] T060 [P] Write the runbook `docs/changes/084-gotrue-control-plane-auth.md`
 - [ ] T061 Run `quickstart.md` validation on the VM (all happy + sad paths)
-- [ ] T062 [P] Re-run the RBAC matrix + all contract/unit suites; confirm green and update the `CLAUDE.md` "What's shipped" table
+- [X] T062 [P] Re-run the RBAC matrix + all contract/unit suites; confirm green and update the `CLAUDE.md` "What's shipped" table
 
 ---
 
