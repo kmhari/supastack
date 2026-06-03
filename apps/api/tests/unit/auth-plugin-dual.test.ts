@@ -202,10 +202,8 @@ describe('auth plugin — dual-credential', () => {
   it('revoked JWT (jti in Redis) → 401', async () => {
     const app = await buildApp();
     const { token, jti } = mintToken();
-    // NOTE: the revocation key prefix in packages/oauth/src/revocation.ts is still
-    // `selfbase:` (the selfbase→supastack rename did not reach the Redis key/channel
-    // strings — also true in pg-edge-proxy.ts). Match the live code, not the rename.
-    redisStore.set(`selfbase:oauth:revoked:${jti}`, '1');
+    // Revocation key prefix: `supastack:oauth:revoked:` (packages/oauth/src/revocation.ts).
+    redisStore.set(`supastack:oauth:revoked:${jti}`, '1');
     _lastLookupKind = 'oauth';
     _lastSub = 'user-active';
     const res = await app.inject({
