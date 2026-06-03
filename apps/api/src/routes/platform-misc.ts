@@ -19,6 +19,7 @@ import {
   ownerCount,
 } from '../services/org-membership.js';
 import { sendRecoveryEmail } from '../services/gotrue-admin.js';
+import { toApiKeys, toStudioKeys } from '../services/auth-config-case.js';
 
 export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── Feature flags ──────────────────────────────────────────────────────────
@@ -431,17 +432,67 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // Auth config — proxy to the auth-config management route internally
-  // Studio calls GET/PATCH /platform/auth/:ref/config
+  // Studio (IS_PLATFORM) calls GET/PATCH /platform/auth/:ref/config with UPPERCASE
+  // GoTrue-config field names (`EXTERNAL_GITHUB_ENABLED`); the Management API
+  // /v1/projects/:ref/config/auth schema is `.strict()` lowercase snake_case.
+  // Feature 085: translate at THIS edge only (auth-config-case.ts) — the /v1
+  // contract stays untouched. Route the inject via `/v1` (NOT `/api/v1`) so the
+  // mgmt error envelope surfaces validation 400s + `details` instead of the
+  // generic 500 "internal error" the /api/v1 mount maps them to.
+  const fwdHeaders = (req: { headers: unknown }): Record<string, string> => {
+    const h = { ...(req.headers as Record<string, string>) };
+    delete h['content-length']; // recomputed for the (re-keyed) payload
+    return h;
+  };
+  // Translate any `details` map on an error envelope back to the Studio key space.
+  const studioErr = (body: Record<string, unknown>): Record<string, unknown> => {
+    if (body && typeof body.details === 'object' && body.details) {
+      body.details = toStudioKeys(body.details as Record<string, unknown>);
+    }
+    return body;
+  };
+  const pickHooks = (cfg: Record<string, unknown>): Record<string, unknown> =>
+    Object.fromEntries(Object.entries(cfg).filter(([k]) => k.startsWith('hook_')));
+
   app.get<RefParams>('/platform/auth/:ref/config', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'GET', url: `/api/v1/projects/${req.params.ref}/config/auth`, headers: req.headers as Record<string, string> });
-    return reply.status(resp.statusCode).send(resp.json<unknown>());
+    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/config/auth`, headers: fwdHeaders(req) });
+    const body = resp.json<Record<string, unknown>>();
+    return reply.status(resp.statusCode).send(resp.statusCode < 300 ? toStudioKeys(body) : body);
   });
 
   app.patch<RefParams>('/platform/auth/:ref/config', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'PATCH', url: `/api/v1/projects/${req.params.ref}/config/auth`, headers: req.headers as Record<string, string>, payload: JSON.stringify(req.body) });
-    return reply.status(resp.statusCode).send(resp.json<unknown>());
+    const resp = await app.inject({
+      method: 'PATCH',
+      url: `/v1/projects/${req.params.ref}/config/auth`,
+      headers: fwdHeaders(req),
+      payload: JSON.stringify(toApiKeys((req.body ?? {}) as Record<string, unknown>)),
+    });
+    const body = resp.json<Record<string, unknown>>();
+    return reply.status(resp.statusCode).send(resp.statusCode >= 400 ? studioErr(body) : toStudioKeys(body));
+  });
+
+  // Auth Hooks (feature 085 + 082): a scoped view/write over the `hook_*` subset
+  // of the auth config (same store as /config/auth → reuses feature 082's
+  // pg-functions:// cross-field validation + the /v1 RBAC auth_config.read/write).
+  app.get<RefParams>('/platform/auth/:ref/config/hooks', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/config/auth`, headers: fwdHeaders(req) });
+    const body = resp.json<Record<string, unknown>>();
+    return reply.status(resp.statusCode).send(resp.statusCode < 300 ? toStudioKeys(pickHooks(body)) : body);
+  });
+
+  app.patch<RefParams>('/platform/auth/:ref/config/hooks', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({
+      method: 'PATCH',
+      url: `/v1/projects/${req.params.ref}/config/auth`,
+      headers: fwdHeaders(req),
+      payload: JSON.stringify(toApiKeys((req.body ?? {}) as Record<string, unknown>)),
+    });
+    const body = resp.json<Record<string, unknown>>();
+    return reply.status(resp.statusCode).send(resp.statusCode >= 400 ? studioErr(body) : toStudioKeys(pickHooks(body)));
   });
 
   // Billing addons
