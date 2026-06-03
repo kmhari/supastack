@@ -238,7 +238,7 @@
 | `/platform/projects/:ref` | GET | ✅ | supastack | Get project details | `GET /instances/:ref` |
 | `/platform/projects/:ref` | PATCH | ⚠️ | supastack | Update project name/settings | `PATCH /instances/:ref` |
 | `/platform/projects/:ref` | DELETE | ✅ | supastack | Delete project | `DELETE /instances/:ref` |
-| `/platform/projects/:ref/settings` | GET | ✅ | supastack | Get project JWT secret + API keys | included in `GET /instances/:ref` |
+| `/platform/projects/:ref/settings` | GET | ✅ | supastack | jwt_secret + service_api_keys (anon/service_role) + db host/port/user | `GET /api/v1/platform/projects/:ref/settings` |
 | `/platform/projects/:ref/api` | GET | ⚠️ | supastack | Get Auto API (Kong) config | `GET .../projects/:ref/api` (stub) |
 | `/platform/projects/:ref/api/rest` | GET | ⚠️ | supastack | Get REST API config | `GET .../projects/:ref/api/rest` (stub) |
 | `/platform/projects/:ref/members` | GET | ⚠️ | supastack | List project members | `GET .../projects/:ref/members` (stub) |
