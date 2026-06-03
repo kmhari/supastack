@@ -690,9 +690,69 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
+  // Project settings — Studio's project API/connection page. Wire-compatible with
+  // Cloud's GET /platform/projects/:ref/settings: jwt_secret + service_api_keys
+  // (anon + service_role) + db connection details. Org-membership scoped via the
+  // join (a non-member sees no row → 404). Secrets come from encryptedSecrets.
+  app.get<RefParams>('/platform/projects/:ref/settings', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const apex = process.env.SUPASTACK_APEX ?? '';
+    const [inst] = await db()
+      .select({
+        ref: schema.supabaseInstances.ref,
+        name: schema.supabaseInstances.name,
+        status: schema.supabaseInstances.status,
+        encryptedSecrets: schema.supabaseInstances.encryptedSecrets,
+        insertedAt: schema.supabaseInstances.createdAt,
+      })
+      .from(schema.supabaseInstances)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)),
+      )
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    const secrets = inst.encryptedSecrets
+      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as {
+          jwtSecret?: string;
+          anonKey?: string;
+          serviceRoleKey?: string;
+        })
+      : {};
+    const endpoint = apex ? `${inst.ref}.${apex}` : 'localhost';
+    return reply.send({
+      cloud_provider: 'SUPASTACK',
+      region: 'local',
+      db_dns_name: '',
+      db_host: apex ? `db.${inst.ref}.${apex}` : 'localhost',
+      db_ip_addr_config: 'ipv4',
+      db_name: 'postgres',
+      db_port: 5432,
+      db_user: 'postgres',
+      inserted_at: inst.insertedAt?.toISOString() ?? new Date().toISOString(),
+      name: inst.name,
+      ref: inst.ref,
+      ssl_enforced: false,
+      is_sensitive: null,
+      status: inst.status === 'running' ? 'ACTIVE_HEALTHY' : inst.status.toUpperCase(),
+      app_config: {
+        db_schema: 'public',
+        endpoint,
+        storage_endpoint: endpoint,
+      },
+      jwt_secret: secrets.jwtSecret ?? '',
+      service_api_keys: [
+        { api_key: secrets.anonKey ?? '', name: 'anon key', tags: 'anon' },
+        { api_key: secrets.serviceRoleKey ?? '', name: 'service_role key', tags: 'service_role' },
+      ],
+    });
+  });
+
   // Misc project stubs — key is always path.split('/').pop()
   for (const path of [
-    '/platform/projects/:ref/settings',
     '/platform/projects/:ref/members',
     '/platform/projects/:ref/pause/status',
     '/platform/projects/:ref/daily-stats',
