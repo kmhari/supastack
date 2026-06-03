@@ -89,12 +89,13 @@ describe('env-field-mapper: auth hook fields (feature 082)', () => {
     }
   });
 
-  it('total honored count increased by exactly 19 net-new fields vs baseline 169', () => {
-    // All 21 HOOKS_HONORED fields are honored; 2 were already honored before
-    // this feature so the net new count is 19, giving a total of 188.
+  it('total honored count is 190 (169 baseline + 19 net-new hooks + 2 sessions from #77)', () => {
+    // Auth-hooks feature: 21 HOOKS_HONORED fields, 2 already honored → +19 net (→188).
+    // Feature 077 (#77) then re-promoted sessions_timebox + sessions_inactivity_timeout
+    // to honored via env_file → +2 → 190. Update this when the honored set changes.
     const honoredCount = Object.values(AUTH_CONFIG_FIELD_STATUS).filter(
       (s) => s.kind === 'honored',
     ).length;
-    expect(honoredCount).toBe(188);
+    expect(honoredCount).toBe(190);
   });
 });
