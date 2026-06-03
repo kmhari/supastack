@@ -48,10 +48,20 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
     WHERE conname = 'project_config_snapshots_updated_by_fkey'
+  ) AND EXISTS (
+    -- Feature 084: the user identity moved to auth.users (public.users dropped, so
+    -- the old `REFERENCES users(id)` re-add fails once snapshot rows carry an
+    -- updated_by). Only add the FK once GoTrue has created auth.users — this also
+    -- handles fresh-greenfield boot ordering (api migrate may run before auth boots).
+    SELECT 1 FROM information_schema.tables WHERE table_schema = 'auth' AND table_name = 'users'
   ) THEN
+    -- Null any updated_by not present in auth.users (ON DELETE SET NULL semantics)
+    -- so the FK re-add validates the existing rows.
+    UPDATE project_config_snapshots SET updated_by = NULL
+      WHERE updated_by IS NOT NULL AND updated_by NOT IN (SELECT id FROM auth.users);
     ALTER TABLE project_config_snapshots
       ADD CONSTRAINT project_config_snapshots_updated_by_fkey
-      FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL;
+      FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;
   END IF;
 END$$;
 
