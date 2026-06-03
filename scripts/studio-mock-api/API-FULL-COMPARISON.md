@@ -18,15 +18,15 @@
 
 **Coverage (302 total rows):**
 
-| Covered by | Total | ✅ real | ⚠️ stub/gap |
+| Covered by | Total | ✅ real | ⚠️ stub/gap/broken |
 |---|---|---|---|
-| `supastack` | 198 | 59 | 139 |
+| `supastack` | 198 | 57 | 141 |
 | `proxy` → Kong | 48 | 48 | 0 |
 | `gotrue` | 21 | 19 | 2 |
 | `mock` | 35 | 0 | 35 |
-| **Total** | **302** | **126 (42%)** | **176 (58%)** |
+| **Total** | **302** | **124 (41%)** | **178 (59%)** |
 
-→ **✅ 126 / 302 (42%)** real, working coverage · **⚠️ 176 (58%)** not-real = **141 stubs** (139 supastack + 2 gotrue) + **35 mock-only** gaps.
+→ **✅ 124 / 302 (41%)** real, working coverage · **⚠️ 178 (59%)** not-real = stubs + 35 mock-only gaps + 2 broken (auth-config case mismatch).
 
 ---
 
@@ -78,10 +78,12 @@
 
 ## Auth Config (GoTrue settings per project)
 
+> ⚠️ **Field-name case mismatch (broken from Studio).** The bridge (`platform-misc.ts`) re-injects Studio's body verbatim to the Management API `/v1/projects/:ref/config/auth`, whose schema is `.strict()` lowercase snake_case (`external_github_enabled`). Studio (IS_PLATFORM) sends **UPPERCASE** GoTrue-env names (`EXTERNAL_GITHUB_ENABLED`) → PATCH 400 `unknown_field` (masked as 500); GET returns lowercase keys Studio can't read. The Management API `/v1/*` path (CLI, lowercase) works. Fix: bidirectional case translation in the bridge. GoTrue itself exposes **no** config-write API — config is env-driven (verified: `/admin/config` 404), so the env-rewrite+restart mechanism is correct.
+
 | SUPABASE API | HTTP_METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
-| `/platform/auth/:ref/config` | GET | ✅ | supastack | Get GoTrue auth settings (providers, JWT, etc.) | `GET /projects/:ref/config/auth` |
-| `/platform/auth/:ref/config` | PATCH | ✅ | supastack | Update GoTrue auth settings (incl. `hook_*`, feature 082) | `PATCH /projects/:ref/config/auth` |
+| `/platform/auth/:ref/config` | GET | ⚠️ | supastack | Get GoTrue auth settings — returns lowercase keys; Studio reads uppercase (shape mismatch) | `GET /projects/:ref/config/auth` |
+| `/platform/auth/:ref/config` | PATCH | ⚠️ | supastack | Update GoTrue auth settings — 400 from Studio (uppercase keys rejected); works via `/v1/*` (lowercase) | `PATCH /projects/:ref/config/auth` |
 | `/platform/auth/:ref/config/hooks` | GET | ⚠️ | mock | Get auth hook configs (hooks flow through `config/auth`) | — |
 | `/platform/auth/:ref/config/hooks` | PATCH | ⚠️ | mock | Update auth hook configs (hooks flow through `config/auth`) | — |
 
