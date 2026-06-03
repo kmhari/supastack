@@ -4,7 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
 const proxyHelpersMock = vi.hoisted(() => ({
-  resolveKongPort: vi.fn<(ref: string) => Promise<number>>(),
+  resolveInstance: vi.fn<(ref: string) => Promise<{ portKong: number }>>(),
   proxyToKong: vi.fn<
     (
       port: number,
@@ -75,7 +75,7 @@ describe('platform-proxy routes', () => {
   describe('authentication', () => {
     it('returns 401 when not authenticated', async () => {
       const unauthApp = await buildApp(false);
-      proxyHelpersMock.resolveKongPort.mockResolvedValue(MOCK_PORT);
+      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
 
       const res = await unauthApp.inject({
         method: 'GET',
@@ -88,7 +88,7 @@ describe('platform-proxy routes', () => {
 
   describe('pg-meta proxy', () => {
     it('proxies GET to Kong /pg-meta/v0/', async () => {
-      proxyHelpersMock.resolveKongPort.mockResolvedValue(MOCK_PORT);
+      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
       proxyHelpersMock.proxyToKong.mockResolvedValue(OK_RESPONSE);
 
       const res = await app.inject({
@@ -97,10 +97,10 @@ describe('platform-proxy routes', () => {
         headers: { authorization: 'Bearer token' },
       });
 
-      expect(proxyHelpersMock.resolveKongPort).toHaveBeenCalledWith('ref123');
+      expect(proxyHelpersMock.resolveInstance).toHaveBeenCalledWith('ref123');
       expect(proxyHelpersMock.proxyToKong).toHaveBeenCalledWith(
         MOCK_PORT,
-        '/pg-meta/v0/tables?limit=10',
+        '/pg/tables?limit=10',
         'GET',
         expect.any(Object),
         expect.any(Buffer),
@@ -109,7 +109,7 @@ describe('platform-proxy routes', () => {
     });
 
     it('does not forward x-connection-encrypted upstream', async () => {
-      proxyHelpersMock.resolveKongPort.mockResolvedValue(MOCK_PORT);
+      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
       proxyHelpersMock.proxyToKong.mockResolvedValue(OK_RESPONSE);
 
       await app.inject({
@@ -126,7 +126,7 @@ describe('platform-proxy routes', () => {
     });
 
     it('strips upstream CORS headers from response', async () => {
-      proxyHelpersMock.resolveKongPort.mockResolvedValue(MOCK_PORT);
+      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
       proxyHelpersMock.proxyToKong.mockResolvedValue({
         status: 200,
         headers: {
@@ -148,7 +148,7 @@ describe('platform-proxy routes', () => {
     });
 
     it('returns 404 for unknown project ref', async () => {
-      proxyHelpersMock.resolveKongPort.mockRejectedValue(
+      proxyHelpersMock.resolveInstance.mockRejectedValue(
         new proxyHelpersMock.ProxyProjectNotFoundError('unknown'),
       );
 
@@ -162,7 +162,7 @@ describe('platform-proxy routes', () => {
     });
 
     it('returns 503 for paused project', async () => {
-      proxyHelpersMock.resolveKongPort.mockRejectedValue(
+      proxyHelpersMock.resolveInstance.mockRejectedValue(
         new proxyHelpersMock.ProxyProjectPausedError('paused-ref'),
       );
 
@@ -178,7 +178,7 @@ describe('platform-proxy routes', () => {
 
   describe('storage proxy', () => {
     it('proxies GET to Kong /storage/v1/', async () => {
-      proxyHelpersMock.resolveKongPort.mockResolvedValue(MOCK_PORT);
+      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
       proxyHelpersMock.proxyToKong.mockResolvedValue(OK_RESPONSE);
 
       await app.inject({
@@ -189,7 +189,7 @@ describe('platform-proxy routes', () => {
 
       expect(proxyHelpersMock.proxyToKong).toHaveBeenCalledWith(
         MOCK_PORT,
-        '/storage/v1/buckets',
+        '/storage/v1/bucket',
         'GET',
         expect.any(Object),
         expect.any(Buffer),
@@ -199,7 +199,7 @@ describe('platform-proxy routes', () => {
 
   describe('auth admin proxy', () => {
     it('proxies GET users to Kong /auth/v1/admin/users', async () => {
-      proxyHelpersMock.resolveKongPort.mockResolvedValue(MOCK_PORT);
+      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
       proxyHelpersMock.proxyToKong.mockResolvedValue(OK_RESPONSE);
 
       await app.inject({
@@ -218,7 +218,7 @@ describe('platform-proxy routes', () => {
     });
 
     it('proxies POST invite to /auth/v1/admin/users', async () => {
-      proxyHelpersMock.resolveKongPort.mockResolvedValue(MOCK_PORT);
+      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
       proxyHelpersMock.proxyToKong.mockResolvedValue({ ...OK_RESPONSE, status: 201 });
 
       await app.inject({
@@ -240,7 +240,7 @@ describe('platform-proxy routes', () => {
 
   describe('analytics proxy', () => {
     it('proxies GET to Kong /analytics/v1/', async () => {
-      proxyHelpersMock.resolveKongPort.mockResolvedValue(MOCK_PORT);
+      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
       proxyHelpersMock.proxyToKong.mockResolvedValue(OK_RESPONSE);
 
       await app.inject({
@@ -251,7 +251,7 @@ describe('platform-proxy routes', () => {
 
       expect(proxyHelpersMock.proxyToKong).toHaveBeenCalledWith(
         MOCK_PORT,
-        '/analytics/v1/endpoints/logs.all',
+        '/analytics/v1/api/endpoints/logs.all',
         'GET',
         expect.any(Object),
         expect.any(Buffer),

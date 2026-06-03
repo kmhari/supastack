@@ -178,6 +178,9 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
     method: ['GET', 'POST'],
     url: '/platform/projects/:ref/analytics/*',
     handler: (req, reply) =>
-      handleProxy(app, req as FastifyRequest<{ Params: { ref: string } }>, reply, '/analytics/v1/api/endpoints/', (req.params as { ref: string; '*': string })['*']),
+      // The `*` suffix already includes `endpoints/...` (e.g. `endpoints/logs.all`),
+      // so the prefix is `/analytics/v1/api/` — NOT `/analytics/v1/api/endpoints/`,
+      // which doubled to `/analytics/v1/api/endpoints/endpoints/logs.all`.
+      handleProxy(app, req as FastifyRequest<{ Params: { ref: string } }>, reply, '/analytics/v1/api/', (req.params as { ref: string; '*': string })['*']),
   });
 };
