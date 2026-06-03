@@ -30,10 +30,12 @@ BODY='{"EXTERNAL_GITHUB_ENABLED":true,"EXTERNAL_GITHUB_CLIENT_ID":"id","EXTERNAL
 CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "${AUTH[@]}" -d "$BODY" "$P")
 ok "uppercase-patch-200" 200 "$CODE"
 
-# 2. GET returns UPPERCASE keys; the change round-trips.
+# 2. GET returns UPPERCASE keys; the change round-trips. (_supastack meta legitimately
+#    keeps lowercase fieldStatus keys, so only inspect TOP-LEVEL config keys.)
 GETBODY=$(curl -sS "${AUTH[@]}" "$P")
 printf '%s' "$GETBODY" | grep -q '"EXTERNAL_GITHUB_ENABLED"' && ok "get-uppercase-keys" yes yes || ok "get-uppercase-keys" yes no
-printf '%s' "$GETBODY" | grep -q '"external_github_enabled"' && ok "get-no-lowercase-leak" no yes || ok "get-no-lowercase-leak" no no
+LEAK=$(printf '%s' "$GETBODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if any(k!='_supastack' and k!=k.upper() for k in d) else 'no')" 2>/dev/null)
+ok "get-no-toplevel-lowercase" no "$LEAK"
 
 # 3. Invalid field → 400 naming the field (uppercase), not 500 internal.
 ERR=$(curl -sS -X PATCH "${AUTH[@]}" -d '{"NONSENSE_FIELD_XYZ":1}' "$P")
@@ -51,7 +53,7 @@ curl -sS "${AUTH[@]}" "$P/hooks" | grep -q '"HOOK_CUSTOM_ACCESS_TOKEN_ENABLED":t
 # 5. No-regression: the /v1 (lowercase) path still accepts lowercase (not changed by 085).
 V1CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "${AUTH[@]}" -d '{"site_url":"https://example.test"}' "$V1")
 # 200 (applied) or 409 (project transiently not running) — anything but a 4xx-validation/5xx regression.
-case "$V1CODE" in 200|202|409) ok "v1-lowercase-no-regression" ok "$V1CODE" ;; *) ok "v1-lowercase-no-regression" ok "FAIL-$V1CODE" ;; esac
+case "$V1CODE" in 200|202|409) ok "v1-lowercase-no-regression" "$V1CODE" "$V1CODE" ;; *) ok "v1-lowercase-no-regression" "2xx-or-409" "$V1CODE" ;; esac
 
 echo "[AUTHCFG] TOTAL=$((PASS+FAIL)) PASS=${PASS} FAIL=${FAIL}"
 [ "$FAIL" -eq 0 ]

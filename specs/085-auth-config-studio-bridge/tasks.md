@@ -118,7 +118,7 @@
 - [X] T017 [P] Flip the four "Auth Config (GoTrue settings per project)" rows ⚠️→✅ (`supastack`) in `scripts/studio-mock-api/API-FULL-COMPARISON.md`, update the section note, and recompute the coverage summary counts (FR-012 / SC-008).
 - [X] T018 [P] Add `tests/cli-e2e/auth-config-studio.sh` implementing quickstart §1–6 (uppercase PATCH→200, GET uppercase round-trip, provider-in-effect after reload, invalid→400, hooks round-trip, `/v1` no-regression) — the live behavioral guard.
 - [X] T019 Run `pnpm exec vitest run apps/api/tests/unit/auth-config-*.test.ts` + repo typecheck; ensure the full pre-existing `/v1` auth-config suite passes with zero diffs (SC-005).
-- [ ] T020 Deploy to `supaviser.dev` (rsync `apps/api` + rebuild api) and run `tests/cli-e2e/auth-config-studio.sh` against `tbnqljlgozpxzhkjxats`; record results in `docs/changes/085-auth-config-studio-bridge.md`.
+- [X] T020 Deploy to `supaviser.dev` (rsync `apps/api` + rebuild api) and run `tests/cli-e2e/auth-config-studio.sh` against `tbnqljlgozpxzhkjxats`; record results in `docs/changes/085-auth-config-studio-bridge.md`.
 
 ---
 
