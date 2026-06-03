@@ -154,8 +154,10 @@
       import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
       const DEFAULTS = {
-        url: 'https://znishgvglkafpmjkqspw.supaviser.dev',
-        anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5OTc2NDIxLCJleHAiOjE5Mzc2NTY0MjF9.9d05W-eDM0Gua6-Y5LX1qf5cs7m1BX4EtDp4XFhNCVU',
+        // tbnqljlgozpxzhkjxats — the current live test project (the prior default
+        // znishgvglkafpmjkqspw was removed in the orphan cleanup). Override via the inputs.
+        url: 'https://tbnqljlgozpxzhkjxats.supaviser.dev',
+        anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgwNDY2MjE2LCJleHAiOjE5MzgxNDYyMTZ9.VibQtfRJWh2AlF4dy_oeVNvblDB7WOo-1dspkW5zRpA',
         provider: 'github',
       };
       const urlEl = document.getElementById('url');
