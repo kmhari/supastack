@@ -24,7 +24,7 @@ export async function registerTenantForInstance(ref: string): Promise<void> {
     .limit(1);
   if (!inst) throw new Error(`instance ${ref} not found`);
 
-  const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
+  const [orgRow] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
   const apex = orgRow?.apex;
   if (!apex) throw new Error('apex domain not configured');
 

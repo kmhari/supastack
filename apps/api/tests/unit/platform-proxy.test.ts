@@ -48,7 +48,7 @@ async function buildApp(authenticated = true): Promise<FastifyInstance> {
       err.statusCode = 401;
       throw err;
     }
-    return { id: 'user-1', email: 'test@example.com', role: 'admin' as const };
+    return { id: 'user-1', email: 'test@example.com', role: 'owner' as const };
   });
   const { platformProxyRoutes } = await import('../../src/routes/platform-proxy.js');
   await app.register(platformProxyRoutes);

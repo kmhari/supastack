@@ -25,7 +25,7 @@ const CERTS_DIR = process.env.SUPASTACK_CERTS_DIR ?? '/var/supastack/certs';
  * The caller POSTs the result to Caddy admin `/load` which swaps atomically.
  */
 export async function buildCaddyConfig(): Promise<unknown> {
-  const orgRows = await db().select().from(schema.org).limit(1);
+  const orgRows = await db().select().from(schema.installation).limit(1);
   const org = orgRows[0];
   const apex = org?.apexDomain ?? null;
 
@@ -61,17 +61,32 @@ export async function buildCaddyConfig(): Promise<unknown> {
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
     {
-      match: [{ path: ['/api/get-deployment-commit', '/api/incident-banner'] }],
+      match: [
+        {
+          path: [
+            '/api/get-deployment-commit',
+            '/api/incident-banner',
+            '/api/incident-status',
+          ],
+        },
+      ],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
     {
-      // Same two overrides under the Studio basePath (/dashboard, feature 025).
+      // Same overrides under the Studio basePath (/dashboard, feature 025).
       // Studio fetches them as `${BASE_PATH}/api/...`, which would otherwise fall
-      // through to Studio's own routes — incident-banner hits Supabase's status
-      // page and 500s self-hosted. Strip /dashboard so the api's root handlers
-      // (server.ts) serve them. MUST precede the studio catch-all below.
+      // through to Studio's own routes — incident-banner/-status hit Supabase's
+      // StatusPage (api.statuspage.io) and 500 self-hosted (no STATUSPAGE_* env).
+      // Strip /dashboard so the api's root handlers (server.ts) serve them.
+      // MUST precede the studio catch-all below.
       match: [
-        { path: ['/dashboard/api/get-deployment-commit', '/dashboard/api/incident-banner'] },
+        {
+          path: [
+            '/dashboard/api/get-deployment-commit',
+            '/dashboard/api/incident-banner',
+            '/dashboard/api/incident-status',
+          ],
+        },
       ],
       handle: [
         { handler: 'rewrite', strip_path_prefix: '/dashboard' },
@@ -88,6 +103,15 @@ export async function buildCaddyConfig(): Promise<unknown> {
       // Platform proxy routes (feature 025 — shared Studio IS_PLATFORM=true).
       match: [{ path: ['/platform/*'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
+    },
+    {
+      // Feature 084 — control-plane GoTrue. Studio + clients hit /auth/v1/*;
+      // strip the prefix and forward to the `auth` (GoTrue) container at :9999.
+      match: [{ path: ['/auth/v1/*'] }],
+      handle: [
+        { handler: 'rewrite', strip_path_prefix: '/auth/v1' },
+        { handler: 'reverse_proxy', upstreams: [{ dial: 'auth:9999' }] },
+      ],
     },
     {
       match: [{ path: ['/socket.io/*'] }],

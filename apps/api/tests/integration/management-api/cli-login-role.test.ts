@@ -223,7 +223,7 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/cli/login-role', () => {
 
   it('403 when PAT belongs to a member-tier user', async () => {
     const ref = newRef();
-    const { token } = await seedTestUser({ role: 'member' });
+    const { token } = await seedTestUser({ role: 'read_only' });
     await withMockInstance(ref);
 
     const res = await app.inject({
@@ -455,7 +455,7 @@ describe.skipIf(!hasTestEnv)('POST /v1/projects/:ref/cli/login-role', () => {
   it('an authorization failure short-circuits before any per-instance PG SQL', async () => {
     const ref = newRef();
     // member can't authorize → 403 should happen before service is called
-    const { token } = await seedTestUser({ role: 'member' });
+    const { token } = await seedTestUser({ role: 'read_only' });
     await withMockInstance(ref);
 
     const res = await app.inject({
@@ -544,7 +544,7 @@ describe.skipIf(!hasTestEnv)('DELETE /v1/projects/:ref/cli/login-role', () => {
     expect(r.statusCode).toBe(401);
 
     // 403 — member can't
-    const { token: memberToken } = await seedTestUser({ role: 'member' });
+    const { token: memberToken } = await seedTestUser({ role: 'read_only' });
     await withMockInstance(ref);
     r = await app.inject({
       method: 'DELETE',

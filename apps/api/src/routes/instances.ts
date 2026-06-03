@@ -1,7 +1,14 @@
 import { decryptJson, generateRef, loadMasterKey } from '@supastack/crypto';
 import { allocatePorts, assignPortsToInstance, db, schema } from '@supastack/db';
 import { composePs } from '@supastack/docker-control';
-import { canTransition, errors, schemas, type InstanceState } from '@supastack/shared';
+import {
+  canTransition,
+  errors,
+  schemas,
+  type Action,
+  type InstanceState,
+  type Role,
+} from '@supastack/shared';
 import { Queue } from 'bullmq';
 import { and, desc, eq, inArray, not } from 'drizzle-orm';
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
@@ -61,7 +68,10 @@ const PUBLIC_INSTANCE_FIELDS = (apex: string | null) => ({
 });
 
 async function getApex(): Promise<string | null> {
-  const rows = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
+  const rows = await db()
+    .select({ apex: schema.installation.apexDomain })
+    .from(schema.installation)
+    .limit(1);
   return rows[0]?.apex ?? null;
 }
 
@@ -101,7 +111,7 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── GET one ─────────────────────────────────────────────────────────────
   app.get<{ Params: { ref: string } }>('/instances/:ref', async (req, reply) => {
-    app.authorize(req, 'instance.read');
+    await authorizeInstanceOrg(app, req, 'instance.read', req.params.ref);
     const user = app.requireAuth(req);
     const row = await fetchInstance(req.params.ref);
     const apex = await getApex();
@@ -118,12 +128,41 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── CREATE ──────────────────────────────────────────────────────────────
   app.post('/instances', async (req, reply) => {
-    app.authorize(req, 'instance.create');
     const user = app.requireAuth(req);
     const body = schemas.InstanceCreateRequest.parse(req.body);
 
-    const [orgRow] = await db().select({ id: schema.org.id }).from(schema.org).limit(1);
-    if (!orgRow) throw errors.invalidInput('org not initialized — complete /setup first');
+    // Feature 084 (US5) — every project belongs to one org. Take the org from the
+    // request (Studio sends organization_slug) or fall back to the caller's first
+    // membership, then require role ≥ developer in THAT org (read_only lacks
+    // instance.create).
+    const raw = (req.body ?? {}) as { organizationId?: string; organization_slug?: string };
+    let orgId = raw.organizationId ?? raw.organization_slug;
+    if (orgId) {
+      const [m] = await db()
+        .select({ userId: schema.organizationMembers.userId })
+        .from(schema.organizationMembers)
+        .where(
+          and(
+            eq(schema.organizationMembers.organizationId, orgId),
+            eq(schema.organizationMembers.userId, user.id),
+          ),
+        )
+        .limit(1);
+      if (!m) throw errors.invalidInput('not a member of the specified organization');
+    } else {
+      const [orgRow] = await db()
+        .select({ id: schema.organizations.id })
+        .from(schema.organizations)
+        .innerJoin(
+          schema.organizationMembers,
+          eq(schema.organizationMembers.organizationId, schema.organizations.id),
+        )
+        .where(eq(schema.organizationMembers.userId, user.id))
+        .limit(1);
+      if (!orgRow) throw errors.invalidInput('no organization — create one first');
+      orgId = orgRow.id;
+    }
+    await app.authorizeOrg(req, 'instance.create', orgId);
 
     const ref = generateRef();
     const secrets = generateInstanceSecrets({
@@ -149,7 +188,7 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
       const ports = await allocatePorts(tx as never, null);
       await tx.insert(schema.supabaseInstances).values({
         ref,
-        orgId: orgRow.id,
+        orgId,
         name: body.name,
         status: 'provisioning',
         supabaseVersion: body.supabaseVersion ?? SUPABASE_VERSION_DEFAULT,
@@ -200,7 +239,7 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── PATCH (rename / backup config) ──────────────────────────────────────
   app.patch<{ Params: { ref: string } }>('/instances/:ref', async (req, reply) => {
-    app.authorize(req, 'instance.update');
+    await authorizeInstanceOrg(app, req, 'instance.update', req.params.ref);
     const body = schemas.InstancePatchRequest.parse(req.body);
     const row = await fetchInstance(req.params.ref);
     await db()
@@ -234,7 +273,7 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
     return enqueueLifecycle(req, reply, app, 'restart-db', null);
   });
   app.post<{ Params: { ref: string } }>('/instances/:ref/upgrade', async (req, reply) => {
-    app.authorize(req, 'instance.upgrade');
+    await authorizeInstanceOrg(app, req, 'instance.upgrade', req.params.ref);
     const user = app.requireAuth(req);
     const body = schemas.InstanceUpgradeRequest.parse(req.body);
     const row = await fetchInstance(req.params.ref);
@@ -295,7 +334,7 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
     });
   });
   app.delete<{ Params: { ref: string } }>('/instances/:ref', async (req, reply) => {
-    app.authorize(req, 'instance.delete');
+    await authorizeInstanceOrg(app, req, 'instance.delete', req.params.ref);
     const user = app.requireAuth(req);
     const row = await fetchInstance(req.params.ref);
     if (!canTransition(row.status as InstanceState, 'deleting')) {
@@ -319,7 +358,7 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Params: { ref: string } }>(
     '/instances/:ref/credentials/reveal',
     async (req, reply) => {
-      app.authorize(req, 'instance.reveal-credentials');
+      await authorizeInstanceOrg(app, req, 'instance.reveal-credentials', req.params.ref);
       const user = app.requireAuth(req);
 
       const row = await fetchInstance(req.params.ref);
@@ -368,7 +407,7 @@ async function fetchInstance(ref: string): Promise<typeof schema.supabaseInstanc
 function projectRow(
   row: typeof schema.supabaseInstances.$inferSelect,
   apex: string | null,
-  role: 'admin' | 'member',
+  role: Role,
 ) {
   const base = {
     ref: row.ref,
@@ -383,7 +422,8 @@ function projectRow(
     updatedAt: row.updatedAt,
     urls: instanceUrls(row.ref, apex),
   };
-  if (role === 'admin') {
+  // Feature 084 — reveal internal ports to write-capable roles (not read_only).
+  if (role !== 'read_only') {
     return {
       ...base,
       ports: {
@@ -402,6 +442,24 @@ function projectRow(
   };
 }
 
+// Feature 084 (US5) — authorize an action against the project's OWNING org
+// (resolve ref → org_id → the caller's role in that org). Replaces the global
+// transitional-role check so a member of org A can't act on org B's project.
+async function authorizeInstanceOrg(
+  app: FastifyInstance,
+  req: FastifyRequest,
+  action: Action,
+  ref: string,
+): Promise<void> {
+  const [row] = await db()
+    .select({ orgId: schema.supabaseInstances.orgId })
+    .from(schema.supabaseInstances)
+    .where(eq(schema.supabaseInstances.ref, ref))
+    .limit(1);
+  if (!row) throw errors.notFound(`instance ${ref} not found`);
+  await app.authorizeOrg(req, action, row.orgId);
+}
+
 async function enqueueLifecycle(
   req: FastifyRequest<{ Params: { ref: string } }>,
   reply: FastifyReply,
@@ -415,9 +473,9 @@ async function enqueueLifecycle(
     restart: 'instance.restart',
     'restart-db': 'instance.restart',
   } as const;
-  app.authorize(req, actionMap[action]);
   const user = app.requireAuth(req);
   const row = await fetchInstance(req.params.ref);
+  await app.authorizeOrg(req, actionMap[action], row.orgId);
   if (targetStatus && !canTransition(row.status as InstanceState, targetStatus)) {
     throw errors.invalidStateTransition(row.status, targetStatus);
   }
