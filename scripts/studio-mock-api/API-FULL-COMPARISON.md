@@ -11,11 +11,11 @@
 
 > Updated for **feature 084** (control-plane GoTrue auth + multi-tenant orgs + Cloud RBAC) and **feature 025** (shared Studio `IS_PLATFORM=true`). Human session auth is now served by a real GoTrue at `/auth/v1/*` (Caddy → `auth:9999`); profile, organizations, members, invitations, roles and personal access tokens are real platform endpoints at `/api/v1/platform/*`. Feature 025 added a broad set of platform stubs so Studio's pages render without errors.
 
-**Coverage (298 total rows):**
+**Coverage (302 total rows):**
 | Status | Count | % |
 |---|---|---|
-| ✅ Covered (real backing) | 72 | 24% |
-| 🔧 Partial / platform stub | 143 | 48% |
+| ✅ Covered (real backing) | 78 | 26% |
+| 🔧 Partial / platform stub | 141 | 47% |
 | 🔀 Proxy only (add route → forward to Kong) | 48 | 16% |
 | ❌ Missing (needs platform-level logic) | 27 | 9% |
 | 🚫 Out of scope (billing/Stripe/marketplace) | 8 | 3% |
@@ -46,7 +46,7 @@
 
 ## Auth (Session)
 
-> Feature 084: served by the real control-plane GoTrue at `/auth/v1/*` (Caddy → `auth:9999`). No more `sb_sid` session / `studio-gotrue` shim.
+> Feature 084: served by the real control-plane GoTrue at `/auth/v1/*` (Caddy → `auth:9999`). No more `sb_sid` session / `studio-gotrue` shim. **TOTP MFA (enroll → challenge → verify → unenroll) works natively** — verified live on supaviser.dev; nothing was built for it. Only the org-level *MFA enforcement policy* (`/members/mfa/enforcement`) remains a stub.
 
 | SUPABASE API | HTTP_METHOD | COVERED | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|
@@ -61,8 +61,12 @@
 | `/recover` | POST | ✅ | Initiate password recovery (SMTP-gated) | `→ GoTrue /auth/v1/recover` |
 | `/verify` | POST | ✅ | Verify OTP / magic link token | `→ GoTrue /auth/v1/verify` |
 | `/authorize` | GET | 🔧 | OAuth authorize redirect (no social providers configured) | `→ GoTrue /auth/v1/authorize` |
-| `/mfa/authenticator/assurance-level` | GET | 🔧 | Get MFA assurance level (MFA out of scope) | `→ GoTrue /auth/v1/...` |
-| `/factors` | GET | 🔧 | List MFA factors (MFA out of scope) | `→ GoTrue /auth/v1/factors` |
+| `/factors` | POST | ✅ | Enroll a TOTP MFA factor (returns QR/secret) — GoTrue native | `→ GoTrue /auth/v1/factors` |
+| `/factors/:id/challenge` | POST | ✅ | Create an MFA challenge — GoTrue native | `→ GoTrue /auth/v1/factors/:id/challenge` |
+| `/factors/:id/verify` | POST | ✅ | Verify an MFA challenge code — GoTrue native | `→ GoTrue /auth/v1/factors/:id/verify` |
+| `/factors/:id` | DELETE | ✅ | Unenroll an MFA factor — GoTrue native | `→ GoTrue /auth/v1/factors/:id` |
+| `/factors` | GET | ✅ | List MFA factors (via user object) — GoTrue native | `→ GoTrue /auth/v1/user` |
+| `/mfa/authenticator/assurance-level` | GET | ✅ | Get MFA assurance level (AAL) — GoTrue native | `→ GoTrue /auth/v1/...` |
 
 ---
 
