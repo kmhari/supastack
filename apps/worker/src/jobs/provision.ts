@@ -58,10 +58,10 @@ export async function handleProvision(payload: { ref: string }): Promise<void> {
       return;
     }
 
-    // 1. Read apex domain
+    // 1. Read apex domain (installation-level, feature 084)
     const [orgRow] = await db()
-      .select({ apex: schema.org.apexDomain, name: schema.org.name })
-      .from(schema.org)
+      .select({ apex: schema.installation.apexDomain })
+      .from(schema.installation)
       .limit(1);
     const apex = orgRow?.apex;
     if (!apex) {

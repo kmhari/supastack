@@ -18,7 +18,7 @@ export const pgEdgeCertInternalRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: { code: 'bad_request', message: 'invalid ref' } });
     }
 
-    const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
+    const [orgRow] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
     if (!orgRow?.apex) {
       return reply.status(409).send({
         error: { code: 'no_apex', message: 'apex domain not configured' },

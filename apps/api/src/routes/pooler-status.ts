@@ -65,7 +65,7 @@ export const poolerStatusRoutes: FastifyPluginAsync = async (app) => {
   app.get('/api/v1/pooler/status', async (req) => {
     app.authorize(req, 'pooler.read');
 
-    const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
+    const [orgRow] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
     const apex = orgRow?.apex ?? null;
     const endpoint = apex ? `pooler.${apex}:6543` : null;
 

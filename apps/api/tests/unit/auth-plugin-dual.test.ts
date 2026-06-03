@@ -20,8 +20,8 @@ const ISSUER = `https://api.${APEX}`;
 const AUDIENCE = `https://mcp.${APEX}/mcp`;
 
 // User store: map user_id → { exists, email, role }
-const userStore = new Map<string, { email: string; role: 'admin' | 'member' }>();
-userStore.set('user-active', { email: 'a@b.c', role: 'admin' });
+const userStore = new Map<string, { email: string; role: 'owner' | 'administrator' | 'developer' | 'read_only' }>();
+userStore.set('user-active', { email: 'a@b.c', role: 'owner' });
 // user-inactive: NOT in userStore → org_members join fails → reject
 
 // PAT store

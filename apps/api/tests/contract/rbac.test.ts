@@ -111,36 +111,36 @@ describe('RBAC matrix', () => {
   });
 
   test('admin can do all destructive actions', () => {
-    expect(can('admin', 'instance.delete')).toBe(true);
-    expect(can('admin', 'instance.upgrade')).toBe(true);
-    expect(can('admin', 'member.remove')).toBe(true);
-    expect(can('admin', 'org.update')).toBe(true);
+    expect(can('owner', 'instance.delete')).toBe(true);
+    expect(can('owner', 'instance.upgrade')).toBe(true);
+    expect(can('owner', 'member.remove')).toBe(true);
+    expect(can('owner', 'org.update')).toBe(true);
   });
 
   test('member is denied all destructive actions (FR-030)', () => {
-    expect(can('member', 'instance.create')).toBe(false);
-    expect(can('member', 'instance.delete')).toBe(false);
-    expect(can('member', 'instance.upgrade')).toBe(false);
-    expect(can('member', 'instance.pause')).toBe(false);
-    expect(can('member', 'member.invite')).toBe(false);
-    expect(can('member', 'member.remove')).toBe(false);
-    expect(can('member', 'org.update')).toBe(false);
-    expect(can('member', 'org.backup-store.update')).toBe(false);
+    expect(can('read_only', 'instance.create')).toBe(false);
+    expect(can('read_only', 'instance.delete')).toBe(false);
+    expect(can('read_only', 'instance.upgrade')).toBe(false);
+    expect(can('read_only', 'instance.pause')).toBe(false);
+    expect(can('read_only', 'member.invite')).toBe(false);
+    expect(can('read_only', 'member.remove')).toBe(false);
+    expect(can('read_only', 'org.update')).toBe(false);
+    expect(can('read_only', 'org.backup-store.update')).toBe(false);
   });
 
   test('member CAN reveal credentials (FR-030 + US4 scenario 2)', () => {
     // Members can see what's needed to use the instance, including secrets
     // behind the explicit reveal action. Admins additionally manage the
     // instance lifecycle.
-    expect(can('member', 'instance.reveal-credentials')).toBe(true);
+    expect(can('read_only', 'instance.reveal-credentials')).toBe(true);
   });
 
   test('member can list and read but not change', () => {
-    expect(can('member', 'instance.list')).toBe(true);
-    expect(can('member', 'instance.read')).toBe(true);
-    expect(can('member', 'instance.update')).toBe(false);
-    expect(can('member', 'backup.list')).toBe(true);
-    expect(can('member', 'backup.download')).toBe(true);
-    expect(can('member', 'backup.create')).toBe(false);
+    expect(can('read_only', 'instance.list')).toBe(true);
+    expect(can('read_only', 'instance.read')).toBe(true);
+    expect(can('read_only', 'instance.update')).toBe(false);
+    expect(can('read_only', 'backup.list')).toBe(true);
+    expect(can('read_only', 'backup.download')).toBe(true);
+    expect(can('read_only', 'backup.create')).toBe(false);
   });
 });

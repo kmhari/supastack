@@ -10,7 +10,6 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { org } from './identity.js';
 import { users } from './identity.js';
 
 const bytea = customType<{ data: Buffer }>({
@@ -22,9 +21,9 @@ export const wildcardCerts = pgTable(
   'wildcard_certs',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    orgId: uuid('org_id')
-      .notNull()
-      .references(() => org.id, { onDelete: 'cascade' }),
+    // Feature 084 — vestigial since the `org` singleton was split out; certs are
+    // keyed by `apex` (installation-level). Soft uuid, no FK. 0018 drops the constraint.
+    orgId: uuid('org_id'),
     apex: text('apex').notNull(),
     status: text('status').notNull().default('pending'),
     accountEmail: text('account_email').notNull(),
@@ -57,9 +56,8 @@ export const certRenewalEvents = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     certId: uuid('cert_id').references(() => wildcardCerts.id, { onDelete: 'cascade' }),
-    orgId: uuid('org_id')
-      .notNull()
-      .references(() => org.id, { onDelete: 'cascade' }),
+    // Feature 084 — vestigial (see wildcard_certs.org_id). Soft uuid, no FK.
+    orgId: uuid('org_id'),
     triggeredBy: text('triggered_by').notNull(),
     outcome: text('outcome').notNull(),
     errorMessage: text('error_message'),

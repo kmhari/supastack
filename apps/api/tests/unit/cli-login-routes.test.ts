@@ -76,7 +76,7 @@ async function buildAppMint(
       err.statusCode = 401;
       throw err;
     }
-    return { id: authedUserId, email: 'test@example.com', role: 'admin' as const };
+    return { id: authedUserId, email: 'test@example.com', role: 'owner' as const };
   });
   app.setErrorHandler((err, _req, reply) => {
     const status = (err as Error & { statusCode?: number }).statusCode ?? 500;

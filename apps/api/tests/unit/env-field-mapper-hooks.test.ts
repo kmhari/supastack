@@ -58,7 +58,7 @@ describe('env-field-mapper: auth hook fields (feature 082)', () => {
     for (const [field, envName] of Object.entries(EXPECTED_ENV_VARS)) {
       const status = AUTH_CONFIG_FIELD_STATUS[field];
       expect(status!.kind).toBe('honored');
-      if (status!.kind === 'honored') {
+      if (status?.kind === 'honored') {
         expect(status.envName, `${field} env var mismatch`).toBe(envName);
       }
     }
@@ -70,7 +70,7 @@ describe('env-field-mapper: auth hook fields (feature 082)', () => {
       const status = AUTH_CONFIG_FIELD_STATUS[field];
       expect(status, `${field} missing`).toBeDefined();
       expect(status!.kind).toBe('honored');
-      if (status!.kind === 'honored') {
+      if (status?.kind === 'honored') {
         expect(status.secret, `${field} should have secret: true`).toBe(true);
       }
     }
@@ -82,7 +82,7 @@ describe('env-field-mapper: auth hook fields (feature 082)', () => {
         const field = `hook_${hookType}_${suffix}`;
         const status = AUTH_CONFIG_FIELD_STATUS[field];
         expect(status!.kind).toBe('honored');
-        if (status!.kind === 'honored') {
+        if (status?.kind === 'honored') {
           expect(status.secret, `${field} should not be secret`).toBeUndefined();
         }
       }

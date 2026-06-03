@@ -107,7 +107,7 @@ function pgDumpStream(containerName: string): Readable {
 }
 
 async function getStoreKind(): Promise<'local' | 's3'> {
-  const [row] = await db().select({ kind: schema.org.backupStoreKind }).from(schema.org).limit(1);
+  const [row] = await db().select({ kind: schema.installation.backupStoreKind }).from(schema.installation).limit(1);
   return (row?.kind as 'local' | 's3') ?? 'local';
 }
 
@@ -115,10 +115,10 @@ async function getStoreKind(): Promise<'local' | 's3'> {
 export async function resolveBackupStore(): Promise<BackupStore> {
   const [row] = await db()
     .select({
-      kind: schema.org.backupStoreKind,
-      configEncrypted: schema.org.backupStoreConfigEncrypted,
+      kind: schema.installation.backupStoreKind,
+      configEncrypted: schema.installation.backupStoreConfigEncrypted,
     })
-    .from(schema.org)
+    .from(schema.installation)
     .limit(1);
   if (!row || row.kind === 'local') {
     return new LocalDiskStore(BACKUPS_DIR);

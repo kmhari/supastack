@@ -49,6 +49,59 @@ services:
       timeout: 3s
       retries: 12
 
+  auth:
+    # Control-plane GoTrue (feature 084) — owns operator identity (auth.users).
+    # Same image as the per-instance template. Reached at /auth/v1/* via Caddy
+    # (strip_path_prefix). JWT secret is HKDF-derived from MASTER_KEY — see
+    # scripts/derive-gotrue-secret.mjs (populates GOTRUE_JWT_SECRET in infra/.env).
+    image: supabase/gotrue:v2.186.0
+    restart: unless-stopped
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      # Runs as the control-plane superuser; owns the `auth` schema (created
+      # idempotently by migration 0017). sslmode=disable — internal network, no TLS on db.
+      GOTRUE_DB_DATABASE_URL: "postgres://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack?search_path=auth&sslmode=disable"
+      GOTRUE_DB_NAMESPACE: auth
+      GOTRUE_SITE_URL: "https://${SUPASTACK_APEX}"
+      # External URL where GoTrue is reachable (Caddy /auth/v1/* → auth:9999).
+      # Required — and read WITHOUT the GOTRUE_ prefix (matches the per-instance template).
+      API_EXTERNAL_URL: "https://${SUPASTACK_APEX}/auth/v1"
+      GOTRUE_JWT_ISSUER: "https://${SUPASTACK_APEX}/auth/v1"
+      # HKDF(MASTER_KEY,'supastack-gotrue-jwt-v1') — the api verifies with the same value.
+      GOTRUE_JWT_SECRET: "${GOTRUE_JWT_SECRET:?GOTRUE_JWT_SECRET required - run scripts/derive-gotrue-secret.mjs}"
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: '3600'
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      # Invite-only — no open signup; first operator is created via the admin API in /setup.
+      GOTRUE_DISABLE_SIGNUP: 'true'
+      # Email/password on; phone + social + MFA off (out of scope for 084).
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: 'true'
+      GOTRUE_EXTERNAL_PHONE_ENABLED: 'false'
+      GOTRUE_MFA_ENABLED: 'false'
+      # Feature 084 US6 — auto-confirm until SMTP is configured, then operators set
+      # GOTRUE_MAILER_AUTOCONFIRM=false in infra/.env to require email confirmation.
+      GOTRUE_MAILER_AUTOCONFIRM: ${GOTRUE_MAILER_AUTOCONFIRM:-true}
+      # SMTP — operator-provided in infra/.env. When GOTRUE_SMTP_HOST is set,
+      # GoTrue sends invite / recovery / confirmation emails.
+      GOTRUE_SMTP_HOST: ${GOTRUE_SMTP_HOST:-}
+      GOTRUE_SMTP_PORT: ${GOTRUE_SMTP_PORT:-587}
+      GOTRUE_SMTP_USER: ${GOTRUE_SMTP_USER:-}
+      GOTRUE_SMTP_PASS: ${GOTRUE_SMTP_PASS:-}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${GOTRUE_SMTP_ADMIN_EMAIL:-}
+      GOTRUE_SMTP_SENDER_NAME: ${GOTRUE_SMTP_SENDER_NAME:-supastack}
+    networks: [internal]
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:9999/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   caddy:
     # Custom Caddy build with caddy-l4 module (Postgres SNI routing on :5432).
     # See apps/caddy/Dockerfile for build context. First feature requiring a
@@ -117,6 +170,9 @@ services:
       SUPAVISOR_API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET:-}
       # Feature 014 — OAuth issuer + JWT iss/aud derivation. Same value mcp + supavisor use.
       SUPASTACK_APEX: ${SUPASTACK_APEX:?SUPASTACK_APEX required}
+      # Feature 084 US6 — the api checks this to gate email-dependent actions
+      # (e.g. invitations 409 when unset). Mirrors the auth service's SMTP config.
+      GOTRUE_SMTP_HOST: ${GOTRUE_SMTP_HOST:-}
     ports:
       - 3001:3001
       # pg-edge proxy — direct Postgres endpoint for db.<ref>.<apex>:5432
@@ -294,13 +350,25 @@ services:
       - ${STUDIO_SOURCE_DIR:-/opt/supabase-vanilla}:/studio
       - studio-node-modules:/studio/node_modules
     environment:
+      # ── IMPORTANT: every NEXT_PUBLIC_* below is INLINED INTO THE BUILD by Next.js
+      # at `next build` time, NOT read at runtime. Changing any of them has NO effect
+      # until Studio is rebuilt with the new value. The container only rebuilds when
+      # .next/BUILD_ID is absent (see `command`), and `next build` reuses .next/cache,
+      # so to actually re-bake a changed value you MUST, on the host:
+      #     rm -rf "$STUDIO_SOURCE_DIR/apps/studio/.next"
+      #     docker compose up -d --force-recreate studio   # picks up the new env
+      # A plain `docker compose up -d` after editing this file does NOT recreate the
+      # container, and a restart keeps the stale build. (084 deploy gap: the studio
+      # container kept an old NEXT_PUBLIC_GOTRUE_URL=/api/v1 build → sign-in 404'd.)
       NEXT_PUBLIC_IS_PLATFORM: "true"
       NEXT_PUBLIC_API_URL: "https://${SUPASTACK_APEX}/api/v1"
-      NEXT_PUBLIC_GOTRUE_URL: "https://${SUPASTACK_APEX}/api/v1"
+      # Feature 084 — point Studio's auth at the real control-plane GoTrue (Caddy
+      # routes /auth/v1/* → auth:9999), replacing the retired studio-gotrue shim.
+      # common/gotrue.ts builds the dashboard auth client from this var.
+      NEXT_PUBLIC_GOTRUE_URL: "https://${SUPASTACK_APEX}/auth/v1"
       # Serve Studio under /dashboard (Cloud-parity URLs: <apex>/dashboard/project/<ref>).
-      # Baked at build time (next.config.ts basePath + assetPrefix) — changing this
-      # requires deleting .next/BUILD_ID to force a rebuild. next.config.ts also
-      # registers a `/` → `/dashboard` redirect whenever this is set.
+      # Baked at build time (next.config.ts basePath + assetPrefix); also registers a
+      # `/` → `/dashboard` redirect whenever this is set.
       NEXT_PUBLIC_BASE_PATH: "/dashboard"
     networks: [internal]
     restart: unless-stopped

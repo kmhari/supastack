@@ -20,8 +20,8 @@ describe.skipIf(!hasTestEnv)('auth + RBAC matrix across /v1/* routes', () => {
 
   beforeAll(async () => {
     app = await buildAuthedApp();
-    const admin = await seedTestUser({ role: 'admin' });
-    const member = await seedTestUser({ role: 'member' });
+    const admin = await seedTestUser({ role: 'owner' });
+    const member = await seedTestUser({ role: 'read_only' });
     adminToken = admin.token;
     memberToken = member.token;
     await withMockInstance(ref, { orgId: admin.orgId });

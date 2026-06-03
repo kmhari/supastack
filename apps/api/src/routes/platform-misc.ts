@@ -7,9 +7,18 @@
  * (instances, auth, etc.).
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
-import { decryptJson, loadMasterKey } from '@supastack/crypto';
+import { decryptJson, generateRef, loadMasterKey } from '@supastack/crypto';
+import { ROLE_IDS, ROLE_NAMES, roleFromId, type Role } from '@supastack/shared';
+import { mintApiToken } from '../services/api-tokens.js';
+import {
+  hashInviteToken,
+  memberRole,
+  newInviteToken,
+  ownerCount,
+} from '../services/org-membership.js';
+import { sendRecoveryEmail } from '../services/gotrue-admin.js';
 
 export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── Feature flags ──────────────────────────────────────────────────────────
@@ -39,12 +48,15 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       is_alpha_user: false,
       is_sso_user: false,
       disabled_features: [
-        // feature 025 — reduce the IS_PLATFORM Studio to a self-hosted "supastack cloud".
-        // POST-LOGIN features only (runtime, no Studio rebuild). See docs/studio-feature-flags.md.
-        // NOTE: pre-login/sign-in-page flags (dashboard_auth:*) are NOT controllable here
-        // — there is no profile pre-login — so they live in the Studio source
-        // enabled-features.json (build-time) instead.
-        'billing:all',
+        // Feature 084 — hide what supastack doesn't implement (billing + cross-org
+        // project transfer). Org/member/project create+delete stay ENABLED. Runtime,
+        // no Studio rebuild. Pre-login dashboard_auth:* flags live in the fork's
+        // enabled-features.json (build-time), not here. See docs/studio-feature-flags.md.
+        'billing:account_data',
+        'billing:credits',
+        'billing:invoices',
+        'billing:payment_methods',
+        'projects:transfer',
       ],
       free_project_limit: 999,
     });
@@ -67,50 +79,75 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ── Permissions ────────────────────────────────────────────────────────────
-  // Studio uses this to gate UI — wildcard grant gives full access.
+  // Feature 084 — one permission entry per org the caller belongs to. These drive
+  // client-side UI gating only; the server-side authorize()/authorizeOrg() RBAC is
+  // authoritative. Wildcard actions keep the UI fully enabled; read_only is still
+  // blocked at the API by the matrix.
   app.get('/platform/profile/permissions', async (req, reply) => {
     const user = app.requireAuth(req);
-    // Look up org id for this user (Supastack orgs have no slug — use id)
-    const [orgRow] = await db()
-      .select({ id: schema.org.id, name: schema.org.name })
-      .from(schema.org)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.org.id))
-      .where(eq(schema.orgMembers.userId, user.id))
-      .limit(1);
+    const memberships = await db()
+      .select({ orgId: schema.organizationMembers.organizationId })
+      .from(schema.organizationMembers)
+      .where(eq(schema.organizationMembers.userId, user.id));
 
-    return reply.send([
-      {
+    return reply.send(
+      memberships.map((m) => ({
         actions: ['%'],
         resources: ['%'],
-        organization_slug: orgRow?.id ?? 'local-org',
-        project_refs: [],
+        organization_id: m.orgId,
+        organization_slug: m.orgId,
+        project_ids: null,
+        project_refs: null,
         restrictive: false,
         condition: null,
-      },
-    ]);
+      })),
+    );
   });
 
-  // Access tokens (PATs) — delegate to auth routes for real data
+  // Access tokens (PATs) — feature 084 US2. Backed by the real `api_tokens`
+  // store (same tokens the CLI/MCP use); mapped to Studio's AccessToken shape.
   app.get('/platform/profile/access-tokens', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send([]);
+    const user = app.requireAuth(req);
+    const rows = await db()
+      .select({
+        id: schema.apiTokens.id,
+        name: schema.apiTokens.label,
+        tokenAlias: schema.apiTokens.prefix,
+        createdAt: schema.apiTokens.createdAt,
+        lastUsedAt: schema.apiTokens.lastUsedAt,
+      })
+      .from(schema.apiTokens)
+      .where(and(eq(schema.apiTokens.userId, user.id), isNull(schema.apiTokens.revokedAt)))
+      .orderBy(desc(schema.apiTokens.createdAt));
+    return reply.send(rows.map((r) => toAccessToken(r)));
   });
 
   app.post('/platform/profile/access-tokens', async (req, reply) => {
-    app.requireAuth(req);
-    const body = req.body as Record<string, unknown> | undefined;
+    const user = app.requireAuth(req);
+    const body = (req.body ?? {}) as { name?: string };
+    const name = body.name?.trim() || 'Access token';
+    const { raw, id, prefix } = await mintApiToken(db(), user.id, name, 'studio');
     return reply.status(201).send({
-      id: 1,
-      name: body?.name ?? 'token',
-      token: 'sbp_placeholder',
-      created_at: new Date().toISOString(),
+      ...toAccessToken({ id, name, tokenAlias: prefix, createdAt: new Date(), lastUsedAt: null }),
+      token: raw, // shown once
     });
   });
 
   app.delete<{ Params: { id: string } }>(
     '/platform/profile/access-tokens/:id',
     async (req, reply) => {
-      app.requireAuth(req);
+      const user = app.requireAuth(req);
+      // Own tokens only.
+      const [row] = await db()
+        .select({ userId: schema.apiTokens.userId })
+        .from(schema.apiTokens)
+        .where(eq(schema.apiTokens.id, req.params.id))
+        .limit(1);
+      if (!row || row.userId !== user.id) return reply.status(204).send();
+      await db()
+        .update(schema.apiTokens)
+        .set({ revokedAt: new Date() })
+        .where(eq(schema.apiTokens.id, req.params.id));
       return reply.status(204).send();
     },
   );
@@ -147,30 +184,46 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ── Organizations ──────────────────────────────────────────────────────────
-  // Studio calls /platform/organizations to show the org switcher.
-  // Supastack is single-org — return the singleton org in Studio's shape.
+  // Feature 084 — list ALL organizations the caller is a member of (multi-org).
   app.get('/platform/organizations', async (req, reply) => {
     const user = app.requireAuth(req);
-    const [orgRow] = await db()
-      .select({ id: schema.org.id, name: schema.org.name })
-      .from(schema.org)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.org.id))
-      .where(eq(schema.orgMembers.userId, user.id))
-      .limit(1);
-    if (!orgRow) return reply.send([]);
-    return reply.send([buildOrg(orgRow.id, orgRow.name, user.role === 'admin')]);
+    const rows = await db()
+      .select({
+        id: schema.organizations.id,
+        name: schema.organizations.name,
+        role: schema.organizationMembers.role,
+      })
+      .from(schema.organizations)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.organizations.id),
+      )
+      .where(eq(schema.organizationMembers.userId, user.id));
+    return reply.send(rows.map((r) => buildOrg(r.id, r.name, r.role === 'owner')));
   });
 
   app.get<{ Params: { slug: string } }>('/platform/organizations/:slug', async (req, reply) => {
     const user = app.requireAuth(req);
     const [orgRow] = await db()
-      .select({ id: schema.org.id, name: schema.org.name })
-      .from(schema.org)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.org.id))
-      .where(eq(schema.orgMembers.userId, user.id))
+      .select({
+        id: schema.organizations.id,
+        name: schema.organizations.name,
+        role: schema.organizationMembers.role,
+      })
+      .from(schema.organizations)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.organizations.id),
+      )
+      .where(
+        and(
+          eq(schema.organizationMembers.userId, user.id),
+          eq(schema.organizations.id, req.params.slug),
+        ),
+      )
       .limit(1);
     if (!orgRow) return reply.status(404).send({ error: 'Organization not found' });
-    return reply.send(buildOrg(orgRow.id, orgRow.name, user.role === 'admin'));
+    return reply.send(buildOrg(orgRow.id, orgRow.name, orgRow.role === 'owner'));
   });
 
   // ── New-project wizard endpoints ──────────────────────────────────────────
@@ -225,18 +278,21 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ── Create organization ────────────────────────────────────────────────────
-  // Supastack is single-org. We can't create additional orgs via Studio, but we
-  // return the existing org in the expected shape so Studio navigates correctly.
+  // Feature 084 (US3) — create a new organization; the creator becomes owner.
+  // org.create is allowed for every authenticated role (no org context needed).
   app.post('/platform/organizations', async (req, reply) => {
     const user = app.requireAuth(req);
-    const [orgRow] = await db()
-      .select({ id: schema.org.id, name: schema.org.name })
-      .from(schema.org)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.org.id))
-      .where(eq(schema.orgMembers.userId, user.id))
-      .limit(1);
-    if (!orgRow) return reply.status(400).send({ error: 'No organization found for this user' });
-    return reply.status(201).send(buildOrg(orgRow.id, orgRow.name, true));
+    const body = (req.body ?? {}) as { name?: string };
+    const name = body.name?.trim();
+    if (!name) return reply.status(400).send({ error: 'name is required' });
+    const id = generateRef();
+    await db().transaction(async (tx) => {
+      await tx.insert(schema.organizations).values({ id, name });
+      await tx
+        .insert(schema.organizationMembers)
+        .values({ organizationId: id, userId: user.id, role: 'owner' });
+    });
+    return reply.status(201).send({ pending_payment_intent_secret: null, ...buildOrg(id, name, true) });
   });
 
   // ── Create project ─────────────────────────────────────────────────────────
@@ -307,8 +363,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
           orgId: schema.supabaseInstances.orgId,
         })
         .from(schema.supabaseInstances)
-        .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-        .where(eq(schema.orgMembers.userId, user.id))
+        .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+        .where(eq(schema.organizationMembers.userId, user.id))
         .limit(limit)
         .offset(offset);
       const projects = instances.map((inst) => buildProject(inst, apex));
@@ -334,8 +390,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         orgId: schema.supabaseInstances.orgId,
       })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)))
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     return reply.send(buildProject(inst, apex));
@@ -353,8 +409,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong, insertedAt: schema.supabaseInstances.createdAt })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)))
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.send([]);
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
@@ -472,8 +528,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong, encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)))
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
@@ -495,8 +551,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)))
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
@@ -616,9 +672,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
       .where(
-        and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.orgMembers.userId, user.id)),
+        and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)),
       )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
@@ -634,9 +690,69 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
+  // Project settings — Studio's project API/connection page. Wire-compatible with
+  // Cloud's GET /platform/projects/:ref/settings: jwt_secret + service_api_keys
+  // (anon + service_role) + db connection details. Org-membership scoped via the
+  // join (a non-member sees no row → 404). Secrets come from encryptedSecrets.
+  app.get<RefParams>('/platform/projects/:ref/settings', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const apex = process.env.SUPASTACK_APEX ?? '';
+    const [inst] = await db()
+      .select({
+        ref: schema.supabaseInstances.ref,
+        name: schema.supabaseInstances.name,
+        status: schema.supabaseInstances.status,
+        encryptedSecrets: schema.supabaseInstances.encryptedSecrets,
+        insertedAt: schema.supabaseInstances.createdAt,
+      })
+      .from(schema.supabaseInstances)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)),
+      )
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    const secrets = inst.encryptedSecrets
+      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as {
+          jwtSecret?: string;
+          anonKey?: string;
+          serviceRoleKey?: string;
+        })
+      : {};
+    const endpoint = apex ? `${inst.ref}.${apex}` : 'localhost';
+    return reply.send({
+      cloud_provider: 'SUPASTACK',
+      region: 'local',
+      db_dns_name: '',
+      db_host: apex ? `db.${inst.ref}.${apex}` : 'localhost',
+      db_ip_addr_config: 'ipv4',
+      db_name: 'postgres',
+      db_port: 5432,
+      db_user: 'postgres',
+      inserted_at: inst.insertedAt?.toISOString() ?? new Date().toISOString(),
+      name: inst.name,
+      ref: inst.ref,
+      ssl_enforced: false,
+      is_sensitive: null,
+      status: inst.status === 'running' ? 'ACTIVE_HEALTHY' : inst.status.toUpperCase(),
+      app_config: {
+        db_schema: 'public',
+        endpoint,
+        storage_endpoint: endpoint,
+      },
+      jwt_secret: secrets.jwtSecret ?? '',
+      service_api_keys: [
+        { api_key: secrets.anonKey ?? '', name: 'anon key', tags: 'anon' },
+        { api_key: secrets.serviceRoleKey ?? '', name: 'service_role key', tags: 'service_role' },
+      ],
+    });
+  });
+
   // Misc project stubs — key is always path.split('/').pop()
   for (const path of [
-    '/platform/projects/:ref/settings',
     '/platform/projects/:ref/members',
     '/platform/projects/:ref/pause/status',
     '/platform/projects/:ref/daily-stats',
@@ -717,7 +833,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Params: { slug: string }; Querystring: { limit?: string; offset?: string } }>(
     '/platform/organizations/:slug/projects',
     async (req, reply) => {
-      const user = app.requireAuth(req);
+      // Feature 084 (US5) — projects belong to one org; require membership and
+      // return ONLY this org's projects, paginated with a real total count.
+      await app.authorizeOrg(req, 'instance.list', req.params.slug);
       const limit = parseInt(req.query.limit ?? '96', 10);
       const offset = parseInt(req.query.offset ?? '0', 10);
       const apex = process.env.SUPASTACK_APEX ?? '';
@@ -733,27 +851,64 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
           orgId: schema.supabaseInstances.orgId,
         })
         .from(schema.supabaseInstances)
-        .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-        .where(eq(schema.orgMembers.userId, user.id))
+        .where(eq(schema.supabaseInstances.orgId, req.params.slug))
         .limit(limit)
         .offset(offset);
 
+      const [countRow] = await db()
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.supabaseInstances)
+        .where(eq(schema.supabaseInstances.orgId, req.params.slug));
+
       const projects = instances.map((inst) => buildProject(inst, apex));
-      return reply.send({ pagination: { count: projects.length, limit, offset }, projects });
+      return reply.send({
+        pagination: { count: countRow?.count ?? projects.length, limit, offset },
+        projects,
+      });
     },
   );
 
   // ── Org-scoped stubs ───────────────────────────────────────────────────────
   type SlugParams = { Params: { slug: string } };
 
+  // Feature 084 (US4) — list org members with their role_ids.
   app.get<SlugParams>('/platform/organizations/:slug/members', async (req, reply) => {
-    const user = app.requireAuth(req);
-    return reply.send([{ gotrue_id: user.id, username: user.email.split('@')[0], primary_email: user.email, role_ids: [1] }]);
+    await app.authorizeOrg(req, 'member.list', req.params.slug);
+    const rows = await db()
+      .select({
+        gotrueId: schema.organizationMembers.userId,
+        role: schema.organizationMembers.role,
+        email: schema.users.email,
+      })
+      .from(schema.organizationMembers)
+      .innerJoin(schema.users, eq(schema.users.id, schema.organizationMembers.userId))
+      .where(eq(schema.organizationMembers.organizationId, req.params.slug));
+    return reply.send(
+      rows.map((r) => ({
+        gotrue_id: r.gotrueId,
+        primary_email: r.email,
+        username: r.email.split('@')[0],
+        role_ids: [ROLE_IDS[r.role as Role]],
+        mfa_enabled: false,
+        is_sso_user: false,
+        metadata: {},
+      })),
+    );
   });
 
+  // Feature 084 (US4) — the four fixed org roles as numeric-id objects.
   app.get<SlugParams>('/platform/organizations/:slug/roles', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ org_scoped_roles: [{ id: 1, name: 'Owner', description: null, base_role_id: 1, projects: [] }], project_scoped_roles: [] });
+    await app.authorizeOrg(req, 'member.list', req.params.slug);
+    const orgScopedRoles = (['owner', 'administrator', 'developer', 'read_only'] as Role[]).map(
+      (r) => ({
+        id: ROLE_IDS[r],
+        name: ROLE_NAMES[r],
+        description: null,
+        base_role_id: ROLE_IDS[r],
+        projects: [],
+      }),
+    );
+    return reply.send({ org_scoped_roles: orgScopedRoles, project_scoped_roles: [] });
   });
 
   app.get<SlugParams>('/platform/organizations/:slug/billing/subscription', async (req, reply) => {
@@ -802,10 +957,31 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ result: [], count: 0 });
   });
 
-  // invitations: Studio destructures as `orgInvites.invitations.map(...)` — must be { invitations: [] }
+  // Feature 084 (US4) — pending invitations for the org.
   app.get<SlugParams>('/platform/organizations/:slug/members/invitations', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ invitations: [] });
+    await app.authorizeOrg(req, 'member.list', req.params.slug);
+    const rows = await db()
+      .select({
+        id: schema.organizationInvitations.id,
+        email: schema.organizationInvitations.email,
+        role: schema.organizationInvitations.role,
+        createdAt: schema.organizationInvitations.createdAt,
+      })
+      .from(schema.organizationInvitations)
+      .where(
+        and(
+          eq(schema.organizationInvitations.organizationId, req.params.slug),
+          isNull(schema.organizationInvitations.consumedAt),
+        ),
+      );
+    return reply.send({
+      invitations: rows.map((r) => ({
+        id: r.id,
+        invited_email: r.email,
+        invited_at: r.createdAt.toISOString(),
+        role_id: ROLE_IDS[r.role as Role],
+      })),
+    });
   });
 
   for (const path of [
@@ -834,53 +1010,180 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(req.body ?? { required: false });
   });
 
-  // GET invite by token — Studio shows invitation details before accepting
+  // Feature 084 (US4) — invitee checks an invite's validity before accepting.
   app.get<{ Params: { slug: string; token: string } }>(
     '/platform/organizations/:slug/members/invitations/:token',
     async (req, reply) => {
-      app.requireAuth(req);
-      return reply.send({ token: req.params.token });
+      const user = app.requireAuth(req);
+      const sha = hashInviteToken(req.params.token);
+      const [inv] = await db()
+        .select()
+        .from(schema.organizationInvitations)
+        .where(eq(schema.organizationInvitations.tokenSha256, sha))
+        .limit(1);
+      const [org] = await db()
+        .select({ name: schema.organizations.name })
+        .from(schema.organizations)
+        .where(eq(schema.organizations.id, req.params.slug))
+        .limit(1);
+      const orgName = org?.name ?? '';
+      if (!inv || inv.organizationId !== req.params.slug) {
+        return reply.send({
+          authorized_user: false,
+          email_match: false,
+          expired_token: false,
+          organization_name: orgName,
+          sso_mismatch: false,
+          token_does_not_exist: true,
+        });
+      }
+      const emailMatch = user.email.toLowerCase() === inv.email.toLowerCase();
+      return reply.send({
+        authorized_user: emailMatch,
+        email_match: emailMatch,
+        expired_token: inv.consumedAt != null || inv.expiresAt < new Date(),
+        invite_id: inv.id,
+        organization_name: orgName,
+        sso_mismatch: false,
+        token_does_not_exist: false,
+      });
     },
   );
 
-  // POST accept invitation by token
+  // Feature 084 (US4) — accept an invitation (invitee is already a GoTrue user).
   app.post<{ Params: { slug: string; token: string } }>(
     '/platform/organizations/:slug/members/invitations/:token',
     async (req, reply) => {
-      app.requireAuth(req);
+      const user = app.requireAuth(req);
+      const sha = hashInviteToken(req.params.token);
+      const [inv] = await db()
+        .select()
+        .from(schema.organizationInvitations)
+        .where(
+          and(
+            eq(schema.organizationInvitations.tokenSha256, sha),
+            isNull(schema.organizationInvitations.consumedAt),
+          ),
+        )
+        .limit(1);
+      if (!inv || inv.organizationId !== req.params.slug) {
+        return reply.status(404).send({ error: 'invitation not found' });
+      }
+      if (inv.expiresAt < new Date()) {
+        return reply.status(410).send({ error: 'invitation expired' });
+      }
+      await db().transaction(async (tx) => {
+        await tx
+          .insert(schema.organizationMembers)
+          .values({ organizationId: inv.organizationId, userId: user.id, role: inv.role })
+          .onConflictDoNothing();
+        await tx
+          .update(schema.organizationInvitations)
+          .set({ consumedAt: new Date() })
+          .where(eq(schema.organizationInvitations.id, inv.id));
+      });
       return reply.send({});
     },
   );
 
-  // POST send invitation
+  // Feature 084 (US4) — send invitations (emails[] + role_id). Email delivery via
+  // the GoTrue mailer lands in US6; the invite token is the accept link for now.
   app.post<SlugParams>('/platform/organizations/:slug/members/invitations', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(201).send({ id: 1 });
+    await app.authorizeOrg(req, 'member.invite', req.params.slug);
+    // Feature 084 US6 (FR-031) — invitations are email-delivered; refuse clearly
+    // when SMTP isn't configured rather than creating an undeliverable invite.
+    if (!process.env.GOTRUE_SMTP_HOST) {
+      return reply.status(409).send({ error: 'email delivery is not configured (SMTP)' });
+    }
+    const inviter = app.requireAuth(req);
+    const body = (req.body ?? {}) as { emails?: string[]; role_id?: number };
+    const emails = Array.isArray(body.emails) ? body.emails : [];
+    const role = roleFromId(Number(body.role_id));
+    if (!role) return reply.status(400).send({ error: 'invalid role_id' });
+    const succeeded: string[] = [];
+    const failed: { email: string; error: string }[] = [];
+    for (const email of emails) {
+      try {
+        const { sha256, expiresAt } = newInviteToken();
+        await db()
+          .insert(schema.organizationInvitations)
+          .values({
+            organizationId: req.params.slug,
+            email,
+            tokenSha256: sha256,
+            role,
+            invitedByUserId: inviter.id,
+            expiresAt,
+          });
+        succeeded.push(email);
+      } catch (e) {
+        failed.push({ email, error: (e as Error).message });
+      }
+    }
+    return reply.send({ succeeded, failed });
   });
 
-  // DELETE cancel invitation by id
+  // Feature 084 (US4) — cancel a pending invitation.
   app.delete<{ Params: { slug: string; id: string } }>(
     '/platform/organizations/:slug/members/invitations/:id',
     async (req, reply) => {
-      app.requireAuth(req);
+      await app.authorizeOrg(req, 'member.invite', req.params.slug);
+      await db()
+        .delete(schema.organizationInvitations)
+        .where(
+          and(
+            eq(schema.organizationInvitations.id, req.params.id),
+            eq(schema.organizationInvitations.organizationId, req.params.slug),
+          ),
+        );
       return reply.status(204).send();
     },
   );
 
-  // PATCH update member (role change etc.)
+  // Feature 084 (US4) — change a member's role (last-owner invariant).
   app.patch<{ Params: { slug: string; gotrue_id: string } }>(
     '/platform/organizations/:slug/members/:gotrue_id',
     async (req, reply) => {
-      app.requireAuth(req);
-      return reply.send(req.body ?? {});
+      await app.authorizeOrg(req, 'member.update-role', req.params.slug);
+      const body = (req.body ?? {}) as { role_id?: number };
+      const newRole = roleFromId(Number(body.role_id));
+      if (!newRole) return reply.status(400).send({ error: 'invalid role_id' });
+      const current = await memberRole(req.params.slug, req.params.gotrue_id);
+      if (!current) return reply.status(404).send({ error: 'member not found' });
+      if (current === 'owner' && newRole !== 'owner' && (await ownerCount(req.params.slug)) <= 1) {
+        return reply.status(409).send({ error: 'cannot demote the last owner' });
+      }
+      await db()
+        .update(schema.organizationMembers)
+        .set({ role: newRole })
+        .where(
+          and(
+            eq(schema.organizationMembers.organizationId, req.params.slug),
+            eq(schema.organizationMembers.userId, req.params.gotrue_id),
+          ),
+        );
+      return reply.send({});
     },
   );
 
-  // DELETE remove member from org
+  // Feature 084 (US4) — remove a member (last-owner invariant).
   app.delete<{ Params: { slug: string; gotrue_id: string } }>(
     '/platform/organizations/:slug/members/:gotrue_id',
     async (req, reply) => {
-      app.requireAuth(req);
+      await app.authorizeOrg(req, 'member.remove', req.params.slug);
+      const current = await memberRole(req.params.slug, req.params.gotrue_id);
+      if (!current) return reply.status(204).send();
+      if (current === 'owner' && (await ownerCount(req.params.slug)) <= 1) {
+        return reply.status(409).send({ error: 'cannot remove the last owner' });
+      }
+      await db()
+        .delete(schema.organizationMembers)
+        .where(
+          and(
+            eq(schema.organizationMembers.organizationId, req.params.slug),
+            eq(schema.organizationMembers.userId, req.params.gotrue_id),
+          ),
+        );
       return reply.status(204).send();
     },
   );
@@ -1484,7 +1787,19 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({});
   });
 
-  app.post('/platform/reset-password', async (_req, reply) => {
+  // Feature 084 US6 — password reset via GoTrue's recovery mailer (needs SMTP).
+  app.post('/platform/reset-password', async (req, reply) => {
+    const body = (req.body ?? {}) as { email?: string };
+    if (!body.email) return reply.status(400).send({ error: 'email is required' });
+    if (!process.env.GOTRUE_SMTP_HOST) {
+      return reply.status(409).send({ error: 'email delivery is not configured (SMTP)' });
+    }
+    try {
+      await sendRecoveryEmail(body.email);
+    } catch (err) {
+      req.log.warn({ err }, 'reset-password: gotrue recover failed');
+    }
+    // Always 200 (don't leak whether the email exists).
     return reply.send({});
   });
 
@@ -1493,10 +1808,42 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({});
   });
 
-  // Organization PATCH (rename, etc.) — echo the body back
+  // Feature 084 (US3) — rename an organization (display name only; ref is immutable).
   app.patch<SlugParams>('/platform/organizations/:slug', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
+    const role = await app.authorizeOrg(req, 'org.update', req.params.slug);
+    const body = (req.body ?? {}) as { name?: string };
+    if (typeof body.name === 'string') {
+      const name = body.name.trim();
+      if (!name) return reply.status(400).send({ error: 'name cannot be empty' });
+      await db()
+        .update(schema.organizations)
+        .set({ name })
+        .where(eq(schema.organizations.id, req.params.slug));
+    }
+    const [row] = await db()
+      .select({ id: schema.organizations.id, name: schema.organizations.name })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, req.params.slug))
+      .limit(1);
+    if (!row) return reply.status(404).send({ error: 'Organization not found' });
+    return reply.send(buildOrg(row.id, row.name, role === 'owner'));
+  });
+
+  // Feature 084 (US3) — delete an organization (owner only; refused if it owns projects).
+  app.delete<SlugParams>('/platform/organizations/:slug', async (req, reply) => {
+    await app.authorizeOrg(req, 'org.delete', req.params.slug);
+    const [proj] = await db()
+      .select({ ref: schema.supabaseInstances.ref })
+      .from(schema.supabaseInstances)
+      .where(eq(schema.supabaseInstances.orgId, req.params.slug))
+      .limit(1);
+    if (proj) {
+      return reply
+        .status(409)
+        .send({ error: 'Organization still owns projects; delete them first' });
+    }
+    await db().delete(schema.organizations).where(eq(schema.organizations.id, req.params.slug));
+    return reply.status(204).send();
   });
 
   // Organization available Postgres versions
@@ -1581,6 +1928,24 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ client_secret: null });
   });
 };
+
+function toAccessToken(r: {
+  id: string;
+  name: string;
+  tokenAlias: string | null;
+  createdAt: Date;
+  lastUsedAt: Date | null;
+}) {
+  return {
+    id: r.id,
+    name: r.name,
+    token_alias: r.tokenAlias ?? '',
+    scope: 'V0' as const,
+    created_at: r.createdAt.toISOString(),
+    expires_at: null,
+    last_used_at: r.lastUsedAt?.toISOString() ?? null,
+  };
+}
 
 function buildProject(
   inst: { ref: string; name: string; status: string; portKong: number; insertedAt: Date | null; updatedAt: Date | null; orgId: string },

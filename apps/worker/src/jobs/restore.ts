@@ -39,8 +39,8 @@ void _useGcQueue;
 
 async function resolveBackupStore(): Promise<BackupStore> {
   const [row] = await db()
-    .select({ kind: schema.org.backupStoreKind, cfg: schema.org.backupStoreConfigEncrypted })
-    .from(schema.org)
+    .select({ kind: schema.installation.backupStoreKind, cfg: schema.installation.backupStoreConfigEncrypted })
+    .from(schema.installation)
     .limit(1);
   if (!row || row.kind === 'local') return new LocalDiskStore(BACKUPS_DIR);
   if (!row.cfg) throw new Error('s3 backup-store config missing');
@@ -200,7 +200,7 @@ async function rollback(
   restore_job_id: string,
   ref: string,
   errorMessage: string,
-  log: ReturnType<typeof logger.child>,
+  log: Pick<typeof logger, 'info' | 'warn' | 'error' | 'debug'>,
 ): Promise<void> {
   try {
     // Best-effort restart the stack to recover
@@ -242,7 +242,7 @@ async function rollback(
 async function waitUntilHealthy(
   ctx: ComposeContext,
   budgetMs: number,
-  _log: ReturnType<typeof logger.child>,
+  _log: unknown,
 ): Promise<void> {
   const deadline = Date.now() + budgetMs;
   while (Date.now() < deadline) {
