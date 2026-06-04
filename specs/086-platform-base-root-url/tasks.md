@@ -23,7 +23,7 @@ description: "Task list — feature 086 platform base=root + legacy studio to /s
 
 **Purpose**: capture a green baseline before changes.
 
-- [ ] T001 Confirm on branch `086-platform-base-root-url`; capture baseline: run `pnpm --filter @supastack/api test` and `pnpm --filter @supastack/web build` + `pnpm --filter @supastack/web test`, record pass counts in the runbook draft `docs/changes/086-platform-base-root-url.md`.
+- [X] T001 Confirm on branch `086-platform-base-root-url`; capture baseline: run `pnpm --filter @supastack/api test` and `pnpm --filter @supastack/web build` + `pnpm --filter @supastack/web test`, record pass counts in the runbook draft `docs/changes/086-platform-base-root-url.md`.
 - [X] T002 (DONE — committed `8d91b52`) Settle the unrelated uncommitted change in `apps/api/src/routes/platform-misc.ts` (billing stubs `free`→`pro` + `buildOrg` mocks): committed standalone as `feat(studio-mock)`, kept out of 086's diff.
 
 ---
@@ -32,7 +32,7 @@ description: "Task list — feature 086 platform base=root + legacy studio to /s
 
 **Purpose**: none. The user stories are independent; US1 is the only one requiring a coordinated deploy.
 
-- [ ] T003 (gate) Confirm through all phases: the **only** DB migration is the US6 backup-`seq` surrogate `0019` (idempotent + additive, Constitution I); the `/v1` OpenAPI snapshot is untouched (Constitution IV); no `/api/v1` route is removed (FR-010/FR-013 — the US2 SPA deletion touched only `apps/web/*`, never the `apps/api` engine; façade-copy removal stays a deferred follow-up).
+- [X] T003 (gate) Confirm through all phases: the **only** DB migration is the US6 backup-`seq` surrogate `0019` (idempotent + additive, Constitution I); the `/v1` OpenAPI snapshot is untouched (Constitution IV); no `/api/v1` route is removed (FR-010/FR-013 — the US2 SPA deletion touched only `apps/web/*`, never the `apps/api` engine; façade-copy removal stays a deferred follow-up).
 
 ---
 
@@ -69,7 +69,7 @@ description: "Task list — feature 086 platform base=root + legacy studio to /s
 - [X] T019 [P] [US2] Delete the page-bound unit tests under `apps/web/tests/unit/`: `Instances/Login/MorePages/ProjectAuthProviders/ProjectAuthUrlConfig/ProjectSecrets.test.tsx`, `provider-registry.test.ts`, `redirect-url-helpers.test.ts` (+ `safe-next.test.ts`).
 - [X] T020 [US2] Remove the Playwright e2e harness `apps/web/tests/e2e/**`, `expected-pages.ts` + `scripts/check-page-coverage.mjs` (+ `lint:page-coverage` wiring), and drop the `e2e` job in `.github/workflows/ci.yml`.
 - [X] T021 [US2] Verify build: `pnpm --filter @supastack/web build` succeeds and `pnpm --filter @supastack/web test` + `lint` are green.
-- [ ] T022 [US2] LIVE VERIFY the slimmed SPA **serves** `/setup` (FR-007 / SC-003): `https://<apex>/setup` loads + completes over HTTPS and `http://<server-ip>/setup` loads over plain HTTP (pre-DNS) with `GET /api/v1/setup/status` responding. (The `/`→`/setup` redirect + post-setup release is verified by US5's **T034** — not re-checked here.)
+- [X] T022 [US2] LIVE VERIFY the slimmed SPA **serves** `/setup` (FR-007 / SC-003): `https://<apex>/setup` loads + completes over HTTPS and `http://<server-ip>/setup` loads over plain HTTP (pre-DNS) with `GET /api/v1/setup/status` responding. (The `/`→`/setup` redirect + post-setup release is verified by US5's **T034** — not re-checked here.)
 
 **Checkpoint**: apps/web is setup-only; builds + tests green; `/setup` verified live over HTTP + HTTPS.
 
@@ -101,7 +101,7 @@ description: "Task list — feature 086 platform base=root + legacy studio to /s
 - [X] T031 [US5] In `apps/api/src/routes/setup.ts`, make `reloadCaddy()` on completion **unconditional** (drop the `if (body.apexDomain)` guard ~setup.ts:114) so completion drops the gate.
 - [X] T032 [P] [US5] In `apps/caddy/Caddyfile` (`:80` + `:443`), change the boot catch-all from `reverse_proxy studio:3000` to a gated default (redirect to `/setup`) so a fresh box (pre-`/load`) redirects.
 - [X] T033 [P] [US5] Unit test `apps/api/tests/unit/caddy-config-setup-gate.test.ts` — gated 302→/setup catch-all when `setup_state` incomplete; studio catch-all when complete; sad: read-error → gated (mock the `setup_state` query).
-- [ ] T034 [US5] LIVE VERIFY (quickstart §6): pre-setup `GET /` → 302 `/setup`, `/api/v1/setup/status` reachable; complete setup → `GET /` → studio 200 (no redirect); `<ref>.<apex>` data-plane host unaffected throughout.
+- [X] T034 [US5] LIVE VERIFY (quickstart §6): pre-setup `GET /` → 302 `/setup`, `/api/v1/setup/status` reachable; complete setup → `GET /` → studio 200 (no redirect); `<ref>.<apex>` data-plane host unaffected throughout.
 
 **Checkpoint**: the gate funnels to `/setup` pre-install and releases `/` to the studio post-install.
 
@@ -119,7 +119,7 @@ description: "Task list — feature 086 platform base=root + legacy studio to /s
 - [X] T039 [US6] Wire `POST /platform/database/:ref/backups/restore-physical` (`platform-misc.ts:1946-1949`): `app.authorize(req,'backup.restore')`, resolve the body `{id}` via the **ref-scoped** `resolveBackupSeq(ref, id)` (**404 if the seq isn't a backup of THIS project — prevents cross-project restore**), then `initiateRestore(ref,{backup_id:uuid})` + `restoreQueue().add('restore',{restore_job_id})` (queue `selfbase.restore`), `reply.status(201).send()`; map `RestoreError`→HTTP (409 in-flight). Wire the sibling `/restore` (1941-1944) to the same path or note deferral.
 - [X] T040 [US6] Add `GET /platform/projects/:ref/status` (NEW) in `platform-misc.ts` — org-scoped (model on `:ref` detail 378-397), `{ status: inst.status==='running' ? 'ACTIVE_HEALTHY' : inst.status.toUpperCase() }`.
 - [X] T041 [P] [US6] Unit test `apps/api/tests/unit/platform-backups-restore.test.ts` — restore route 201 + enqueue (mock `initiateRestore`/queue); sad: unknown seq → 404, in-flight → 409; status route maps `restoring→RESTORING`, `running→ACTIVE_HEALTHY`.
-- [ ] T042 [US6] LIVE VERIFY (quickstart §7): list real backups (numeric ids), restore → 201, `/platform/projects/:ref/status` `RESTORING`→`ACTIVE_HEALTHY`; `/v1` uuid backup contract unchanged; re-run the migration = no-op.
+- [X] T042 [US6] LIVE VERIFY (quickstart §7): list real backups (numeric ids), restore → 201, `/platform/projects/:ref/status` `RESTORING`→`ACTIVE_HEALTHY`; `/v1` uuid backup contract unchanged; re-run the migration = no-op.
 
 **Checkpoint**: the platform studio Backups page is functional end-to-end; the engine is reused, not retired.
 
@@ -131,10 +131,10 @@ description: "Task list — feature 086 platform base=root + legacy studio to /s
 **Independent test**: quickstart §4 — CLI/login/integration all pass.
 
 - [X] T043 [P] [US4] `/v1` contract no-drift: `pnpm --filter @supastack/api test` management-api + contract suites green (incl. the uuid backup contract unchanged; Constitution IV).
-- [ ] T044 [P] [US4] CLI/MCP regression on the VM: `tests/cli-e2e/{db-push,migration-list,gen-types,mcp-roundtrip}.sh` pass against `api.<apex>/v1`.
-- [ ] T045 [P] [US4] Login smoke: sign in to the studio → dashboard loads (token POST to `/auth/v1/token`).
+- [X] T044 [P] [US4] CLI/MCP regression on the VM: `tests/cli-e2e/{db-push,migration-list,gen-types,mcp-roundtrip}.sh` pass against `api.<apex>/v1`.
+- [X] T045 [P] [US4] Login smoke: sign in to the studio → dashboard loads (token POST to `/auth/v1/token`).
 - [ ] T046 [US4] Integration suite (live VM): `tests/integration/{provision-instance,backup,backup-retention}.test.ts` pass; confirm the US6 backup-`seq` migration applied cleanly at api boot (idempotent re-run).
-- [ ] T047 [US4] End-to-end smokes: project create/restart delegate to `/api/v1/instances` (US1); the US6 restore actually runs (`RESTORING`→`ACTIVE_HEALTHY`); the US5 gate redirects pre-setup and releases post-setup.
+- [X] T047 [US4] End-to-end smokes: project create/restart delegate to `/api/v1/instances` (US1); the US6 restore actually runs (`RESTORING`→`ACTIVE_HEALTHY`); the US5 gate redirects pre-setup and releases post-setup.
 
 **Checkpoint**: no regression confirmed.
 
@@ -142,9 +142,9 @@ description: "Task list — feature 086 platform base=root + legacy studio to /s
 
 ## Phase 9: Polish & Cross-Cutting
 
-- [ ] T048 [P] Finalize the runbook `docs/changes/086-platform-base-root-url.md` (deploy, rollback, the backup migration, the gate, verification results).
-- [ ] T049 [P] File follow-up issues: (a) make the platform **audit** routes real (still a stub — backups are now done by US6); (b) rehome a browser e2e harness to target the platform studio; (c) remove the redundant `/api/v1` façade copies (`secrets-dashboard` + `/api/v1` `config/auth` mount) + migrate the `secrets-wire`/smoke tests; (d) rename the `selfbase.restore` BullMQ queue → `supastack.restore` (the rename missed it).
-- [ ] T050 Update `CLAUDE.md` active-feature status to implemented/deployed and refresh the `project_legacy_studio_retire` memory with the outcome.
+- [X] T048 [P] Finalize the runbook `docs/changes/086-platform-base-root-url.md` (deploy, rollback, the backup migration, the gate, verification results).
+- [X] T049 [P] File follow-up issues: (a) make the platform **audit** routes real (still a stub — backups are now done by US6); (b) rehome a browser e2e harness to target the platform studio; (c) remove the redundant `/api/v1` façade copies (`secrets-dashboard` + `/api/v1` `config/auth` mount) + migrate the `secrets-wire`/smoke tests; (d) rename the `selfbase.restore` BullMQ queue → `supastack.restore` (the rename missed it).
+- [X] T050 Update `CLAUDE.md` active-feature status to implemented/deployed and refresh the `project_legacy_studio_retire` memory with the outcome.
 
 ---
 
