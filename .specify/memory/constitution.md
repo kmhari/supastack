@@ -1,8 +1,15 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: (unversioned template) → 1.0.0
-Type: Initial ratification — placeholders replaced with concrete supastack principles
+Version change: 1.0.0 → 1.1.0
+Type: MINOR amendment (2026-06-04) — Principle V (The Worker Owns Per-Instance State)
+       expanded with a queue-name single-source-of-truth rule, and a new "Queue-name gate"
+       added to Development Workflow & Quality Gates. Motivated by feature 086: the api
+       enqueued `selfbase.*` while the worker consumed `supastack.*` (a half-done rename),
+       silently dropping restore/backup/lifecycle/pg-edge-cert/pooler/vault jobs. Fixed with
+       a shared `QUEUES` constant (`@supastack/shared`) + a guard contract test.
+
+Initial ratification (1.0.0): placeholders replaced with concrete supastack principles
        derived from the established conventions in CLAUDE.md.
 
 Principles defined (6):
@@ -95,10 +102,17 @@ Changes to per-instance (data-plane) state MUST flow through the worker as one B
 concern (`apps/worker/src/jobs/`), registered once at boot. The api performs only synchronous admin
 actions that need immediate operator feedback (e.g. password reset) directly; everything else —
 provisioning, lifecycle, backups, cert renewal, pooler reconciliation — is a worker job. Repeatable
-jobs are declared once with an explicit schedule.
+jobs are declared once with an explicit schedule. The queue name a producer (api) enqueues to and the
+name the consuming Worker listens on MUST come from one shared constant (`QUEUES` in
+`@supastack/shared`) — never duplicated string literals — so a producer can never enqueue to a queue
+no Worker consumes, and every `QUEUES` entry MUST have a consuming Worker. A contract test enforces
+both.
 
 **Rationale**: Long-running, failure-prone container orchestration must be retryable, observable, and
 isolated from the request path so an api restart or a single slow operation cannot wedge the platform.
+A producer/consumer queue-name mismatch fails silently — the job is accepted and never runs — so the
+name MUST be a single typed constant, not a literal duplicated across services that can drift (as
+`selfbase.*` vs `supastack.*` did, dropping restore/backup/lifecycle jobs).
 
 ### VI. Spec-Driven, Evidence-Based Delivery
 
@@ -133,6 +147,9 @@ features; honest, evidence-backed reporting is what makes that history trustwort
 - **RBAC gate**: a new privileged endpoint MUST add a matrix action + `authorize()` call (Principle III).
 - **Compatibility gate**: changes to `/v1/*` MUST update the pinned OpenAPI snapshot and pass the
   contract test (Principle IV).
+- **Queue-name gate**: every `new Queue`/`new Worker` MUST name its queue via the shared `QUEUES`
+  constant (`@supastack/shared`); `apps/api/tests/contract/queue-name-contract.test.ts` fails CI on
+  any literal/divergent name or a `QUEUES` entry with no consuming Worker (Principle V).
 - **Testing posture**: `any` is permitted in test code only (scoped off in `eslint.config.js` for
   `**/tests/**`); production code MUST remain typed. Prefer pure functions for unit coverage; reserve
   live-VM E2E for integration paths.
@@ -153,4 +170,4 @@ compliance or carry an explicit, justified exception recorded in the feature's p
 (`Complexity Tracking`). Runtime, day-to-day development guidance lives in `CLAUDE.md`; where it and
 this constitution disagree, the constitution governs.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-02 | **Last Amended**: 2026-06-02
+**Version**: 1.1.0 | **Ratified**: 2026-06-02 | **Last Amended**: 2026-06-04

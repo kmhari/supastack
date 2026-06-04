@@ -1,9 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
-import { generateRef } from '@supastack/crypto';
 import { schemas, errors } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
+import { createOrganizationWithOwner } from '../services/org-store.js';
 import { reloadCaddy } from '../services/caddy-reload.js';
 import { ensureGotrueUser } from '../services/gotrue-admin.js';
 
@@ -38,14 +38,15 @@ export const setupRoutes: FastifyPluginAsync = async (app) => {
       .limit(1);
     if (pre[0]?.completedAt) throw errors.setupComplete();
 
-    // Create (idempotently) the first operator in GoTrue — the identity source.
+    // Create (idempotently) the first operator in GoTrue — the SOLE identity
+    // source. No local users-table write happens anywhere in setup: `schema.users`
+    // IS `auth.users` (GoTrue-owned); supastack only stores the org + membership.
     const operator = await ensureGotrueUser({
       email: body.email,
       password: body.password,
       emailConfirm: true,
     });
 
-    const orgId = generateRef();
     const result = await db().transaction(async (tx) => {
       const state = await tx
         .select({ completedAt: schema.setupState.completedAt })
@@ -63,17 +64,13 @@ export const setupRoutes: FastifyPluginAsync = async (app) => {
           set: { apexDomain: body.apexDomain ?? null, updatedAt: new Date() },
         });
 
-      // First tenant organization.
-      const [orgRow] = await tx
-        .insert(schema.organizations)
-        .values({ id: orgId, name: body.orgName })
-        .returning({ id: schema.organizations.id });
-
-      // Owner membership keyed by the GoTrue user id.
-      await tx.insert(schema.organizationMembers).values({
-        organizationId: orgRow!.id,
+      // First tenant organization + owner membership via the shared primitive
+      // (feature 086 — same implementation as POST /platform/organizations).
+      // Runs inside this tx so the org commits atomically with installation +
+      // setup_state + the master PAT. The operator id comes from GoTrue (above).
+      const { id: orgId } = await createOrganizationWithOwner(tx, {
         userId: operator.id,
-        role: 'owner',
+        name: body.orgName,
       });
 
       // Claim any ownerless orgs (e.g. the "Legacy (pre-084)" org that holds
@@ -100,23 +97,24 @@ export const setupRoutes: FastifyPluginAsync = async (app) => {
         actorUserId: operator.id,
         action: 'setup.complete',
         targetKind: 'org',
-        targetId: orgRow!.id,
+        targetId: orgId,
         payload: { email: body.email },
       });
 
       // Mint a master API token (shown once).
       const { raw: rawToken } = await mintApiToken(tx, operator.id, 'master');
 
-      return { userId: operator.id, orgId: orgRow!.id, email: operator.email, apiToken: rawToken };
+      return { userId: operator.id, orgId, email: operator.email, apiToken: rawToken };
     });
 
-    // If an apex domain was set, reload Caddy so the dashboard starts serving.
-    if (body.apexDomain) {
-      try {
-        await reloadCaddy();
-      } catch (err) {
-        req.log.warn({ err }, 'caddy reload failed during setup (apex set, but Caddy unreachable)');
-      }
+    // Feature 086 US5 — ALWAYS reload Caddy on setup completion so the
+    // setup-gate (caddy-config.ts) drops its 302→/setup catch-all and `/`
+    // starts serving the platform studio. (Previously this only fired when an
+    // apex domain was set; the gate now needs the reload unconditionally.)
+    try {
+      await reloadCaddy();
+    } catch (err) {
+      req.log.warn({ err }, 'caddy reload failed during setup completion (Caddy unreachable)');
     }
 
     return reply.status(201).send(result);

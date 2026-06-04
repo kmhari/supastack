@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { db, schema } from '@supastack/db';
-import { logger } from '@supastack/shared';
+import { logger, QUEUES } from '@supastack/shared';
 import {
   composeStop,
   composeStart,
@@ -29,7 +29,7 @@ const BACKUPS_DIR = process.env.BACKUPS_DIR ?? '/var/supastack/backups';
 let _gcQueue: Queue | null = null;
 function _useGcQueue(): Queue {
   if (!_gcQueue) {
-    _gcQueue = new Queue('supastack.restore-gc', {
+    _gcQueue = new Queue(QUEUES.restoreGc, {
       connection: new Redis(REDIS_URL, { maxRetriesPerRequest: null }),
     });
   }

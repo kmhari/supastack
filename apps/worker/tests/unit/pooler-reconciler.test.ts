@@ -142,7 +142,7 @@ vi.mock('@supastack/db', () => ({
       actorId: 'actor_id',
     },
     poolerEvents: { externalId: 'external_id', event: 'event', detail: 'detail' },
-    org: { apexDomain: 'apex_domain' },
+    installation: { apexDomain: 'apex_domain' },
   },
 }));
 

@@ -9,9 +9,17 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
-import { decryptJson, generateRef, loadMasterKey } from '@supastack/crypto';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import { ROLE_IDS, ROLE_NAMES, roleFromId, type Role } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
+import { createOrganizationWithOwner } from '../services/org-store.js';
+import {
+  listBackupsForPlatform,
+  resolveBackupSeq,
+  initiateRestore,
+  enqueueRestore,
+  RestoreError,
+} from '../services/backups-mgmt-service.js';
 import {
   hashInviteToken,
   memberRole,
@@ -286,13 +294,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const body = (req.body ?? {}) as { name?: string };
     const name = body.name?.trim();
     if (!name) return reply.status(400).send({ error: 'name is required' });
-    const id = generateRef();
-    await db().transaction(async (tx) => {
-      await tx.insert(schema.organizations).values({ id, name });
-      await tx
-        .insert(schema.organizationMembers)
-        .values({ organizationId: id, userId: user.id, role: 'owner' });
-    });
+    // Feature 086 — shared org-creation primitive (also used by /setup).
+    const { id } = await db().transaction((tx) =>
+      createOrganizationWithOwner(tx, { userId: user.id, name }),
+    );
     return reply.status(201).send({ pending_payment_intent_secret: null, ...buildOrg(id, name, true) });
   });
 
@@ -396,6 +401,30 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     return reply.send(buildProject(inst, apex));
+  });
+
+  // Feature 086 US6 — project lifecycle/health status (Studio polls this during
+  // a restore). `running → ACTIVE_HEALTHY`, `restoring → RESTORING`, etc.
+  app.get<RefParams>('/platform/projects/:ref/status', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ status: schema.supabaseInstances.status })
+      .from(schema.supabaseInstances)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send({
+      status: inst.status === 'running' ? 'ACTIVE_HEALTHY' : inst.status.toUpperCase(),
+    });
   });
 
   app.patch<RefParams>('/platform/projects/:ref', async (req, reply) => {
@@ -650,8 +679,25 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   // Database backups
   app.get<RefParams>('/platform/database/:ref/backups', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ backups: [], tierId: 'free', tierKey: 'FREE' });
+    // Feature 086 US6 — real backups in the vendored-Studio Cloud shape.
+    const user = app.requireAuth(req);
+    app.authorize(req, 'backup.list');
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref })
+      .from(schema.supabaseInstances)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send(await listBackupsForPlatform(req.params.ref));
   });
 
   app.get<RefParams>('/platform/database/:ref/backups/downloadable-backups', async (req, reply) => {
@@ -964,12 +1010,12 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   app.get<SlugParams>('/platform/organizations/:slug/billing/subscription', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ plan: { id: 'free', name: 'Free' }, billing_via_partner: false, usage_billing_enabled: false, project_addons: [], addons: [] });
+    return reply.send({ plan: { id: 'pro', name: 'Pro' }, tier: 'tier_payg', billing_via_partner: false, usage_billing_enabled: true, project_addons: [], addons: [] });
   });
 
   app.get<SlugParams>('/platform/organizations/:slug/billing/plans', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send([{ id: 'free', name: 'Free' }]);
+    return reply.send([{ id: 'pro', name: 'Pro' }]);
   });
 
   app.get<SlugParams>('/platform/organizations/:slug/billing/credits/balance', async (req, reply) => {
@@ -1946,8 +1992,49 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post<RefParams>('/platform/database/:ref/backups/restore-physical', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ status: 'restoring' });
+    // Feature 086 US6 — real physical restore via the existing engine + worker.
+    const user = app.requireAuth(req);
+    app.authorize(req, 'backup.restore');
+    const ref = req.params.ref;
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref })
+      .from(schema.supabaseInstances)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(eq(schema.supabaseInstances.ref, ref), eq(schema.organizationMembers.userId, user.id)),
+      )
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+
+    const body = (req.body ?? {}) as { id?: number };
+    if (typeof body.id !== 'number') {
+      return reply.status(400).send({ error: 'id (number) is required' });
+    }
+    // Ref-scoped resolve — NEVER a global seq lookup (prevents cross-project restore IDOR).
+    const uuid = await resolveBackupSeq(ref, body.id);
+    if (!uuid) return reply.status(404).send({ error: 'Backup not found for this project' });
+
+    try {
+      const job = await initiateRestore(ref, { backup_id: uuid });
+      await enqueueRestore(job.restore_job_id);
+    } catch (err) {
+      if (err instanceof RestoreError) {
+        const status =
+          err.code === 'backup_blob_missing' ? 410 : err.code === 'invalid_target' ? 400 : 409;
+        return reply.status(status).send({ error: err.message, code: err.code });
+      }
+      const pgErr = err as { code?: string; constraint?: string };
+      if (pgErr?.code === '23505' && pgErr?.constraint?.includes('uq_restore_jobs_one_inflight')) {
+        return reply
+          .status(409)
+          .send({ error: 'A restore is already in progress', code: 'restore_in_progress' });
+      }
+      throw err;
+    }
+    return reply.status(201).send();
   });
 
   app.post<RefParams>(
@@ -2049,6 +2136,7 @@ function buildOrg(id: string, name: string, isOwner: boolean) {
     id,
     name,
     slug: id,
+    org_id: id,
     billing_email: '',
     billing_partner: null,
     integration_source: null,
@@ -2057,11 +2145,12 @@ function buildOrg(id: string, name: string, isOwner: boolean) {
     organization_missing_address: false,
     organization_missing_tax_id: false,
     organization_requires_mfa: false,
-    plan: { id: 'free', name: 'Free' },
+    plan: { id: 'pro', name: 'Pro' },
+    tier: 'tier_payg',
     restriction_data: null,
     restriction_status: null,
-    stripe_customer_id: null,
-    subscription_id: null,
-    usage_billing_enabled: false,
+    stripe_customer_id: 'cus_mock0000000000',
+    subscription_id: 'sub_mock0000000000',
+    usage_billing_enabled: true,
   };
 }

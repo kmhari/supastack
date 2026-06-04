@@ -10,6 +10,7 @@ import {
   type Role,
 } from '@supastack/shared';
 import { Queue } from 'bullmq';
+import { QUEUES } from '@supastack/shared';
 import { and, desc, eq, inArray, not } from 'drizzle-orm';
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { Redis } from 'ioredis';
@@ -29,7 +30,7 @@ const REDIS_URL = process.env.REDIS_URL!;
 let _provisionQueue: Queue | null = null;
 function provisionQueue(): Queue {
   if (!_provisionQueue) {
-    _provisionQueue = new Queue('supastack.provision', {
+    _provisionQueue = new Queue(QUEUES.provision, {
       connection: new Redis(REDIS_URL, { maxRetriesPerRequest: null }),
     });
   }
@@ -39,7 +40,7 @@ function provisionQueue(): Queue {
 let _lifecycleQueue: Queue | null = null;
 function lifecycleQueue(): Queue {
   if (!_lifecycleQueue) {
-    _lifecycleQueue = new Queue('supastack.lifecycle', {
+    _lifecycleQueue = new Queue(QUEUES.lifecycle, {
       connection: new Redis(REDIS_URL, { maxRetriesPerRequest: null }),
     });
   }

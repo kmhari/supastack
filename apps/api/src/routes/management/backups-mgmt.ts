@@ -11,7 +11,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
-import { logger } from '@supastack/shared';
+import { logger, QUEUES } from '@supastack/shared';
 import { RestoreRequestSchema } from '@supastack/shared';
 
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
@@ -26,7 +26,7 @@ import {
 let _restoreQueue: Queue | null = null;
 function restoreQueue(): Queue {
   if (!_restoreQueue) {
-    _restoreQueue = new Queue('selfbase.restore', {
+    _restoreQueue = new Queue(QUEUES.restore, {
       connection: new Redis(process.env.REDIS_URL ?? 'redis://redis:6379', {
         maxRetriesPerRequest: null,
       }),
