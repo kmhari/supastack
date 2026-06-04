@@ -1,4 +1,4 @@
-# Feature Specification: Platform Studio base=root API URL + legacy studio reduced to /setup
+# Feature Specification: Platform Studio base=root + legacy studio to /setup (gated) + real database backups
 
 **Feature Branch**: `086-platform-base-root-url`
 
@@ -7,6 +7,8 @@
 **Status**: Draft
 
 **Input**: User direction (refined): "Cut the supastack platform studio (IS_PLATFORM=true) over to a base=root API URL so its management calls resolve as /v1/* and its platform calls as /platform/* directly — eliminating the /api/v1/v1/* double-prefix and the rewrite shim. Migrate the legacy supastack studio to serve ONLY the /setup purpose and remove its other pages. The setup flow should create the first user via the GoTrue API and create the first organization via the platform organization API (not the inline legacy duplicate)."
+
+**Amendment (2026-06-04)**: Two additions per operator direction — (US5) a **setup-completion gate**: since the platform studio runs at `/` and the legacy studio at `/setup`, until setup is done every dashboard route redirects to `/setup`; once done, `/` serves the platform studio. (US6) the legacy **database-backup** API is **migrated, not retired** — wire the platform studio's stubbed `/platform/database/:ref/backups` (list) + `/restore-physical` to the existing real backup engine and add `/platform/projects/:ref/status`, matching the Supabase Cloud response shapes. This reverses the earlier "defer backups" decision. US1–US3 are already implemented + committed; US5/US6 (and US4 re-run) are new work.
 
 ## Context & Glossary
 
@@ -54,13 +56,13 @@ The legacy supastack studio (`apps/web`) is reduced to a **setup-only** SPA. Its
 
 **Why this priority**: Cleanup that makes the legacy SPA's scope match reality (it is only ever served at `/setup`). It removes dead UI + dead client code without touching the load-bearing API engine.
 
-**Independent Test**: Build/serve `apps/web`; confirm only the setup wizard is reachable and the removed pages are gone from the bundle. Confirm the apex root + `/dashboard` serve the platform studio. Confirm the platform studio's project create/restart, backups, and audit still work (they use the retained `/api/v1` engine internally).
+**Independent Test**: Build/serve `apps/web`; confirm only the setup wizard is reachable and the removed pages are gone from the bundle. Confirm the apex root + `/dashboard` serve the platform studio (post-setup; the pre-setup gate is US5). Confirm the platform studio's project create/restart still work (they delegate to the retained `/api/v1` engine; backups are delivered by US6, audit remains a deferred stub).
 
 **Acceptance Scenarios**:
 
 1. **Given** the slimmed legacy SPA, **When** the operator opens `/setup`, **Then** the wizard loads and completes; **When** they navigate to any former page route, **Then** it no longer exists in the SPA.
 2. **Given** the cutover is deployed, **When** the operator opens the apex root, **Then** the platform studio loads (not the legacy SPA).
-3. **Given** the SPA pages are removed, **When** the operator exercises project create/restart, backups, and audit in the platform studio, **Then** all still work (the `/api/v1` engine routes they delegate to are retained).
+3. **Given** the SPA pages are removed, **When** the operator exercises project create/restart in the platform studio, **Then** they still work (the `/api/v1` engine routes they delegate to are retained). (Backups are made real by US6; audit remains a deferred stub.)
 
 ---
 
@@ -96,6 +98,39 @@ The Supabase-Management-compat surface at `https://api.<apex>/v1/*` (CLI/MCP), o
 
 ---
 
+### User Story 5 - Setup-completion gate: dashboard routes funnel to /setup until install is done (Priority: P2)
+
+The platform studio runs at the apex root (`/`), but before first-time setup is complete there is no operator or organization, so the studio cannot function. Until setup is complete, **every dashboard route — the apex root `/`, `/dashboard`, and project URLs — MUST redirect to `/setup`**. Once setup completes, `/` serves the platform studio normally and the gate stops forcing the redirect.
+
+**Why this priority**: Without the gate, an operator who opens `/` before finishing the install lands on a non-functional platform studio (no identity/tenancy). The gate funnels every first touch into the install wizard, then releases to the studio once setup is done — the natural completion of "legacy studio lives at `/setup`, platform studio lives at `/`."
+
+**Independent Test**: On a fresh install (setup not complete), open `/`, `/dashboard`, and a project URL → each lands on `/setup`. Complete setup → reopen `/` → the platform studio loads, and `/setup` no longer traps the operator.
+
+**Acceptance Scenarios**:
+
+1. **Given** setup is not complete, **When** the operator opens `/` (or `/dashboard`, or a project URL), **Then** they are redirected to `/setup`.
+2. **Given** setup completes, **When** the operator opens `/`, **Then** the platform studio loads with no redirect to `/setup`.
+3. **Given** setup is complete, **When** the operator navigates to `/setup`, **Then** it does not trap them (it reflects "already set up" rather than forcing the wizard).
+
+---
+
+### User Story 6 - Migrate the real database-backup engine into the platform studio (Priority: P2)
+
+The platform studio's Backups page is currently non-functional: `/platform/database/:ref/backups` returns an empty list and `/restore-physical` is a silent no-op (stubs). This story **migrates** the existing real backup engine (the one already behind `/api/v1/instances/:ref/backups` — feature 019's worker) into those platform routes, so the studio lists real backups, triggers real restores, and reflects restore progress — shaped to match the Supabase Cloud responses so Studio renders correctly. The legacy backup engine is **migrated/reused, not retired**.
+
+**Why this priority**: It closes a visible, data-safety gap — today the operator sees an empty Backups page and a "restore" button that does nothing. Backups that can't be listed or restored from the dashboard are effectively invisible.
+
+**Independent Test**: In the platform studio's Backups page for a project that has backups, confirm the real backups list; trigger a physical restore; confirm the project enters a restoring state and returns to healthy when the restore completes.
+
+**Acceptance Scenarios**:
+
+1. **Given** a project with completed backups, **When** the studio loads the Backups page, **Then** `GET /platform/database/:ref/backups` returns the real backups in the Cloud-compatible shape (`region`, `pitr_enabled`, `walg_enabled`, `backups[]` of `{ isPhysicalBackup, id, inserted_at, status, project_id }`, `physicalBackupData`) and the list renders.
+2. **Given** a chosen backup, **When** the operator triggers a physical restore, **Then** `POST /platform/database/:ref/backups/restore-physical` with `{ id }` returns 201 and enqueues the real restore via the worker (no silent no-op).
+3. **Given** a restore is running, **When** the studio polls `GET /platform/projects/:ref/status`, **Then** it returns `{ status: "RESTORING" }` while in progress and `{ status: "ACTIVE_HEALTHY" }` once complete.
+4. **Given** the migration, **When** the legacy `/api/v1/instances/:ref/backups` engine is exercised by the CLI/tests, **Then** it continues to work unchanged (the engine is reused, not replaced).
+
+---
+
 ### Edge Cases
 
 - **Stale/cached studio build after cutover**: a cached bundle (old `…/api/v1` base) would still emit `/api/v1/v1/…`. Default: shim removed, hard refresh expected; rollback = revert the studio image together with the API/edge change.
@@ -104,6 +139,11 @@ The Supabase-Management-compat surface at `https://api.<apex>/v1/*` (CLI/MCP), o
 - **Removing an SPA page that still imports a shared client method used by setup**: the api-client methods setup needs (`setup`, `setup/status`, `auth/me`, `org` PATCH, `apex/*`, `wildcard-certs/*`) must be retained even as other methods are deleted.
 - **Apex `/v1` vs `api.<apex>/v1` auth parity**: the same `/v1/*` routes become reachable at the apex (studio: session/JWT) and at `api.` (CLI: PAT); both credential types must continue to be accepted with no privilege change.
 - **Path-prefix ordering at the edge**: the apex `/v1*` route must not shadow ACME, `/api/*`, `/platform/*`, websocket, or `/setup*`; the catch-all to the studio still wins for everything else.
+- **Setup-gate signal unavailable**: if setup-completion state can't be determined, the gate MUST fail safe toward `/setup` (never expose a non-functional studio). A deep-linked project URL hit before setup still redirects to `/setup`.
+- **Backup id round-trip**: the studio restores by echoing an `id` from the list; the list `id` and the restore `id` MUST round-trip even if supastack's native backup id differs from Cloud's numeric form.
+- **Project with no backups**: the list returns an empty `backups[]` (not an error), with the wrapper fields (`region`, `pitr_enabled`, `walg_enabled`, `physicalBackupData`) present.
+- **Restore on a paused/unhealthy project**: the restore request behaves safely per the engine's rules (rejects or queues) — never a silent no-op.
+- **Project status with no restore in flight**: `/platform/projects/:ref/status` reports the project's real health (e.g. `ACTIVE_HEALTHY`), not a hardcoded value.
 
 ## Requirements *(mandatory)*
 
@@ -114,7 +154,7 @@ The Supabase-Management-compat surface at `https://api.<apex>/v1/*` (CLI/MCP), o
 - **FR-003**: The platform API Server MUST serve the studio's `/v1/*` and `/platform/*` requests at the apex root with the same responses they received via the previous `/api/v1/*` and `/api/v1/v1/*` paths.
 - **FR-004**: The edge/router MUST route apex `/v1/*` to the platform API Server, ordered so it does not shadow ACME, `/api/*`, `/platform/*`, websocket, or `/setup*`, with the studio catch-all still applying to all other paths.
 - **FR-005**: The `/api/v1/v1/*` rewrite shim MUST be removed once the cutover is in place (end state has no doubled-prefix handling).
-- **FR-006**: The legacy supastack studio MUST be reduced to the `/setup` wizard only — its non-setup pages and the corresponding API client methods MUST be removed; the apex root and `/dashboard` MUST serve the platform studio.
+- **FR-006**: The legacy supastack studio MUST be reduced to the `/setup` wizard only — its non-setup pages and the corresponding API client methods MUST be removed; the apex root and `/dashboard` MUST serve the platform studio **once setup is complete** (the pre-setup gate is FR-015).
 - **FR-007**: The `/setup` install wizard MUST continue to function unchanged, including over plain HTTP before DNS/TLS, with its status/submit endpoints intact.
 - **FR-008**: Operator login (GoTrue token exchange) MUST be unaffected by the API base change; the login endpoint MUST NOT be derived from the studio API base.
 - **FR-009**: The Management-compat surface at `https://api.<apex>/v1/*` (CLI/MCP) MUST be unchanged in paths, shapes, and error envelope.
@@ -123,6 +163,12 @@ The Supabase-Management-compat surface at `https://api.<apex>/v1/*` (CLI/MCP), o
 - **FR-012**: The setup flow MUST create the first organization + owner membership through the SAME primitive as `POST /platform/organizations` (single implementation; eliminate the inline-SQL duplicate). Installation row, `setup_state`, master-PAT mint, audit, and ownerless-org backfill remain setup-specific.
 - **FR-013**: Removing legacy SPA pages MUST NOT remove any `/api/v1` route still used by the platform studio's internal delegation, the CLI, the worker, or the test suite. Any route deletion MUST be guarded by verifying it has no such caller.
 - **FR-014**: The change MUST be deployable to the live VM and verifiable end-to-end (studio renders project pages with clean URLs; `/setup` runs a full first-install; login + CLI surface pass) before being considered complete.
+- **FR-015**: Until first-time setup is complete, every dashboard route — the apex root `/`, `/dashboard`, and project URLs — MUST redirect to `/setup`. Once setup is complete, `/` MUST serve the platform studio and the gate MUST NOT force-redirect to `/setup`.
+- **FR-016**: The gate MUST key off the authoritative setup-completion signal (the same state `GET /api/v1/setup/status` exposes); if that state cannot be determined, the gate MUST fail safe toward `/setup`.
+- **FR-017**: `GET /platform/database/:ref/backups` MUST return the project's real backups (from the existing backup engine) in the Supabase-Cloud-compatible shape — top-level `region`, `pitr_enabled`, `walg_enabled`, `physicalBackupData`, and `backups[]` of `{ isPhysicalBackup, id, inserted_at, status, project_id }` — so the studio Backups page renders real data instead of an empty list.
+- **FR-018**: `POST /platform/database/:ref/backups/restore-physical` with `{ id }` MUST enqueue a real restore via the existing restore worker and return 201; the restore MUST actually run (no silent no-op). The accepted `id` MUST be the one returned by the list (round-trip).
+- **FR-019**: `GET /platform/projects/:ref/status` MUST report the project's real lifecycle/health status — `RESTORING` while a restore is in progress and `ACTIVE_HEALTHY` when healthy — so the studio can poll restore progress.
+- **FR-020**: The existing legacy backup engine (`/api/v1/instances/:ref/backups` + the restore worker, feature 019) MUST be **migrated/reused, not retired** — it continues serving the CLI/tests while now also backing the platform studio's backup routes. (Per Constitution V, restore remains a worker job.)
 
 ### Key Entities
 
@@ -133,6 +179,9 @@ The Supabase-Management-compat surface at `https://api.<apex>/v1/*` (CLI/MCP), o
 - **Legacy SPA (setup-only)**: `apps/web` reduced to the install wizard + its gate.
 - **Org-creation primitive**: the single shared implementation used by both `POST /platform/organizations` and the setup flow.
 - **Studio API base configuration**: the build-time value the studio uses to construct URLs; changes from `…/api/v1` to the apex root.
+- **Setup-completion gate**: the routing rule that funnels all dashboard requests to `/setup` until setup is complete, then releases `/` to the platform studio.
+- **Backup (Cloud-shaped)**: a project backup as the studio expects it — `{ isPhysicalBackup, id, inserted_at, status, project_id }` inside `{ region, pitr_enabled, walg_enabled, backups[], physicalBackupData }`.
+- **Restore + project status**: the real physical-restore action (`restore-physical`, worker-backed) plus the `RESTORING → ACTIVE_HEALTHY` project status the studio polls.
 
 ## Success Criteria *(mandatory)*
 
@@ -144,7 +193,9 @@ The Supabase-Management-compat surface at `https://api.<apex>/v1/*` (CLI/MCP), o
 - **SC-004**: The Supabase CLI-compat checks, operator login, and the integration suite (driving `/api/v1/instances`/`auth/tokens`/`backups`) all pass with no regression.
 - **SC-005**: The legacy SPA contains only the setup wizard — the non-setup pages and their client methods are removed; the apex root serves the platform studio.
 - **SC-006**: Org creation has a **single** implementation shared by setup and `POST /platform/organizations`; the setup-created operator is a GoTrue `auth.users` row with no legacy `users`-table insert.
-- **SC-007**: The retained `/api/v1` engine still serves the platform studio's internal delegations (project create/restart, backups, audit) — verified working post-change.
+- **SC-007**: The retained `/api/v1` engine still serves the platform studio's internal delegations (project create/restart) — verified working post-change.
+- **SC-008**: Before setup completes, **100%** of dashboard routes (incl. `/`, `/dashboard`, project URLs) land on `/setup`; after completion, `/` serves the platform studio with no forced redirect.
+- **SC-009**: In the platform studio, the Backups page lists real backups and a triggered physical restore actually runs — the project transitions `RESTORING → ACTIVE_HEALTHY` — with **0** silent no-ops.
 
 ## Assumptions
 
@@ -155,4 +206,6 @@ The Supabase-Management-compat surface at `https://api.<apex>/v1/*` (CLI/MCP), o
 - `/api/v1` remains routed to the API at the edge — it is the retained internal engine, still required by `/setup`, the platform studio's internal delegations, the CLI, the worker, and tests.
 - Setup creating the org via the platform primitive will reuse it in setup's bootstrap ordering (create GoTrue user → mint PAT → create org via the shared path → write installation/setup_state/audit), most likely via an internal `app.inject` (the pattern already used by `/platform/projects` → `/api/v1/instances`); the exact mechanism is a planning concern.
 - The Management-compat contract at `api.<apex>/v1` is canonical and frozen by this feature.
-- Out of scope (filed as follow-ups): making the platform backup/restore + audit routes real (they are stubs today); removal of **all** redundant `/api/v1` façade copies, including the two named (`secrets-dashboard` + the `/api/v1` `config/auth` mount) — deferred because the secrets-dashboard copy still has live test callers and removal needs test migration.
+- The platform **backup/restore** routes were stubs; this feature now makes them real by migrating the existing backup engine (US6) — this is **in scope** (it reverses the earlier deferral). The Cloud response shapes for `/platform/database/:ref/backups`, `/restore-physical`, and `/platform/projects/:ref/status` are the compatibility contract Studio renders against. The native backup `id` may differ from Cloud's numeric form; the only hard requirement is that the list `id` round-trips to restore (a planning detail).
+- The setup-completion gate (US5) is new behavior on the studio/edge — 086's US2 only handled the legacy SPA's own routing; gating the platform studio at `/` is added here.
+- Out of scope (filed as follow-ups): making the platform **audit** routes real (still a stub); removal of **all** redundant `/api/v1` façade copies, including the two named (`secrets-dashboard` + the `/api/v1` `config/auth` mount) — deferred because the secrets-dashboard copy still has live test callers and removal needs test migration.
