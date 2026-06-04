@@ -60,6 +60,10 @@
 	handle /api/v1* {
 		reverse_proxy api:3001
 	}
+	# Feature 086 US1 — base=root cutover: apex /v1* → api (disjoint from /api/v1*)
+	handle /v1* {
+		reverse_proxy api:3001
+	}
 	# Platform proxy routes (feature 025 — shared Studio)
 	handle /platform/* {
 		reverse_proxy api:3001
@@ -114,6 +118,10 @@ mcp.{$SUPASTACK_APEX} {
 	handle /api/incident-banner {
 		reverse_proxy api:3001
 	}		reverse_proxy api:3001
+	}
+	# Feature 086 US1 — base=root cutover: apex /v1* → api (disjoint from /api/v1*)
+	handle /v1* {
+		reverse_proxy api:3001
 	}
 	# Platform proxy routes (feature 025 — shared Studio)
 	handle /platform/* {

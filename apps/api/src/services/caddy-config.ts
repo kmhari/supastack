@@ -116,6 +116,13 @@ export async function buildCaddyConfig(): Promise<unknown> {
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },
     {
+      // Feature 086 US1 — base=root cutover. The base=root Studio calls /v1/* at
+      // the apex (was /api/v1/v1/* doubled). Route it to the api's /v1 management
+      // mount. Disjoint prefix from /api/v1*; MUST precede the studio catch-all.
+      match: [{ path: ['/v1*'] }],
+      handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
+    },
+    {
       // Platform proxy routes (feature 025 — shared Studio IS_PLATFORM=true).
       match: [{ path: ['/platform/*'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],

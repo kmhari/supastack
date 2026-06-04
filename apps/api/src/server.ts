@@ -223,8 +223,14 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(cliLoginRoutes); // /api/v1/cli/login (feature 011 — dashboard mint)
   await app.register(platformCliLoginRoutes); // /platform/cli/login/:session_id (feature 011 — CLI poll)
   await app.register(platformProxyRoutes); // /platform/* (direct Caddy /platform/* rule)
+  // Feature 086 US1 — base=root cutover. Also mount platformMiscRoutes at root so
+  // the base=root Studio's /platform/* calls resolve at the apex (the proxy was
+  // already dual-mounted at root; misc was only at /api/v1). Disjoint paths from
+  // platformProxyRoutes, so co-registering at root is safe.
+  await app.register(platformMiscRoutes); // /platform/* misc at root (base=root)
   // Studio calls ${NEXT_PUBLIC_API_URL}/platform/* = /api/v1/platform/*
-  // Register proxy routes AGAIN with /api/v1 prefix so both paths work
+  // Register proxy routes AGAIN with /api/v1 prefix so both paths work. (These
+  // /api/v1-prefixed mounts + the /api/v1/v1/* shim are removed post-cutover, T012.)
   await app.register(platformProxyRoutes, { prefix: '/api/v1' }); // /api/v1/platform/* (Studio via API_URL)
   await app.register(platformMiscRoutes, { prefix: '/api/v1' }); // /api/v1/platform/* stubs (feature 025)
   // Studio Next.js API routes that the Supastack API stubs at the root level
