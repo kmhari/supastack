@@ -56,4 +56,23 @@ createOrganizationWithOwner(tx, { userId, name }) → { id, name }
 
 ## E. State transitions
 
-None. No status enums, no lifecycle. The only "transition" is the one-time deploy cutover (old-base Studio + shim → new-base Studio + apex `/v1` routing), which is operational, not data.
+US1–US3: none. The cutover is operational. **US6 introduces a data-backed transition** (below).
+
+## F. Setup-completion gate (US5)
+
+- **Signal**: `setup_state.completed_at` (existing singleton; no new column). `NULL` → gated; non-null → studio.
+- **Gate route**: edge-only — `caddy-config.ts` emits a 302→`/setup` catch-all when `completed_at IS NULL`, else the `studio:3000` catch-all. Boot `Caddyfile` defaults gated. No DB schema change.
+- **Transition**: setup completion writes `completed_at` and triggers `reloadCaddy()` → the gate route is replaced by the studio catch-all (one-way; setup is one-time/gated).
+
+## G. Backups (US6) — migration + entities
+
+**Migration (new, idempotent)**: `backups` gains a `seq bigint` numeric surrogate (identity/sequence-backed, `ADD COLUMN IF NOT EXISTS`). Native `id uuid` is unchanged (CLI/`/v1` contract).
+
+| Entity | Source | Studio-facing shape |
+|---|---|---|
+| **Backup (list item)** | `backups` row (`seq`, `status`, `startedAt`, `instanceRef`) | `{ isPhysicalBackup:true, id:seq(number), inserted_at:ISO, status:UPPERCASE, project_id:int }` |
+| **Backups envelope** | per-project | `{ region:'local', pitr_enabled:false, walg_enabled:false, backups[], physicalBackupData:{earliest/latestPhysicalBackupDateUnix} }` |
+| **Restore** | `restore_jobs` + `selfbase.restore` queue + `handleRestore` worker | `POST /restore-physical {id:seq}` → resolve seq→uuid → `initiateRestore` → 201 |
+| **Project status** | `supabase_instances.status` | `GET /platform/projects/:ref/status` → `running→ACTIVE_HEALTHY`, `restoring→RESTORING`, else `UPPER(status)` |
+
+**State transition (restore)**: `supabase_instances.status`: `running` → (`initiateRestore`, in-tx) `restoring` → (`handleRestore` success) `running` / (failure) `running`|`failed`. The studio polls `/platform/projects/:ref/status` to observe `RESTORING → ACTIVE_HEALTHY`. Owned by the worker (Constitution V); the api only enqueues.

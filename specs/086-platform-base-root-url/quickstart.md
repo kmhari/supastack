@@ -57,3 +57,37 @@ Integration (live VM): `tests/integration/{provision-instance,backup,backup-rete
 ```
 grep -rn "/api/v1/v1" apps/api/src    # → no matches (shim removed)
 ```
+
+## 6. Setup-completion gate (US5 / SC-008)
+
+```
+# Pre-setup (setup_state.completed_at IS NULL): dashboard routes redirect to /setup
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' "https://$APEX/"               # 302 …/setup
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' "https://$APEX/dashboard"       # 302 …/setup
+curl -s -o /dev/null -w '%{http_code}\n' "https://$APEX/api/v1/setup/status"             # 200 (setup itself reachable)
+# Complete setup, then:
+curl -s -o /dev/null -w '%{http_code}\n' "https://$APEX/"                                 # 200 (studio; no redirect)
+# A data-plane host stays reachable throughout:
+curl -s -o /dev/null -w '%{http_code}\n' "https://$REF.$APEX/rest/v1/"                    # not 302→/setup
+```
+
+## 7. Real database backups (US6 / SC-009)
+
+```
+# List — real backups in the Studio shape (numeric ids)
+curl -s -H "authorization: Bearer $TOKEN" "https://$APEX/platform/database/$REF/backups" \
+  | jq '{region, pitr_enabled, walg_enabled, ids: [.backups[].id], statuses: [.backups[].status]}'
+# → ids are numbers; statuses UPPERCASE (COMPLETED)
+
+# Restore — by the numeric id from the list → 201; project goes RESTORING → ACTIVE_HEALTHY
+BID=$(curl -s -H "authorization: Bearer $TOKEN" "https://$APEX/platform/database/$REF/backups" | jq '.backups[0].id')
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d "{\"id\":$BID}" \
+  "https://$APEX/platform/database/$REF/backups/restore-physical"                         # 201
+curl -s -H "authorization: Bearer $TOKEN" "https://$APEX/platform/projects/$REF/status"   # {"status":"RESTORING"}
+# …poll until:                                                                            # {"status":"ACTIVE_HEALTHY"}
+
+# CLI /v1 backup contract unchanged (uuid):
+supabase ... # backups list/restore against api.$APEX/v1 still uuid-based, unaffected
+```
+Unit: `pnpm exec vitest run backups-mgmt platform` (Studio-shape mapping, seq↔uuid resolve, status map). Migration idempotency: re-run `packages/db/migrations/00NN_backup_seq.sql` is a no-op.
