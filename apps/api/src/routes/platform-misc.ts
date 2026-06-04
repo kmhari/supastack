@@ -9,9 +9,10 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
-import { decryptJson, generateRef, loadMasterKey } from '@supastack/crypto';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import { ROLE_IDS, ROLE_NAMES, roleFromId, type Role } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
+import { createOrganizationWithOwner } from '../services/org-store.js';
 import {
   hashInviteToken,
   memberRole,
@@ -286,13 +287,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const body = (req.body ?? {}) as { name?: string };
     const name = body.name?.trim();
     if (!name) return reply.status(400).send({ error: 'name is required' });
-    const id = generateRef();
-    await db().transaction(async (tx) => {
-      await tx.insert(schema.organizations).values({ id, name });
-      await tx
-        .insert(schema.organizationMembers)
-        .values({ organizationId: id, userId: user.id, role: 'owner' });
-    });
+    // Feature 086 — shared org-creation primitive (also used by /setup).
+    const { id } = await db().transaction((tx) =>
+      createOrganizationWithOwner(tx, { userId: user.id, name }),
+    );
     return reply.status(201).send({ pending_payment_intent_secret: null, ...buildOrg(id, name, true) });
   });
 
