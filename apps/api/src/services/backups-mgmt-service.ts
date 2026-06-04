@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, lte, not } from 'drizzle-orm';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
+import { QUEUES } from '@supastack/shared';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { db, schema } from '@supastack/db';
@@ -158,12 +159,16 @@ export async function resolveBackupSeq(ref: string, seq: number): Promise<string
   return row?.id ?? null;
 }
 
-// Shared restore enqueue (queue `selfbase.restore`, consumed by handleRestore).
+// Shared restore enqueue (queue QUEUES.restore, consumed by the worker's handleRestore).
 // Lazy — no Redis connection at import time, only on first enqueue.
 let _restoreQueue: Queue | null = null;
 function restoreQueueInstance(): Queue {
   if (!_restoreQueue) {
-    _restoreQueue = new Queue('selfbase.restore', {
+    // QUEUES.restore is the single source of truth (also the worker's consumer).
+    // The api previously enqueued the literal 'selfbase.restore' while the worker
+    // consumed 'supastack.restore', so restores sat unconsumed — the shared
+    // constant makes that drift impossible (guarded by queue-name-contract.test).
+    _restoreQueue = new Queue(QUEUES.restore, {
       connection: new Redis(process.env.REDIS_URL ?? 'redis://redis:6379', {
         maxRetriesPerRequest: null,
       }),

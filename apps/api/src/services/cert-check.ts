@@ -2,6 +2,7 @@ import { and, eq, lt } from 'drizzle-orm';
 import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { db, schema } from '@supastack/db';
+import { QUEUES } from '@supastack/shared';
 
 const RENEWAL_WINDOW_DAYS = 30;
 
@@ -56,7 +57,7 @@ export async function runCertCheck(): Promise<void> {
   if (edgeRows.length > 0) {
     const redisUrl = process.env.REDIS_URL;
     if (redisUrl) {
-      const queue = new Queue('selfbase.pg-edge-cert-issue', {
+      const queue = new Queue(QUEUES.pgEdgeCertIssue, {
         connection: makeConnection(redisUrl),
       });
       for (const row of edgeRows) {
@@ -90,12 +91,12 @@ function makeConnection(redisUrl: string): Redis {
 }
 
 export function createCertCheckQueue(redisUrl: string): Queue {
-  return new Queue('cert-check', { connection: makeConnection(redisUrl) });
+  return new Queue(QUEUES.certCheck, { connection: makeConnection(redisUrl) });
 }
 
 export function createCertCheckWorker(redisUrl: string): Worker {
   return new Worker(
-    'cert-check',
+    QUEUES.certCheck,
     async () => {
       await runCertCheck();
     },

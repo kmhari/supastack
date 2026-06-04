@@ -15,7 +15,7 @@ import { and, eq } from 'drizzle-orm';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { db, schema } from '@supastack/db';
-import { logger } from '@supastack/shared';
+import { logger, QUEUES } from '@supastack/shared';
 
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { getProjectByRef } from '../../services/project-store.js';
@@ -26,7 +26,7 @@ import { instanceToProject } from '../../services/mgmt-api-mapping.js';
 let _lifecycleQueue: Queue | null = null;
 function lifecycleQueue(): Queue {
   if (!_lifecycleQueue) {
-    _lifecycleQueue = new Queue('selfbase.lifecycle', {
+    _lifecycleQueue = new Queue(QUEUES.lifecycle, {
       connection: new Redis(process.env.REDIS_URL ?? 'redis://redis:6379', {
         maxRetriesPerRequest: null,
       }),

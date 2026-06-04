@@ -1,4 +1,5 @@
 export { logger, makeLogger } from './logger.js';
+export { QUEUES, type QueueKey, type QueueName } from './queues.js';
 export * from './errors.js';
 export * from './rbac.js';
 export * from './state-machine.js';
