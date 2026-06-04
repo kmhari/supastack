@@ -41,12 +41,12 @@ description: "Task list — feature 086 platform base=root + legacy studio to /s
 **Goal**: studio calls resolve at `/platform/*` + `/v1/*` (no `/api/v1/v1/*`).
 **Independent test**: quickstart §1 — network panel shows 0 `…/api/v1/v1/…` requests; `/v1/*` + `/platform/*` at apex return 200.
 
-- [ ] T004 [US1] In `apps/api/src/server.ts`, add a root mount `await app.register(platformMiscRoutes);` immediately after the existing root `platformProxyRoutes` (~line 225). Keep the `/api/v1`-prefixed mounts (228-229) for now.
-- [ ] T005 [P] [US1] In `apps/caddy/Caddyfile`, add `handle /v1* { reverse_proxy api:3001 }` to the `:80` block, ordered after `/api/*` and before the studio catch-all.
-- [ ] T006 [US1] In `apps/caddy/Caddyfile`, add the same `handle /v1* { reverse_proxy api:3001 }` to the `:443`/apex block (same ordering). (same file as T005 → sequential)
-- [ ] T007 [P] [US1] In `apps/api/src/services/caddy-config.ts`, add a `/v1*` → `api:3001` subroute to `dashboardSubroutes`, mirroring the existing `/api/v1*` entry, ordered before the studio catch-all (this is the VM source of truth).
-- [ ] T008 [P] [US1] In `infra/docker-compose.yml`, change the studio `NEXT_PUBLIC_API_URL` from `https://${SUPASTACK_APEX}/api/v1` to `https://${SUPASTACK_APEX}`. Do NOT touch `NEXT_PUBLIC_GOTRUE_URL`.
-- [ ] T009 [US1] Write the coordinated-deploy + rollback procedure into `docs/changes/086-platform-base-root-url.md` per `contracts/studio-build.md` (build api → reload Caddy → `rm -rf .next` + `--force-recreate studio`).
+- [X] T004 [US1] In `apps/api/src/server.ts`, add a root mount `await app.register(platformMiscRoutes);` immediately after the existing root `platformProxyRoutes` (~line 225). Keep the `/api/v1`-prefixed mounts (228-229) for now.
+- [X] T005 [P] [US1] In `apps/caddy/Caddyfile`, add `handle /v1* { reverse_proxy api:3001 }` to the `:80` block, ordered after `/api/*` and before the studio catch-all.
+- [X] T006 [US1] In `apps/caddy/Caddyfile`, add the same `handle /v1* { reverse_proxy api:3001 }` to the `:443`/apex block (same ordering). (same file as T005 → sequential)
+- [X] T007 [P] [US1] In `apps/api/src/services/caddy-config.ts`, add a `/v1*` → `api:3001` subroute to `dashboardSubroutes`, mirroring the existing `/api/v1*` entry, ordered before the studio catch-all (this is the VM source of truth).
+- [X] T008 [P] [US1] In `infra/docker-compose.yml`, change the studio `NEXT_PUBLIC_API_URL` from `https://${SUPASTACK_APEX}/api/v1` to `https://${SUPASTACK_APEX}`. Do NOT touch `NEXT_PUBLIC_GOTRUE_URL`.
+- [X] T009 [US1] Write the coordinated-deploy + rollback procedure into `docs/changes/086-platform-base-root-url.md` per `contracts/studio-build.md` (build api → reload Caddy → `rm -rf .next` + `--force-recreate studio`).
 - [ ] T010 [US1] DEPLOY (operator-run on the VM): rsync; `docker compose build api && up -d api`; wipe studio `.next`; `--force-recreate studio`.
 - [ ] T011 [US1] LIVE VERIFY (quickstart §1): in the studio network panel 0 requests to `…/api/v1/v1/…`; curl `https://<apex>/v1/projects/<ref>/api-keys` → 200, `https://<apex>/platform/profile` → 200.
 - [ ] T012 [US1] After the rebuilt studio is confirmed live: remove the `/api/v1/v1/*` shim (`apps/api/src/server.ts:323-335`) and the `/api/v1`-prefixed `platformProxyRoutes`/`platformMiscRoutes` mounts (228-229).
