@@ -130,7 +130,7 @@ description: "Task list — feature 086 platform base=root + legacy studio to /s
 **Goal**: external contracts + the retained engine unbroken; the new migration + gate don't regress anything.
 **Independent test**: quickstart §4 — CLI/login/integration all pass.
 
-- [ ] T043 [P] [US4] `/v1` contract no-drift: `pnpm --filter @supastack/api test` management-api + contract suites green (incl. the uuid backup contract unchanged; Constitution IV).
+- [X] T043 [P] [US4] `/v1` contract no-drift: `pnpm --filter @supastack/api test` management-api + contract suites green (incl. the uuid backup contract unchanged; Constitution IV).
 - [ ] T044 [P] [US4] CLI/MCP regression on the VM: `tests/cli-e2e/{db-push,migration-list,gen-types,mcp-roundtrip}.sh` pass against `api.<apex>/v1`.
 - [ ] T045 [P] [US4] Login smoke: sign in to the studio → dashboard loads (token POST to `/auth/v1/token`).
 - [ ] T046 [US4] Integration suite (live VM): `tests/integration/{provision-instance,backup,backup-retention}.test.ts` pass; confirm the US6 backup-`seq` migration applied cleanly at api boot (idempotent re-run).
