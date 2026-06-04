@@ -104,7 +104,7 @@ vi.mock('@supastack/db', () => {
         error: 'error',
         startedAt: 'startedAt',
       },
-      org: {
+      installation: {
         backupStoreKind: 'backupStoreKind',
         backupStoreConfigEncrypted: 'backupStoreConfigEncrypted',
       },
