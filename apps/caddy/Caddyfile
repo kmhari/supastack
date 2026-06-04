@@ -60,6 +60,10 @@
 	handle /api/v1* {
 		reverse_proxy api:3001
 	}
+	# Feature 086 US1 — base=root cutover: apex /v1* → api (disjoint from /api/v1*)
+	handle /v1* {
+		reverse_proxy api:3001
+	}
 	# Platform proxy routes (feature 025 — shared Studio)
 	handle /platform/* {
 		reverse_proxy api:3001
@@ -79,10 +83,11 @@
 	handle /setup* {
 		reverse_proxy web:80
 	}
-	# Everything else (including /api/get-deployment-commit and Studio Next.js
-	# internal routes) → shared Studio
+	# Feature 086 US5 — boot default is GATED: redirect everything to /setup
+	# until first-time setup is done. The runtime caddy-config.ts (DB-aware)
+	# swaps this for the studio catch-all once setup_state.completed_at is set.
 	handle {
-		reverse_proxy studio:3000
+		redir /setup 302
 	}
 }
 
@@ -114,6 +119,10 @@ mcp.{$SUPASTACK_APEX} {
 		reverse_proxy api:3001
 	}		reverse_proxy api:3001
 	}
+	# Feature 086 US1 — base=root cutover: apex /v1* → api (disjoint from /api/v1*)
+	handle /v1* {
+		reverse_proxy api:3001
+	}
 	# Platform proxy routes (feature 025 — shared Studio)
 	handle /platform/* {
 		reverse_proxy api:3001
@@ -131,8 +140,9 @@ mcp.{$SUPASTACK_APEX} {
 	handle /setup* {
 		reverse_proxy web:80
 	}
-	# Everything else → shared Studio (IS_PLATFORM=true, feature 025)
+	# Feature 086 US5 — boot default is GATED (redirect to /setup until setup
+	# done; runtime caddy-config.ts swaps in the studio catch-all post-setup).
 	handle {
-		reverse_proxy studio:3000
+		redir /setup 302
 	}
 }

@@ -3,7 +3,7 @@
  *
  * The dashboard's "Enable vault" button hits POST /api/v1/projects/<ref>/vault/enable;
  * that route uses this client to push a job onto the worker's
- * `selfbase.vault-enable` queue. The actual SQL runs in the worker.
+ * QUEUES.vaultEnable queue. The actual SQL runs in the worker.
  *
  * Idempotency: dashboard idempotency is enforced at the route layer (the
  * route returns the existing in-flight job-id if present). The job itself
@@ -14,15 +14,14 @@
 
 import { Queue, type Job } from 'bullmq';
 import { Redis } from 'ioredis';
-
-const QUEUE_NAME = 'selfbase.vault-enable';
+import { QUEUES } from '@supastack/shared';
 
 let _queue: Queue | null = null;
 function getQueue(): Queue {
   if (!_queue) {
     const url = process.env.REDIS_URL;
     if (!url) throw new Error('REDIS_URL not set');
-    _queue = new Queue(QUEUE_NAME, {
+    _queue = new Queue(QUEUES.vaultEnable, {
       connection: new Redis(url, { maxRetriesPerRequest: null }),
     });
   }

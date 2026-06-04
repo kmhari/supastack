@@ -5,6 +5,10 @@ export const backups = pgTable(
   'backups',
   {
     id: uuid('id').defaultRandom().primaryKey(),
+    // Feature 086 US6 — numeric surrogate for the platform studio, whose types
+    // require a numeric backup id (native id is a uuid; CLI/`/v1` keep the uuid).
+    // Backfilled + sequence-defaulted by migration 0019.
+    seq: bigint('seq', { mode: 'number' }),
     instanceRef: text('instance_ref')
       .notNull()
       .references(() => supabaseInstances.ref, { onDelete: 'cascade' }),
