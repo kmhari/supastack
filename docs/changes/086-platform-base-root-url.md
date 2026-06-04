@@ -64,6 +64,11 @@ still present until step 5, so an old-base Studio keeps working during the windo
   `NEXT_PUBLIC_GOTRUE_URL=/auth/v1` (→ `auth:9999`), not `NEXT_PUBLIC_API_URL`.
 - `caddy-config.ts` (runtime, DB-driven) is the production source of truth; the static
   `Caddyfile` only matters at first boot before the first `/load`.
-- Follow-ups (T049): make platform **audit** routes real; rehome a browser e2e harness
-  to target Studio; remove the redundant `/api/v1` façade copies (+ migrate their
-  tests); rename the `selfbase.restore` queue → `supastack.restore`.
+- **Queue-name drift fixed (post-deploy):** the live restore test exposed that the api
+  enqueued `selfbase.*` while the worker consumed `supastack.*` (half-done rename) —
+  silently dropping restore **and** backup/lifecycle/pg-edge-cert/pooler/vault jobs from
+  six producers. Fixed with a single shared `QUEUES` constant (`@supastack/shared`) that
+  both sides import, a guard contract test (`apps/api/tests/contract/queue-name-contract.test.ts`),
+  and Constitution v1.1.0 (Principle V queue-name clause + Queue-name gate).
+- Follow-ups: make platform **audit** routes real; rehome a browser e2e harness to target
+  Studio; remove the redundant `/api/v1` façade copies (+ migrate their tests).
