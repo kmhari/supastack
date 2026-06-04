@@ -12,6 +12,7 @@ import {
 } from '@/lib/api';
 import { getWrapperSnippet, getSupastackFileContent } from '@/lib/cli-wrapper';
 import { useAuth } from '@/lib/auth-context';
+import { dnsGateReady } from '@/lib/dns-gate';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -214,9 +215,7 @@ function DomainCertsStep({
   const [dnsChecks, setDnsChecks] = useState<DnsCheck[]>([]);
   const [apexDnsOk, setApexDnsOk] = useState(false);
   const [wildcardDnsOk, setWildcardDnsOk] = useState(false);
-  // TODO(#94): `allTxtReady` captures the backend's `allDnsReady` but is never read —
-  // the DNS gate below uses the client-side `allTxtFound`. Wire it in or remove.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // The authoritative DNS-ready signal from the backend (public-resolver lookups).
   const [allTxtReady, setAllTxtReady] = useState(false);
   const [expectedIp, setExpectedIp] = useState('');
   const [recheckLoading, setRecheckLoading] = useState(false);
@@ -224,10 +223,8 @@ function DomainCertsStep({
   const [httpsCheckRetries, setHttpsCheckRetries] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const allTxtFound =
-    challengeRecords.length >= 2 &&
-    challengeRecords.every((rec) => dnsChecks.find((c) => c.value === rec.value)?.found === true);
-  const allDnsResolved = apexDnsOk && wildcardDnsOk && allTxtFound;
+  // Gate on the authoritative backend signal (fix #94) — not a brittle client recount.
+  const allDnsResolved = dnsGateReady(apexDnsOk, wildcardDnsOk, allTxtReady);
 
   const saveApex = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
