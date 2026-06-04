@@ -110,8 +110,9 @@ export async function buildCaddyConfig(): Promise<unknown> {
       ],
     },
     {
-      // /api/v1/v1/* — double-v1 paths from Studio IS_PLATFORM=true.
-      // Handled by Fastify catch-all that strips the outer /api/v1 internally.
+      // /api/v1* — the legacy dashboard API surface (the setup-only web SPA calls
+      // /api/v1/setup, /api/v1/auth/me, /api/v1/apex, etc.). The base=root Studio no
+      // longer uses this prefix (it calls /v1/* + /platform/* at the apex, US1).
       match: [{ path: ['/api/v1*'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
     },

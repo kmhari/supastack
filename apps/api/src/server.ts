@@ -227,12 +227,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   // the base=root Studio's /platform/* calls resolve at the apex (the proxy was
   // already dual-mounted at root; misc was only at /api/v1). Disjoint paths from
   // platformProxyRoutes, so co-registering at root is safe.
-  await app.register(platformMiscRoutes); // /platform/* misc at root (base=root)
-  // Studio calls ${NEXT_PUBLIC_API_URL}/platform/* = /api/v1/platform/*
-  // Register proxy routes AGAIN with /api/v1 prefix so both paths work. (These
-  // /api/v1-prefixed mounts + the /api/v1/v1/* shim are removed post-cutover, T012.)
-  await app.register(platformProxyRoutes, { prefix: '/api/v1' }); // /api/v1/platform/* (Studio via API_URL)
-  await app.register(platformMiscRoutes, { prefix: '/api/v1' }); // /api/v1/platform/* stubs (feature 025)
+  await app.register(platformMiscRoutes); // /platform/* misc at root (base=root, US1)
+  // Feature 086 T012 — the `/api/v1`-prefixed platform mounts were removed after the
+  // base=root cutover; the Studio reaches platform routes at the apex `/platform/*`.
   // Studio Next.js API routes that the Supastack API stubs at the root level
   app.get('/api/get-deployment-commit', async (_req, reply) =>
     reply.send({ commit: 'dev', date: new Date().toISOString() }),
@@ -323,22 +320,9 @@ export async function buildApp(): Promise<FastifyInstance> {
     reply.send([]),
   );
 
-  // Double-v1 fix: Studio IS_PLATFORM=true builds URLs as
-  // `${NEXT_PUBLIC_API_URL}/v1/...` = `/api/v1/v1/...`. Re-inject
-  // with the outer `/api/v1` stripped so management routes match.
-  app.all('/api/v1/v1/*', async (req, reply) => {
-    const stripped = req.url.replace(/^\/api\/v1/, '');
-    const resp = await app.inject({
-      method: req.method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
-      url: stripped,
-      headers: req.headers as Record<string, string>,
-      payload: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
-    });
-    for (const [k, v] of Object.entries(resp.headers)) {
-      reply.header(k, v as string);
-    }
-    return reply.status(resp.statusCode).send(resp.payload);
-  });
+  // Feature 086 T012 — the `/api/v1/v1/*` double-v1 rewrite shim was removed after
+  // the base=root cutover: the base=root Studio now calls `/v1/*` at the apex
+  // directly (routed to the `/v1` mgmt mount by Caddy), so no rewrite is needed.
   await app.register(oauthDiscoveryRoutes); // /.well-known/oauth-authorization-server (feature 014 FR-006)
   await app.register(oauthClientsDashboardRoutes); // /api/v1/oauth/clients{,/:id} (feature 014 US3)
   // Feature 020 — dashboard mounts the auth-config route alongside the /v1 mgmt mount
