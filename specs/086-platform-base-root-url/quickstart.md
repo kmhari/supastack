@@ -90,4 +90,4 @@ curl -s -H "authorization: Bearer $TOKEN" "https://$APEX/platform/projects/$REF/
 # CLI /v1 backup contract unchanged (uuid):
 supabase ... # backups list/restore against api.$APEX/v1 still uuid-based, unaffected
 ```
-Unit: `pnpm exec vitest run backups-mgmt platform` (Studio-shape mapping, seq↔uuid resolve, status map). Migration idempotency: re-run `packages/db/migrations/00NN_backup_seq.sql` is a no-op.
+Unit: `pnpm exec vitest run backups-mgmt platform` (Studio-shape mapping, seq↔uuid resolve, status map). Migration idempotency: re-run `packages/db/migrations/0019_backup_seq.sql` is a no-op.

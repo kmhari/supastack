@@ -24,7 +24,7 @@ Five coupled changes — only US6 needs a DB migration (an idempotent, additive 
 
 **Storage**: Postgres (control plane). US1–US5 need no schema change; **US6 adds one idempotent + additive migration** — a numeric surrogate column on `backups` (Studio requires a numeric backup id; native is uuid). Otherwise reuses existing tables (`organizations`/`organization_members`/`installation`/`setup_state`/`api_tokens`/`backups`/`restore_jobs`/`supabase_instances`).
 
-**Testing**: vitest (unit + contract + node-env integration), Playwright (apps/web e2e — being removed/rehomed), bash `tests/cli-e2e/*.sh` (live VM). New: unit test for `createOrganizationWithOwner`; updated `apps/web/tests/unit/api.test.ts`.
+**Testing**: vitest (unit + contract + node-env integration), bash `tests/cli-e2e/*.sh` (live VM). New unit tests: `createOrganizationWithOwner` (US3, done); **US5** gate-config emission (`caddy-config-setup-gate`); **US6** backup adapter (`backups-platform-shape` — Studio-shape drift guard + ref-scoped `resolveBackupSeq` IDOR guard) + restore/status (`platform-backups-restore`). Updated `apps/web/tests/unit/api.test.ts` (US2, done). The Playwright apps/web e2e harness was removed in US2 (rehoming is a follow-up).
 
 **Target Platform**: Single Linux VM (`ubuntu@148.113.1.164`, apex `supaviser.dev`); modern browsers.
 
@@ -87,7 +87,7 @@ apps/api/src/
   services/backups-mgmt-service.ts # P5: add listBackupsForPlatform (Studio Cloud shape) + numeric-seq↔uuid resolve; restore reuses initiateRestore + restoreQueue
   services/caddy-config.ts        # P1: /v1* rule. P4: read setup_state.completed_at → emit 302→/setup catch-all when incomplete (fail-safe gated on read error)
 
-packages/db/migrations/00NN_backup_seq.sql  # P5 NEW: idempotent `ADD COLUMN IF NOT EXISTS` bigint identity surrogate on `backups` (numeric Studio id)
+packages/db/migrations/0019_backup_seq.sql  # P5 NEW: idempotent `ADD COLUMN IF NOT EXISTS` bigint surrogate on `backups` (numeric Studio id); unique index on (instance_ref, seq)
 
 apps/caddy/Caddyfile              # P1: `/v1*` rule (:80+:443). P4: boot catch-all defaults to 302→/setup (gated — boot config can't read the DB; runtime /load swaps in studio post-setup)
 

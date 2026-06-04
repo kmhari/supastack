@@ -4,10 +4,10 @@ Adapter over the existing engine (`backups` table, `initiateRestore` + `selfbase
 
 ## Migration (idempotent, additive)
 
-`packages/db/migrations/00NN_backup_seq.sql`:
+`packages/db/migrations/0019_backup_seq.sql` (next sequential number; current max is 0018):
 ```sql
 ALTER TABLE backups ADD COLUMN IF NOT EXISTS seq bigint;
--- backfill + make it identity/auto so new rows get a stable numeric id
+-- backfill + make it auto so new rows get a stable numeric id
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_sequences WHERE sequencename = 'backups_seq_seq') THEN
     CREATE SEQUENCE backups_seq_seq OWNED BY backups.seq;
@@ -15,7 +15,8 @@ DO $$ BEGIN
 END $$;
 UPDATE backups SET seq = nextval('backups_seq_seq') WHERE seq IS NULL;
 ALTER TABLE backups ALTER COLUMN seq SET DEFAULT nextval('backups_seq_seq');
-CREATE UNIQUE INDEX IF NOT EXISTS backups_seq_uniq ON backups (seq);
+-- index supports the ref-scoped resolve (instance_ref, seq); seq is globally unique anyway
+CREATE UNIQUE INDEX IF NOT EXISTS backups_ref_seq_uniq ON backups (instance_ref, seq);
 ```
 Native `id` stays uuid (CLI contract). `seq` is the numeric surrogate the studio sees. Re-runnable.
 
@@ -29,7 +30,7 @@ Native `id` stays uuid (CLI contract). `seq` is the numeric surrogate the studio
   "walg_enabled": false,
   "backups": [
     { "isPhysicalBackup": true, "id": <seq:number>, "inserted_at": "<startedAt ISO>",
-      "status": "COMPLETED", "project_id": <stable int hash of ref> }
+      "status": "COMPLETED", "project_id": <hashRefToInt(ref)> }
   ],
   "physicalBackupData": {
     "earliestPhysicalBackupDateUnix": <unix-sec | null>,
@@ -37,11 +38,13 @@ Native `id` stays uuid (CLI contract). `seq` is the numeric surrogate the studio
   }
 }
 ```
-Map native `status`: `completed→COMPLETED`, `failed→FAILED`, `running→PENDING` (or filter `running`, as `listBackupsForCli` does). `id` = `seq` (number). New `listBackupsForPlatform(ref)` in `backups-mgmt-service.ts` (do NOT reuse `listBackupsForCli` — that's the snake_case ISO CLI shape).
+Map native `status`: `completed→COMPLETED`, `failed→FAILED`, `running→PENDING` (or filter `running`, as `listBackupsForCli` does). `id` = `seq` (number). `project_id` = `hashRefToInt(ref)` — a **stable positive 31-bit int** derived from a hash of `ref` (display-only; Studio just renders it, never looks up by it). New `listBackupsForPlatform(ref)` in `backups-mgmt-service.ts` (do NOT reuse `listBackupsForCli` — that's the snake_case ISO CLI shape).
+
+> **Shape drift guard (M2)**: the unit test asserts the exact top-level keys (`region`, `pitr_enabled`, `walg_enabled`, `backups`, `physicalBackupData`) and per-row keys (`isPhysicalBackup`, `id`, `inserted_at`, `status`, `project_id`) so a vendored-Studio type change is caught here rather than as a broken Backups page.
 
 ## `POST /platform/database/:ref/backups/restore-physical` (replaces no-op at platform-misc.ts:1946-1949)
 
-Body `{ id: <seq:number> }`. `app.authorize(req,'backup.restore')`. Resolve `seq → native uuid` (the backup row for this ref), then **reuse the engine**: `initiateRestore(ref, { backup_id: <uuid> })` → `restoreQueue().add('restore', { restore_job_id })` (queue `selfbase.restore`) → `reply.status(201).send()` (no body). Map `RestoreError` codes to HTTP as `backups-mgmt.ts` does (409 on in-flight, 404 on missing/`seq` not found, etc.). The restore runs in the worker; the api only enqueues (Constitution V).
+Body `{ id: <seq:number> }`. `app.authorize(req,'backup.restore')`. **Resolve `seq → native uuid` strictly within this project** — `resolveBackupSeq(ref, seq)` queries `WHERE seq = $seq AND instance_ref = $ref`; if no row, respond **404** (NEVER a global `seq` lookup — that would let an operator restore another project's backup blob into theirs, an IDOR via the numeric surrogate). Then **reuse the engine**: `initiateRestore(ref, { backup_id: <uuid> })` → `restoreQueue().add('restore', { restore_job_id })` (queue `selfbase.restore`) → `reply.status(201).send()` (no body). Map `RestoreError` codes to HTTP as `backups-mgmt.ts` does (409 on in-flight, 404 on missing/`seq` not found, etc.). The restore runs in the worker; the api only enqueues (Constitution V).
 
 > Also wire the sibling `/platform/database/:ref/backups/restore` no-op (platform-misc.ts:1941-1944) to the same path (Studio posts there for non-physical), or document why it's deferred.
 
