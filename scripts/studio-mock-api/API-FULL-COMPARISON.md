@@ -347,12 +347,13 @@
 
 | SUPABASE API | HTTP_METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
-| `/platform/database/:ref/backups` | GET | ✅ | supastack | List available backups | `GET /projects/:ref/database/backups` |
+| `/platform/database/:ref/backups` | GET | ✅ | supastack | List available backups | `GET /platform/database/:ref/backups` (real — Cloud shape: `isPhysicalBackup`, numeric `seq` `id`, `physicalBackupData`; feature 086 US6) |
 | `/platform/database/:ref/backups/downloadable-backups` | GET | ⚠️ | supastack | List downloadable backups | `GET /projects/:ref/database/backups` |
 | `/platform/database/:ref/backups/download` | POST | ⚠️ | supastack | Download a backup | `POST .../backups/download` (stub) |
 | `/platform/database/:ref/backups/restore` | POST | ✅ | supastack | Restore from logical backup (async worker) | `POST .../backups/restore` |
 | `/platform/database/:ref/backups/pitr` | POST | ✅ | supastack | Point-in-time restore | `POST .../backups/restore-pitr` |
-| `/platform/database/:ref/backups/restore-physical` | POST | ⚠️ | supastack | Restore physical backup | `POST .../backups/restore-physical` (stub) |
+| `/platform/database/:ref/backups/restore-physical` | POST | ✅ | supastack | Restore physical backup | `POST .../backups/restore-physical` (real — resolves `seq`→uuid ref-scoped, `initiateRestore` → async `QUEUES.restore` worker; feature 086 US6) |
+| `/platform/projects/:ref/status` | GET | ✅ | supastack | Project lifecycle/health status (Backups page polls during restore) | `GET /platform/projects/:ref/status` (real — `running→ACTIVE_HEALTHY`, `restoring→RESTORING`; feature 086 US6) |
 | `/platform/database/:ref/backups/enable-physical-backups` | POST | ⚠️ | mock | Enable physical backups | — |
 | `/platform/database/:ref/clone` | POST | ⚠️ | supastack | Clone database to new project | `POST .../database/:ref/clone` (stub) |
 | `/platform/database/:ref/hook-enable` | POST | ⚠️ | supastack | Enable database webhooks | `POST .../database/:ref/hook-enable` (stub) |
