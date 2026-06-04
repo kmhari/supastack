@@ -1,7 +1,13 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, desc } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
-import { initiateWildcardOrder, verifyAndFinalize, checkDns, loadRow } from '../services/acme.js';
+import {
+  initiateWildcardOrder,
+  verifyAndFinalize,
+  checkDns,
+  loadRow,
+  computeAllDnsReady,
+} from '../services/acme.js';
 import { reloadCaddy } from '../services/caddy-reload.js';
 import { errors } from '@supastack/shared';
 
@@ -78,7 +84,7 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
     if (row.status === 'awaiting_dns' || row.status === 'verifying') {
       const challengeRecords = row.challengeRecords as { name: string; value: string }[];
       dnsChecks = await checkDns(challengeRecords);
-      allDnsReady = dnsChecks.every((c) => c.found);
+      allDnsReady = computeAllDnsReady(dnsChecks);
     }
 
     const history = await db()
