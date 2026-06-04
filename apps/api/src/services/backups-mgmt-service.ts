@@ -1,4 +1,6 @@
 import { and, desc, eq, inArray, lte, not } from 'drizzle-orm';
+import { Queue } from 'bullmq';
+import { Redis } from 'ioredis';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { db, schema } from '@supastack/db';
@@ -69,6 +71,109 @@ export async function listBackupsForCli(ref: string): Promise<BackupsListRespons
     pitr_enabled: false,
     walg_enabled: false,
   };
+}
+
+/**
+ * Feature 086 US6 — the platform studio (IS_PLATFORM) requires a NUMERIC backup
+ * id (`BackupsResponse.backups[].id: number`); the native id is a uuid. We expose
+ * the `seq` surrogate (migration 0019) as the studio id and resolve it back to the
+ * uuid on restore. These adapters emit the vendored-Studio Cloud shape — distinct
+ * from `listBackupsForCli` (the snake_case `/v1` CLI shape, uuid id; unchanged).
+ */
+export interface PlatformBackupsResponse {
+  region: string;
+  pitr_enabled: boolean;
+  walg_enabled: boolean;
+  backups: {
+    isPhysicalBackup: boolean;
+    id: number;
+    inserted_at: string;
+    status: string;
+    project_id: number;
+  }[];
+  physicalBackupData: {
+    earliestPhysicalBackupDateUnix: number | null;
+    latestPhysicalBackupDateUnix: number | null;
+  };
+}
+
+/** Stable positive 31-bit int from a ref — Studio renders `project_id` as a number (display-only). */
+export function hashRefToInt(ref: string): number {
+  let h = 0;
+  for (let i = 0; i < ref.length; i++) {
+    h = (Math.imul(31, h) + ref.charCodeAt(i)) | 0;
+  }
+  return h & 0x7fffffff;
+}
+
+export async function listBackupsForPlatform(ref: string): Promise<PlatformBackupsResponse> {
+  const rows = await db()
+    .select({
+      seq: schema.backups.seq,
+      startedAt: schema.backups.startedAt,
+      status: schema.backups.status,
+    })
+    .from(schema.backups)
+    .where(
+      and(eq(schema.backups.instanceRef, ref), not(inArray(schema.backups.status, ['running']))),
+    )
+    .orderBy(desc(schema.backups.startedAt));
+
+  const projectId = hashRefToInt(ref);
+  const completed = rows.filter((r) => r.status === 'completed');
+  const unix = (d: Date): number => Math.floor(d.getTime() / 1000);
+
+  return {
+    region: 'local',
+    pitr_enabled: false,
+    walg_enabled: false,
+    backups: rows.map((r) => ({
+      isPhysicalBackup: true,
+      id: Number(r.seq ?? 0),
+      inserted_at: r.startedAt.toISOString(),
+      status: r.status === 'completed' ? 'COMPLETED' : 'FAILED',
+      project_id: projectId,
+    })),
+    physicalBackupData: {
+      earliestPhysicalBackupDateUnix: completed.length
+        ? unix(completed[completed.length - 1]!.startedAt)
+        : null,
+      latestPhysicalBackupDateUnix: completed.length ? unix(completed[0]!.startedAt) : null,
+    },
+  };
+}
+
+/**
+ * Resolve the studio's numeric `seq` back to the native uuid — **strictly within
+ * this project** (`AND instance_ref = ref`). NEVER a global `seq` lookup: that
+ * would let an operator restore another project's backup blob into theirs (IDOR
+ * via the numeric surrogate). Returns null when the seq isn't a backup of `ref`.
+ */
+export async function resolveBackupSeq(ref: string, seq: number): Promise<string | null> {
+  const [row] = await db()
+    .select({ id: schema.backups.id })
+    .from(schema.backups)
+    .where(and(eq(schema.backups.seq, seq), eq(schema.backups.instanceRef, ref)))
+    .limit(1);
+  return row?.id ?? null;
+}
+
+// Shared restore enqueue (queue `selfbase.restore`, consumed by handleRestore).
+// Lazy — no Redis connection at import time, only on first enqueue.
+let _restoreQueue: Queue | null = null;
+function restoreQueueInstance(): Queue {
+  if (!_restoreQueue) {
+    _restoreQueue = new Queue('selfbase.restore', {
+      connection: new Redis(process.env.REDIS_URL ?? 'redis://redis:6379', {
+        maxRetriesPerRequest: null,
+      }),
+    });
+  }
+  return _restoreQueue;
+}
+
+export async function enqueueRestore(restoreJobId: string): Promise<void> {
+  await restoreQueueInstance().add('restore', { restore_job_id: restoreJobId });
 }
 
 export async function initiateRestore(
