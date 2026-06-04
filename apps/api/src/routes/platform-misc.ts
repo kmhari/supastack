@@ -964,12 +964,12 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   app.get<SlugParams>('/platform/organizations/:slug/billing/subscription', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ plan: { id: 'free', name: 'Free' }, billing_via_partner: false, usage_billing_enabled: false, project_addons: [], addons: [] });
+    return reply.send({ plan: { id: 'pro', name: 'Pro' }, tier: 'tier_payg', billing_via_partner: false, usage_billing_enabled: true, project_addons: [], addons: [] });
   });
 
   app.get<SlugParams>('/platform/organizations/:slug/billing/plans', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send([{ id: 'free', name: 'Free' }]);
+    return reply.send([{ id: 'pro', name: 'Pro' }]);
   });
 
   app.get<SlugParams>('/platform/organizations/:slug/billing/credits/balance', async (req, reply) => {
@@ -2049,6 +2049,7 @@ function buildOrg(id: string, name: string, isOwner: boolean) {
     id,
     name,
     slug: id,
+    org_id: id,
     billing_email: '',
     billing_partner: null,
     integration_source: null,
@@ -2057,11 +2058,12 @@ function buildOrg(id: string, name: string, isOwner: boolean) {
     organization_missing_address: false,
     organization_missing_tax_id: false,
     organization_requires_mfa: false,
-    plan: { id: 'free', name: 'Free' },
+    plan: { id: 'pro', name: 'Pro' },
+    tier: 'tier_payg',
     restriction_data: null,
     restriction_status: null,
-    stripe_customer_id: null,
-    subscription_id: null,
-    usage_billing_enabled: false,
+    stripe_customer_id: 'cus_mock0000000000',
+    subscription_id: 'sub_mock0000000000',
+    usage_billing_enabled: true,
   };
 }
