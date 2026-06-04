@@ -14,6 +14,13 @@ import { ROLE_IDS, ROLE_NAMES, roleFromId, type Role } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
 import { createOrganizationWithOwner } from '../services/org-store.js';
 import {
+  listBackupsForPlatform,
+  resolveBackupSeq,
+  initiateRestore,
+  enqueueRestore,
+  RestoreError,
+} from '../services/backups-mgmt-service.js';
+import {
   hashInviteToken,
   memberRole,
   newInviteToken,
@@ -396,6 +403,30 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(buildProject(inst, apex));
   });
 
+  // Feature 086 US6 — project lifecycle/health status (Studio polls this during
+  // a restore). `running → ACTIVE_HEALTHY`, `restoring → RESTORING`, etc.
+  app.get<RefParams>('/platform/projects/:ref/status', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ status: schema.supabaseInstances.status })
+      .from(schema.supabaseInstances)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send({
+      status: inst.status === 'running' ? 'ACTIVE_HEALTHY' : inst.status.toUpperCase(),
+    });
+  });
+
   app.patch<RefParams>('/platform/projects/:ref', async (req, reply) => {
     app.requireAuth(req);
     return reply.send(req.body ?? {});
@@ -648,8 +679,25 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   // Database backups
   app.get<RefParams>('/platform/database/:ref/backups', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ backups: [], tierId: 'free', tierKey: 'FREE' });
+    // Feature 086 US6 — real backups in the vendored-Studio Cloud shape.
+    const user = app.requireAuth(req);
+    app.authorize(req, 'backup.list');
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref })
+      .from(schema.supabaseInstances)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send(await listBackupsForPlatform(req.params.ref));
   });
 
   app.get<RefParams>('/platform/database/:ref/backups/downloadable-backups', async (req, reply) => {
@@ -1944,8 +1992,49 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post<RefParams>('/platform/database/:ref/backups/restore-physical', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ status: 'restoring' });
+    // Feature 086 US6 — real physical restore via the existing engine + worker.
+    const user = app.requireAuth(req);
+    app.authorize(req, 'backup.restore');
+    const ref = req.params.ref;
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref })
+      .from(schema.supabaseInstances)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(eq(schema.supabaseInstances.ref, ref), eq(schema.organizationMembers.userId, user.id)),
+      )
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+
+    const body = (req.body ?? {}) as { id?: number };
+    if (typeof body.id !== 'number') {
+      return reply.status(400).send({ error: 'id (number) is required' });
+    }
+    // Ref-scoped resolve — NEVER a global seq lookup (prevents cross-project restore IDOR).
+    const uuid = await resolveBackupSeq(ref, body.id);
+    if (!uuid) return reply.status(404).send({ error: 'Backup not found for this project' });
+
+    try {
+      const job = await initiateRestore(ref, { backup_id: uuid });
+      await enqueueRestore(job.restore_job_id);
+    } catch (err) {
+      if (err instanceof RestoreError) {
+        const status =
+          err.code === 'backup_blob_missing' ? 410 : err.code === 'invalid_target' ? 400 : 409;
+        return reply.status(status).send({ error: err.message, code: err.code });
+      }
+      const pgErr = err as { code?: string; constraint?: string };
+      if (pgErr?.code === '23505' && pgErr?.constraint?.includes('uq_restore_jobs_one_inflight')) {
+        return reply
+          .status(409)
+          .send({ error: 'A restore is already in progress', code: 'restore_in_progress' });
+      }
+      throw err;
+    }
+    return reply.status(201).send();
   });
 
   app.post<RefParams>(

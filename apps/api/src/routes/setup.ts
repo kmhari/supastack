@@ -107,13 +107,14 @@ export const setupRoutes: FastifyPluginAsync = async (app) => {
       return { userId: operator.id, orgId, email: operator.email, apiToken: rawToken };
     });
 
-    // If an apex domain was set, reload Caddy so the dashboard starts serving.
-    if (body.apexDomain) {
-      try {
-        await reloadCaddy();
-      } catch (err) {
-        req.log.warn({ err }, 'caddy reload failed during setup (apex set, but Caddy unreachable)');
-      }
+    // Feature 086 US5 — ALWAYS reload Caddy on setup completion so the
+    // setup-gate (caddy-config.ts) drops its 302→/setup catch-all and `/`
+    // starts serving the platform studio. (Previously this only fired when an
+    // apex domain was set; the gate now needs the reload unconditionally.)
+    try {
+      await reloadCaddy();
+    } catch (err) {
+      req.log.warn({ err }, 'caddy reload failed during setup completion (Caddy unreachable)');
     }
 
     return reply.status(201).send(result);
