@@ -246,6 +246,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Management API stubs for Studio IS_PLATFORM=true — registered before the
   // /v1 management plugin so they respond without the mgmt error envelope.
   type RefP = { Params: { ref: string } };
+  app.get<RefP>('/v1/projects/:ref/network-bans', async (_req, reply) =>
+    reply.send({ banned_ipv4_addresses: [] }),
+  );
   app.post<RefP>('/v1/projects/:ref/network-bans/retrieve', async (_req, reply) =>
     reply.send({ banned_ipv4_addresses: [] }),
   );
