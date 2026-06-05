@@ -361,11 +361,14 @@ services:
       # container, and a restart keeps the stale build. (084 deploy gap: the studio
       # container kept an old NEXT_PUBLIC_GOTRUE_URL=/api/v1 build → sign-in 404'd.)
       NEXT_PUBLIC_IS_PLATFORM: "true"
-      # Feature 086 US1 — base=root cutover. Studio's management calls now resolve as
-      # apex /v1/* and platform calls as /platform/* (no /api/v1/v1/* doubling).
+      # Feature 107 — API host-parity. Studio's platform + Management calls go to the
+      # dedicated api.<apex> host (mirrors Supabase's api.supabase.com), cross-origin
+      # from the apex dashboard → the api serves scoped CORS (config/cors-config.ts:
+      # exact apex origin only, Bearer auth so no credentials). (Was apex root in 086.)
       # MUST rebuild Studio after changing (NEXT_PUBLIC_* is baked at build): wipe
-      # .next + --force-recreate studio. Do NOT touch NEXT_PUBLIC_GOTRUE_URL (login).
-      NEXT_PUBLIC_API_URL: "https://${SUPASTACK_APEX}"
+      # .next + --force-recreate studio. Do NOT touch NEXT_PUBLIC_GOTRUE_URL (login
+      # stays at the apex /auth/v1, same-origin).
+      NEXT_PUBLIC_API_URL: "https://api.${SUPASTACK_APEX}"
       # Feature 084 — point Studio's auth at the real control-plane GoTrue (Caddy
       # routes /auth/v1/* → auth:9999), replacing the retired studio-gotrue shim.
       # common/gotrue.ts builds the dashboard auth client from this var.
