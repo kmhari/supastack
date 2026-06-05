@@ -35,6 +35,34 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ flags: {} });
   });
 
+  app.post('/platform/telemetry/event', async (_req, reply) => {
+    return reply.status(204).send();
+  });
+
+  app.post('/platform/telemetry/feature-flags/track', async (_req, reply) => {
+    return reply.status(204).send();
+  });
+
+  app.post('/platform/telemetry/groups/identify', async (_req, reply) => {
+    return reply.status(204).send();
+  });
+
+  app.post('/platform/telemetry/groups/reset', async (_req, reply) => {
+    return reply.status(204).send();
+  });
+
+  app.post('/platform/telemetry/identify', async (_req, reply) => {
+    return reply.status(204).send();
+  });
+
+  app.post('/platform/telemetry/reset', async (_req, reply) => {
+    return reply.status(204).send();
+  });
+
+  app.get('/platform/telemetry/stream', async (_req, reply) => {
+    return reply.status(200).send([]);
+  });
+
   // ── Deployment mode ────────────────────────────────────────────────────────
   // Studio uses this to distinguish cloud vs self-hosted behavior.
   app.get('/platform/deployment-mode', async (_req, reply) => {
@@ -61,6 +89,30 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         // project transfer). Org/member/project create+delete stay ENABLED. Runtime,
         // no Studio rebuild. Pre-login dashboard_auth:* flags live in the fork's
         // enabled-features.json (build-time), not here. See docs/studio-feature-flags.md.
+        'billing:account_data',
+        'billing:credits',
+        'billing:invoices',
+        'billing:payment_methods',
+        'projects:transfer',
+      ],
+      free_project_limit: 999,
+    });
+  });
+
+  app.post('/platform/profile', async (req, reply) => {
+    const user = app.requireAuth(req);
+    return reply.send({
+      auth0_id: `supastack|${user.id}`,
+      gotrue_id: user.id,
+      id: 1,
+      primary_email: user.email,
+      username: user.email.split('@')[0],
+      first_name: '',
+      last_name: '',
+      mobile: null,
+      is_alpha_user: false,
+      is_sso_user: false,
+      disabled_features: [
         'billing:account_data',
         'billing:credits',
         'billing:invoices',
@@ -161,10 +213,117 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
+  app.get<{ Params: { id: string } }>(
+    '/platform/profile/access-tokens/:id',
+    async (req, reply) => {
+      const user = app.requireAuth(req);
+      const [row] = await db()
+        .select({
+          id: schema.apiTokens.id,
+          name: schema.apiTokens.label,
+          tokenAlias: schema.apiTokens.prefix,
+          createdAt: schema.apiTokens.createdAt,
+          lastUsedAt: schema.apiTokens.lastUsedAt,
+        })
+        .from(schema.apiTokens)
+        .where(
+          and(
+            eq(schema.apiTokens.id, req.params.id),
+            eq(schema.apiTokens.userId, user.id),
+            isNull(schema.apiTokens.revokedAt),
+          ),
+        )
+        .limit(1);
+      if (!row) return reply.status(404).send({ error: 'not_found' });
+      return reply.send(toAccessToken(row));
+    },
+  );
+
   app.get('/platform/profile/scoped-access-tokens', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send([]);
+    const user = app.requireAuth(req);
+    const rows = await db()
+      .select({
+        id: schema.apiTokens.id,
+        name: schema.apiTokens.label,
+        tokenAlias: schema.apiTokens.prefix,
+        createdAt: schema.apiTokens.createdAt,
+        lastUsedAt: schema.apiTokens.lastUsedAt,
+      })
+      .from(schema.apiTokens)
+      .where(and(eq(schema.apiTokens.userId, user.id), isNull(schema.apiTokens.revokedAt)))
+      .orderBy(desc(schema.apiTokens.createdAt));
+    return reply.send({ tokens: rows.map((r) => toAccessToken(r)) });
   });
+
+  app.post('/platform/profile/scoped-access-tokens', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const body = (req.body ?? {}) as {
+      name?: string;
+      permissions?: string[];
+      organization_slugs?: string[];
+      project_refs?: string[];
+    };
+    const name = body.name?.trim() || 'Scoped token';
+    const { raw, id, prefix } = await mintApiToken(db(), user.id, name, 'studio');
+    return reply.status(201).send({
+      ...toAccessToken({ id, name, tokenAlias: prefix, createdAt: new Date(), lastUsedAt: null }),
+      token: raw,
+      permissions: body.permissions ?? [],
+      organization_slugs: body.organization_slugs ?? [],
+      project_refs: body.project_refs ?? [],
+    });
+  });
+
+  app.get<{ Params: { id: string } }>(
+    '/platform/profile/scoped-access-tokens/:id',
+    async (req, reply) => {
+      const user = app.requireAuth(req);
+      const [row] = await db()
+        .select({
+          id: schema.apiTokens.id,
+          name: schema.apiTokens.label,
+          tokenAlias: schema.apiTokens.prefix,
+          createdAt: schema.apiTokens.createdAt,
+          lastUsedAt: schema.apiTokens.lastUsedAt,
+        })
+        .from(schema.apiTokens)
+        .where(
+          and(
+            eq(schema.apiTokens.id, req.params.id),
+            eq(schema.apiTokens.userId, user.id),
+            isNull(schema.apiTokens.revokedAt),
+          ),
+        )
+        .limit(1);
+      if (!row) return reply.status(404).send({ error: 'not_found' });
+      return reply.send({
+        ...toAccessToken(row),
+        permissions: [],
+        organization_slugs: [],
+        project_refs: [],
+      });
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    '/platform/profile/scoped-access-tokens/:id',
+    async (req, reply) => {
+      const user = app.requireAuth(req);
+      const [row] = await db()
+        .select({ userId: schema.apiTokens.userId })
+        .from(schema.apiTokens)
+        .where(
+          and(eq(schema.apiTokens.id, req.params.id), isNull(schema.apiTokens.revokedAt)),
+        )
+        .limit(1);
+      if (!row || row.userId !== user.id) return reply.status(404).send({ error: 'not_found' });
+      await db()
+        .update(schema.apiTokens)
+        .set({ revokedAt: new Date() })
+        .where(eq(schema.apiTokens.id, req.params.id));
+      return reply.status(200).send();
+    },
+  );
 
   app.get('/platform/profile/audit', async (req, reply) => {
     app.requireAuth(req);
@@ -277,7 +436,14 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // Organization preview creation (billing estimate before creating)
   app.post('/platform/organizations/preview-creation', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ has_payment_method: true, project_count: 0, free_project_count: 0 });
+    const { name } = req.body as { name?: string };
+    if (!name?.trim()) return reply.status(400).send({ error: 'name required' });
+    return reply.send({ name, plan: 'free', is_valid: true });
+  });
+
+  app.post('/platform/organizations/onboarding-survey', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(204).send();
   });
 
   // Postgres versions list for project settings
@@ -428,11 +594,24 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.patch<RefParams>('/platform/projects/:ref', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
+    const user = app.requireAuth(req);
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref, name: schema.supabaseInstances.name })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    const newName = typeof body.name === 'string' ? body.name.trim() : inst.name;
+    if (newName !== inst.name) {
+      await db().update(schema.supabaseInstances).set({ name: newName }).where(eq(schema.supabaseInstances.ref, inst.ref));
+    }
+    return reply.send({ id: inst.ref, name: newName, ref: inst.ref });
   });
 
   // Databases
+
   app.get<RefParams>('/platform/projects/:ref/databases', async (req, reply) => {
     const user = app.requireAuth(req);
     const apex = process.env.SUPASTACK_APEX ?? '';
@@ -577,6 +756,39 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(req.body ?? {});
   });
 
+  // PostgreSQL config — static self-hosted defaults; PATCH acknowledges but does not apply (surface for feature 009)
+  app.get<RefParams>('/platform/projects/:ref/postgres-config', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({
+      effective_cache_size: '4096MB',
+      maintenance_work_mem: '64MB',
+      max_connections: 100,
+      shared_buffers: '1024MB',
+      work_mem: '16MB',
+    });
+  });
+
+  app.patch<RefParams>('/platform/projects/:ref/postgres-config', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  // Pooling config — Supavisor endpoint for self-hosted
+  app.get<RefParams>('/platform/projects/:ref/pooling', async (req, reply) => {
+    app.requireAuth(req);
+    const apex = process.env.SUPASTACK_APEX ?? '';
+    const poolerHost = apex ? `pooler.${apex}` : 'localhost';
+    return reply.send({
+      db_dns_name: poolerHost,
+      db_host: poolerHost,
+      db_port: 6543,
+      default_pool_size: 15,
+      max_client_conn: 200,
+      pool_mode: 'transaction',
+      server_idle_timeout: 600,
+    });
+  });
+
   // Secrets config — proxy to management API secrets routes
   app.get<RefParams>('/platform/projects/:ref/config/secrets', async (req, reply) => {
     app.requireAuth(req);
@@ -648,6 +860,77 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   app.get('/platform/projects-resource-warnings', async (req, reply) => {
     app.requireAuth(req);
     return reply.send([]);
+  });
+
+  // Database config
+  app.get<RefParams>('/platform/projects/:ref/config/database', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const apex = process.env.SUPASTACK_APEX ?? '';
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send({
+      db_host: apex ? `db.${inst.ref}.${apex}` : 'localhost',
+      db_port: 5432,
+      db_name: 'postgres',
+      db_user: 'postgres',
+      db_schema: 'public',
+      max_rows: 1000,
+    });
+  });
+
+  // Disk allocation
+  app.get<RefParams>('/platform/projects/:ref/disk', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send({
+      volume_size_gb: 8,
+      volume_percentage: 0,
+      remaining_volume_size: 8,
+      projected_size_increase_gb: 0,
+    });
+  });
+
+  // Network restrictions — none in self-hosted
+  app.get<RefParams>('/platform/projects/:ref/network/restrictions', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send({
+      db_allowed_cidrs: [],
+      db_allowed_cidrs_public_access_enabled: false,
+      entitlement: 'disallowed',
+      override_enabled: false,
+    });
+  });
+
+  // Services — list running per-instance services
+  app.get<RefParams>('/platform/projects/:ref/services', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref, status: schema.supabaseInstances.status })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    const svcStatus = inst.status === 'running' ? 'ACTIVE_HEALTHY' : toStudioProjectStatus(inst.status);
+    return reply.send(['kong', 'auth', 'rest', 'storage', 'realtime', 'meta', 'functions', 'analytics', 'imgproxy', 'studio'].map((name) => ({ name, status: svcStatus })));
   });
 
   // Integrations (GitHub, etc.)
@@ -1156,7 +1439,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       return reply.send({
         authorized_user: emailMatch,
         email_match: emailMatch,
-        expired_token: inv.consumedAt != null || inv.expiresAt < new Date(),
+        expired_token: inv.consumedAt !== null || inv.expiresAt < new Date(),
         invite_id: inv.id,
         organization_name: orgName,
         sso_mismatch: false,
@@ -1453,11 +1736,6 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   // ── Project Infrastructure ─────────────────────────────────────────────────
   // Disk info / config (no real disk management — static stubs)
-  app.get<RefParams>('/platform/projects/:ref/disk', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ size_gb: 8, type: 'gp3', iops: 3000, throughput_mbps: 125 });
-  });
-
   app.post<RefParams>('/platform/projects/:ref/disk', async (req, reply) => {
     app.requireAuth(req);
     return reply.send({ size_gb: 8 });
@@ -1631,11 +1909,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(200).send();
   });
 
-  app.patch<{ Params: { id: string } }>(
-    '/platform/feedback/conversations/:id/custom-fields',
+  app.post('/platform/feedback/docs', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(204).send();
+  });
+
+  app.patch<{ Params: { conversation_id: string } }>(
+    '/platform/feedback/conversations/:conversation_id/custom-fields',
     async (req, reply) => {
       app.requireAuth(req);
-      return reply.send({});
+      return reply.status(204).send();
     },
   );
 
@@ -1992,15 +2275,24 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  // Marketplace / confirm-subscription stubs
+  app.get('/platform/plans', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([{ id: 'free', name: 'Free', is_free_tier: true, price: 0, price_description: '$0/month' }]);
+  });
+
+  app.get('/platform/status', async (req, reply) => {
+    return reply.send({ title: 'Supastack', status: 'operational', indicator: 'none', incidents: [] });
+  });
+
+  // Marketplace / confirm-subscription stubs (cloud-only)
   app.post('/platform/organizations/cloud-marketplace', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({});
+    return reply.status(400).send({ error: 'Not available on self-hosted' });
   });
 
   app.post('/platform/organizations/confirm-subscription', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({});
+    return reply.status(400).send({ error: 'Not available on self-hosted' });
   });
 
   // Database backup operations not yet wired to the backup service
@@ -2082,6 +2374,458 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   app.post('/platform/stripe/setup-intent', async (req, reply) => {
     app.requireAuth(req);
     return reply.send({ client_secret: null });
+  });
+
+  // ── Missing profile endpoints ─────────────────────────────────────────────
+  app.post('/platform/profile', async (req, reply) => {
+    const user = app.requireAuth(req);
+    return reply.send({
+      auth0_id: `supastack|${user.id}`,
+      gotrue_id: user.id,
+      id: 1,
+      primary_email: user.email,
+      username: user.email.split('@')[0],
+      first_name: '',
+      last_name: '',
+      mobile: null,
+      is_alpha_user: false,
+      is_sso_user: false,
+      disabled_features: ['billing:account_data', 'billing:credits', 'billing:invoices', 'billing:payment_methods', 'projects:transfer'],
+      free_project_limit: 999,
+    });
+  });
+
+  app.get<{ Params: { id: string } }>('/platform/profile/access-tokens/:id', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [row] = await db()
+      .select({ id: schema.apiTokens.id, name: schema.apiTokens.label, tokenAlias: schema.apiTokens.prefix, createdAt: schema.apiTokens.createdAt, lastUsedAt: schema.apiTokens.lastUsedAt })
+      .from(schema.apiTokens)
+      .where(and(eq(schema.apiTokens.id, req.params.id), eq(schema.apiTokens.userId, user.id), isNull(schema.apiTokens.revokedAt)))
+      .limit(1);
+    if (!row) return reply.status(404).send({ error: 'Token not found' });
+    return reply.send(toAccessToken(row));
+  });
+
+  app.post('/platform/profile/scoped-access-tokens', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const body = (req.body ?? {}) as { name?: string };
+    const name = body.name?.trim() || 'Scoped token';
+    const { raw, id, prefix } = await mintApiToken(db(), user.id, name, 'studio');
+    return reply.status(201).send({
+      ...toAccessToken({ id, name, tokenAlias: prefix, createdAt: new Date(), lastUsedAt: null }),
+      token: raw,
+    });
+  });
+
+  app.get<{ Params: { id: string } }>('/platform/profile/scoped-access-tokens/:id', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [row] = await db()
+      .select({ id: schema.apiTokens.id, name: schema.apiTokens.label, tokenAlias: schema.apiTokens.prefix, createdAt: schema.apiTokens.createdAt, lastUsedAt: schema.apiTokens.lastUsedAt })
+      .from(schema.apiTokens)
+      .where(and(eq(schema.apiTokens.id, req.params.id), eq(schema.apiTokens.userId, user.id), isNull(schema.apiTokens.revokedAt)))
+      .limit(1);
+    if (!row) return reply.status(404).send({ error: 'Token not found' });
+    return reply.send(toAccessToken(row));
+  });
+
+  app.delete<{ Params: { id: string } }>('/platform/profile/scoped-access-tokens/:id', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [row] = await db()
+      .select({ userId: schema.apiTokens.userId })
+      .from(schema.apiTokens)
+      .where(eq(schema.apiTokens.id, req.params.id))
+      .limit(1);
+    if (!row || row.userId !== user.id) return reply.status(204).send();
+    await db().update(schema.apiTokens).set({ revokedAt: new Date() }).where(eq(schema.apiTokens.id, req.params.id));
+    return reply.status(204).send();
+  });
+
+  // ── Missing org endpoints ─────────────────────────────────────────────────
+  app.post('/platform/organizations/onboarding-survey', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send({});
+  });
+
+  type OrgDrainParams = { Params: { slug: string; token: string } };
+
+  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/analytics/audit-log-drains', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/analytics/audit-log-drains', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(201).send({ token: 'stub', ...((req.body as Record<string, unknown>) ?? {}) });
+  });
+
+  app.delete<OrgDrainParams>('/platform/organizations/:slug/analytics/audit-log-drains/:token', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(204).send();
+  });
+
+  app.patch<OrgDrainParams>('/platform/organizations/:slug/analytics/audit-log-drains/:token', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  app.put<OrgDrainParams>('/platform/organizations/:slug/analytics/audit-log-drains/:token', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/apps', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(201).send({ id: 'mock-app', ...((req.body as Record<string, unknown>) ?? {}) });
+  });
+
+  app.get<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/apps/installations/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ id: req.params.id });
+  });
+
+  app.patch<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/apps/installations/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  app.get<{ Params: { slug: string; app_id: string } }>('/platform/organizations/:slug/apps/:app_id/signing-keys', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.put<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/oauth/apps/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  app.get<{ Params: { slug: string; app_id: string } }>('/platform/organizations/:slug/oauth/apps/:app_id/client-secrets', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.post<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/oauth/authorizations/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send({});
+  });
+
+  app.delete<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/oauth/authorizations/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(204).send();
+  });
+
+  app.put<{ Params: { slug: string; gotrue_id: string; role_id: string } }>(
+    '/platform/organizations/:slug/members/:gotrue_id/roles/:role_id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(200).send({});
+    },
+  );
+
+  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/billing/invoices/upcoming', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ total: 0, lines: [] });
+  });
+
+  app.get<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/billing/invoices/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(404).send({ error: 'Invoice not found' });
+  });
+
+  app.get<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/billing/invoices/:id/payment-link', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ url: null });
+  });
+
+  app.get<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/billing/invoices/:id/receipt', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ url: null });
+  });
+
+  app.put<{ Params: { slug: string } }>('/platform/organizations/:slug/billing/subscription', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ plan: { id: 'pro', name: 'Pro' } });
+  });
+
+  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/billing/subscription/preview', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ breakdown: [], plan: { id: 'pro', name: 'Pro' } });
+  });
+
+  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/billing/credits/preview', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ preview_amount: 0 });
+  });
+
+  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/billing/credits/redeem', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(400).send({ error: 'Not available on self-hosted' });
+  });
+
+  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/billing/credits/top-up', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(400).send({ error: 'Not available on self-hosted' });
+  });
+
+  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/customer', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ billing_email: null, address: null });
+  });
+
+  app.put<{ Params: { slug: string } }>('/platform/organizations/:slug/customer', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/payments', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ data: [] });
+  });
+
+  app.delete<{ Params: { slug: string } }>('/platform/organizations/:slug/payments', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(204).send();
+  });
+
+  app.put<{ Params: { slug: string } }>('/platform/organizations/:slug/payments/default', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({});
+  });
+
+  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/tax-ids', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.put<{ Params: { slug: string } }>('/platform/organizations/:slug/tax-ids', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  app.delete<{ Params: { slug: string } }>('/platform/organizations/:slug/tax-ids', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(204).send();
+  });
+
+  for (const docPath of [
+    '/platform/organizations/:slug/documents/dpa-signed',
+    '/platform/organizations/:slug/documents/iso27001-certificate',
+    '/platform/organizations/:slug/documents/soc2-type-2-report',
+    '/platform/organizations/:slug/documents/standard-security-questionnaire',
+  ] as const) {
+    app.get(docPath, async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ signed: false, url: null });
+    });
+  }
+
+  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/documents/dpa', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(400).send({ error: 'Not available on self-hosted' });
+  });
+
+  app.put<{ Params: { slug: string } }>('/platform/organizations/:slug/cloud-marketplace/link', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(400).send({ error: 'Not available on self-hosted' });
+  });
+
+  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/cloud-marketplace/redirect', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ url: null });
+  });
+
+  // ── Missing project endpoints ─────────────────────────────────────────────
+  app.patch<RefParams>('/platform/projects/:ref/config/storage', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? { fileSizeLimit: 52428800 });
+  });
+
+  app.delete<RefParams>('/platform/projects/:ref/content', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send({});
+  });
+
+  app.put<RefParams>('/platform/projects/:ref/content', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  app.post<RefParams>('/platform/projects/:ref/content/folders', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(201).send({ id: String(Date.now()), ...((req.body as Record<string, unknown>) ?? {}) });
+  });
+
+  app.delete<RefParams>('/platform/projects/:ref/content/folders', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send({});
+  });
+
+  app.patch<{ Params: { ref: string; id: string } }>('/platform/projects/:ref/content/folders/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ id: req.params.id, ...((req.body as Record<string, unknown>) ?? {}) });
+  });
+
+  app.get<{ Params: { ref: string; name: string } }>('/platform/projects/:ref/run-lints/:name', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.post<RefParams>('/platform/projects/:ref/api-keys/temporary', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    const secrets = inst.encryptedSecrets
+      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as { anonKey?: string; serviceRoleKey?: string })
+      : {};
+    return reply.status(201).send({ anon_key: secrets.anonKey ?? '', service_role_key: secrets.serviceRoleKey ?? '' });
+  });
+
+  app.post<RefParams>('/platform/projects/:ref/api/graphql', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    const secrets = inst.encryptedSecrets
+      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as { serviceRoleKey?: string })
+      : {};
+    const { resolveInstance, proxyToKong } = await import('../services/platform-proxy-helpers.js');
+    try {
+      const instance = await resolveInstance(req.params.ref);
+      const bodyBuf = req.body ? Buffer.from(JSON.stringify(req.body)) : Buffer.alloc(0);
+      const headers: Record<string, string | string[] | undefined> = {
+        ...req.headers,
+        apikey: secrets.serviceRoleKey ?? '',
+        authorization: `Bearer ${secrets.serviceRoleKey ?? ''}`,
+        'content-type': 'application/json',
+      };
+      delete headers['content-length'];
+      const result = await proxyToKong(instance.portKong, '/graphql/v1', req.method, headers, bodyBuf);
+      for (const [k, v] of Object.entries(result.headers)) reply.header(k, v);
+      return reply.status(result.status).send(result.body);
+    } catch {
+      return reply.status(503).send({ error: 'GraphQL not available' });
+    }
+  });
+
+  app.post<RefParams>('/platform/projects/:ref/config/realtime/shutdown', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send({});
+  });
+
+  app.get<{ Params: { ref: string; template: string } }>('/platform/auth/:ref/templates/:template', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/config/auth`,
+      headers: req.headers as Record<string, string>,
+    });
+    if (resp.statusCode !== 200) return reply.status(resp.statusCode).send(resp.json<unknown>());
+    const config = resp.json<Record<string, unknown>>();
+    const t = req.params.template;
+    return reply.send({
+      subject: config[`mailer_subjects_${t}`] ?? '',
+      content_path: '',
+      template: config[`mailer_templates_${t}_content`] ?? '',
+    });
+  });
+
+  app.post<RefParams>('/platform/projects/:ref/transfer/preview', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ eligible: false, errors: ['Transfer not supported on self-hosted'] });
+  });
+
+  app.get<RefParams>('/platform/database/:ref/clone', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.get<RefParams>('/platform/database/:ref/clone/status', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ status: 'idle' });
+  });
+
+  app.get<ReplicationDestParams>('/platform/replication/:ref/destinations/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ id: req.params.id });
+  });
+
+  app.post<ReplicationDestParams>('/platform/replication/:ref/destinations/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  app.get<ReplicationPipelineParams>('/platform/replication/:ref/pipelines/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ id: req.params.id });
+  });
+
+  app.post<ReplicationPipelineParams>('/platform/replication/:ref/pipelines/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  app.post<ReplicationPipelineParams>('/platform/replication/:ref/pipelines/:id/version', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ version: '1.0.0' });
+  });
+
+  app.post<RefParams>('/platform/replication/:ref/sources', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(201).send({ id: 'mock-source', ...((req.body as Record<string, unknown>) ?? {}) });
+  });
+
+  app.post<ReplicationSourcePubParams>(
+    '/platform/replication/:ref/sources/:source_id/publications/:name',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
+
+  app.post<ReplicationDestPipelineParams>(
+    '/platform/replication/:ref/destinations-pipelines/:did/:pid',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
+
+  app.post('/platform/integrations/github/authorization', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(400).send({ error: 'GitHub integration not available on self-hosted' });
+  });
+
+  app.delete('/platform/integrations/github/authorization', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(204).send();
+  });
+
+  app.post('/platform/integrations/github/connections', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(400).send({ error: 'GitHub integration not available on self-hosted' });
+  });
+
+  app.delete<{ Params: { id: string } }>('/platform/integrations/github/connections/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(204).send();
+  });
+
+  app.patch<{ Params: { id: string } }>('/platform/integrations/github/connections/:id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
+
+  app.patch<LogDrainParams>('/platform/projects/:ref/analytics/log-drains/:token', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
   });
 };
 
