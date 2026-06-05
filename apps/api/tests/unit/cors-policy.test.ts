@@ -56,7 +56,8 @@ describe('CORS — dashboard origin (US1: happy + preflight)', () => {
     for (const h of ['authorization', 'x-connection-encrypted', 'x-pg-application-name', 'x-request-id']) {
       expect(headers).toContain(h);
     }
-    expect(res.headers['access-control-allow-credentials']).toBeUndefined();
+    // Studio fetcher uses credentials:'include' → Allow-Credentials MUST be true (with exact origin).
+    expect(res.headers['access-control-allow-credentials']).toBe('true');
   });
 
   it('reflects ANY requested header (not a fixed allow-list) — guards against the `version`-header break', async () => {
