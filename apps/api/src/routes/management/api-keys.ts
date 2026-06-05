@@ -29,4 +29,26 @@ export const apiKeysRoutes: FastifyPluginAsync = async (app) => {
       return instanceApiKeys(secrets);
     },
   );
+
+  app.delete<{ Params: { ref: string; id: string } }>(
+    '/projects/:ref/api-keys/:id',
+    async () => {
+      throw new ManagementApiError(
+        501,
+        'Custom API key management is not supported on self-hosted',
+        'not_implemented',
+      );
+    },
+  );
+
+  app.patch<{ Params: { ref: string; id: string } }>(
+    '/projects/:ref/api-keys/:id',
+    async () => {
+      throw new ManagementApiError(
+        501,
+        'Custom API key management is not supported on self-hosted',
+        'not_implemented',
+      );
+    },
+  );
 };
