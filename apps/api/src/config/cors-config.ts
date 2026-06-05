@@ -4,9 +4,10 @@ import type { FastifyCorsOptions } from '@fastify/cors';
  * Feature 107 — scoped CORS for the control-plane API served at `api.<apex>`
  * (and the dual-served apex). The dashboard (`https://<apex>`) calls the API
  * cross-origin; this is the single auditable allow-list. Never `*` — the API is
- * credentialed-capable (Bearer JWT). `credentials: false`: dashboard→API auth is
- * a Bearer `Authorization` header, not a cookie (the only cookie, `sb-access-token`,
- * is read solely by the `/v1/oauth/authorize` navigation, anchored at the apex).
+ * credentialed (the Studio fetcher uses `credentials: 'include'`, so the browser
+ * BLOCKS the response unless `Access-Control-Allow-Credentials: true` is set AND the
+ * origin is EXACT — never `*`). Our auth is still the Bearer `Authorization` header;
+ * the `sb-access-token` cookie rides along but is ignored for API auth.
  */
 
 /**
@@ -71,7 +72,10 @@ export function corsOptions(): FastifyCorsOptions {
     // (it sends `version`, and more across Studio versions). `@fastify/cors` reflects
     // when `allowedHeaders` is omitted. (ALLOWED_REQUEST_HEADERS below stays as the
     // documented "known" set for audit, but runtime allows whatever is requested.)
-    credentials: false,
+    // The Studio fetcher sets `credentials: 'include'` (data/fetchers.ts:36), so the
+    // browser blocks the response unless Allow-Credentials is true AND the origin is
+    // exact (it is — never `*`). Our auth is Bearer; the cookie rides along, ignored.
+    credentials: true,
     maxAge: 600,
   };
 }
