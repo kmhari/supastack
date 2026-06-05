@@ -196,23 +196,34 @@ describe('platform-proxy routes', () => {
       );
     });
 
-    it('backfills bucket name from id on create (Studio sends {id,type,public}; storage-api requires name)', async () => {
+    it('backfills name from id + forwards the full Studio bucket-create body', async () => {
       proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
       proxyHelpersMock.proxyToKong.mockResolvedValue(OK_RESPONSE);
 
+      // Exact STANDARD-bucket body Studio sends (apps/studio/data/storage/
+      // bucket-create-mutation.ts: { id: values.name, type, public, file_size_limit?,
+      // allowed_mime_types? } — no `name`; the upstream storage-api requires `name`).
       await app.inject({
         method: 'POST',
         url: '/platform/storage/ref123/buckets',
         headers: { authorization: 'Bearer token', 'content-type': 'application/json' },
-        payload: { id: 'test', type: 'STANDARD', public: true },
+        payload: {
+          id: 'test',
+          type: 'STANDARD',
+          public: true,
+          file_size_limit: 26214400,
+          allowed_mime_types: ['image/png'],
+        },
       });
 
       const call = proxyHelpersMock.proxyToKong.mock.calls.at(-1)!;
       expect(call[1]).toBe('/storage/v1/bucket'); // path rewrite preserved
       const forwarded = JSON.parse((call[4] as Buffer).toString());
-      expect(forwarded.name).toBe('test'); // ← fix: name backfilled from id
+      expect(forwarded.name).toBe('test'); // ← fix: name backfilled from id (id IS the user's name)
       expect(forwarded.id).toBe('test');
       expect(forwarded.public).toBe(true);
+      expect(forwarded.file_size_limit).toBe(26214400); // optional fields pass through verbatim
+      expect(forwarded.allowed_mime_types).toEqual(['image/png']);
     });
 
     it('does NOT override an explicit name', async () => {
