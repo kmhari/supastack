@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ vi.mock('../../src/services/platform-proxy-helpers.js', () => proxyHelpersMock);
 
 async function buildApp(authenticated = true): Promise<FastifyInstance> {
   const app = Fastify();
-  app.decorate('requireAuth', function requireAuth(req: import('fastify').FastifyRequest) {
+  app.decorate('requireAuth', function requireAuth(_req: FastifyRequest) {
     if (!authenticated) {
       const err = new Error('Unauthorized') as Error & { statusCode: number };
       err.statusCode = 401;
