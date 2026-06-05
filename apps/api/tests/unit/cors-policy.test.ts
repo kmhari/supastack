@@ -58,6 +58,21 @@ describe('CORS — dashboard origin (US1: happy + preflight)', () => {
     }
     expect(res.headers['access-control-allow-credentials']).toBeUndefined();
   });
+
+  it('reflects ANY requested header (not a fixed allow-list) — guards against the `version`-header break', async () => {
+    const res = await app.inject({
+      method: 'OPTIONS',
+      url: '/platform/profile',
+      headers: {
+        origin: DASH,
+        'access-control-request-method': 'GET',
+        'access-control-request-headers': 'authorization,version,x-some-future-header',
+      },
+    });
+    const headers = String(res.headers['access-control-allow-headers'] ?? '').toLowerCase();
+    expect(headers).toContain('version');
+    expect(headers).toContain('x-some-future-header');
+  });
 });
 
 describe('CORS — origin lock (US2: foreign reject, never *)', () => {

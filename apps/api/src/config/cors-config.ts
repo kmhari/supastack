@@ -10,9 +10,10 @@ import type { FastifyCorsOptions } from '@fastify/cors';
  */
 
 /**
- * Request headers the dashboard/Studio + supabase-js/CLI send that aren't CORS-safe
- * by default. Reviewed when the vendored Studio is upgraded (FR-005). The custom
- * `x-*` set is HAR-observed; the rest are standard supabase-js / postgrest headers.
+ * The KNOWN request headers the dashboard/Studio + supabase-js/CLI send (HAR-observed
+ * custom `x-*` + standard supabase-js/postgrest). **Documentation/audit only** — the
+ * runtime CORS reflects whatever the browser requests (see corsOptions), because an
+ * explicit list silently breaks when the Studio adds a header (it sends `version`).
  */
 export const ALLOWED_REQUEST_HEADERS = [
   'authorization',
@@ -63,7 +64,13 @@ export function corsOptions(): FastifyCorsOptions {
       cb(null, allowed.has(origin));
     },
     methods: [...ALLOWED_METHODS],
-    allowedHeaders: [...ALLOWED_REQUEST_HEADERS],
+    // Reflect the browser's requested headers (Access-Control-Request-Headers) — do
+    // NOT pin an explicit list. The ORIGIN is the security boundary (scoped above);
+    // reflecting headers for an already-allowed origin is safe AND robust. An explicit
+    // allow-list silently breaks the moment the Studio sends a header we didn't list
+    // (it sends `version`, and more across Studio versions). `@fastify/cors` reflects
+    // when `allowedHeaders` is omitted. (ALLOWED_REQUEST_HEADERS below stays as the
+    // documented "known" set for audit, but runtime allows whatever is requested.)
     credentials: false,
     maxAge: 600,
   };
