@@ -102,6 +102,18 @@ mcp.{$SUPASTACK_APEX} {
 	reverse_proxy mcp:3002
 }
 
+# Feature 107 — dedicated API host (api.<apex>) for the platform + Management API
+# (mirrors Supabase's api.supabase.com). The whole host → api:3001, which demuxes
+# by path (/platform/*, /v1/*) and 404s anything else — it does NOT serve the
+# studio. The runtime caddy-config.ts has the same `apiHostRoute`; this is cold-boot
+# parity. The base=root Studio (apex) calls this host cross-origin (scoped CORS).
+api.{$SUPASTACK_APEX} {
+	tls {
+		on_demand
+	}
+	reverse_proxy api:3001
+}
+
 # Plain HTTPS — always listening so on-demand TLS can fire. The runtime
 # config from caddy-reload.ts adds per-host (apex + <ref>.<apex>) routes
 # on top of this.

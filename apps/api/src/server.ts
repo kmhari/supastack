@@ -1,5 +1,6 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import { corsOptions } from './config/cors-config.js';
 import multipart from '@fastify/multipart';
 import { loadMasterKey } from '@supastack/crypto';
 import { db, makeDb, migrate, schema } from '@supastack/db';
@@ -194,7 +195,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   await app.register(helmet, { contentSecurityPolicy: false });
-  await app.register(cors, { origin: true, credentials: true });
+  // Feature 107 — scoped CORS (single source) for the cross-origin dashboard at
+  // api.<apex>; exact apex origin only (never *), Bearer auth → no credentials.
+  await app.register(cors, corsOptions());
   await app.register(authPlugin);
   await app.register(rbacPlugin);
 
