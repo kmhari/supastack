@@ -423,7 +423,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     return reply.send({
-      status: inst.status === 'running' ? 'ACTIVE_HEALTHY' : inst.status.toUpperCase(),
+      status: toStudioProjectStatus(inst.status),
     });
   });
 
@@ -712,8 +712,26 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   // Databases statuses (project home page)
   app.get<RefParams>('/platform/projects/:ref/databases-statuses', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send([{ identifier: req.params.ref, status: 'ACTIVE_HEALTHY' }]);
+    // #106 — reflect the REAL instance status (e.g. RESTORING during a restore),
+    // consistent with /platform/projects/:ref/status; org-membership scoped. Studio
+    // consumes this in data/read-replicas/replicas-status-query.ts (per-database status).
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ status: schema.supabaseInstances.status })
+      .from(schema.supabaseInstances)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send([{ identifier: req.params.ref, status: toStudioProjectStatus(inst.status) }]);
   });
 
   // Content endpoints — shapes validated against Studio data fetchers
@@ -834,7 +852,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       ref: inst.ref,
       ssl_enforced: false,
       is_sensitive: null,
-      status: inst.status === 'running' ? 'ACTIVE_HEALTHY' : inst.status.toUpperCase(),
+      status: toStudioProjectStatus(inst.status),
       app_config: {
         db_schema: 'public',
         endpoint,
@@ -2085,6 +2103,18 @@ function toAccessToken(r: {
   };
 }
 
+/**
+ * Map the internal `supabaseInstances.status` to the Studio PROJECT_STATUS enum
+ * (`lib/constants/infrastructure.ts`: ACTIVE_HEALTHY/RESTORING/PAUSING/COMING_UP/…).
+ * Single source — used by /status, /databases-statuses, buildProject, and the
+ * project list so the project badge, the database list, and the restore poll
+ * never disagree (#106). `running → ACTIVE_HEALTHY`, everything else upper-cased
+ * (`restoring → RESTORING`, `paused → PAUSED`, …).
+ */
+export function toStudioProjectStatus(status: string): string {
+  return status === 'running' ? 'ACTIVE_HEALTHY' : status.toUpperCase();
+}
+
 function buildProject(
   inst: { ref: string; name: string; status: string; portKong: number; insertedAt: Date | null; updatedAt: Date | null; orgId: string },
   apex: string,
@@ -2114,7 +2144,7 @@ function buildProject(
     ref: inst.ref,
     region: 'local',
     restUrl: `${kongUrl}/rest/v1`,
-    status: inst.status === 'running' ? 'ACTIVE_HEALTHY' : inst.status.toUpperCase(),
+    status: toStudioProjectStatus(inst.status),
     subscription_id: null,
     updated_at: inst.updatedAt?.toISOString() ?? new Date().toISOString(),
     volumeSizeGb: 8,
@@ -2125,7 +2155,7 @@ function buildProject(
         infra_compute_size: 'nano',
         inserted_at: inst.insertedAt?.toISOString() ?? new Date().toISOString(),
         region: 'local',
-        status: inst.status === 'running' ? 'ACTIVE_HEALTHY' : inst.status.toUpperCase(),
+        status: toStudioProjectStatus(inst.status),
       },
     ],
   };
