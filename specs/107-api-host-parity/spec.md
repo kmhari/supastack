@@ -92,6 +92,10 @@ The `supabase` CLI and MCP (which already target `api.<apex>/v1`) keep working u
 - **FR-010**: A cross-origin browser request from any origin other than the dashboard apex MUST NOT receive a CORS grant for that origin (no foreign-origin data access).
 - **FR-011**: The change MUST be deployable as a coordinated sequence (API CORS available before the dashboard is repointed) with a clean rollback (revert the dashboard's API base to the apex), with no data migration.
 - **FR-012**: The existing apex `/platform/*` + `/v1/*` routes MAY remain (dual-served) so the cutover is reversible and low-risk; removing them is out of scope for this feature.
+- **FR-013**: The API change MUST be covered by automated tests, and every existing test affected by it MUST be updated:
+  - **New CORS coverage**: the dashboard apex origin receives an exact-origin `Access-Control-Allow-Origin` (never `*`); a foreign `Origin` receives no usable grant; preflight `OPTIONS` for the dashboard's methods + the full custom-header allow-list (incl. `authorization`, `x-connection-encrypted`, `x-pg-application-name`, `x-request-id`) is answered; the credentials posture matches FR-006.
+  - **Updated existing tests**: any test that asserts API routing/host behaviour (e.g. the runtime Caddy-routing config tests, for the new explicit `api.<apex>` host route) is updated to reflect the new surface.
+  - **No regression**: the full API test suite and the pinned `/v1` OpenAPI contract test stay green (0 new failures, no drift — Constitution IV).
 
 ### Key Entities
 
@@ -109,6 +113,7 @@ The `supabase` CLI and MCP (which already target `api.<apex>/v1`) keep working u
 - **SC-003**: A browser request to the API host from a non-dashboard origin receives **no** usable CORS grant — **0** foreign origins can read API responses.
 - **SC-004**: CLI (`supabase` against `api.<apex>/v1`) + MCP + the `/v1` contract test show **0** regressions vs before the change.
 - **SC-005**: Rollback restores same-origin operation via a single dashboard-base revert (+ Studio rebuild), with no API or data change required.
+- **SC-006**: The CORS policy and the `api.<apex>` host route are covered by automated tests (allowed-origin happy path, foreign-origin rejection, preflight with the full header allow-list); the full API suite and the `/v1` contract test run green with **0** new failures and **0** contract drift.
 
 ## Assumptions
 
