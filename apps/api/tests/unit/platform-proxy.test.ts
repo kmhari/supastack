@@ -195,6 +195,42 @@ describe('platform-proxy routes', () => {
         expect.any(Buffer),
       );
     });
+
+    it('backfills bucket name from id on create (Studio sends {id,type,public}; storage-api requires name)', async () => {
+      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
+      proxyHelpersMock.proxyToKong.mockResolvedValue(OK_RESPONSE);
+
+      await app.inject({
+        method: 'POST',
+        url: '/platform/storage/ref123/buckets',
+        headers: { authorization: 'Bearer token', 'content-type': 'application/json' },
+        payload: { id: 'test', type: 'STANDARD', public: true },
+      });
+
+      const call = proxyHelpersMock.proxyToKong.mock.calls.at(-1)!;
+      expect(call[1]).toBe('/storage/v1/bucket'); // path rewrite preserved
+      const forwarded = JSON.parse((call[4] as Buffer).toString());
+      expect(forwarded.name).toBe('test'); // ← fix: name backfilled from id
+      expect(forwarded.id).toBe('test');
+      expect(forwarded.public).toBe(true);
+    });
+
+    it('does NOT override an explicit name', async () => {
+      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
+      proxyHelpersMock.proxyToKong.mockResolvedValue(OK_RESPONSE);
+
+      await app.inject({
+        method: 'POST',
+        url: '/platform/storage/ref123/buckets',
+        headers: { authorization: 'Bearer token', 'content-type': 'application/json' },
+        payload: { id: 'an-id', name: 'explicit-name', public: false },
+      });
+
+      const forwarded = JSON.parse(
+        (proxyHelpersMock.proxyToKong.mock.calls.at(-1)![4] as Buffer).toString(),
+      );
+      expect(forwarded.name).toBe('explicit-name');
+    });
   });
 
   describe('auth admin proxy', () => {

@@ -25,6 +25,22 @@ function bodyOf(req: { body?: unknown }): Buffer {
   return Buffer.from(JSON.stringify(b));
 }
 
+/**
+ * Newer Studio posts bucket-create as `{ id, type, public }`, but the bundled
+ * per-instance storage-api requires `name` (→ 400 "must have required property
+ * 'name'"). Backfill `name` from `id` (Studio's create dialog uses one value for
+ * both) so the bucket is created. Mutates `req.body` in place. Scoped to
+ * `POST .../buckets` — the only shape we've confirmed the upstream schema accepts.
+ */
+function backfillBucketName(req: { method: string; params: Record<string, unknown>; body?: unknown }): void {
+  if (req.method !== 'POST') return;
+  if ((req.params['*'] as string | undefined) !== 'buckets') return;
+  const b = req.body as Record<string, unknown> | null | undefined;
+  if (b && typeof b === 'object' && !Array.isArray(b) && b.name == null && typeof b.id === 'string') {
+    b.name = b.id;
+  }
+}
+
 const STRIP_REQUEST_HEADERS = new Set(['x-connection-encrypted', 'content-length']);
 const STRIP_RESPONSE_HEADERS = new Set([
   'access-control-allow-origin',
@@ -125,6 +141,8 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
       // Rewrite: buckets → bucket (storage API uses singular)
       const upstreamSuffix = suffix.replace(/^buckets/, 'bucket');
       const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+      // Newer Studio sends bucket-create as {id,type,public}; storage-api needs `name`.
+      backfillBucketName(req);
       const body = bodyOf(req);
       const upstreamPath = `/storage/v1/${upstreamSuffix}${qs}`;
       // Inject service role JWT as Authorization — storage validates via GoTrue
