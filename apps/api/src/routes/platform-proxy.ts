@@ -6,8 +6,6 @@ import {
   ProxyProjectPausedError,
   ProxyUpstreamError,
 } from '../services/platform-proxy-helpers.js';
-import { decryptJson, loadMasterKey } from '@supastack/crypto';
-import type { InstanceSecrets } from '../services/instance-secrets.js';
 
 // Forward the request body to Kong. By the time the handler runs, Fastify has
 // already parsed the body (default JSON parser → object; server.ts buffer
@@ -19,7 +17,7 @@ import type { InstanceSecrets } from '../services/instance-secrets.js';
 // length from the original).
 function bodyOf(req: { body?: unknown }): Buffer {
   const b = req.body;
-  if (b == null) return Buffer.alloc(0);
+  if (b === undefined || b === null) return Buffer.alloc(0);
   if (Buffer.isBuffer(b)) return b;
   if (typeof b === 'string') return Buffer.from(b);
   return Buffer.from(JSON.stringify(b));
@@ -36,7 +34,13 @@ function backfillBucketName(req: { method: string; params: Record<string, unknow
   if (req.method !== 'POST') return;
   if ((req.params['*'] as string | undefined) !== 'buckets') return;
   const b = req.body as Record<string, unknown> | null | undefined;
-  if (b && typeof b === 'object' && !Array.isArray(b) && b.name == null && typeof b.id === 'string') {
+  if (
+    b &&
+    typeof b === 'object' &&
+    !Array.isArray(b) &&
+    (b.name === undefined || b.name === null) &&
+    typeof b.id === 'string'
+  ) {
     b.name = b.id;
   }
 }
