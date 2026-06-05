@@ -44,7 +44,7 @@ description: "Task list — feature 107 API host-parity (api.<apex> + scoped COR
 - [X] T006 [US1] In `infra/docker-compose.yml`, change the Studio `NEXT_PUBLIC_API_URL` from `https://${SUPASTACK_APEX}` to `https://api.${SUPASTACK_APEX}`. Do NOT touch `NEXT_PUBLIC_GOTRUE_URL` (stays apex `/auth/v1`). Add the rebuild note (NEXT_PUBLIC_* baked at build → wipe `.next` + `--force-recreate studio`).
 - [X] T007 [P] [US1] CORS contract test `apps/api/tests/unit/cors-policy.test.ts` (happy + preflight): a request with the dashboard apex `Origin` → `Access-Control-Allow-Origin` echoes it exactly; a preflight `OPTIONS` (with `Access-Control-Request-Method: POST` + the custom headers) → returns the allowed methods + the full header allow-list incl. `authorization`/`x-connection-encrypted`/`x-pg-application-name`/`x-request-id`; no `Access-Control-Allow-Credentials`. (Register `@fastify/cors` with the `cors-config.ts` options on a bare Fastify app + `app.inject`.)
 - [X] T008 [P] [US1] Update the Caddy-routing test (`apps/api/tests/unit/caddy-config-*.test.ts`, or a new `caddy-config-api-host.test.ts`): assert `buildCaddyConfig` emits a terminal `api.<apex>` host route whose subroutes send `/platform/*` + `/v1/*` to `api:3001` and that the studio catch-all is NOT present under that host.
-- [ ] T009 [US1] LIVE VERIFY (quickstart §3; deploy-gated): deploy api first → `curl -H "Origin: https://<apex>" https://api.<apex>/platform/profile` echoes the origin; preflight `OPTIONS` for the pg-meta POST returns the header allow-list; `https://api.<apex>/` → 404 (no studio). Then rebuild Studio (base=api host) → every project page loads with 0 CORS errors in console; sign-in works (apex `/auth/v1`); a pg-meta query + a mutation succeed cross-origin.
+- [X] T009 [US1] LIVE VERIFY (quickstart §3; deploy-gated): deploy api first → `curl -H "Origin: https://<apex>" https://api.<apex>/platform/profile` echoes the origin; preflight `OPTIONS` for the pg-meta POST returns the header allow-list; `https://api.<apex>/` → 404 (no studio). Then rebuild Studio (base=api host) → every project page loads with 0 CORS errors in console; sign-in works (apex `/auth/v1`); a pg-meta query + a mutation succeed cross-origin.
 
 **Checkpoint**: dashboard fully functional cross-origin; API host explicit + clean.
 
@@ -56,7 +56,7 @@ description: "Task list — feature 107 API host-parity (api.<apex> + scoped COR
 **Independent test**: quickstart §1 (foreign-reject unit) + §3a (live foreign-origin refused).
 
 - [X] T010 [US2] Extend `apps/api/tests/unit/cors-policy.test.ts` with the security cases (depends on T007 — same file): a foreign `Origin: https://evil.example` → response has **no** `Access-Control-Allow-Origin`; the allow-origin is never `*`; a dev origin is allowed ONLY when `NODE_ENV !== 'production'` (assert it is rejected when production).
-- [ ] T011 [US2] LIVE VERIFY (quickstart §3a; deploy-gated): `curl -D- -H "Origin: https://evil.example" https://api.<apex>/platform/profile` → no `access-control-allow-origin` header for that origin.
+- [X] T011 [US2] LIVE VERIFY (quickstart §3a; deploy-gated): `curl -D- -H "Origin: https://evil.example" https://api.<apex>/platform/profile` → no `access-control-allow-origin` header for that origin.
 
 **Checkpoint**: the credentialed API only serves CORS to the dashboard origin (the prior `origin:true` posture is gone).
 
@@ -68,7 +68,7 @@ description: "Task list — feature 107 API host-parity (api.<apex> + scoped COR
 **Independent test**: quickstart §2 (no drift) + §4 (CLI/login live).
 
 - [X] T012 [US3] No-drift gate: `pnpm exec vitest run management-api contract` green (the pinned `/v1` OpenAPI contract — Constitution IV); check `apps/api/tests/unit/platform-proxy.test.ts` for any assertion that relied on the old open CORS and update it; run the full `--project @supastack/api` suite green.
-- [ ] T013 [US3] LIVE VERIFY (quickstart §4; deploy-gated): the `supabase` CLI against `api.<apex>/v1` (list / migration list / gen-types) succeeds identically; a login round-trip at the apex works (same-origin, no CORS). MCP unaffected.
+- [X] T013 [US3] LIVE VERIFY (quickstart §4; deploy-gated): the `supabase` CLI against `api.<apex>/v1` (list / migration list / gen-types) succeeds identically; a login round-trip at the apex works (same-origin, no CORS). MCP unaffected.
 
 **Checkpoint**: CLI/MCP/login/`/v1` all unchanged.
 
