@@ -289,6 +289,7 @@
 |---|---|---|---|---|---|
 | `/v1/projects/:ref/health` | GET | ✅ | supastack | Get service health statuses | `GET /instances/:ref/health` |
 | `/platform/projects/:ref/databases` | GET | ⚠️ | supastack | List databases for project | `GET .../projects/:ref/databases` (stub) |
+| `/platform/projects/:ref/databases-statuses` | GET | ✅ | supastack | Per-database status (read-replica list) | `GET .../databases-statuses` → `[{identifier:ref, status}]`, real instance status mapped (running→ACTIVE_HEALTHY, restoring→RESTORING; #106) |
 | `/platform/projects/:ref/disk` | GET | ⚠️ | supastack | Get disk info | `GET .../projects/:ref/disk` (stub) |
 | `/platform/projects/:ref/disk` | POST | ⚠️ | supastack | Configure disk size | `POST .../projects/:ref/disk` (stub) |
 | `/platform/projects/:ref/disk/custom-config` | GET | ⚠️ | supastack | Get custom disk config | `GET .../disk/custom-config` (stub) |
