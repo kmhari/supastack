@@ -99,6 +99,16 @@ else
   ok "avail-versions-get-post-match" "$GET_SORTED" "$POST_SORTED"
 fi
 
+# ─── 4. Sad path: no auth → 401 on all three endpoints ───────────────────────
+echo "==> [4] No auth → 401"
+for endpoint in \
+    "projects/${SUPASTACK_PROJECT_REF}/restore/versions" \
+    "projects/${SUPASTACK_PROJECT_REF}/daily-stats" \
+    "organizations/${SLUG:-no-org}/available-versions"; do
+  S=$(curl -sk -o /dev/null -w '%{http_code}' "${PLATFORM}/${endpoint}")
+  ok "no-auth-401:${endpoint##*/}" 401 "$S"
+done
+
 echo
 echo "[quick-wins] TOTAL=$((PASS+FAIL)) PASS=${PASS} FAIL=${FAIL}"
 [ "$FAIL" -eq 0 ]
