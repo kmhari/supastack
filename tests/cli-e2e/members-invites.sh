@@ -25,7 +25,7 @@ set -uo pipefail
 : "${SUPASTACK_ORG:?SUPASTACK_ORG required}"
 
 BASE="https://${SUPASTACK_APEX}"
-ORG="${BASE}/api/v1/platform/organizations/${SUPASTACK_ORG}"
+ORG="${BASE}/platform/organizations/${SUPASTACK_ORG}"
 AUTH=(-H "authorization: Bearer ${SUPASTACK_TOKEN}" -H 'content-type: application/json')
 PASS=0; FAIL=0
 ok() { if [ "$2" = "$3" ]; then echo "[MEMBERS] $1 STATUS=PASS ($3)"; PASS=$((PASS+1)); else echo "[MEMBERS] $1 STATUS=FAIL (want $2 got $3)"; FAIL=$((FAIL+1)); fi; }

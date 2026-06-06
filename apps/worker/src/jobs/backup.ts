@@ -90,10 +90,10 @@ export async function handleBackup(payload: {
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 function pgDumpStream(containerName: string): Readable {
-  // docker exec -T <db> pg_dump -U postgres -Fc postgres
+  // docker exec <db> pg_dump -U postgres -Fc postgres
   const child = spawn(
     'docker',
-    ['exec', '-T', containerName, 'pg_dump', '-U', 'postgres', '-Fc', 'postgres'],
+    ['exec', containerName, 'pg_dump', '-U', 'postgres', '-Fc', 'postgres'],
     { stdio: ['ignore', 'pipe', 'pipe'] },
   );
   // Forward stderr to logger; otherwise it accumulates silently.

@@ -2,7 +2,7 @@
  * pg_dump streaming via Docker socket exec — feature 013 db dump
  * (research.md Decision 4).
  *
- * Shells `pg_dump` inside the per-instance `selfbase-<ref>-db-1` container via
+ * Shells `pg_dump` inside the per-instance `supastack-<ref>-db-1` container via
  * the Docker Engine HTTP API at /var/run/docker.sock (same socket already
  * mounted into the api container for pg-password-reset.ts). Streams stdout
  * directly to the caller's WritableStream — no buffering. Honors AbortSignal:
@@ -87,7 +87,7 @@ export async function streamPgDump(
   output: Writable,
   signal: AbortSignal,
 ): Promise<PgDumpResult> {
-  const container = `selfbase-${ref}-db-1`;
+  const container = `supastack-${ref}-db-1`;
   const argv = buildPgDumpArgs(flags);
 
   // 1. Create exec.

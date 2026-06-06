@@ -29,8 +29,8 @@ PASS=0; FAIL=0
 ok() { if [ "$2" = "$3" ]; then echo "[EMAIL] $1 STATUS=PASS ($3)"; PASS=$((PASS+1)); else echo "[EMAIL] $1 STATUS=FAIL (want $2 got $3)"; FAIL=$((FAIL+1)); fi; }
 
 EMAIL="invitee-$(date +%s)@example.dev"
-INVITE_CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${AUTH[@]}" -d "{\"emails\":[\"${EMAIL}\"],\"role_id\":3}" "${BASE}/api/v1/platform/organizations/${SUPASTACK_ORG}/members/invitations")
-RESET_CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${AUTH[@]}" -d "{\"email\":\"${EMAIL}\"}" "${BASE}/api/v1/platform/reset-password")
+INVITE_CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${AUTH[@]}" -d "{\"emails\":[\"${EMAIL}\"],\"role_id\":3}" "${BASE}/platform/organizations/${SUPASTACK_ORG}/members/invitations")
+RESET_CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${AUTH[@]}" -d "{\"email\":\"${EMAIL}\"}" "${BASE}/platform/reset-password")
 
 if [ "${SUPASTACK_SMTP_CONFIGURED:-0}" = "1" ]; then
   ok "invite-with-smtp-200" 200 "$INVITE_CODE"

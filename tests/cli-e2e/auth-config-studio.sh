@@ -26,7 +26,7 @@ set -uo pipefail
 : "${SUPASTACK_REF:?SUPASTACK_REF required (a running project)}"
 
 AUTH=(-H "authorization: Bearer ${SUPASTACK_TOKEN}" -H 'content-type: application/json')
-P="https://${SUPASTACK_APEX}/api/v1/platform/auth/${SUPASTACK_REF}/config"
+P="https://${SUPASTACK_APEX}/platform/auth/${SUPASTACK_REF}/config"
 V1="https://api.${SUPASTACK_APEX}/v1/projects/${SUPASTACK_REF}/config/auth"
 PASS=0; FAIL=0
 ok() { if [ "$2" = "$3" ]; then echo "[AUTHCFG] $1 STATUS=PASS ($3)"; PASS=$((PASS+1)); else echo "[AUTHCFG] $1 STATUS=FAIL (want $2 got $3)"; FAIL=$((FAIL+1)); fi; }

@@ -43,20 +43,20 @@ else check "no-sb_sid-cookie" yes yes; fi
 AUTH=(-H "authorization: Bearer ${ACCESS}")
 
 # Dashboard bootstrap: profile + permissions + orgs all 200.
-check "profile-200" 200 "$(curl -sS -o /dev/null -w '%{http_code}' "${AUTH[@]}" "${BASE}/api/v1/platform/profile")"
-check "permissions-200" 200 "$(curl -sS -o /dev/null -w '%{http_code}' "${AUTH[@]}" "${BASE}/api/v1/platform/profile/permissions")"
-check "organizations-200" 200 "$(curl -sS -o /dev/null -w '%{http_code}' "${AUTH[@]}" "${BASE}/api/v1/platform/organizations")"
+check "profile-200" 200 "$(curl -sS -o /dev/null -w '%{http_code}' "${AUTH[@]}" "${BASE}/platform/profile")"
+check "permissions-200" 200 "$(curl -sS -o /dev/null -w '%{http_code}' "${AUTH[@]}" "${BASE}/platform/profile/permissions")"
+check "organizations-200" 200 "$(curl -sS -o /dev/null -w '%{http_code}' "${AUTH[@]}" "${BASE}/platform/organizations")"
 
 # Profile carries the GoTrue identity.
-PROFILE=$(curl -sS "${AUTH[@]}" "${BASE}/api/v1/platform/profile")
+PROFILE=$(curl -sS "${AUTH[@]}" "${BASE}/platform/profile")
 printf '%s' "$PROFILE" | grep -q "\"primary_email\":\"${SUPASTACK_OP_EMAIL}\"" \
   && check "profile-has-email" yes yes || check "profile-has-email" yes no
 
 # ── Sad: tampered / garbage bearer → 401 ─────────────────────────────────────
 TAMPERED="${ACCESS%?}X"
-check "tampered-jwt-401" 401 "$(curl -sS -o /dev/null -w '%{http_code}' -H "authorization: Bearer ${TAMPERED}" "${BASE}/api/v1/platform/profile")"
-check "garbage-jwt-401" 401 "$(curl -sS -o /dev/null -w '%{http_code}' -H 'authorization: Bearer not.a.jwt' "${BASE}/api/v1/platform/profile")"
-check "no-token-401" 401 "$(curl -sS -o /dev/null -w '%{http_code}' "${BASE}/api/v1/platform/profile")"
+check "tampered-jwt-401" 401 "$(curl -sS -o /dev/null -w '%{http_code}' -H "authorization: Bearer ${TAMPERED}" "${BASE}/platform/profile")"
+check "garbage-jwt-401" 401 "$(curl -sS -o /dev/null -w '%{http_code}' -H 'authorization: Bearer not.a.jwt' "${BASE}/platform/profile")"
+check "no-token-401" 401 "$(curl -sS -o /dev/null -w '%{http_code}' "${BASE}/platform/profile")"
 
 echo "[SIGNIN] TOTAL=$((PASS + FAIL)) PASS=${PASS} FAIL=${FAIL}"
 [ "$FAIL" -eq 0 ]
