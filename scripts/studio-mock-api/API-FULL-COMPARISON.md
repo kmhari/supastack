@@ -31,14 +31,14 @@
 | `/platform/profile/access-tokens` | POST | ✅ | supastack | Create PAT | `POST /api/v1/platform/profile/access-tokens` |
 | `/platform/profile/access-tokens/{id}` | DELETE | ✅ | supastack | Revoke PAT | `DELETE /api/v1/platform/profile/access-tokens/:id` |
 | `/platform/profile/permissions` | GET | ✅ | supastack | Get user's RBAC permissions (per-org) | `GET /api/v1/platform/profile/permissions` |
-| `/platform/profile` | POST | ⚠️ | — | Creates user's profile | — |
-| `/platform/profile/access-tokens/{id}` | GET | ⚠️ | — | Gets the access token with the given ID | — |
+| `/platform/profile` | POST | ⚠️ | supastack | Creates user's profile | `POST /platform/profile` (stub 200) |
+| `/platform/profile/access-tokens/{id}` | GET | ✅ | supastack | Gets the access token with the given ID | `GET /platform/profile/access-tokens/:id` (real — 404 for missing) |
 | `/platform/profile/audit` | GET | ⚠️ | supastack | Get user login audit log | `GET /api/v1/platform/profile/audit` (stub) |
 | `/platform/profile/audit-login` | POST | ⚠️ | supastack | Record login audit event | `POST /api/v1/platform/profile/audit-login` (stub) |
 | `/platform/profile/scoped-access-tokens` | GET | ⚠️ | supastack | List scoped tokens | `GET /api/v1/platform/profile/scoped-access-tokens` (stub) |
-| `/platform/profile/scoped-access-tokens` | POST | ⚠️ | — | Creates a new scoped access token | — |
-| `/platform/profile/scoped-access-tokens/{id}` | DELETE | ⚠️ | — | Deletes the scoped access token with the given ID | — |
-| `/platform/profile/scoped-access-tokens/{id}` | GET | ⚠️ | — | Gets the scoped access token with the given ID | — |
+| `/platform/profile/scoped-access-tokens` | POST | ✅ | supastack | Creates a new scoped access token | `POST /platform/profile/scoped-access-tokens` (real) |
+| `/platform/profile/scoped-access-tokens/{id}` | DELETE | ✅ | supastack | Deletes the scoped access token with the given ID | `DELETE /platform/profile/scoped-access-tokens/:id` (real) |
+| `/platform/profile/scoped-access-tokens/{id}` | GET | ✅ | supastack | Gets the scoped access token with the given ID | `GET /platform/profile/scoped-access-tokens/:id` (real) |
 
 ---
 
@@ -69,77 +69,77 @@
 | `/platform/organizations/:slug/oauth/authorizations/:id` | GET | ⚠️ | supastack | Get OAuth authorization _(not in platform.d.ts)_ | `GET .../oauth/authorizations/:id` (stub) |
 | `/platform/organizations/cloud-marketplace` | POST | ⚠️ | mock | Register via marketplace | — |
 | `/platform/organizations/confirm-subscription` | POST | ⚠️ | mock | Confirm marketplace subscription | — |
-| `/platform/organizations/onboarding-survey` | POST | ⚠️ | — | Submit onboarding survey for a newly created organization | — |
+| `/platform/organizations/onboarding-survey` | POST | ⚠️ | supastack | Submit onboarding survey for a newly created organization | `POST .../onboarding-survey` (stub 200) |
 | `/platform/organizations/preview-creation` | POST | ⚠️ | supastack | Preview org creation (validation) | `POST /api/v1/platform/organizations/preview-creation` (stub) |
-| `/platform/organizations/{slug}/analytics/audit-log-drains` | GET | ⚠️ | — | Lists all audit log drains for an organization | — |
-| `/platform/organizations/{slug}/analytics/audit-log-drains` | POST | ⚠️ | — | Create an audit log drain | — |
-| `/platform/organizations/{slug}/analytics/audit-log-drains/{token}` | DELETE | ⚠️ | — | Delete an audit log drain | — |
-| `/platform/organizations/{slug}/analytics/audit-log-drains/{token}` | PATCH | ⚠️ | — | Patch an audit log drain | — |
-| `/platform/organizations/{slug}/analytics/audit-log-drains/{token}` | PUT | ⚠️ | — | Update an audit log drain | — |
+| `/platform/organizations/{slug}/analytics/audit-log-drains` | GET | ⚠️ | supastack | Lists all audit log drains for an organization | `GET .../analytics/audit-log-drains` (stub empty list) |
+| `/platform/organizations/{slug}/analytics/audit-log-drains` | POST | ⚠️ | supastack | Create an audit log drain | `POST .../analytics/audit-log-drains` (stub 201) |
+| `/platform/organizations/{slug}/analytics/audit-log-drains/{token}` | DELETE | ⚠️ | supastack | Delete an audit log drain | `DELETE .../analytics/audit-log-drains/:token` (stub 204) |
+| `/platform/organizations/{slug}/analytics/audit-log-drains/{token}` | PATCH | ⚠️ | supastack | Patch an audit log drain | `PATCH .../analytics/audit-log-drains/:token` (stub 200) |
+| `/platform/organizations/{slug}/analytics/audit-log-drains/{token}` | PUT | ⚠️ | supastack | Update an audit log drain | `PUT .../analytics/audit-log-drains/:token` (stub 200) |
 | `/platform/organizations/{slug}/apps` | GET | ⚠️ | supastack | List platform apps (empty) | `GET .../apps` (stub) |
-| `/platform/organizations/{slug}/apps` | POST | ⚠️ | — | Create new platform app | — |
+| `/platform/organizations/{slug}/apps` | POST | ⚠️ | supastack | Create new platform app | `POST .../apps` (stub 201) |
 | `/platform/organizations/{slug}/apps/installations` | GET | ⚠️ | supastack | List app installations (empty) | `GET .../apps/installations` (stub) |
 | `/platform/organizations/{slug}/apps/installations` | POST | ⚠️ | supastack | Install app | `POST .../apps/installations` (stub) |
 | `/platform/organizations/{slug}/apps/installations/{installation_id}` | DELETE | ⚠️ | supastack | Uninstall app | `DELETE .../apps/installations/:id` (stub) |
-| `/platform/organizations/{slug}/apps/installations/{installation_id}` | GET | ⚠️ | — | Get platform app installation with the given id | — |
-| `/platform/organizations/{slug}/apps/installations/{installation_id}` | PATCH | ⚠️ | — | Update platform app installation permissions | — |
+| `/platform/organizations/{slug}/apps/installations/{installation_id}` | GET | ⚠️ | supastack | Get platform app installation with the given id | `GET .../apps/installations/:installation_id` (stub 200) |
+| `/platform/organizations/{slug}/apps/installations/{installation_id}` | PATCH | ⚠️ | supastack | Update platform app installation permissions | `PATCH .../apps/installations/:installation_id` (stub 200) |
 | `/platform/organizations/{slug}/apps/{app_id}` | DELETE | ⚠️ | supastack | Delete app | `DELETE .../apps/:app_id` (stub) |
 | `/platform/organizations/{slug}/apps/{app_id}` | GET | ⚠️ | supastack | Get app details | `GET .../apps/:app_id` (stub) |
 | `/platform/organizations/{slug}/apps/{app_id}` | PATCH | ⚠️ | supastack | Update app | `PATCH .../apps/:app_id` (stub) |
-| `/platform/organizations/{slug}/apps/{app_id}/signing-keys` | GET | ⚠️ | — | List signing keys for the given platform app | — |
+| `/platform/organizations/{slug}/apps/{app_id}/signing-keys` | GET | ⚠️ | supastack | List signing keys for the given platform app | `GET .../apps/:app_id/signing-keys` (stub 200) |
 | `/platform/organizations/{slug}/apps/{app_id}/signing-keys` | POST | ⚠️ | supastack | Create signing key | `POST .../apps/:app_id/signing-keys` (stub) |
 | `/platform/organizations/{slug}/apps/{app_id}/signing-keys/{key_id}` | DELETE | ⚠️ | supastack | Delete signing key | `DELETE .../signing-keys/:id` (stub) |
 | `/platform/organizations/{slug}/audit` | GET | ⚠️ | supastack | Get org audit log | `GET .../organizations/:slug/audit` (stub) |
 | `/platform/organizations/{slug}/billing/credits/balance` | GET | ⚠️ | supastack | Get credit balance (zero) | `GET .../billing/credits/balance` (stub) |
-| `/platform/organizations/{slug}/billing/credits/preview` | POST | ⚠️ | — | Preview for credit top-up | — |
-| `/platform/organizations/{slug}/billing/credits/redeem` | POST | ⚠️ | — | Redeems a credit code | — |
-| `/platform/organizations/{slug}/billing/credits/top-up` | POST | ⚠️ | — | Tops up the credit balance | — |
+| `/platform/organizations/{slug}/billing/credits/preview` | POST | ⚠️ | supastack | Preview for credit top-up | `POST .../billing/credits/preview` (stub 400 — not supported self-hosted) |
+| `/platform/organizations/{slug}/billing/credits/redeem` | POST | ⚠️ | supastack | Redeems a credit code | `POST .../billing/credits/redeem` (stub 400 — not supported self-hosted) |
+| `/platform/organizations/{slug}/billing/credits/top-up` | POST | ⚠️ | supastack | Tops up the credit balance | `POST .../billing/credits/top-up` (stub 400 — not supported self-hosted) |
 | `/platform/organizations/{slug}/billing/invoices` | GET | ⚠️ | supastack | List invoices (empty) | `GET .../billing/invoices` (stub) |
-| `/platform/organizations/{slug}/billing/invoices/upcoming` | GET | ⚠️ | — | Gets the upcoming invoice | — |
-| `/platform/organizations/{slug}/billing/invoices/{invoice_id}` | GET | ⚠️ | — | Gets invoice with the given invoice ID | — |
-| `/platform/organizations/{slug}/billing/invoices/{invoice_id}/payment-link` | GET | ⚠️ | — | Gets the payment link to manually pay the given invoice | — |
-| `/platform/organizations/{slug}/billing/invoices/{invoice_id}/receipt` | GET | ⚠️ | — | Get the receipt PDF URL for a paid invoice | — |
+| `/platform/organizations/{slug}/billing/invoices/upcoming` | GET | ⚠️ | supastack | Gets the upcoming invoice | `GET .../billing/invoices/upcoming` (stub 200) |
+| `/platform/organizations/{slug}/billing/invoices/{invoice_id}` | GET | ⚠️ | supastack | Gets invoice with the given invoice ID | `GET .../billing/invoices/:invoice_id` (stub 404 — correct for self-hosted) |
+| `/platform/organizations/{slug}/billing/invoices/{invoice_id}/payment-link` | GET | ⚠️ | supastack | Gets the payment link to manually pay the given invoice | `GET .../billing/invoices/:invoice_id/payment-link` (stub 200) |
+| `/platform/organizations/{slug}/billing/invoices/{invoice_id}/receipt` | GET | ⚠️ | supastack | Get the receipt PDF URL for a paid invoice | `GET .../billing/invoices/:invoice_id/receipt` (stub 200) |
 | `/platform/organizations/{slug}/billing/plans` | GET | ⚠️ | supastack | List available plans (Free only) | `GET .../billing/plans` (stub) |
 | `/platform/organizations/{slug}/billing/subscription` | GET | ⚠️ | supastack | Get current subscription plan (always Free) | `GET .../billing/subscription` (stub) |
-| `/platform/organizations/{slug}/billing/subscription` | PUT | ⚠️ | — | Updates subscription | — |
-| `/platform/organizations/{slug}/billing/subscription/confirm` | POST | ⚠️ | mock | Confirm plan change | — |
-| `/platform/organizations/{slug}/billing/subscription/preview` | POST | ⚠️ | — | Preview subscription changes | — |
-| `/platform/organizations/{slug}/billing/upgrade-request` | POST | ⚠️ | mock | Request plan upgrade | — |
-| `/platform/organizations/{slug}/cloud-marketplace/link` | PUT | ⚠️ | — | Makes an existing organization being billed by AWS Marketplace | — |
-| `/platform/organizations/{slug}/cloud-marketplace/redirect` | GET | ⚠️ | — | Gets the AWS Marketplace redirect url | — |
-| `/platform/organizations/{slug}/customer` | GET | ⚠️ | — | Gets the Billing customer | — |
-| `/platform/organizations/{slug}/customer` | PUT | ⚠️ | — | Updates the billing customer | — |
-| `/platform/organizations/{slug}/documents/dpa` | POST | ⚠️ | — | Create DPA document using PandaDoc | — |
-| `/platform/organizations/{slug}/documents/dpa-signed` | GET | ⚠️ | — | Org Documents — get dpa signed status | — |
-| `/platform/organizations/{slug}/documents/iso27001-certificate` | GET | ⚠️ | — | Get ISO 27001 certificate URL | — |
-| `/platform/organizations/{slug}/documents/soc2-type-2-report` | GET | ⚠️ | — | Get SOC2 Type 2 report URL | — |
-| `/platform/organizations/{slug}/documents/standard-security-questionnaire` | GET | ⚠️ | — | Get standard security questionnaire URL | — |
+| `/platform/organizations/{slug}/billing/subscription` | PUT | ⚠️ | supastack | Updates subscription | `PUT .../billing/subscription` (stub 200) |
+| `/platform/organizations/{slug}/billing/subscription/confirm` | POST | ⚠️ | supastack | Confirm plan change | `POST .../billing/subscription/confirm` (stub 200) |
+| `/platform/organizations/{slug}/billing/subscription/preview` | POST | ⚠️ | supastack | Preview subscription changes | `POST .../billing/subscription/preview` (stub 200) |
+| `/platform/organizations/{slug}/billing/upgrade-request` | POST | ⚠️ | supastack | Request plan upgrade | `POST .../billing/upgrade-request` (stub 200) |
+| `/platform/organizations/{slug}/cloud-marketplace/link` | PUT | ⚠️ | supastack | Makes an existing organization being billed by AWS Marketplace | `PUT .../cloud-marketplace/link` (stub 400 — not supported self-hosted) |
+| `/platform/organizations/{slug}/cloud-marketplace/redirect` | GET | ⚠️ | supastack | Gets the AWS Marketplace redirect url | `GET .../cloud-marketplace/redirect` (stub 200) |
+| `/platform/organizations/{slug}/customer` | GET | ⚠️ | supastack | Gets the Billing customer | `GET .../customer` (stub 200) |
+| `/platform/organizations/{slug}/customer` | PUT | ⚠️ | supastack | Updates the billing customer | `PUT .../customer` (stub 200) |
+| `/platform/organizations/{slug}/documents/dpa` | POST | ⚠️ | supastack | Create DPA document using PandaDoc | `POST .../documents/dpa` (stub 400 — not supported self-hosted) |
+| `/platform/organizations/{slug}/documents/dpa-signed` | GET | ⚠️ | supastack | Org Documents — get dpa signed status | `GET .../documents/dpa-signed` (stub 200) |
+| `/platform/organizations/{slug}/documents/iso27001-certificate` | GET | ⚠️ | supastack | Get ISO 27001 certificate URL | `GET .../documents/iso27001-certificate` (stub 200) |
+| `/platform/organizations/{slug}/documents/soc2-type-2-report` | GET | ⚠️ | supastack | Get SOC2 Type 2 report URL | `GET .../documents/soc2-type-2-report` (stub 200) |
+| `/platform/organizations/{slug}/documents/standard-security-questionnaire` | GET | ⚠️ | supastack | Get standard security questionnaire URL | `GET .../documents/standard-security-questionnaire` (stub 200) |
 | `/platform/organizations/{slug}/entitlements` | GET | ⚠️ | supastack | Get feature entitlements | `GET .../organizations/:slug/entitlements` (stub) |
 | `/platform/organizations/{slug}/members/mfa/enforcement` | GET | ⚠️ | supastack | Get MFA policy (MFA out of scope) | `GET .../members/mfa/enforcement` (stub) |
 | `/platform/organizations/{slug}/members/mfa/enforcement` | PATCH | ⚠️ | supastack | Set MFA enforcement (MFA out of scope) | `PATCH .../members/mfa/enforcement` (stub) |
 | `/platform/organizations/{slug}/members/reached-free-project-limit` | GET | ⚠️ | supastack | Check free project limit | `GET .../members/reached-free-project-limit` (stub) |
-| `/platform/organizations/{slug}/members/{gotrue_id}/roles/{role_id}` | PUT | ⚠️ | — | Update organization member role | — |
+| `/platform/organizations/{slug}/members/{gotrue_id}/roles/{role_id}` | PUT | ⚠️ | supastack | Update organization member role | `PUT .../members/:gotrue_id/roles/:role_id` (stub 400) |
 | `/platform/organizations/{slug}/oauth/apps` | GET | ⚠️ | supastack | List OAuth apps | `GET .../oauth/apps` (stub; real OAuth clients at `/api/v1/oauth/*`) |
 | `/platform/organizations/{slug}/oauth/apps` | POST | ⚠️ | supastack | Create OAuth app | `POST .../oauth/apps` (stub) |
-| `/platform/organizations/{slug}/oauth/apps/{app_id}/client-secrets` | GET | ⚠️ | — | List oauth app client secrets | — |
+| `/platform/organizations/{slug}/oauth/apps/{app_id}/client-secrets` | GET | ⚠️ | supastack | List oauth app client secrets | `GET .../oauth/apps/:app_id/client-secrets` (stub 200) |
 | `/platform/organizations/{slug}/oauth/apps/{app_id}/client-secrets` | POST | ⚠️ | supastack | Create client secret | `POST .../client-secrets` (stub) |
 | `/platform/organizations/{slug}/oauth/apps/{app_id}/client-secrets/{secret_id}` | DELETE | ⚠️ | supastack | Delete client secret | `DELETE .../client-secrets/:sid` (stub) |
 | `/platform/organizations/{slug}/oauth/apps/{id}` | DELETE | ⚠️ | supastack | Delete OAuth app | `DELETE .../oauth/apps/:id` (stub) |
-| `/platform/organizations/{slug}/oauth/apps/{id}` | PUT | ⚠️ | — | Update an oauth app | — |
+| `/platform/organizations/{slug}/oauth/apps/{id}` | PUT | ⚠️ | supastack | Update an oauth app | `PUT .../oauth/apps/:id` (stub 200) |
 | `/platform/organizations/{slug}/oauth/apps/{id}/revoke` | POST | ⚠️ | supastack | Revoke OAuth app | `POST .../oauth/apps/:id/revoke` (stub) |
-| `/platform/organizations/{slug}/oauth/authorizations/{id}` | DELETE | ⚠️ | — | [Beta] Decline oauth app authorization request | — |
-| `/platform/organizations/{slug}/oauth/authorizations/{id}` | POST | ⚠️ | — | [Beta] Approve oauth app authorization request | — |
-| `/platform/organizations/{slug}/payments` | DELETE | ⚠️ | — | Detach payment method with the given card ID | — |
-| `/platform/organizations/{slug}/payments` | GET | ⚠️ | — | Gets Stripe payment methods for the given organization | — |
-| `/platform/organizations/{slug}/payments/default` | PUT | ⚠️ | — | Mark given payment method as default for organization | — |
-| `/platform/organizations/{slug}/payments/setup-intent` | POST | ⚠️ | mock | Create Stripe setup intent | — |
-| `/platform/organizations/{slug}/sso` | DELETE | ⚠️ | — | Delete the organization's SSO Provider | — |
+| `/platform/organizations/{slug}/oauth/authorizations/{id}` | DELETE | ⚠️ | supastack | [Beta] Decline oauth app authorization request | `DELETE .../oauth/authorizations/:id` (stub 204) |
+| `/platform/organizations/{slug}/oauth/authorizations/{id}` | POST | ⚠️ | supastack | [Beta] Approve oauth app authorization request | `POST .../oauth/authorizations/:id` (stub 200) |
+| `/platform/organizations/{slug}/payments` | DELETE | ⚠️ | supastack | Detach payment method with the given card ID | `DELETE .../payments` (stub 204) |
+| `/platform/organizations/{slug}/payments` | GET | ⚠️ | supastack | Gets Stripe payment methods for the given organization | `GET .../payments` (stub 200) |
+| `/platform/organizations/{slug}/payments/default` | PUT | ⚠️ | supastack | Mark given payment method as default for organization | `PUT .../payments/default` (stub 200) |
+| `/platform/organizations/{slug}/payments/setup-intent` | POST | ⚠️ | supastack | Create Stripe setup intent | `POST .../payments/setup-intent` (stub 200) |
+| `/platform/organizations/{slug}/sso` | DELETE | ⚠️ | supastack | Delete the organization's SSO Provider | `DELETE .../sso` (stub 400 — not supported self-hosted) |
 | `/platform/organizations/{slug}/sso` | GET | ⚠️ | mock | List SSO configurations | — |
-| `/platform/organizations/{slug}/sso` | POST | ⚠️ | — | Create the organization's SSO Provider | — |
-| `/platform/organizations/{slug}/sso` | PUT | ⚠️ | — | Update the organization's SSO Provider | — |
-| `/platform/organizations/{slug}/tax-ids` | DELETE | ⚠️ | — | Delete the tax ID with the given ID | — |
-| `/platform/organizations/{slug}/tax-ids` | GET | ⚠️ | — | Gets the given organization's tax ID | — |
-| `/platform/organizations/{slug}/tax-ids` | PUT | ⚠️ | — | Creates or updates a tax ID for the given organization | — |
+| `/platform/organizations/{slug}/sso` | POST | ⚠️ | supastack | Create the organization's SSO Provider | `POST .../sso` (stub 400 — not supported self-hosted) |
+| `/platform/organizations/{slug}/sso` | PUT | ⚠️ | supastack | Update the organization's SSO Provider | `PUT .../sso` (stub 400 — not supported self-hosted) |
+| `/platform/organizations/{slug}/tax-ids` | DELETE | ⚠️ | supastack | Delete the tax ID with the given ID | `DELETE .../tax-ids` (stub 204) |
+| `/platform/organizations/{slug}/tax-ids` | GET | ⚠️ | supastack | Gets the given organization's tax ID | `GET .../tax-ids` (stub 200) |
+| `/platform/organizations/{slug}/tax-ids` | PUT | ⚠️ | supastack | Creates or updates a tax ID for the given organization | `PUT .../tax-ids` (stub 200) |
 | `/platform/organizations/{slug}/usage` | GET | ⚠️ | supastack | Get org usage metrics | `GET .../organizations/:slug/usage` (stub) |
 | `/platform/organizations/{slug}/usage/daily` | GET | ⚠️ | supastack | Get daily usage breakdown | `GET .../organizations/:slug/usage/daily` (stub) |
 
@@ -190,32 +190,32 @@
 | `/platform/projects/{ref}/analytics/log-drains` | GET | ⚠️ | supastack | List log drain destinations (empty) | `GET .../analytics/log-drains` (stub) |
 | `/platform/projects/{ref}/analytics/log-drains` | POST | ⚠️ | supastack | Create log drain | `POST .../analytics/log-drains` (stub) |
 | `/platform/projects/{ref}/analytics/log-drains/{token}` | DELETE | ⚠️ | supastack | Delete log drain | `DELETE .../log-drains/:token` (stub) |
-| `/platform/projects/{ref}/analytics/log-drains/{token}` | PATCH | ⚠️ | — | Patch a log drain | — |
+| `/platform/projects/{ref}/analytics/log-drains/{token}` | PATCH | ⚠️ | supastack | Patch a log drain | `PATCH .../log-drains/:token` (stub 200) |
 | `/platform/projects/{ref}/analytics/log-drains/{token}` | PUT | ⚠️ | supastack | Update log drain | `PUT .../log-drains/:token` (stub) |
-| `/platform/projects/{ref}/api-keys/temporary` | POST | ⚠️ | — | Create a temporary API key | — |
-| `/platform/projects/{ref}/api/graphql` | POST | ⚠️ | — | Queries project Graphql | — |
+| `/platform/projects/{ref}/api-keys/temporary` | POST | ⚠️ | supastack | Create a temporary API key | `POST .../api-keys/temporary` (stub 201) |
+| `/platform/projects/{ref}/api/graphql` | POST | ⚠️ | supastack | Queries project Graphql | `POST .../api/graphql` (stub 200) |
 | `/platform/projects/{ref}/api/rest` | GET | ⚠️ | supastack | Get REST API config | `GET .../projects/:ref/api/rest` (stub) |
-| `/platform/projects/{ref}/billing/addons` | POST | ⚠️ | — | Updates project addon | — |
-| `/platform/projects/{ref}/billing/addons/{addon_variant}` | DELETE | ⚠️ | — | Removes project addon | — |
-| `/platform/projects/{ref}/config/pgbouncer` | GET | ⚠️ | mock | Get pgBouncer/pooler config | — |
+| `/platform/projects/{ref}/billing/addons` | POST | ⚠️ | supastack | Updates project addon | `POST .../billing/addons` (stub 400 — not supported self-hosted) |
+| `/platform/projects/{ref}/billing/addons/{addon_variant}` | DELETE | ⚠️ | supastack | Removes project addon | `DELETE .../billing/addons/:addon_variant` (stub 400 — not supported self-hosted) |
+| `/platform/projects/{ref}/config/pgbouncer` | GET | ⚠️ | supastack | Get pgBouncer/pooler config | `GET .../config/pgbouncer` (stub 200) |
 | `/platform/projects/{ref}/config/pgbouncer` | PATCH | ⚠️ | supastack | Update pgBouncer config | `PATCH .../config/pgbouncer` (stub) |
 | `/platform/projects/{ref}/config/pgbouncer/status` | GET | ⚠️ | supastack | Get pgBouncer status | `GET /api/v1/pooler/status` (partial) |
 | `/platform/projects/{ref}/config/realtime` | GET | ⚠️ | supastack | Get Realtime config | `GET .../config/realtime` (stub) |
 | `/platform/projects/{ref}/config/realtime` | PATCH | ⚠️ | supastack | Update Realtime config | `PATCH .../config/realtime` (stub) |
-| `/platform/projects/{ref}/config/realtime/shutdown` | POST | ⚠️ | — | Shutdowns realtime connections for a project | — |
-| `/platform/projects/{ref}/config/secrets/update-status` | GET | ⚠️ | mock | Get secret sync status | — |
+| `/platform/projects/{ref}/config/realtime/shutdown` | POST | ⚠️ | supastack | Shutdowns realtime connections for a project | `POST .../config/realtime/shutdown` (stub 200) |
+| `/platform/projects/{ref}/config/secrets/update-status` | GET | ⚠️ | supastack | Get secret sync status | `GET .../config/secrets/update-status` (stub 200) |
 | `/platform/projects/{ref}/config/storage` | GET | ⚠️ | supastack | Get storage config (file size limits) | `GET .../config/storage` (stub) |
-| `/platform/projects/{ref}/config/storage` | PATCH | ⚠️ | — | Updates project's storage config | — |
-| `/platform/projects/{ref}/config/supavisor` | GET | ⚠️ | — | Gets project's supavisor config | — |
-| `/platform/projects/{ref}/content` | DELETE | ⚠️ | — | Deletes project's contents | — |
+| `/platform/projects/{ref}/config/storage` | PATCH | ⚠️ | supastack | Updates project's storage config | `PATCH .../config/storage` (stub 200) |
+| `/platform/projects/{ref}/config/supavisor` | GET | ✅ | supastack | Gets project's supavisor config | `GET .../config/supavisor` (real 200) |
+| `/platform/projects/{ref}/content` | DELETE | ⚠️ | supastack | Deletes project's contents | `DELETE .../content` (stub 200) |
 | `/platform/projects/{ref}/content` | GET | ⚠️ | supastack | List saved SQL queries/snippets (empty) | `GET .../projects/:ref/content` (stub) |
-| `/platform/projects/{ref}/content` | PUT | ⚠️ | — | Updates project's content | — |
+| `/platform/projects/{ref}/content` | PUT | ⚠️ | supastack | Updates project's content | `PUT .../content` (stub 200) |
 | `/platform/projects/{ref}/content/count` | GET | ⚠️ | supastack | Count content items | `GET .../content/count` (stub) |
-| `/platform/projects/{ref}/content/folders` | DELETE | ⚠️ | — | Deletes project's content folders | — |
+| `/platform/projects/{ref}/content/folders` | DELETE | ⚠️ | supastack | Deletes project's content folders | `DELETE .../content/folders` (stub 204) |
 | `/platform/projects/{ref}/content/folders` | GET | ⚠️ | supastack | List content folders | `GET .../content/folders` (stub) |
-| `/platform/projects/{ref}/content/folders` | POST | ⚠️ | — | Creates project's content folder | — |
+| `/platform/projects/{ref}/content/folders` | POST | ⚠️ | supastack | Creates project's content folder | `POST .../content/folders` (stub 201) |
 | `/platform/projects/{ref}/content/folders/{id}` | GET | ⚠️ | supastack | Get content folder | `GET .../content/folders/:id` (stub) |
-| `/platform/projects/{ref}/content/folders/{id}` | PATCH | ⚠️ | — | Updates project's content folder | — |
+| `/platform/projects/{ref}/content/folders/{id}` | PATCH | ⚠️ | supastack | Updates project's content folder | `PATCH .../content/folders/:id` (stub 200) |
 | `/platform/projects/{ref}/content/item/{id}` | GET | ⚠️ | supastack | Get specific content item | `GET .../content/item/:id` (stub) |
 | `/platform/projects/{ref}/daily-stats` | GET | ⚠️ | mock | Get daily usage stats | — |
 | `/platform/projects/{ref}/databases` | GET | ⚠️ | supastack | List databases for project | `GET .../projects/:ref/databases` (stub) |
@@ -228,25 +228,25 @@
 | `/platform/projects/{ref}/infra-monitoring` | GET | ⚠️ | mock | Get infra monitoring data | — |
 | `/platform/projects/{ref}/load-balancers` | GET | ⚠️ | mock | List load balancers | — |
 | `/platform/projects/{ref}/members` | GET | ⚠️ | supastack | List project members | `GET .../projects/:ref/members` (stub) |
-| `/platform/projects/{ref}/notifications/advisor/exceptions` | DELETE | ⚠️ | — | Deletes advisor notification exceptions | — |
+| `/platform/projects/{ref}/notifications/advisor/exceptions` | DELETE | ⚠️ | supastack | Deletes advisor notification exceptions | `DELETE .../notifications/advisor/exceptions` (stub 204) |
 | `/platform/projects/{ref}/notifications/advisor/exceptions` | GET | ⚠️ | mock | Get lint exception rules | — |
-| `/platform/projects/{ref}/notifications/advisor/exceptions` | POST | ⚠️ | — | Create advisor notification exceptions | — |
-| `/platform/projects/{ref}/notifications/advisor/exceptions/{id}` | PATCH | ⚠️ | — | Updates advisor notification exceptions | — |
+| `/platform/projects/{ref}/notifications/advisor/exceptions` | POST | ⚠️ | supastack | Create advisor notification exceptions | `POST .../notifications/advisor/exceptions` (stub 201) |
+| `/platform/projects/{ref}/notifications/advisor/exceptions/{id}` | PATCH | ⚠️ | supastack | Updates advisor notification exceptions | `PATCH .../notifications/advisor/exceptions/:id` (stub 200) |
 | `/platform/projects/{ref}/pause/status` | GET | ⚠️ | mock | Get pause status | — |
 | `/platform/projects/{ref}/privatelink/associations` | GET | ⚠️ | supastack | List PrivateLink associations (empty) | `GET .../privatelink/associations` (stub) |
 | `/platform/projects/{ref}/privatelink/associations/aws-account` | POST | ⚠️ | supastack | Create AWS PrivateLink | `POST .../privatelink/associations/aws-account` (stub) |
-| `/platform/projects/{ref}/privatelink/associations/aws-account/{aws_account_id}` | DELETE | ⚠️ | — | Project Private Link — remove aws account from private link | — |
+| `/platform/projects/{ref}/privatelink/associations/aws-account/{aws_account_id}` | DELETE | ⚠️ | supastack | Project Private Link — remove aws account from private link | `DELETE .../privatelink/associations/aws-account/:aws_account_id` (stub 204) |
 | `/platform/projects/{ref}/resize` | POST | ⚠️ | supastack | Resize compute | `POST .../projects/:ref/resize` (stub) |
 | `/platform/projects/{ref}/restart-services` | POST | ⚠️ | supastack | Restart specific services | `POST /instances/:ref/restart` |
 | `/platform/projects/{ref}/restore/versions` | GET | ⚠️ | mock | List restore versions | — |
 | `/platform/projects/{ref}/run-lints` | GET | ⚠️ | mock | Run database lint checks | — |
-| `/platform/projects/{ref}/run-lints/leaked-service-key` | GET | ⚠️ | — | Run project leaked service key lint | — |
-| `/platform/projects/{ref}/run-lints/no-backup-admin` | GET | ⚠️ | — | Run project backup admin lint | — |
-| `/platform/projects/{ref}/run-lints/{name}` | GET | ⚠️ | — | Run project lint by name | — |
+| `/platform/projects/{ref}/run-lints/leaked-service-key` | GET | ⚠️ | supastack | Run project leaked service key lint | `GET .../run-lints/:name` (stub) |
+| `/platform/projects/{ref}/run-lints/no-backup-admin` | GET | ⚠️ | supastack | Run project backup admin lint | `GET .../run-lints/:name` (stub) |
+| `/platform/projects/{ref}/run-lints/{name}` | GET | ⚠️ | supastack | Run project lint by name | `GET .../run-lints/:name` (stub) |
 | `/platform/projects/{ref}/service-versions` | GET | ⚠️ | supastack | Get version info for each service | `GET .../service-versions` (stub) |
 | `/platform/projects/{ref}/settings/sensitivity` | PATCH | ⚠️ | supastack | Set data sensitivity level | `PATCH .../settings/sensitivity` (stub) |
 | `/platform/projects/{ref}/transfer` | POST | ⚠️ | supastack | Transfer project to another org | `POST .../projects/:ref/transfer` (stub) |
-| `/platform/projects/{ref}/transfer/preview` | POST | ⚠️ | — | Previews transferring a project to a different organizations, shows eligibility and impact. | — |
+| `/platform/projects/{ref}/transfer/preview` | POST | ⚠️ | supastack | Previews transferring a project to a different organizations, shows eligibility and impact. | `POST .../transfer/preview` (stub 200) |
 
 ---
 
@@ -261,9 +261,9 @@
 | `/platform/database/{ref}/backups/download` | POST | ⚠️ | supastack | Download a backup | `POST .../backups/download` (stub) |
 | `/platform/database/{ref}/backups/downloadable-backups` | GET | ⚠️ | supastack | List downloadable backups | `GET /projects/:ref/database/backups` |
 | `/platform/database/{ref}/backups/enable-physical-backups` | POST | ⚠️ | mock | Enable physical backups | — |
-| `/platform/database/{ref}/clone` | GET | ⚠️ | — | List valid backups to clone from | — |
+| `/platform/database/{ref}/clone` | GET | ⚠️ | supastack | List valid backups to clone from | `GET .../database/:ref/clone` (stub empty list) |
 | `/platform/database/{ref}/clone` | POST | ⚠️ | supastack | Clone database to new project | `POST .../database/:ref/clone` (stub) |
-| `/platform/database/{ref}/clone/status` | GET | ⚠️ | — | Retrieve the current status of an existing cloning process | — |
+| `/platform/database/{ref}/clone/status` | GET | ⚠️ | supastack | Retrieve the current status of an existing cloning process | `GET .../database/:ref/clone/status` (stub) |
 | `/platform/database/{ref}/hook-enable` | POST | ⚠️ | supastack | Enable database webhooks | `POST .../database/:ref/hook-enable` (stub) |
 
 ---
@@ -353,7 +353,7 @@
 | `/platform/auth/{ref}/users/{id}` | PATCH | ✅ | proxy | Updates user with given ID | `→ /platform/auth/:ref/users*` |
 | `/platform/auth/{ref}/users/{id}/factors` | DELETE | ✅ | proxy | Delete user's MFA factors | `→ Kong /auth/v1/admin/users/:id/factors` |
 | `/platform/auth/{ref}/validate/spam` | POST | ✅ | proxy | Validate spam / abuse | `→ Kong /auth/v1/admin/validate/spam` |
-| `/platform/auth/{ref}/templates/{template}` | GET | ⚠️ | — | Gets Auth template | — |
+| `/platform/auth/{ref}/templates/{template}` | GET | ✅ | supastack | Gets Auth template | `GET /platform/auth/:ref/templates/:template` (real — reads from auth config) |
 
 ---
 
@@ -367,30 +367,30 @@
 | `/platform/replication/{ref}/destinations` | POST | ⚠️ | supastack | Create destination | stub |
 | `/platform/replication/{ref}/destinations-pipelines` | POST | ⚠️ | supastack | Create destination+pipeline together | stub |
 | `/platform/replication/{ref}/destinations-pipelines/{destination_id}/{pipeline_id}` | DELETE | ⚠️ | supastack | Delete destination+pipeline | stub |
-| `/platform/replication/{ref}/destinations-pipelines/{destination_id}/{pipeline_id}` | POST | ⚠️ | — | Replication Destinations Pipelines — update destination pipeline | — |
+| `/platform/replication/{ref}/destinations-pipelines/{destination_id}/{pipeline_id}` | POST | ⚠️ | supastack | Replication Destinations Pipelines — update destination pipeline | `POST .../destinations-pipelines/:destination_id/:pipeline_id` (stub 200) |
 | `/platform/replication/{ref}/destinations/validate` | POST | ⚠️ | supastack | Validate destination config | stub |
 | `/platform/replication/{ref}/destinations/{destination_id}` | DELETE | ⚠️ | supastack | Delete destination | stub |
-| `/platform/replication/{ref}/destinations/{destination_id}` | GET | ⚠️ | — | Replication Destinations — get destination | — |
-| `/platform/replication/{ref}/destinations/{destination_id}` | POST | ⚠️ | — | Replication Destinations — update destination | — |
+| `/platform/replication/{ref}/destinations/{destination_id}` | GET | ⚠️ | supastack | Replication Destinations — get destination | `GET .../destinations/:destination_id` (stub 200) |
+| `/platform/replication/{ref}/destinations/{destination_id}` | POST | ⚠️ | supastack | Replication Destinations — update destination | `POST .../destinations/:destination_id` (stub 200) |
 | `/platform/replication/{ref}/pipelines` | GET | ⚠️ | supastack | List replication pipelines (empty) | stub |
 | `/platform/replication/{ref}/pipelines` | POST | ⚠️ | supastack | Create pipeline | stub |
 | `/platform/replication/{ref}/pipelines/validate` | POST | ⚠️ | supastack | Validate pipeline config | stub |
 | `/platform/replication/{ref}/pipelines/{pipeline_id}` | DELETE | ⚠️ | supastack | Delete pipeline | stub |
-| `/platform/replication/{ref}/pipelines/{pipeline_id}` | GET | ⚠️ | — | Replication Pipelines — get pipeline | — |
-| `/platform/replication/{ref}/pipelines/{pipeline_id}` | POST | ⚠️ | — | Replication Pipelines — update pipeline | — |
+| `/platform/replication/{ref}/pipelines/{pipeline_id}` | GET | ⚠️ | supastack | Replication Pipelines — get pipeline | `GET .../pipelines/:pipeline_id` (stub 200) |
+| `/platform/replication/{ref}/pipelines/{pipeline_id}` | POST | ⚠️ | supastack | Replication Pipelines — update pipeline | `POST .../pipelines/:pipeline_id` (stub 200) |
 | `/platform/replication/{ref}/pipelines/{pipeline_id}/replication-status` | GET | ⚠️ | supastack | Get replication lag / status | stub |
 | `/platform/replication/{ref}/pipelines/{pipeline_id}/rollback-tables` | POST | ⚠️ | supastack | Rollback specific tables | stub |
 | `/platform/replication/{ref}/pipelines/{pipeline_id}/start` | POST | ⚠️ | supastack | Start pipeline | stub |
 | `/platform/replication/{ref}/pipelines/{pipeline_id}/status` | GET | ⚠️ | supastack | Get pipeline status | stub |
 | `/platform/replication/{ref}/pipelines/{pipeline_id}/stop` | POST | ⚠️ | supastack | Stop pipeline | stub |
 | `/platform/replication/{ref}/pipelines/{pipeline_id}/version` | GET | ⚠️ | supastack | Get pipeline version | stub |
-| `/platform/replication/{ref}/pipelines/{pipeline_id}/version` | POST | ⚠️ | — | Replication Pipelines — update pipeline version | — |
+| `/platform/replication/{ref}/pipelines/{pipeline_id}/version` | POST | ⚠️ | supastack | Replication Pipelines — update pipeline version | `POST .../pipelines/:pipeline_id/version` (stub 200) |
 | `/platform/replication/{ref}/sources` | GET | ⚠️ | supastack | List replication sources (empty) | stub |
-| `/platform/replication/{ref}/sources` | POST | ⚠️ | — | Replication Sources — create source | — |
+| `/platform/replication/{ref}/sources` | POST | ⚠️ | supastack | Replication Sources — create source | `POST .../sources` (stub 201) |
 | `/platform/replication/{ref}/sources/{source_id}/publications` | GET | ⚠️ | supastack | List source publications | stub |
 | `/platform/replication/{ref}/sources/{source_id}/publications` | POST | ⚠️ | supastack | Create publication | stub |
 | `/platform/replication/{ref}/sources/{source_id}/publications/{publication_name}` | DELETE | ⚠️ | supastack | Delete publication | stub |
-| `/platform/replication/{ref}/sources/{source_id}/publications/{publication_name}` | POST | ⚠️ | — | Replication Sources — update publication | — |
+| `/platform/replication/{ref}/sources/{source_id}/publications/{publication_name}` | POST | ⚠️ | supastack | Replication Sources — update publication | `POST .../sources/:source_id/publications/:publication_name` (stub 200) |
 | `/platform/replication/{ref}/sources/{source_id}/tables` | GET | ⚠️ | supastack | List source tables | stub |
 | `/platform/replication/{ref}/tenants` | DELETE | ⚠️ | supastack | Delete tenant | stub |
 | `/platform/replication/{ref}/tenants-sources` | POST | ⚠️ | supastack | Create tenant source | stub |
@@ -402,26 +402,26 @@
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
 | `/platform/integrations` | GET | ⚠️ | supastack | List global integrations (empty) | `GET /api/v1/platform/integrations` (stub) |
-| `/platform/integrations/github/authorization` | DELETE | ⚠️ | — | Git Hub Authorizations — remove git hub authorization | — |
+| `/platform/integrations/github/authorization` | DELETE | ⚠️ | supastack | Git Hub Authorizations — remove git hub authorization | `DELETE .../github/authorization` (stub 200) |
 | `/platform/integrations/github/authorization` | GET | ⚠️ | supastack | Get GitHub app auth status | `GET .../github/authorization` (stub) |
-| `/platform/integrations/github/authorization` | POST | ⚠️ | — | Git Hub Authorizations — create git hub authorization | — |
+| `/platform/integrations/github/authorization` | POST | ⚠️ | supastack | Git Hub Authorizations — create git hub authorization | `POST .../github/authorization` (stub 400 — not supported self-hosted) |
 | `/platform/integrations/github/connections` | GET | ⚠️ | supastack | List GitHub connections (empty) | `GET .../github/connections` (stub) |
-| `/platform/integrations/github/connections` | POST | ⚠️ | — | Connects a GitHub project to a supabase project | — |
-| `/platform/integrations/github/connections/{connection_id}` | DELETE | ⚠️ | — | Deletes github project connection | — |
-| `/platform/integrations/github/connections/{connection_id}` | PATCH | ⚠️ | — | Updates a GitHub connection for a supabase project | — |
+| `/platform/integrations/github/connections` | POST | ⚠️ | supastack | Connects a GitHub project to a supabase project | `POST .../github/connections` (stub 400 — not supported self-hosted) |
+| `/platform/integrations/github/connections/{connection_id}` | DELETE | ⚠️ | supastack | Deletes github project connection | `DELETE .../github/connections/:connection_id` (stub 400 — not supported self-hosted) |
+| `/platform/integrations/github/connections/{connection_id}` | PATCH | ⚠️ | supastack | Updates a GitHub connection for a supabase project | `PATCH .../github/connections/:connection_id` (stub 400 — not supported self-hosted) |
 | `/platform/integrations/github/repositories` | GET | ⚠️ | supastack | List GitHub repos (empty) | `GET .../github/repositories` (stub) |
-| `/platform/integrations/github/repositories/{repository_id}/branches` | GET | ⚠️ | — | List GitHub repository branches | — |
-| `/platform/integrations/github/repositories/{repository_id}/branches/{branch_name}` | GET | ⚠️ | — | Git Hub Repositories — get repository | — |
-| `/platform/integrations/partners/{ref}/{listing_slug}` | POST | ⚠️ | — | Creates a partner integration and returns the redirect URL | — |
-| `/platform/integrations/private-link/{slug}` | GET | ⚠️ | — | Get organization's PrivateLink configuration. | — |
-| `/platform/integrations/private-link/{slug}` | PUT | ⚠️ | — | Update organization's PrivateLink configuration. | — |
-| `/platform/integrations/vercel` | POST | ⚠️ | — | Vercel Integration — create vercel integration | — |
-| `/platform/integrations/vercel/connections` | POST | ⚠️ | — | Connects a Vercel project to a supabase project | — |
-| `/platform/integrations/vercel/connections/project/{ref}` | GET | ⚠️ | — | Gets all Vercel integrations (regular and marketplace) with their connections for a given project | — |
-| `/platform/integrations/vercel/connections/{connection_id}` | DELETE | ⚠️ | — | Deletes vercel project connection | — |
-| `/platform/integrations/vercel/connections/{connection_id}` | PATCH | ⚠️ | — | Updates a Vercel connection for a supabase project | — |
-| `/platform/integrations/vercel/connections/{connection_id}/sync-envs` | POST | ⚠️ | — | Syncs supabase project envs with given connection id | — |
-| `/platform/integrations/vercel/projects/{organization_integration_id}` | GET | ⚠️ | — | Gets vercel projects with the given organization integration id | — |
+| `/platform/integrations/github/repositories/{repository_id}/branches` | GET | ⚠️ | supastack | List GitHub repository branches | `GET .../github/repositories/:repository_id/branches` (stub 200) |
+| `/platform/integrations/github/repositories/{repository_id}/branches/{branch_name}` | GET | ⚠️ | supastack | Git Hub Repositories — get repository | `GET .../github/repositories/:repository_id/branches/:branch_name` (stub 404) |
+| `/platform/integrations/partners/{ref}/{listing_slug}` | POST | ⚠️ | supastack | Creates a partner integration and returns the redirect URL | `POST .../partners/:ref/:listing_slug` (stub 400 — not supported self-hosted) |
+| `/platform/integrations/private-link/{slug}` | GET | ⚠️ | supastack | Get organization's PrivateLink configuration. | `GET .../private-link/:slug` (stub 200) |
+| `/platform/integrations/private-link/{slug}` | PUT | ⚠️ | supastack | Update organization's PrivateLink configuration. | `PUT .../private-link/:slug` (stub 400 — not supported self-hosted) |
+| `/platform/integrations/vercel` | POST | ⚠️ | supastack | Vercel Integration — create vercel integration | `POST .../vercel` (stub 400 — not supported self-hosted) |
+| `/platform/integrations/vercel/connections` | POST | ⚠️ | supastack | Connects a Vercel project to a supabase project | `POST .../vercel/connections` (stub 400 — not supported self-hosted) |
+| `/platform/integrations/vercel/connections/project/{ref}` | GET | ⚠️ | supastack | Gets all Vercel integrations (regular and marketplace) with their connections for a given project | `GET .../vercel/connections/project/:ref` (stub 200) |
+| `/platform/integrations/vercel/connections/{connection_id}` | DELETE | ⚠️ | supastack | Deletes vercel project connection | `DELETE .../vercel/connections/:connection_id` (stub 400 — not supported self-hosted) |
+| `/platform/integrations/vercel/connections/{connection_id}` | PATCH | ⚠️ | supastack | Updates a Vercel connection for a supabase project | `PATCH .../vercel/connections/:connection_id` (stub 400 — not supported self-hosted) |
+| `/platform/integrations/vercel/connections/{connection_id}/sync-envs` | POST | ⚠️ | supastack | Syncs supabase project envs with given connection id | `POST .../vercel/connections/:connection_id/sync-envs` (stub 400 — not supported self-hosted) |
+| `/platform/integrations/vercel/projects/{organization_integration_id}` | GET | ⚠️ | supastack | Gets vercel projects with the given organization integration id | `GET .../vercel/projects/:organization_integration_id` (stub 200) |
 | `/platform/integrations/{slug}` | GET | ⚠️ | supastack | List org integrations (empty) | `GET .../integrations/:slug` (stub) |
 
 ---
@@ -441,14 +441,14 @@
 
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
-| `/platform/telemetry/event` | POST | ⚠️ | — | Sends analytics server event | — |
+| `/platform/telemetry/event` | POST | ⚠️ | supastack | Sends analytics server event | `POST .../telemetry/event` (stub 200) |
 | `/platform/telemetry/feature-flags` | GET | ⚠️ | supastack | Get feature flag values | `GET /api/v1/platform/telemetry/feature-flags` (stub) |
-| `/platform/telemetry/feature-flags/track` | POST | ⚠️ | — | Track feature flag called | — |
-| `/platform/telemetry/groups/identify` | POST | ⚠️ | — | Send analytics group identify event | — |
-| `/platform/telemetry/groups/reset` | POST | ⚠️ | — | Send analytics group reset event | — |
-| `/platform/telemetry/identify` | POST | ⚠️ | — | Send analytics identify event | — |
-| `/platform/telemetry/reset` | POST | ⚠️ | — | Reset analytics | — |
-| `/platform/telemetry/stream` | GET | ⚠️ | — | Stream telemetry events (local dev only) | — |
+| `/platform/telemetry/feature-flags/track` | POST | ⚠️ | supastack | Track feature flag called | `POST .../telemetry/feature-flags/track` (stub 200) |
+| `/platform/telemetry/groups/identify` | POST | ⚠️ | supastack | Send analytics group identify event | `POST .../telemetry/groups/identify` (stub 200) |
+| `/platform/telemetry/groups/reset` | POST | ⚠️ | supastack | Send analytics group reset event | `POST .../telemetry/groups/reset` (stub 200) |
+| `/platform/telemetry/identify` | POST | ⚠️ | supastack | Send analytics identify event | `POST .../telemetry/identify` (stub 200) |
+| `/platform/telemetry/reset` | POST | ⚠️ | supastack | Reset analytics | `POST .../telemetry/reset` (stub 200) |
+| `/platform/telemetry/stream` | GET | ⚠️ | supastack | Stream telemetry events (local dev only) | `GET .../telemetry/stream` (stub empty) |
 
 ---
 
@@ -457,7 +457,7 @@
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
 | `/platform/feedback/conversations/{conversation_id}/custom-fields` | PATCH | ⚠️ | supastack | Update feedback conversation fields | `PATCH .../conversations/:id/custom-fields` (stub) |
-| `/platform/feedback/docs` | POST | ⚠️ | — | Send feedback on docs | — |
+| `/platform/feedback/docs` | POST | ⚠️ | supastack | Send feedback on docs | `POST .../feedback/docs` (stub 200) |
 | `/platform/feedback/downgrade` | POST | ⚠️ | supastack | Send downgrade feedback (no-op) | `POST .../feedback/downgrade` (stub) |
 | `/platform/feedback/send` | POST | ⚠️ | supastack | Send general feedback (no-op) | `POST /api/v1/platform/feedback/send` (stub) |
 | `/platform/feedback/upgrade` | POST | ⚠️ | supastack | Send upgrade feedback (no-op) | `POST .../feedback/upgrade` (stub) |
@@ -469,8 +469,8 @@
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
 | `/platform/stripe/invoices/overdue` | GET | ⚠️ | mock | List overdue invoices | — |
-| `/platform/stripe/projects/provisioning/account_requests/{id}` | GET | ⚠️ | — | Get account request details | — |
-| `/platform/stripe/projects/provisioning/account_requests/{id}/confirm` | POST | ⚠️ | — | Confirm account request (from Studio) | — |
+| `/platform/stripe/projects/provisioning/account_requests/{id}` | GET | ⚠️ | supastack | Get account request details | `GET .../account_requests/:id` (stub 404 — correct self-hosted) |
+| `/platform/stripe/projects/provisioning/account_requests/{id}/confirm` | POST | ⚠️ | supastack | Confirm account request (from Studio) | `POST .../account_requests/:id/confirm` (stub 400 — not supported self-hosted) |
 | `/platform/stripe/setup-intent` | POST | ⚠️ | mock | Global Stripe setup intent | — |
 
 ---
@@ -479,7 +479,7 @@
 
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
-| `/platform/plans/features` | GET | ⚠️ | — | Plan Features — get plan features | — |
+| `/platform/plans/features` | GET | ⚠️ | supastack | Plan Features — get plan features | `GET /platform/plans/features` (stub 200) |
 
 ---
 
@@ -487,7 +487,7 @@
 
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
-| `/platform/status` | GET | ⚠️ | — | Get infrastructure status | — |
+| `/platform/status` | GET | ⚠️ | supastack | Get infrastructure status | `GET .../status` (stub — returns all-green) |
 
 ---
 
@@ -512,7 +512,7 @@
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
 | `/platform/update-email` | POST | ⚠️ | supastack | Update account email _(not in platform.d.ts)_ | `POST /api/v1/platform/update-email` (stub) |
-| `/platform/update-email` | PUT | ⚠️ | — | Updates a user email address | — |
+| `/platform/update-email` | PUT | ⚠️ | supastack | Updates a user email address | `PUT .../update-email` (same as POST — GoTrue email update) |
 
 ---
 
@@ -528,8 +528,8 @@
 
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
-| `/platform/cloud-marketplace/buyers/{buyer_id}/contract-linking-eligibility` | GET | ⚠️ | — | Clazar — check contract linking eligibility | — |
-| `/platform/cloud-marketplace/buyers/{buyer_id}/onboarding-info` | GET | ⚠️ | — | Get info needed for AWS Marketplace onboarding | — |
+| `/platform/cloud-marketplace/buyers/{buyer_id}/contract-linking-eligibility` | GET | ⚠️ | supastack | Clazar — check contract linking eligibility | `GET .../buyers/:buyer_id/contract-linking-eligibility` (stub — not eligible) |
+| `/platform/cloud-marketplace/buyers/{buyer_id}/onboarding-info` | GET | ⚠️ | supastack | Get info needed for AWS Marketplace onboarding | `GET .../buyers/:buyer_id/onboarding-info` (stub 404) |
 
 ---
 
@@ -537,8 +537,8 @@
 
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
-| `/platform/workflow-runs` | GET | ⚠️ | — | Get a list of workflow runs | — |
-| `/platform/workflow-runs/{workflow_run_id}/logs` | GET | ⚠️ | — | Get the logs of a workflow run | — |
+| `/platform/workflow-runs` | GET | ⚠️ | supastack | Get a list of workflow runs | `GET .../workflow-runs` (stub empty list) |
+| `/platform/workflow-runs/{workflow_run_id}/logs` | GET | ⚠️ | supastack | Get the logs of a workflow run | `GET .../workflow-runs/:id/logs` (stub empty logs) |
 
 ---
 
@@ -546,7 +546,7 @@
 
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
-| `/platform/vercel/redirect/{installation_id}` | GET | ⚠️ | — | Gets the Vercel redirect url | — |
+| `/platform/vercel/redirect/{installation_id}` | GET | ⚠️ | supastack | Gets the Vercel redirect url | `GET .../vercel/redirect/:installation_id` (stub 400 — not supported self-hosted) |
 
 ---
 
@@ -554,7 +554,7 @@
 
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
-| `/platform/oauth/apps/register` | POST | ⚠️ | — | Dynamically register an OAuth client (RFC-7591) | — |
+| `/platform/oauth/apps/register` | POST | ⚠️ | supastack | Dynamically register an OAuth client (RFC-7591) | `POST .../oauth/apps/register` (stub 501 — not supported self-hosted) |
 | `/platform/oauth/authorizations/{id}` | GET | ⚠️ | supastack | Get global OAuth authorization | `GET /platform/oauth/authorizations/:id` (stub) |
 
 ---
@@ -564,7 +564,7 @@
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
 | `/platform/cli/login/{session_id}` | GET | ✅ | supastack | Retrieve CLI login session | `GET /platform/cli/login/:session_id` |
-| `/platform/cli/login` | POST | ⚠️ | — | Create CLI login session | — |
+| `/platform/cli/login` | POST | ⚠️ | supastack | Create CLI login session | `POST .../cli/login` (stub 501 — use supabase login directly) |
 
 ---
 
@@ -613,8 +613,8 @@
 | `/user` | GET | ✅ | gotrue | Get current authenticated user | `→ GoTrue /auth/v1/user` |
 | `/user` | PUT | ✅ | gotrue | Update current user (email, password) | `→ GoTrue /auth/v1/user` |
 | `/v1/projects/:ref/api-keys` | GET | ✅ | supastack | List anon + service_role keys | `GET /projects/:ref/api-keys` |
-| `/v1/projects/:ref/api-keys/:id` | DELETE | ⚠️ | mock | Delete custom API key | — |
-| `/v1/projects/:ref/api-keys/:id` | PATCH | ⚠️ | mock | Update key name/description | — |
+| `/v1/projects/:ref/api-keys/:id` | DELETE | ⚠️ | supastack | Delete custom API key | `DELETE /v1/projects/:ref/api-keys/:id` (stub 501 — not_implemented) |
+| `/v1/projects/:ref/api-keys/:id` | PATCH | ⚠️ | supastack | Update key name/description | `PATCH /v1/projects/:ref/api-keys/:id` (stub 501 — not_implemented) |
 | `/v1/projects/:ref/branches` | GET | ⚠️ | mock | List database branches | — |
 | `/v1/projects/:ref/config/auth/signing-keys` | GET | ⚠️ | mock | List JWT signing keys | — |
 | `/v1/projects/:ref/config/auth/third-party-auth` | GET | ⚠️ | mock | List third-party auth providers | — |
@@ -629,6 +629,7 @@
 | `/v1/projects/:ref/functions/deployed-size` | GET | ⚠️ | mock | Get total deployed size | — |
 | `/v1/projects/:ref/health` | GET | ✅ | supastack | Get service health statuses | `GET /instances/:ref/health` |
 | `/v1/projects/:ref/network-bans` | DELETE | ⚠️ | mock | Remove IP ban | — |
+| `/v1/projects/:ref/network-bans` | GET | ⚠️ | supastack | List network bans | `GET /v1/projects/:ref/network-bans` (stub 200) |
 | `/v1/projects/:ref/network-bans/retrieve` | POST | ⚠️ | mock | Get banned IP addresses | — |
 | `/v1/projects/:ref/network-restrictions` | GET | ⚠️ | mock | Get network firewall rules | — |
 | `/v1/projects/:ref/network-restrictions/apply` | POST | ⚠️ | mock | Apply firewall rules | — |
