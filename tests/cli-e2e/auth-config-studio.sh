@@ -64,8 +64,11 @@ print(json.dumps(out))
 }
 trap restore_config EXIT
 
-# 1. Studio-shaped (uppercase) PATCH → 200 (was 500). No secret sent (preserves the real one).
-BODY='{"EXTERNAL_GITHUB_ENABLED":true,"EXTERNAL_GITHUB_CLIENT_ID":"test-id-085","EXTERNAL_GITHUB_EMAIL_OPTIONAL":false}'
+# 1. Studio-shaped (uppercase) PATCH → 200 (was 500).
+# Use ENABLED:false so the provider can be set without requiring a secret
+# (cross-field validation only checks credential presence when enabled=true).
+# This still exercises the uppercase→lowercase bridge.
+BODY='{"EXTERNAL_GITHUB_ENABLED":false,"EXTERNAL_GITHUB_CLIENT_ID":"test-id-085","EXTERNAL_GITHUB_EMAIL_OPTIONAL":false}'
 CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "${AUTH[@]}" -d "$BODY" "$P")
 ok "uppercase-patch-200" 200 "$CODE"
 
