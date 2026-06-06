@@ -504,7 +504,14 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // Postgres versions list for project settings
   app.get('/platform/projects/available-versions', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send([]);
+    return reply.send([
+      {
+        postgres_engine: 'postgres',
+        release_channel: 'ga',
+        displayName: 'PostgreSQL 15',
+        postgresVersion: '15.8.1.085',
+      },
+    ]);
   });
 
   // ── Create organization ────────────────────────────────────────────────────
@@ -1313,13 +1320,11 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // Misc project stubs — key is always path.split('/').pop()
   for (const path of [
     '/platform/projects/:ref/pause/status',
-    '/platform/projects/:ref/daily-stats',
     '/platform/projects/:ref/infra-monitoring',
     '/platform/projects/:ref/config/pgbouncer',
     '/platform/projects/:ref/config/pgbouncer/status',
     '/platform/projects/:ref/config/secrets/update-status',
     '/platform/projects/:ref/notifications/advisor/exceptions',
-    '/platform/projects/:ref/restore/versions',
     '/platform/projects/:ref/run-lints',
     '/platform/projects/:ref/load-balancers',
   ] as const) {
@@ -1327,13 +1332,11 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       app.requireAuth(req);
       const stub: Record<string, unknown> = {
         'pause/status': { initiated_at: null, status: 'not_pausing' },
-        'daily-stats': { data: [] },
         'infra-monitoring': { data: [] },
         'config/pgbouncer': { pool_mode: 'transaction', default_pool_size: 15, ignore_startup_parameters: 'extra_float_digits' },
         'config/pgbouncer/status': { active: true },
         'config/secrets/update-status': { updating: false },
         'notifications/advisor/exceptions': { result: [] },
-        'restore/versions': [],
         'run-lints': [],
         'load-balancers': [],
         'settings': {},
@@ -1342,6 +1345,58 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       return reply.send(stub[key] ?? {});
     });
   }
+
+  // Completed backups available for physical restore — real data from backups table
+  app.get<RefParams>('/platform/projects/:ref/restore/versions', async (req, reply) => {
+    app.requireAuth(req);
+    const rows = await db()
+      .select({
+        seq: schema.backups.seq,
+        startedAt: schema.backups.startedAt,
+        completedAt: schema.backups.completedAt,
+        sizeBytes: schema.backups.sizeBytes,
+      })
+      .from(schema.backups)
+      .where(
+        and(
+          eq(schema.backups.instanceRef, req.params.ref),
+          eq(schema.backups.status, 'completed'),
+        ),
+      )
+      .orderBy(desc(schema.backups.startedAt));
+    return reply.send(
+      rows.map((r) => ({
+        id: Number(r.seq ?? 0),
+        inserted_at: r.startedAt.toISOString(),
+        completed_at: r.completedAt?.toISOString() ?? null,
+        size_bytes: r.sizeBytes ?? null,
+        isPhysicalBackup: true,
+        status: 'COMPLETED',
+      })),
+    );
+  });
+
+  // Daily request/error counts — aggregate audit log events by day (last 30 days)
+  app.get<RefParams>('/platform/projects/:ref/daily-stats', async (req, reply) => {
+    app.requireAuth(req);
+    const rows = await db().execute(
+      sql`SELECT date_trunc('day', created_at AT TIME ZONE 'UTC') AS day,
+                 count(*) AS total_requests
+          FROM audit_log
+          WHERE target_kind = 'project' AND target_id = ${req.params.ref}
+            AND created_at >= now() - interval '30 days'
+          GROUP BY 1
+          ORDER BY 1 DESC`,
+    );
+    const rowArray = Array.isArray(rows) ? rows : ((rows as { rows?: unknown }).rows ?? []);
+    return reply.send({
+      data: (rowArray as Array<Record<string, unknown>>).map((r) => ({
+        period_start: r['day'],
+        total_requests: Number(r['total_requests'] ?? 0),
+        errors: 0,
+      })),
+    });
+  });
 
   // ── Analytics log-drains ───────────────────────────────────────────────────
   // Log-drain CRUD stubs — supastack does not yet have a log forwarding service.
@@ -2616,7 +2671,14 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // Organization available Postgres versions
   app.get<SlugParams>('/platform/organizations/:slug/available-versions', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send([]);
+    return reply.send([
+      {
+        postgres_engine: 'postgres',
+        release_channel: 'ga',
+        displayName: 'PostgreSQL 15',
+        postgresVersion: '15.8.1.085',
+      },
+    ]);
   });
 
   // Org billing mutations — no-op for self-hosted
