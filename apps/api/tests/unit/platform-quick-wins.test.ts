@@ -6,6 +6,8 @@ import Fastify, { type FastifyInstance } from 'fastify';
  *  1. GET /platform/projects/:ref/restore/versions  — real DB query on backups
  *  2. GET /platform/projects/:ref/daily-stats       — real aggregate on audit_log
  *  3. GET /platform/organizations/:slug/available-versions — static list (was [])
+ *
+ * Each endpoint has happy-path and sad-path (unauthenticated + DB error) cases.
  */
 
 vi.mock('drizzle-orm', () => ({
@@ -22,31 +24,30 @@ vi.mock('drizzle-orm', () => ({
 
 const h = vi.hoisted(() => ({
   backupRows: [] as unknown[],
+  backupReject: null as Error | null,
   executeRows: [] as unknown[],
+  executeReject: null as Error | null,
 }));
 
 vi.mock('@supastack/db', () => {
   const selectObj: Record<string, unknown> = {
     from: () => selectObj,
     where: () => selectObj,
-    limit: () => Promise.resolve(h.backupRows),
-    orderBy: () => Promise.resolve(h.backupRows),
-    then: (resolve: (v: unknown) => unknown) => Promise.resolve(h.backupRows).then(resolve),
+    limit: () => (h.backupReject ? Promise.reject(h.backupReject) : Promise.resolve(h.backupRows)),
+    orderBy: () => (h.backupReject ? Promise.reject(h.backupReject) : Promise.resolve(h.backupRows)),
+    then: (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) =>
+      h.backupReject
+        ? Promise.reject(h.backupReject).then(resolve, reject)
+        : Promise.resolve(h.backupRows).then(resolve, reject),
   };
   return {
     db: () => ({
       select: () => selectObj,
-      execute: () => Promise.resolve(h.executeRows),
+      execute: () =>
+        h.executeReject ? Promise.reject(h.executeReject) : Promise.resolve(h.executeRows),
     }),
     schema: {
-      backups: {
-        seq: {},
-        startedAt: {},
-        completedAt: {},
-        sizeBytes: {},
-        instanceRef: {},
-        status: {},
-      },
+      backups: { seq: {}, startedAt: {}, completedAt: {}, sizeBytes: {}, instanceRef: {}, status: {} },
       supabaseInstances: { ref: {}, status: {}, orgId: {} },
       organizations: { id: {}, slug: {} },
       organizationMembers: { organizationId: {}, userId: {} },
@@ -103,11 +104,19 @@ vi.mock('../../src/services/storage-buckets-proxy.js', () => ({
 
 const { platformMiscRoutes } = await import('../../src/routes/platform-misc.js');
 
-async function buildApp(): Promise<FastifyInstance> {
+async function buildApp(authed = true): Promise<FastifyInstance> {
   const app = Fastify();
-  app.decorate('requireAuth', () => ({ id: 'u1', email: 'op@x.dev', role: 'owner' }));
+  app.decorate('requireAuth', () => {
+    if (!authed) throw Object.assign(new Error('unauthenticated'), { statusCode: 401 });
+    return { id: 'u1', email: 'op@x.dev', role: 'owner' };
+  });
   app.decorate('authorize', () => {});
   app.decorate('authorizeOrg', async () => 'owner');
+  // Minimal error handler so requireAuth throws surface as 401
+  app.setErrorHandler((err, _req, reply) => {
+    const status = (err as { statusCode?: number }).statusCode ?? 500;
+    reply.status(status).send({ error: err.message });
+  });
   await app.register(platformMiscRoutes);
   return app;
 }
@@ -115,15 +124,16 @@ async function buildApp(): Promise<FastifyInstance> {
 const REF = 'abcdefghijklmnopqrst';
 const SLUG = 'my-org';
 
-// ── restore/versions ────────────────────────────────────────────────────────
+// ── restore/versions ─────────────────────────────────────────────────────────
 
 describe('GET /platform/projects/:ref/restore/versions', () => {
   beforeEach(() => {
     h.backupRows = [];
+    h.backupReject = null;
   });
 
+  // happy paths
   it('returns empty array when no completed backups exist', async () => {
-    h.backupRows = [];
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/restore/versions` });
     expect(res.statusCode).toBe(200);
@@ -131,7 +141,7 @@ describe('GET /platform/projects/:ref/restore/versions', () => {
     await app.close();
   });
 
-  it('returns completed backup entries with numeric id, timestamps, and isPhysicalBackup flag', async () => {
+  it('returns entries with numeric id, timestamps, size_bytes, and isPhysicalBackup=true', async () => {
     const now = new Date('2026-06-06T14:00:00.000Z');
     const done = new Date('2026-06-06T14:00:00.155Z');
     h.backupRows = [{ seq: 6, startedAt: now, completedAt: done, sizeBytes: 1024 }];
@@ -151,7 +161,7 @@ describe('GET /platform/projects/:ref/restore/versions', () => {
     await app.close();
   });
 
-  it('handles null seq by coercing to 0', async () => {
+  it('coerces null seq → id 0 and null completedAt/sizeBytes → null', async () => {
     h.backupRows = [{ seq: null, startedAt: new Date(), completedAt: null, sizeBytes: null }];
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/restore/versions` });
@@ -161,17 +171,34 @@ describe('GET /platform/projects/:ref/restore/versions', () => {
     expect(body[0]!.size_bytes).toBeNull();
     await app.close();
   });
+
+  // sad paths
+  it('unauthenticated request → 401', async () => {
+    const app = await buildApp(false);
+    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/restore/versions` });
+    expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it('DB error → 500', async () => {
+    h.backupReject = new Error('connection pool exhausted');
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/restore/versions` });
+    expect(res.statusCode).toBe(500);
+    await app.close();
+  });
 });
 
-// ── daily-stats ─────────────────────────────────────────────────────────────
+// ── daily-stats ──────────────────────────────────────────────────────────────
 
 describe('GET /platform/projects/:ref/daily-stats', () => {
   beforeEach(() => {
     h.executeRows = [];
+    h.executeReject = null;
   });
 
+  // happy paths
   it('returns {data:[]} when no audit events exist', async () => {
-    h.executeRows = [];
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/daily-stats` });
     expect(res.statusCode).toBe(200);
@@ -179,7 +206,7 @@ describe('GET /platform/projects/:ref/daily-stats', () => {
     await app.close();
   });
 
-  it('maps aggregate rows to {period_start, total_requests, errors}', async () => {
+  it('maps aggregate rows to {period_start, total_requests, errors:0}', async () => {
     h.executeRows = [
       { day: '2026-06-06T00:00:00.000Z', total_requests: '42' },
       { day: '2026-06-05T00:00:00.000Z', total_requests: '17' },
@@ -193,8 +220,7 @@ describe('GET /platform/projects/:ref/daily-stats', () => {
     await app.close();
   });
 
-  it('handles QueryResult object (rows property) vs bare array', async () => {
-    // Drizzle execute() may return { rows: [...] } or a bare array depending on the driver
+  it('handles QueryResult {rows:[...]} shape from Drizzle execute()', async () => {
     h.executeRows = { rows: [{ day: '2026-06-06T00:00:00.000Z', total_requests: '5' }] } as unknown as unknown[];
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/daily-stats` });
@@ -202,26 +228,51 @@ describe('GET /platform/projects/:ref/daily-stats', () => {
     expect(body.data[0]!.total_requests).toBe(5);
     await app.close();
   });
+
+  // sad paths
+  it('unauthenticated request → 401', async () => {
+    const app = await buildApp(false);
+    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/daily-stats` });
+    expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it('DB execute error → 500', async () => {
+    h.executeReject = new Error('query timeout');
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/daily-stats` });
+    expect(res.statusCode).toBe(500);
+    await app.close();
+  });
 });
 
-// ── available-versions GET ──────────────────────────────────────────────────
+// ── available-versions GET ───────────────────────────────────────────────────
 
 describe('GET /platform/organizations/:slug/available-versions', () => {
+  // happy paths
   it('returns the Postgres 15 entry (was returning empty array)', async () => {
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/organizations/${SLUG}/available-versions` });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as Array<{ postgres_engine: string; displayName: string }>;
+    const body = res.json() as Array<{ postgres_engine: string; displayName: string; postgresVersion: string }>;
     expect(body).toHaveLength(1);
     expect(body[0]).toMatchObject({ postgres_engine: 'postgres', displayName: 'PostgreSQL 15' });
     await app.close();
   });
 
-  it('POST version returns identical shape (both handlers consistent)', async () => {
+  it('GET and POST return identical list (both entry points consistent)', async () => {
     const app = await buildApp();
     const getRes = await app.inject({ method: 'GET', url: `/platform/organizations/${SLUG}/available-versions` });
     const postRes = await app.inject({ method: 'POST', url: `/platform/organizations/${SLUG}/available-versions` });
     expect(getRes.json()).toEqual(postRes.json());
+    await app.close();
+  });
+
+  // sad paths
+  it('unauthenticated request → 401', async () => {
+    const app = await buildApp(false);
+    const res = await app.inject({ method: 'GET', url: `/platform/organizations/${SLUG}/available-versions` });
+    expect(res.statusCode).toBe(401);
     await app.close();
   });
 });
