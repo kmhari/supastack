@@ -2508,6 +2508,73 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
+  // PUT alias — Studio uses PUT, some paths use POST; both do the same thing.
+  app.put('/platform/update-email', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const body = (req.body ?? {}) as { new_email?: string };
+    if (!body.new_email) return reply.status(400).send({ error: 'new_email is required' });
+    try {
+      const updated = await updateGotrueUser(user.id, { email: body.new_email });
+      await db().update(schema.users).set({ email: updated.email }).where(eq(schema.users.id, user.id));
+      return reply.send({ email: updated.email });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      return reply.status(422).send({ error: e.message ?? 'email update failed' });
+    }
+  });
+
+  // Workflow runs — Cloud-only orchestration; return empty lists here.
+  app.get('/platform/workflow-runs', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send([]);
+  });
+
+  app.get<{ Params: { workflow_run_id: string } }>(
+    '/platform/workflow-runs/:workflow_run_id/logs',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ logs: [] });
+    },
+  );
+
+  // Vercel redirect — Cloud integration only; return a stub redirect.
+  app.get<{ Params: { installation_id: string } }>(
+    '/platform/vercel/redirect/:installation_id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(400).send({ error: 'Vercel integration is not supported on self-hosted' });
+    },
+  );
+
+  // Cloud Marketplace buyer endpoints — AWS/GCP marketplace only.
+  app.get<{ Params: { buyer_id: string } }>(
+    '/platform/cloud-marketplace/buyers/:buyer_id/contract-linking-eligibility',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ eligible: false, reason: 'not_applicable' });
+    },
+  );
+
+  app.get<{ Params: { buyer_id: string } }>(
+    '/platform/cloud-marketplace/buyers/:buyer_id/onboarding-info',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(404).send({ error: 'No marketplace onboarding info available' });
+    },
+  );
+
+  // Dynamic OAuth client registration (RFC-7591) — not supported on self-hosted.
+  app.post('/platform/oauth/apps/register', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(501).send({ error: 'Dynamic OAuth client registration is not supported on self-hosted' });
+  });
+
+  // CLI login session creation (POST variant — distinct from GET /:session_id retrieval).
+  app.post('/platform/cli/login', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(501).send({ error: 'Use supabase login against your self-hosted instance directly' });
+  });
+
   // Feature 084 (US3) — rename an organization (display name only; ref is immutable).
   app.patch<SlugParams>('/platform/organizations/:slug', async (req, reply) => {
     const role = await app.authorizeOrg(req, 'org.update', req.params.slug);
