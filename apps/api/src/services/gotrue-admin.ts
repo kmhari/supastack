@@ -103,3 +103,41 @@ export async function sendRecoveryEmail(email: string): Promise<void> {
     throw new Error(`gotrue recover failed (${res.status}): ${await res.text()}`);
   }
 }
+
+/** Update a GoTrue user's email or metadata (admin). */
+export async function updateGotrueUser(
+  userId: string,
+  patch: { email?: string; password?: string },
+): Promise<GotrueUser> {
+  const res = await fetch(`${GOTRUE_URL}/admin/users/${userId}`, {
+    method: 'PUT',
+    headers: adminHeaders(),
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    throw new Error(`gotrue updateUser failed (${res.status}): ${await res.text()}`);
+  }
+  const u = (await res.json()) as GotrueUserResponse;
+  return { id: u.id, email: u.email };
+}
+
+/** Sign up a new user via GoTrue's public /signup endpoint (password flow). */
+export async function signupGotrueUser(opts: {
+  email: string;
+  password: string;
+}): Promise<GotrueUser> {
+  const res = await fetch(`${GOTRUE_URL}/signup`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: opts.email, password: opts.password }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw Object.assign(new Error(`gotrue signup failed (${res.status}): ${text}`), {
+      statusCode: res.status,
+      body: text,
+    });
+  }
+  const u = (await res.json()) as GotrueUserResponse;
+  return { id: u.id, email: u.email };
+}

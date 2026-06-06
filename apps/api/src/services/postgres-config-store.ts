@@ -124,7 +124,7 @@ export async function putPostgresConfig(
 
           if (needsRestart || restart_database) {
             const docker = getDockerControl();
-            const container = `selfbase-${ref}-db-1`;
+            const container = `supastack-${ref}-db-1`;
             try {
               await docker.restart(container);
               await docker.waitHealthy(container, 30000);

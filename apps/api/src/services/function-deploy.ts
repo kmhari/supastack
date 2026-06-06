@@ -14,7 +14,7 @@
  *   - atomically renames the staging tree into the per-instance volume
  *   - writes a meta.json sidecar consumed by the runtime's main router
  *   - upserts project_functions + function_deploys (audit) inside a tx
- *   - calls dockerControl.restart('selfbase-<ref>-functions-1')
+ *   - calls dockerControl.restart('supastack-<ref>-functions-1')
  *   - on restart failure: restores the snapshot and rolls back the row
  */
 import { createHash, randomUUID } from 'node:crypto';
@@ -430,7 +430,7 @@ async function commitDeploy({
 
   // Restart functions container. On failure, roll back files AND DB row.
   const docker = getDockerControl();
-  const containerName = `selfbase-${ref}-functions-1`;
+  const containerName = `supastack-${ref}-functions-1`;
   const auditId = randomUUID();
   try {
     await docker.restart(containerName);
@@ -442,28 +442,30 @@ async function commitDeploy({
     // DB rollback: revert to prior version, or hard-delete if this was create.
     if (priorVersion === 0) {
       await db().delete(schema.projectFunctions).where(eq(schema.projectFunctions.id, row.id));
+      // No function_deploys audit row when the project_functions row was just deleted —
+      // the FK would violate. The rollback error is logged by the caller.
     } else {
       await db()
         .update(schema.projectFunctions)
         .set({ version: priorVersion })
         .where(eq(schema.projectFunctions.id, row.id));
+      await db()
+        .insert(schema.functionDeploys)
+        .values({
+          id: auditId,
+          functionId: row.id,
+          instanceRef: ref,
+          slug,
+          version: row.version,
+          status: 'ROLLED_BACK',
+          sizeBytes: staged.sizeBytes,
+          sha256: staged.sha256,
+          errorMessage: (restartErr as Error).message,
+          finishedAt: new Date(),
+          deployedBy: deployerUserId,
+          source: 'cli',
+        });
     }
-    await db()
-      .insert(schema.functionDeploys)
-      .values({
-        id: auditId,
-        functionId: row.id,
-        instanceRef: ref,
-        slug,
-        version: row.version,
-        status: 'ROLLED_BACK',
-        sizeBytes: staged.sizeBytes,
-        sha256: staged.sha256,
-        errorMessage: (restartErr as Error).message,
-        finishedAt: new Date(),
-        deployedBy: deployerUserId,
-        source: 'cli',
-      });
     throw new ManagementApiError(
       500,
       `Deploy of function '${slug}' was rolled back: ${(restartErr as Error).message}. The previous version is still serving traffic.`,
