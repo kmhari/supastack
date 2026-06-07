@@ -10,8 +10,8 @@
 
 | Status | Count |
 |---|---|
-| ✅ real (handler / proxy / gotrue) | ~257 |
-| ✅/⚠️ stub responding (all gaps eliminated) | ~133 |
+| ✅ real (handler / proxy / gotrue) | ~259 |
+| ✅/⚠️ stub responding (all gaps eliminated) | ~131 |
 | **Total** | **390** |
 
 → **✅ 390 / 390 (100%)** responding routes (no 404 gaps) · feature 109 promoted 17 stub/mock rows to ✅ real (status endpoints, audit/activity, backups, network-bans, network-restrictions, ssl-enforcement, secrets, lint queries).
@@ -37,7 +37,7 @@
 | `/platform/profile/access-tokens/{id}` | GET | ✅ | supastack | Gets the access token with the given ID | `GET /platform/profile/access-tokens/:id` (real — 404 for missing) |
 | `/platform/profile/audit` | GET | ⚠️ | supastack | Get user login audit log | `GET /api/v1/platform/profile/audit` (stub) |
 | `/platform/profile/audit-login` | POST | ⚠️ | supastack | Record login audit event | `POST /api/v1/platform/profile/audit-login` (stub) |
-| `/platform/profile/scoped-access-tokens` | GET | ⚠️ | supastack | List scoped tokens | `GET /api/v1/platform/profile/scoped-access-tokens` (stub) |
+| `/platform/profile/scoped-access-tokens` | GET | ✅ | supastack | List scoped tokens | `GET /platform/profile/scoped-access-tokens` (real — queries apiTokens by userId) |
 | `/platform/profile/scoped-access-tokens` | POST | ✅ | supastack | Creates a new scoped access token | `POST /platform/profile/scoped-access-tokens` (real) |
 | `/platform/profile/scoped-access-tokens/{id}` | DELETE | ✅ | supastack | Deletes the scoped access token with the given ID | `DELETE /platform/profile/scoped-access-tokens/:id` (real) |
 | `/platform/profile/scoped-access-tokens/{id}` | GET | ✅ | supastack | Gets the scoped access token with the given ID | `GET /platform/profile/scoped-access-tokens/:id` (real) |
@@ -91,7 +91,7 @@
 | `/platform/organizations/{slug}/apps/{app_id}/signing-keys` | GET | ⚠️ | supastack | List signing keys for the given platform app | `GET .../apps/:app_id/signing-keys` (stub 200) |
 | `/platform/organizations/{slug}/apps/{app_id}/signing-keys` | POST | ⚠️ | supastack | Create signing key | `POST .../apps/:app_id/signing-keys` (stub) |
 | `/platform/organizations/{slug}/apps/{app_id}/signing-keys/{key_id}` | DELETE | ⚠️ | supastack | Delete signing key | `DELETE .../signing-keys/:id` (stub) |
-| `/platform/organizations/{slug}/audit` | GET | ⚠️ | supastack | Get org audit log | `GET .../organizations/:slug/audit` (stub) |
+| `/platform/organizations/{slug}/audit` | GET | ✅ | supastack | Get org audit log | `GET /platform/organizations/:slug/audit` (real — queries audit_log filtered by org+project targetIds, paginated) |
 | `/platform/organizations/{slug}/billing/credits/balance` | GET | ⚠️ | supastack | Get credit balance (zero) | `GET .../billing/credits/balance` (stub) |
 | `/platform/organizations/{slug}/billing/credits/preview` | POST | ⚠️ | supastack | Preview for credit top-up | `POST .../billing/credits/preview` (stub 400 — not supported self-hosted) |
 | `/platform/organizations/{slug}/billing/credits/redeem` | POST | ⚠️ | supastack | Redeems a credit code | `POST .../billing/credits/redeem` (stub 400 — not supported self-hosted) |
