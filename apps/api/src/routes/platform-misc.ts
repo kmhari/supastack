@@ -882,21 +882,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(req.body ?? {});
   });
 
-  // PostgreSQL config — static self-hosted defaults; PATCH acknowledges but does not apply (surface for feature 009)
   app.get<RefParams>('/platform/projects/:ref/postgres-config', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({
-      effective_cache_size: '4096MB',
-      maintenance_work_mem: '64MB',
-      max_connections: 100,
-      shared_buffers: '1024MB',
-      work_mem: '16MB',
-    });
+    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/config/database/postgres`, headers: fwdHeaders(req) });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.patch<RefParams>('/platform/projects/:ref/postgres-config', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send(req.body ?? {});
+    const resp = await app.inject({ method: 'PATCH', url: `/v1/projects/${req.params.ref}/config/database/postgres`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   // Pooling config — Supavisor endpoint for self-hosted
@@ -964,22 +959,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get<RefParams>('/platform/projects/:ref/api/rest', async (req, reply) => {
-    const user = app.requireAuth(req);
-    const apex = process.env.SUPASTACK_APEX ?? '';
-    const [inst] = await db()
-      .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong })
-      .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
-      .limit(1);
-    if (!inst) return reply.status(404).send({ error: 'Project not found' });
-    const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
-    return reply.send({
-      endpoint: `${kongUrl}/rest/v1`,
-      schema: 'public',
-      extraSearchPath: ['public', 'extensions'],
-      maxRows: 1000,
-    });
+    app.requireAuth(req);
+    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/postgrest`, headers: fwdHeaders(req) });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   // Resource warnings
@@ -3756,6 +3738,12 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   app.post<RefParams>('/platform/projects/:ref/functions/secrets', async (req, reply) => {
     app.requireAuth(req);
     const resp = await app.inject({ method: 'POST', url: `/v1/projects/${req.params.ref}/secrets`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
+  });
+
+  app.delete<RefParams>('/platform/projects/:ref/functions/secrets', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({ method: 'DELETE', url: `/v1/projects/${req.params.ref}/secrets`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) });
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
