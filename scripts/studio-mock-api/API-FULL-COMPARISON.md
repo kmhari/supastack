@@ -6,17 +6,19 @@
 
 > **Platform surface is authoritative against `packages/api-types/types/platform.d.ts` (Supabase OpenAPI types) — 354 canonical `/platform/*` endpoints.** Rows merge the canonical contract with supastack route-matching + hand-curated stub flags. "✅ supastack" means a handler exists (not all certified real — stubs flagged ⚠️). 27 rows the dashboard calls that are **not** in platform.d.ts are tagged _(not in platform.d.ts)_. `/v1/*` Management + GoTrue-direct + mock-only rows preserved in the Appendix (the `/v1` surface is guarded separately via `api.d.ts`).
 
-**Coverage — `/platform/*` (390 rows, 9 new rows added by feature 109):**
+**Coverage — `/platform/*` (392 rows, 9 new rows added by feature 109, 2 new rows added by feature 111):**
 
 | Status | Count |
 |---|---|
-| ✅ real (handler / proxy / gotrue) | ~259 |
-| ✅/⚠️ stub responding (all gaps eliminated) | ~131 |
-| **Total** | **390** |
+| ✅ real (handler / proxy / gotrue) | ~265 |
+| ✅/⚠️ stub responding (all gaps eliminated) | ~127 |
+| **Total** | **392** |
 
-→ **✅ 390 / 390 (100%)** responding routes (no 404 gaps) · feature 109 promoted 17 stub/mock rows to ✅ real (status endpoints, audit/activity, backups, network-bans, network-restrictions, ssl-enforcement, secrets, lint queries).
+→ **✅ 392 / 392 (100%)** responding routes (no 404 gaps) · feature 111 promoted 6 stub rows to ✅ real + added 2 missing rows (postgres-config GET/PATCH) + completed functions/secrets (DELETE was missing) · feature 109 promoted 17 stub/mock rows to ✅ real (status endpoints, audit/activity, backups, network-bans, network-restrictions, ssl-enforcement, secrets, lint queries).
 
-**Last updated**: 2026-06-07 — feature 109 (platform-stub-conversions tier 1–4): 17 stub→real conversions: `pause/status` (real DB paused state), `readonly` GET+DELETE (paused→enabled; DELETE delegates→/v1/restore), `upgrade/status` (restoring→upgrading), `run-lints` + `run-lints/:name` (5 advisory lint checks via withPerInstancePg, 503 on not-running), `/audit` + `/activity` (real audit_log rows filtered by ref, paginated), `downloadable-backups` (real backups table query), network-bans GET+DELETE + network-restrictions GET+POST/apply + ssl-enforcement GET+PUT + functions/secrets GET+POST (all Tier 3b delegation to /v1). Live-verified on supaviser.dev 2026-06-07: 200s with real data, 401, 404, 503 all confirmed. 46 new unit tests (platform-stub-conversions.test.ts), 704 total passing.
+**Last updated**: 2026-06-07 — feature 111 (platform-proxy-stub-conversions): 6 stub→real conversions: `api/rest` GET (delegates→`GET /v1/projects/:ref/postgrest`), `postgres-config` GET+PATCH (delegates→`GET/PATCH /v1/projects/:ref/config/database/postgres`; 2 new rows added), `functions/secrets` DELETE (was missing — GET+POST existed from feature 109; now complete), `api-keys/:id` DELETE+PATCH (501 not_implemented→404 not_found — correct REST semantics for self-hosted). Live-verified on supaviser.dev 2026-06-07: all 6 endpoints 200/404 with real data. 14 unit tests in platform-proxy-stubs.test.ts.
+
+**Previously**: 2026-06-07 — feature 109 (platform-stub-conversions tier 1–4): 17 stub→real conversions: `pause/status` (real DB paused state), `readonly` GET+DELETE (paused→enabled; DELETE delegates→/v1/restore), `upgrade/status` (restoring→upgrading), `run-lints` + `run-lints/:name` (5 advisory lint checks via withPerInstancePg, 503 on not-running), `/audit` + `/activity` (real audit_log rows filtered by ref, paginated), `downloadable-backups` (real backups table query), network-bans GET+DELETE + network-restrictions GET+POST/apply + ssl-enforcement GET+PUT + functions/secrets GET+POST (all Tier 3b delegation to /v1). Live-verified on supaviser.dev 2026-06-07: 200s with real data, 401, 404, 503 all confirmed. 46 new unit tests (platform-stub-conversions.test.ts), 704 total passing.
 
 **Previously**: 2026-06-06 — feature 108 (platform-contract-guard continuation) eliminated all remaining 404 gaps: plans/features, github-repos-branches, vercel-connections-project, private-link CRUD, partners, stripe-account-requests, SSO write methods (POST/DELETE/PUT), supavisor config, advisor-exceptions write (POST/DELETE/PATCH), privatelink-aws-delete, billing-addons-delete, access-token 500→404 fix (UUID validation), scoped-token 500→404 fix, v1 network-bans GET, v1 api-keys DELETE/PATCH. All 381 /platform/* rows now return ≥200 (no handler missing).
 
@@ -196,7 +198,7 @@
 | `/platform/projects/{ref}/analytics/log-drains/{token}` | PUT | ⚠️ | supastack | Update log drain | `PUT .../log-drains/:token` (stub) |
 | `/platform/projects/{ref}/api-keys/temporary` | POST | ⚠️ | supastack | Create a temporary API key | `POST .../api-keys/temporary` (stub 201) |
 | `/platform/projects/{ref}/api/graphql` | POST | ⚠️ | supastack | Queries project Graphql | `POST .../api/graphql` (stub 200) |
-| `/platform/projects/{ref}/api/rest` | GET | ⚠️ | supastack | Get REST API config | `GET .../projects/:ref/api/rest` (stub) |
+| `/platform/projects/{ref}/api/rest` | GET | ✅ | supastack | Get REST API config (real PostgREST config: db_schema, max_rows, db_pool, db_extra_search_path) — delegates to `/v1/projects/:ref/postgrest` | `GET /platform/projects/:ref/api/rest` (real — Tier 3b delegation; feature 111) |
 | `/platform/projects/{ref}/billing/addons` | POST | ⚠️ | supastack | Updates project addon | `POST .../billing/addons` (stub 400 — not supported self-hosted) |
 | `/platform/projects/{ref}/billing/addons/{addon_variant}` | DELETE | ⚠️ | supastack | Removes project addon | `DELETE .../billing/addons/:addon_variant` (stub 400 — not supported self-hosted) |
 | `/platform/projects/{ref}/config/pgbouncer` | GET | ⚠️ | supastack | Get pgBouncer/pooler config | `GET .../config/pgbouncer` (stub 200) |
@@ -236,8 +238,11 @@
 | `/platform/projects/{ref}/notifications/advisor/exceptions/{id}` | PATCH | ⚠️ | supastack | Updates advisor notification exceptions | `PATCH .../notifications/advisor/exceptions/:id` (stub 200) |
 | `/platform/projects/{ref}/activity` | GET | ✅ | supastack | Project activity log (ascending) — real audit_log rows filtered by ref, raw array (no pagination wrapper) | `GET /platform/projects/:ref/activity` (real — asc order, org-membership check, 404 on unknown ref; feature 109) |
 | `/platform/projects/{ref}/audit` | GET | ✅ | supastack | Project audit log (paginated) — real audit_log rows filtered by ref with actor email join; `{result:[...], count}` | `GET /platform/projects/:ref/audit` (real — desc order, ?rows=50&page=1, max 200/page, 404 on unknown ref; feature 109) |
+| `/platform/projects/{ref}/functions/secrets` | DELETE | ✅ | supastack | Delete edge function secrets — delegates to `DELETE /v1/projects/:ref/secrets` (vault-backed) | `DELETE /platform/projects/:ref/functions/secrets` (real — Tier 3b delegation; feature 111) |
 | `/platform/projects/{ref}/functions/secrets` | GET | ✅ | supastack | List edge function secrets — delegates to `/v1/projects/:ref/secrets` (vault-backed) | `GET /platform/projects/:ref/functions/secrets` (real — Tier 3b delegation; feature 109) |
 | `/platform/projects/{ref}/functions/secrets` | POST | ✅ | supastack | Upsert edge function secrets — delegates to `/v1/projects/:ref/secrets` (vault-backed), returns 201 | `POST /platform/projects/:ref/functions/secrets` (real — Tier 3b delegation; feature 109) |
+| `/platform/projects/{ref}/postgres-config` | GET | ✅ | supastack | Get Postgres GUC tuning values (real 25-field GUC config) — delegates to `GET /v1/projects/:ref/config/database/postgres` | `GET /platform/projects/:ref/postgres-config` (real — Tier 3b delegation; feature 111) |
+| `/platform/projects/{ref}/postgres-config` | PATCH | ✅ | supastack | Update Postgres GUC tuning values — delegates to `PATCH /v1/projects/:ref/config/database/postgres` | `PATCH /platform/projects/:ref/postgres-config` (real — Tier 3b delegation; feature 111) |
 | `/platform/projects/{ref}/pause/status` | GET | ✅ | supastack | Get pause status — real DB: `{initiated_at: updatedAt\|null, status: 'not_pausing'}` (initiated_at non-null iff status='paused') | `GET /platform/projects/:ref/pause/status` (real — org-membership join, 404 on unknown ref; feature 109) |
 | `/platform/projects/{ref}/readonly` | GET | ✅ | supastack | Get readonly mode — real DB: `{enabled: true}` iff instance status='paused' | `GET /platform/projects/:ref/readonly` (real — org-membership join, 404 on unknown ref; feature 109) |
 | `/platform/projects/{ref}/readonly` | DELETE | ✅ | supastack | Disable readonly (resume project) — delegates to `POST /v1/projects/:ref/restore`, forwards auth header, returns upstream response | `DELETE /platform/projects/:ref/readonly` (real — Tier 3b delegation to restore endpoint; feature 109) |
@@ -623,8 +628,8 @@
 | `/user` | GET | ✅ | gotrue | Get current authenticated user | `→ GoTrue /auth/v1/user` |
 | `/user` | PUT | ✅ | gotrue | Update current user (email, password) | `→ GoTrue /auth/v1/user` |
 | `/v1/projects/:ref/api-keys` | GET | ✅ | supastack | List anon + service_role keys | `GET /projects/:ref/api-keys` |
-| `/v1/projects/:ref/api-keys/:id` | DELETE | ⚠️ | supastack | Delete custom API key | `DELETE /v1/projects/:ref/api-keys/:id` (stub 501 — not_implemented) |
-| `/v1/projects/:ref/api-keys/:id` | PATCH | ⚠️ | supastack | Update key name/description | `PATCH /v1/projects/:ref/api-keys/:id` (stub 501 — not_implemented) |
+| `/v1/projects/:ref/api-keys/:id` | DELETE | ✅ | supastack | Delete custom API key — returns 404 not_found (self-hosted has no custom key store; correct REST semantics) | `DELETE /v1/projects/:ref/api-keys/:id` (real 404 — feature 111) |
+| `/v1/projects/:ref/api-keys/:id` | PATCH | ✅ | supastack | Update key name/description — returns 404 not_found (self-hosted has no custom key store; correct REST semantics) | `PATCH /v1/projects/:ref/api-keys/:id` (real 404 — feature 111) |
 | `/v1/projects/:ref/branches` | GET | ⚠️ | mock | List database branches | — |
 | `/v1/projects/:ref/config/auth/signing-keys` | GET | ⚠️ | mock | List JWT signing keys | — |
 | `/v1/projects/:ref/config/auth/third-party-auth` | GET | ⚠️ | mock | List third-party auth providers | — |
