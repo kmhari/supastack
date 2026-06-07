@@ -215,14 +215,16 @@ describe('DELETE /platform/projects/:ref/functions/secrets', () => {
 // ── US2: GET /platform/projects/:ref/api/rest ─────────────────────────────────
 
 describe('GET /platform/projects/:ref/api/rest', () => {
-  it('delegates to GET /v1/projects/:ref/postgrest → real config', async () => {
+  it('delegates to GET /v1/projects/:ref/postgrest → platform shape', async () => {
+    h.dbQueue.push([{ ref: REF, portKong: 5400 }]);
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/api/rest`, headers: { authorization: 'Bearer tok' } });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as { db_schema: string; max_rows: number; db_pool: number };
-    expect(body.db_schema).toBe('public');
-    expect(body.max_rows).toBe(1000);
-    expect(body.db_pool).toBe(15);
+    const body = res.json() as { schema: string; extraSearchPath: string[]; maxRows: number; endpoint: string };
+    expect(body.schema).toBe('public');
+    expect(body.extraSearchPath).toEqual(['public', 'extensions']);
+    expect(body.maxRows).toBe(1000);
+    expect(body.endpoint).toContain('/rest/v1');
     await app.close();
   });
 
@@ -233,29 +235,9 @@ describe('GET /platform/projects/:ref/api/rest', () => {
     await app.close();
   });
 
-  it('v1 returns 404 → propagated verbatim', async () => {
-    const app = Fastify();
-    app.decorate('requireAuth', () => ({ id: 'u1', email: 'op@x.dev', role: 'owner' }));
-    app.decorate('authorize', () => {});
-    app.decorate('authorizeOrg', async () => 'owner');
-    app.setErrorHandler((err, _req, reply) => {
-      reply.status((err as { statusCode?: number }).statusCode ?? 500).send({ error: (err as Error).message });
-    });
-    // Stub postgrest to return 404
-    app.get('/v1/projects/:ref/postgrest', async (_req, reply) => { reply.status(404).send({ message: 'not found' }); });
-    app.post('/v1/projects/:ref/restore', async (_req, reply) => { reply.send({}); });
-    app.get('/v1/projects/:ref/network-bans', async (_req, reply) => { reply.send({}); });
-    app.delete('/v1/projects/:ref/network-bans', async (_req, reply) => { reply.status(204).send(); });
-    app.get('/v1/projects/:ref/network-restrictions', async (_req, reply) => { reply.send({}); });
-    app.post('/v1/projects/:ref/network-restrictions/apply', async (_req, reply) => { reply.send({}); });
-    app.get('/v1/projects/:ref/ssl-enforcement', async (_req, reply) => { reply.send({}); });
-    app.put('/v1/projects/:ref/ssl-enforcement', async (_req, reply) => { reply.send({}); });
-    app.get('/v1/projects/:ref/secrets', async (_req, reply) => { reply.send([]); });
-    app.post('/v1/projects/:ref/secrets', async (_req, reply) => { reply.status(201).send({}); });
-    app.get('/v1/projects/:ref/config/database/postgres', async (_req, reply) => { reply.send({}); });
-    app.patch('/v1/projects/:ref/config/database/postgres', async (_req, reply) => { reply.send({}); });
-    app.delete('/v1/projects/:ref/secrets', async (_req, reply) => { reply.send({}); });
-    await app.register(platformMiscRoutes);
+  it('unknown project ref → 404', async () => {
+    h.dbQueue.push([]); // no instance row
+    const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/api/rest`, headers: { authorization: 'Bearer tok' } });
     expect(res.statusCode).toBe(404);
     await app.close();
