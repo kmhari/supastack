@@ -959,9 +959,25 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get<RefParams>('/platform/projects/:ref/api/rest', async (req, reply) => {
-    app.requireAuth(req);
+    const user = app.requireAuth(req);
+    const apex = process.env.SUPASTACK_APEX ?? '';
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
     const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/postgrest`, headers: fwdHeaders(req) });
-    return reply.status(resp.statusCode).send(resp.json<unknown>());
+    if (resp.statusCode !== 200) return reply.status(resp.statusCode).send(resp.json<unknown>());
+    const v1 = resp.json<{ db_schema?: string; db_extra_search_path?: string; max_rows?: number }>();
+    return reply.send({
+      endpoint: `${kongUrl}/rest/v1`,
+      schema: v1.db_schema ?? 'public',
+      extraSearchPath: (v1.db_extra_search_path ?? 'public,extensions').split(',').map((s) => s.trim()),
+      maxRows: v1.max_rows ?? 1000,
+    });
   });
 
   // Resource warnings
