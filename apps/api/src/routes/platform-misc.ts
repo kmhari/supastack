@@ -7,7 +7,7 @@
  * (instances, auth, etc.).
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
 import { decryptJson, encryptJson, loadMasterKey } from '@supastack/crypto';
 import { ROLE_IDS, ROLE_NAMES, roleFromId, type Role } from '@supastack/shared';
@@ -34,7 +34,52 @@ import {
   InstanceNotResettableError,
   PerInstanceDbUnreachableError,
 } from '../services/pg-password-reset.js';
-import { withPerInstancePg } from '../services/per-instance-pg.js';
+import { withPerInstancePg, InstanceNotRunningError } from '../services/per-instance-pg.js';
+
+// ── Lint check definitions (Tier 4, T017) ─────────────────────────────────────
+const LINT_CHECKS: Record<string, {
+  title: string;
+  level: 'INFO' | 'WARN' | 'ERROR';
+  description: string;
+  sql: string;
+  mapRow: (row: Record<string, unknown>) => Record<string, unknown>;
+}> = {
+  no_rls: {
+    title: 'Tables Without Row Level Security',
+    level: 'WARN',
+    description: 'Tables in the public schema without RLS enabled',
+    sql: `SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' AND rowsecurity = false AND tablename NOT LIKE 'pg_%'`,
+    mapRow: (r) => ({ schema: r.schemaname, table: r.tablename }),
+  },
+  duplicate_index: {
+    title: 'Duplicate Indexes',
+    level: 'WARN',
+    description: 'Indexes covering identical columns on the same table',
+    sql: `SELECT tablename, indexdef, count(*) AS cnt FROM pg_indexes WHERE schemaname = 'public' GROUP BY tablename, indexdef HAVING count(*) > 1`,
+    mapRow: (r) => ({ table: r.tablename, indexdef: r.indexdef, count: r.cnt }),
+  },
+  unused_index: {
+    title: 'Unused Indexes',
+    level: 'INFO',
+    description: 'Non-primary indexes that have never been scanned on non-empty tables',
+    sql: `SELECT s.indexrelname AS indexname, s.relname AS tablename FROM pg_stat_user_indexes s JOIN pg_stat_user_tables t ON s.relname = t.relname WHERE s.idx_scan = 0 AND t.n_live_tup > 0 AND s.indexrelname NOT IN (SELECT conname FROM pg_constraint WHERE contype IN ('p','u'))`,
+    mapRow: (r) => ({ index: r.indexname, table: r.tablename }),
+  },
+  bloat: {
+    title: 'Table Bloat',
+    level: 'INFO',
+    description: 'Tables with significant dead tuple accumulation (>10% dead tuples)',
+    sql: `SELECT relname AS tablename, n_dead_tup, n_live_tup FROM pg_stat_user_tables WHERE n_live_tup > 0 AND n_dead_tup > n_live_tup * 0.1`,
+    mapRow: (r) => ({ table: r.tablename, dead_tuples: r.n_dead_tup, live_tuples: r.n_live_tup }),
+  },
+  sequence_wraparound: {
+    title: 'Sequences Near Exhaustion',
+    level: 'WARN',
+    description: 'Sequences that have consumed more than 80% of their range',
+    sql: `SELECT sequencename, last_value, max_value FROM pg_sequences WHERE max_value > 0 AND last_value IS NOT NULL AND last_value::float / max_value > 0.8`,
+    mapRow: (r) => ({ sequence: r.sequencename, last_value: r.last_value, max_value: r.max_value }),
+  },
+};
 
 export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── Feature flags ──────────────────────────────────────────────────────────
@@ -1066,7 +1111,31 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   app.get<RefParams>('/platform/database/:ref/backups/downloadable-backups', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ backups: [] });
+    const rows = await db()
+      .select({
+        seq: schema.backups.seq,
+        startedAt: schema.backups.startedAt,
+        completedAt: schema.backups.completedAt,
+        sizeBytes: schema.backups.sizeBytes,
+      })
+      .from(schema.backups)
+      .where(
+        and(
+          eq(schema.backups.instanceRef, req.params.ref),
+          eq(schema.backups.status, 'completed'),
+        ),
+      )
+      .orderBy(desc(schema.backups.startedAt));
+    return reply.send({
+      backups: rows.map((r) => ({
+        id: Number(r.seq ?? 0),
+        inserted_at: r.startedAt.toISOString(),
+        completed_at: r.completedAt?.toISOString() ?? null,
+        size_bytes: Number(r.sizeBytes ?? 0),
+        isPhysicalBackup: true,
+        status: 'COMPLETED',
+      })),
+    });
   });
 
   app.post<RefParams>('/platform/database/:ref/backups/download', async (req, reply) => {
@@ -1319,25 +1388,21 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   // Misc project stubs — key is always path.split('/').pop()
   for (const path of [
-    '/platform/projects/:ref/pause/status',
     '/platform/projects/:ref/infra-monitoring',
     '/platform/projects/:ref/config/pgbouncer',
     '/platform/projects/:ref/config/pgbouncer/status',
     '/platform/projects/:ref/config/secrets/update-status',
     '/platform/projects/:ref/notifications/advisor/exceptions',
-    '/platform/projects/:ref/run-lints',
     '/platform/projects/:ref/load-balancers',
   ] as const) {
     app.get(path, async (req, reply) => {
       app.requireAuth(req);
       const stub: Record<string, unknown> = {
-        'pause/status': { initiated_at: null, status: 'not_pausing' },
         'infra-monitoring': { data: [] },
         'config/pgbouncer': { pool_mode: 'transaction', default_pool_size: 15, ignore_startup_parameters: 'extra_float_digits' },
         'config/pgbouncer/status': { active: true },
         'config/secrets/update-status': { updating: false },
         'notifications/advisor/exceptions': { result: [] },
-        'run-lints': [],
         'load-balancers': [],
         'settings': {},
       };
@@ -1345,6 +1410,45 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       return reply.send(stub[key] ?? {});
     });
   }
+
+  // pause/status — real DB state (T002)
+  app.get<RefParams>('/platform/projects/:ref/pause/status', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ status: schema.supabaseInstances.status, updatedAt: schema.supabaseInstances.updatedAt })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send({
+      initiated_at: inst.status === 'paused' ? inst.updatedAt.toISOString() : null,
+      status: 'not_pausing',
+    });
+  });
+
+  // run-lints — advisory lint queries via per-instance Postgres (T018)
+  app.get<RefParams>('/platform/projects/:ref/run-lints', async (req, reply) => {
+    app.requireAuth(req);
+    try {
+      const results = await withPerInstancePg(req.params.ref, async (pg) => {
+        const out: Array<{ name: string; title: string; level: string; description: string; metadata: Record<string, unknown> }> = [];
+        for (const [name, check] of Object.entries(LINT_CHECKS)) {
+          const res = await pg.query(check.sql);
+          for (const row of res.rows as Record<string, unknown>[]) {
+            out.push({ name, title: check.title, level: check.level, description: check.description, metadata: check.mapRow(row) });
+          }
+        }
+        return out;
+      });
+      return reply.send(results);
+    } catch (err) {
+      if (err instanceof InstanceNotRunningError) {
+        return reply.status(503).send({ error: 'Project is not running', code: 'project_not_running' });
+      }
+      throw err;
+    }
+  });
 
   // Completed backups available for physical restore — real data from backups table
   app.get<RefParams>('/platform/projects/:ref/restore/versions', async (req, reply) => {
@@ -3116,9 +3220,29 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ id: req.params.id, ...body });
   });
 
+  // run-lints/:name — filter to single named check (T019)
   app.get<{ Params: { ref: string; name: string } }>('/platform/projects/:ref/run-lints/:name', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send([]);
+    const check = LINT_CHECKS[req.params.name];
+    if (!check) return reply.send([]);
+    try {
+      const results = await withPerInstancePg(req.params.ref, async (pg) => {
+        const res = await pg.query(check.sql);
+        return (res.rows as Record<string, unknown>[]).map((row) => ({
+          name: req.params.name,
+          title: check.title,
+          level: check.level,
+          description: check.description,
+          metadata: check.mapRow(row),
+        }));
+      });
+      return reply.send(results);
+    } catch (err) {
+      if (err instanceof InstanceNotRunningError) {
+        return reply.status(503).send({ error: 'Project is not running', code: 'project_not_running' });
+      }
+      throw err;
+    }
   });
 
   app.post<RefParams>('/platform/projects/:ref/api-keys/temporary', async (req, reply) => {
@@ -3330,15 +3454,17 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send([]);
   });
 
-  // ── Missing project network/SSL/hostname endpoints ──────────────────────────
+  // ── Network restrictions — delegate to /v1 (T013) ────────────────────────
   app.get<RefParams>('/platform/projects/:ref/network-restrictions', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ entitlement: 'disallowed', config: { dbAllowedCidrs: [], dbAllowedCidrsReadReplicas: [] }, old_config: null });
+    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/network-restrictions`, headers: fwdHeaders(req) });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.post<RefParams>('/platform/projects/:ref/network-restrictions/apply', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ entitlement: 'disallowed', config: req.body ?? {} });
+    const resp = await app.inject({ method: 'POST', url: `/v1/projects/${req.params.ref}/network-restrictions/apply`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.get<RefParams>('/platform/projects/:ref/custom-hostname', async (req, reply) => {
@@ -3356,14 +3482,17 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(204).send();
   });
 
+  // ── SSL enforcement — delegate to /v1 (T014) ─────────────────────────────
   app.get<RefParams>('/platform/projects/:ref/ssl-enforcement', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ currentConfig: { database: false }, appliedSuccessfully: true });
+    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/ssl-enforcement`, headers: fwdHeaders(req) });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.put<RefParams>('/platform/projects/:ref/ssl-enforcement', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ currentConfig: req.body ?? {}, appliedSuccessfully: true });
+    const resp = await app.inject({ method: 'PUT', url: `/v1/projects/${req.params.ref}/ssl-enforcement`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   // ── Missing database/extensions proxy ──────────────────────────────────────
@@ -3469,15 +3598,27 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  // ── Read-only mode (Postgres over-capacity protection) ───────────────────
+  // ── Read-only mode — reflects paused state (T003/T004) ──────────────────
   app.get<RefParams>('/platform/projects/:ref/readonly', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ enabled: false });
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ status: schema.supabaseInstances.status })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send({ enabled: inst.status === 'paused' });
   });
 
   app.delete<RefParams>('/platform/projects/:ref/readonly', async (req, reply) => {
     app.requireAuth(req);
-    return reply.status(204).send();
+    const resp = await app.inject({
+      method: 'POST',
+      url: `/v1/projects/${req.params.ref}/restore`,
+      headers: { authorization: req.headers['authorization'] as string },
+    });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   // ── Compute resources list (Studio Infrastructure page) ──────────────────
@@ -3605,15 +3746,17 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send([]);
   });
 
-  // Edge function secrets (self-hosted uses vault — return redirect hint)
+  // Edge function secrets — delegate to vault-backed /v1 secrets (T015)
   app.get<RefParams>('/platform/projects/:ref/functions/secrets', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send([]);
+    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/secrets`, headers: fwdHeaders(req) });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.post<RefParams>('/platform/projects/:ref/functions/secrets', async (req, reply) => {
     app.requireAuth(req);
-    return reply.status(201).send({});
+    const resp = await app.inject({ method: 'POST', url: `/v1/projects/${req.params.ref}/secrets`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   // ── Branching (not supported in self-hosted) ──────────────────────────────
@@ -3646,15 +3789,17 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  // ── Network bans (IP blocklist — empty for self-hosted) ──────────────────
+  // ── Network bans — delegate to /v1 (T012) ────────────────────────────────
   app.get<RefParams>('/platform/projects/:ref/network-bans', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ banned_ipv4_addresses: [] });
+    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/network-bans`, headers: fwdHeaders(req) });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.delete<RefParams>('/platform/projects/:ref/network-bans', async (req, reply) => {
     app.requireAuth(req);
-    return reply.status(204).send();
+    const resp = await app.inject({ method: 'DELETE', url: `/v1/projects/${req.params.ref}/network-bans`, headers: fwdHeaders(req) });
+    return reply.status(resp.statusCode).send(resp.statusCode === 204 ? undefined : resp.json<unknown>());
   });
 
   // ── Edge config (cloud-only feature) ─────────────────────────────────────
@@ -3670,8 +3815,15 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get<RefParams>('/platform/projects/:ref/upgrade/status', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ status: 'not_upgrading' });
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ status: schema.supabaseInstances.status })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send({ status: inst.status === 'restoring' ? 'upgrading' : 'not_upgrading' });
   });
 
   // ── Project subscription (project-scoped billing) ────────────────────────
@@ -3882,16 +4034,92 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send([]);
   });
 
-  // ── Project audit log ─────────────────────────────────────────────────────
-  app.get<RefParams>('/platform/projects/:ref/audit', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ result: [], count: 0 });
+  // ── Project audit log — real events from audit_log (T007) ────────────────
+  app.get<RefParams & { Querystring: { rows?: string; page?: string } }>('/platform/projects/:ref/audit', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    const limit = Math.min(parseInt((req.query as Record<string, string>).rows ?? '50', 10) || 50, 200);
+    const page = Math.max(parseInt((req.query as Record<string, string>).page ?? '1', 10) || 1, 1);
+    const offset = (page - 1) * limit;
+    const rows = await db()
+      .select({
+        id: schema.auditLog.id,
+        action: schema.auditLog.action,
+        actorUserId: schema.auditLog.actorUserId,
+        actorEmail: schema.users.email,
+        targetKind: schema.auditLog.targetKind,
+        targetId: schema.auditLog.targetId,
+        payload: schema.auditLog.payload,
+        createdAt: schema.auditLog.createdAt,
+      })
+      .from(schema.auditLog)
+      .leftJoin(schema.users, eq(schema.users.id, schema.auditLog.actorUserId))
+      .where(eq(schema.auditLog.targetId, req.params.ref))
+      .orderBy(desc(schema.auditLog.id))
+      .limit(limit)
+      .offset(offset);
+    const [countRow] = await db()
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.auditLog)
+      .where(eq(schema.auditLog.targetId, req.params.ref));
+    return reply.send({
+      result: rows.map((r) => ({
+        id: String(r.id),
+        action: r.action,
+        actor_id: r.actorUserId,
+        actor_email: r.actorEmail,
+        target_kind: r.targetKind,
+        target_id: r.targetId,
+        metadata: r.payload,
+        created_at: r.createdAt.toISOString(),
+      })),
+      count: countRow?.count ?? 0,
+    });
   });
 
-  // ── Project activity ──────────────────────────────────────────────────────
+  // ── Project activity — chronological audit events (T008) ─────────────────
   app.get<RefParams>('/platform/projects/:ref/activity', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send([]);
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    const rows = await db()
+      .select({
+        id: schema.auditLog.id,
+        action: schema.auditLog.action,
+        actorUserId: schema.auditLog.actorUserId,
+        actorEmail: schema.users.email,
+        targetKind: schema.auditLog.targetKind,
+        targetId: schema.auditLog.targetId,
+        payload: schema.auditLog.payload,
+        createdAt: schema.auditLog.createdAt,
+      })
+      .from(schema.auditLog)
+      .leftJoin(schema.users, eq(schema.users.id, schema.auditLog.actorUserId))
+      .where(eq(schema.auditLog.targetId, req.params.ref))
+      .orderBy(asc(schema.auditLog.id));
+    return reply.send(
+      rows.map((r) => ({
+        id: String(r.id),
+        action: r.action,
+        actor_id: r.actorUserId,
+        actor_email: r.actorEmail,
+        target_kind: r.targetKind,
+        target_id: r.targetId,
+        metadata: r.payload,
+        created_at: r.createdAt.toISOString(),
+      })),
+    );
   });
 
   // ── Replication connections ───────────────────────────────────────────────

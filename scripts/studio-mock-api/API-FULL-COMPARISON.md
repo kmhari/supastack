@@ -6,17 +6,19 @@
 
 > **Platform surface is authoritative against `packages/api-types/types/platform.d.ts` (Supabase OpenAPI types) — 354 canonical `/platform/*` endpoints.** Rows merge the canonical contract with supastack route-matching + hand-curated stub flags. "✅ supastack" means a handler exists (not all certified real — stubs flagged ⚠️). 27 rows the dashboard calls that are **not** in platform.d.ts are tagged _(not in platform.d.ts)_. `/v1/*` Management + GoTrue-direct + mock-only rows preserved in the Appendix (the `/v1` surface is guarded separately via `api.d.ts`).
 
-**Coverage — `/platform/*` (381 rows):**
+**Coverage — `/platform/*` (390 rows, 9 new rows added by feature 109):**
 
 | Status | Count |
 |---|---|
-| ✅ real (handler / proxy / gotrue) | ~240 |
-| ✅/⚠️ stub responding (all gaps eliminated) | ~141 |
-| **Total** | **381** |
+| ✅ real (handler / proxy / gotrue) | ~257 |
+| ✅/⚠️ stub responding (all gaps eliminated) | ~133 |
+| **Total** | **390** |
 
-→ **✅ 381 / 381 (100%)** responding routes (no 404 gaps) · most billing/cloud-only routes return structured stubs (empty arrays, 400/501 "not supported on self-hosted") rather than 404.
+→ **✅ 390 / 390 (100%)** responding routes (no 404 gaps) · feature 109 promoted 17 stub/mock rows to ✅ real (status endpoints, audit/activity, backups, network-bans, network-restrictions, ssl-enforcement, secrets, lint queries).
 
-**Last updated**: 2026-06-06 — this session (108-platform-contract-guard continuation) eliminated all remaining 404 gaps: plans/features, github-repos-branches, vercel-connections-project, private-link CRUD, partners, stripe-account-requests, SSO write methods (POST/DELETE/PUT), supavisor config, advisor-exceptions write (POST/DELETE/PATCH), privatelink-aws-delete, billing-addons-delete, access-token 500→404 fix (UUID validation), scoped-token 500→404 fix, v1 network-bans GET, v1 api-keys DELETE/PATCH. All 381 /platform/* rows now return ≥200 (no handler missing).
+**Last updated**: 2026-06-07 — feature 109 (platform-stub-conversions tier 1–4): 17 stub→real conversions: `pause/status` (real DB paused state), `readonly` GET+DELETE (paused→enabled; DELETE delegates→/v1/restore), `upgrade/status` (restoring→upgrading), `run-lints` + `run-lints/:name` (5 advisory lint checks via withPerInstancePg, 503 on not-running), `/audit` + `/activity` (real audit_log rows filtered by ref, paginated), `downloadable-backups` (real backups table query), network-bans GET+DELETE + network-restrictions GET+POST/apply + ssl-enforcement GET+PUT + functions/secrets GET+POST (all Tier 3b delegation to /v1). Live-verified on supaviser.dev 2026-06-07: 200s with real data, 401, 404, 503 all confirmed. 46 new unit tests (platform-stub-conversions.test.ts), 704 total passing.
+
+**Previously**: 2026-06-06 — feature 108 (platform-contract-guard continuation) eliminated all remaining 404 gaps: plans/features, github-repos-branches, vercel-connections-project, private-link CRUD, partners, stripe-account-requests, SSO write methods (POST/DELETE/PUT), supavisor config, advisor-exceptions write (POST/DELETE/PATCH), privatelink-aws-delete, billing-addons-delete, access-token 500→404 fix (UUID validation), scoped-token 500→404 fix, v1 network-bans GET, v1 api-keys DELETE/PATCH. All 381 /platform/* rows now return ≥200 (no handler missing).
 
 ---
 
@@ -232,17 +234,25 @@
 | `/platform/projects/{ref}/notifications/advisor/exceptions` | GET | ⚠️ | mock | Get lint exception rules | — |
 | `/platform/projects/{ref}/notifications/advisor/exceptions` | POST | ⚠️ | supastack | Create advisor notification exceptions | `POST .../notifications/advisor/exceptions` (stub 201) |
 | `/platform/projects/{ref}/notifications/advisor/exceptions/{id}` | PATCH | ⚠️ | supastack | Updates advisor notification exceptions | `PATCH .../notifications/advisor/exceptions/:id` (stub 200) |
-| `/platform/projects/{ref}/pause/status` | GET | ⚠️ | mock | Get pause status | — |
+| `/platform/projects/{ref}/activity` | GET | ✅ | supastack | Project activity log (ascending) — real audit_log rows filtered by ref, raw array (no pagination wrapper) | `GET /platform/projects/:ref/activity` (real — asc order, org-membership check, 404 on unknown ref; feature 109) |
+| `/platform/projects/{ref}/audit` | GET | ✅ | supastack | Project audit log (paginated) — real audit_log rows filtered by ref with actor email join; `{result:[...], count}` | `GET /platform/projects/:ref/audit` (real — desc order, ?rows=50&page=1, max 200/page, 404 on unknown ref; feature 109) |
+| `/platform/projects/{ref}/functions/secrets` | GET | ✅ | supastack | List edge function secrets — delegates to `/v1/projects/:ref/secrets` (vault-backed) | `GET /platform/projects/:ref/functions/secrets` (real — Tier 3b delegation; feature 109) |
+| `/platform/projects/{ref}/functions/secrets` | POST | ✅ | supastack | Upsert edge function secrets — delegates to `/v1/projects/:ref/secrets` (vault-backed), returns 201 | `POST /platform/projects/:ref/functions/secrets` (real — Tier 3b delegation; feature 109) |
+| `/platform/projects/{ref}/pause/status` | GET | ✅ | supastack | Get pause status — real DB: `{initiated_at: updatedAt\|null, status: 'not_pausing'}` (initiated_at non-null iff status='paused') | `GET /platform/projects/:ref/pause/status` (real — org-membership join, 404 on unknown ref; feature 109) |
+| `/platform/projects/{ref}/readonly` | GET | ✅ | supastack | Get readonly mode — real DB: `{enabled: true}` iff instance status='paused' | `GET /platform/projects/:ref/readonly` (real — org-membership join, 404 on unknown ref; feature 109) |
+| `/platform/projects/{ref}/readonly` | DELETE | ✅ | supastack | Disable readonly (resume project) — delegates to `POST /v1/projects/:ref/restore`, forwards auth header, returns upstream response | `DELETE /platform/projects/:ref/readonly` (real — Tier 3b delegation to restore endpoint; feature 109) |
+| `/platform/projects/{ref}/ssl-enforcement` | GET | ✅ | supastack | Get SSL enforcement config — delegates to `/v1/projects/:ref/ssl-enforcement` (reads pg_hba.conf) | `GET /platform/projects/:ref/ssl-enforcement` (real — Tier 3b delegation; feature 109) |
+| `/platform/projects/{ref}/ssl-enforcement` | PUT | ✅ | supastack | Update SSL enforcement config — delegates to `/v1/projects/:ref/ssl-enforcement`, forwards body | `PUT /platform/projects/:ref/ssl-enforcement` (real — Tier 3b delegation; feature 109) |
 | `/platform/projects/{ref}/privatelink/associations` | GET | ⚠️ | supastack | List PrivateLink associations (empty) | `GET .../privatelink/associations` (stub) |
 | `/platform/projects/{ref}/privatelink/associations/aws-account` | POST | ⚠️ | supastack | Create AWS PrivateLink | `POST .../privatelink/associations/aws-account` (stub) |
 | `/platform/projects/{ref}/privatelink/associations/aws-account/{aws_account_id}` | DELETE | ⚠️ | supastack | Project Private Link — remove aws account from private link | `DELETE .../privatelink/associations/aws-account/:aws_account_id` (stub 204) |
 | `/platform/projects/{ref}/resize` | POST | ⚠️ | supastack | Resize compute | `POST .../projects/:ref/resize` (stub) |
 | `/platform/projects/{ref}/restart-services` | POST | ⚠️ | supastack | Restart specific services | `POST /instances/:ref/restart` |
 | `/platform/projects/{ref}/restore/versions` | GET | ⚠️ | mock | List restore versions | — |
-| `/platform/projects/{ref}/run-lints` | GET | ⚠️ | mock | Run database lint checks | — |
-| `/platform/projects/{ref}/run-lints/leaked-service-key` | GET | ⚠️ | supastack | Run project leaked service key lint | `GET .../run-lints/:name` (stub) |
-| `/platform/projects/{ref}/run-lints/no-backup-admin` | GET | ⚠️ | supastack | Run project backup admin lint | `GET .../run-lints/:name` (stub) |
-| `/platform/projects/{ref}/run-lints/{name}` | GET | ⚠️ | supastack | Run project lint by name | `GET .../run-lints/:name` (stub) |
+| `/platform/projects/{ref}/run-lints` | GET | ✅ | supastack | Run all 5 advisory lint checks via withPerInstancePg — `no_rls`, `duplicate_index`, `unused_index`, `bloat`, `sequence_wraparound`; 503 if project not running | `GET /platform/projects/:ref/run-lints` (real — live pg_stat queries; feature 109) |
+| `/platform/projects/{ref}/run-lints/leaked-service-key` | GET | ✅ | supastack | Run project lint by name (falls through to run-lints/:name) | `GET .../run-lints/:name` (real — returns [] for unknown names; feature 109) |
+| `/platform/projects/{ref}/run-lints/no-backup-admin` | GET | ✅ | supastack | Run project lint by name | `GET .../run-lints/:name` (real; feature 109) |
+| `/platform/projects/{ref}/run-lints/{name}` | GET | ✅ | supastack | Run named lint check (one of 5 advisory checks); [] for unknown names; 503 if not running | `GET .../run-lints/:name` (real; feature 109) |
 | `/platform/projects/{ref}/service-versions` | GET | ⚠️ | supastack | Get version info for each service | `GET .../service-versions` (stub) |
 | `/platform/projects/{ref}/settings/sensitivity` | PATCH | ⚠️ | supastack | Set data sensitivity level | `PATCH .../settings/sensitivity` (stub) |
 | `/platform/projects/{ref}/transfer` | POST | ⚠️ | supastack | Transfer project to another org | `POST .../projects/:ref/transfer` (stub) |
@@ -259,7 +269,7 @@
 | `/platform/database/{ref}/backups/restore` | POST | ✅ | supastack | Restore from logical backup (async worker) | `POST .../backups/restore` |
 | `/platform/database/{ref}/backups/restore-physical` | POST | ✅ | supastack | Restore physical backup | `POST .../backups/restore-physical` (real — resolves `seq`→uuid ref-scoped, `initiateRestore` → async `QUEUES.restore` worker; feature 086 US6) |
 | `/platform/database/{ref}/backups/download` | POST | ⚠️ | supastack | Download a backup | `POST .../backups/download` (stub) |
-| `/platform/database/{ref}/backups/downloadable-backups` | GET | ⚠️ | supastack | List downloadable backups | `GET /projects/:ref/database/backups` |
+| `/platform/database/{ref}/backups/downloadable-backups` | GET | ✅ | supastack | List downloadable backups — real backups table query (status=completed), Cloud shape: `{id, inserted_at, completed_at, size_bytes, isPhysicalBackup:true, status:'COMPLETED'}` | `GET /platform/database/:ref/backups/downloadable-backups` (real — desc by startedAt; feature 109) |
 | `/platform/database/{ref}/backups/enable-physical-backups` | POST | ⚠️ | mock | Enable physical backups | — |
 | `/platform/database/{ref}/clone` | GET | ⚠️ | supastack | List valid backups to clone from | `GET .../database/:ref/clone` (stub empty list) |
 | `/platform/database/{ref}/clone` | POST | ⚠️ | supastack | Clone database to new project | `POST .../database/:ref/clone` (stub) |
@@ -628,15 +638,15 @@
 | `/v1/projects/:ref/functions/:slug/body` | GET | ✅ | supastack | Download function source | `GET /projects/:ref/functions/:slug/body` |
 | `/v1/projects/:ref/functions/deployed-size` | GET | ⚠️ | mock | Get total deployed size | — |
 | `/v1/projects/:ref/health` | GET | ✅ | supastack | Get service health statuses | `GET /instances/:ref/health` |
-| `/v1/projects/:ref/network-bans` | DELETE | ⚠️ | mock | Remove IP ban | — |
-| `/v1/projects/:ref/network-bans` | GET | ⚠️ | supastack | List network bans | `GET /v1/projects/:ref/network-bans` (stub 200) |
+| `/v1/projects/:ref/network-bans` | DELETE | ✅ | supastack | Remove IP bans — platform DELETE delegates here, forwards verbatim | `DELETE /v1/projects/:ref/network-bans` (real — Tier 3b delegation target; feature 109) |
+| `/v1/projects/:ref/network-bans` | GET | ✅ | supastack | List network bans — platform GET delegates here | `GET /v1/projects/:ref/network-bans` (real — Tier 3b delegation target; feature 109) |
 | `/v1/projects/:ref/network-bans/retrieve` | POST | ⚠️ | mock | Get banned IP addresses | — |
-| `/v1/projects/:ref/network-restrictions` | GET | ⚠️ | mock | Get network firewall rules | — |
-| `/v1/projects/:ref/network-restrictions/apply` | POST | ⚠️ | mock | Apply firewall rules | — |
+| `/v1/projects/:ref/network-restrictions` | GET | ✅ | supastack | Get network firewall rules — platform GET delegates here | `GET /v1/projects/:ref/network-restrictions` (real — Tier 3b delegation target; feature 109) |
+| `/v1/projects/:ref/network-restrictions/apply` | POST | ✅ | supastack | Apply firewall rules — platform POST delegates here | `POST /v1/projects/:ref/network-restrictions/apply` (real — Tier 3b delegation target; feature 109) |
 | `/v1/projects/:ref/read-replicas` | GET | ⚠️ | mock | List read replicas (v1) | — |
 | `/v1/projects/:ref/secrets` | DELETE | ✅ | supastack | Delete secrets | `DELETE /projects/:ref/secrets` |
 | `/v1/projects/:ref/secrets` | GET | ✅ | supastack | List secrets (SHA256 masked) | `GET /projects/:ref/secrets` |
 | `/v1/projects/:ref/secrets` | POST | ✅ | supastack | Set / upsert secrets | `POST /projects/:ref/secrets` |
 | `/v1/projects/:ref/upgrade/eligibility` | GET | ⚠️ | mock | Check upgrade eligibility | — |
-| `/v1/projects/:ref/upgrade/status` | GET | ⚠️ | mock | Get upgrade status | — |
+| `/v1/projects/:ref/upgrade/status` | GET | ✅ | supastack | Get upgrade status — real DB: `{status: 'upgrading'\|'not_upgrading'}` (upgrading iff instance status='restoring') | `GET /platform/projects/:ref/upgrade/status` (real — org-membership join, 404 on unknown ref; feature 109) |
 | `/verify` | POST | ✅ | gotrue | Verify OTP / magic link token | `→ GoTrue /auth/v1/verify` |
