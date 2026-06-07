@@ -19,7 +19,7 @@
 
 **Purpose**: Confirm baseline before modification
 
-- [ ] T001 Run `pnpm --filter @supastack/api test` from repo root and confirm existing tests pass (baseline green)
+- [X] T001 Run `pnpm --filter @supastack/api test` from repo root and confirm existing tests pass (baseline green)
 
 ---
 
@@ -29,9 +29,9 @@
 
 **Independent Test**: `DELETE /platform/projects/myref/functions/secrets` returns a delegated response instead of Fastify's default 404 "route not found"
 
-- [ ] T002 [US1] In `apps/api/src/routes/platform-misc.ts` after line 3760 (after the `app.post` for `/platform/projects/:ref/functions/secrets`): add a new `app.delete` handler: `app.delete<RefParams>('/platform/projects/:ref/functions/secrets', async (req, reply) => { app.requireAuth(req); const resp = await app.inject({ method: 'DELETE', url: \`/v1/projects/${req.params.ref}/secrets\`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) }); return reply.status(resp.statusCode).send(resp.json<unknown>()); });`
+- [X] T002 [US1] In `apps/api/src/routes/platform-misc.ts` after line 3760 (after the `app.post` for `/platform/projects/:ref/functions/secrets`): add a new `app.delete` handler: `app.delete<RefParams>('/platform/projects/:ref/functions/secrets', async (req, reply) => { app.requireAuth(req); const resp = await app.inject({ method: 'DELETE', url: \`/v1/projects/${req.params.ref}/secrets\`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) }); return reply.status(resp.statusCode).send(resp.json<unknown>()); });`
 
-- [ ] T003 [US1] In `apps/api/tests/unit/platform-proxy-stubs.test.ts`: create the file with a `vi.hoisted()` inject mock (same pattern as `platform-stub-conversions.test.ts`), a `buildApp()` helper registering `platformMiscRoutes` with `requireAuth`/`authorize` decorators, and add tests: (1) DELETE functions/secrets happy path → inject mock returns 200 → verify delegated status, (2) DELETE functions/secrets 401 unauthenticated
+- [X] T003 [US1] In `apps/api/tests/unit/platform-proxy-stubs.test.ts`: create the file with a `vi.hoisted()` inject mock (same pattern as `platform-stub-conversions.test.ts`), a `buildApp()` helper registering `platformMiscRoutes` with `requireAuth`/`authorize` decorators, and add tests: (1) DELETE functions/secrets happy path → inject mock returns 200 → verify delegated status, (2) DELETE functions/secrets 401 unauthenticated
 
 **Checkpoint**: 2 tests for US1 pass.
 
@@ -43,9 +43,9 @@
 
 **Independent Test**: `GET /platform/projects/myref/api/rest` returns the delegated v1 response (containing `db_schema`, `max_rows`, `db_pool`) rather than the hardcoded values
 
-- [ ] T004 [US2] In `apps/api/src/routes/platform-misc.ts` line 966: replace the `GET /platform/projects/:ref/api/rest` handler (which builds a `kongUrl` then returns a hardcoded object with `endpoint`, `schema`, `extraSearchPath`, `maxRows`) with a delegation handler: `app.requireAuth(req); const resp = await app.inject({ method: 'GET', url: \`/v1/projects/${req.params.ref}/postgrest\`, headers: fwdHeaders(req) }); return reply.status(resp.statusCode).send(resp.json<unknown>())`
+- [X] T004 [US2] In `apps/api/src/routes/platform-misc.ts` line 966: replace the `GET /platform/projects/:ref/api/rest` handler (which builds a `kongUrl` then returns a hardcoded object with `endpoint`, `schema`, `extraSearchPath`, `maxRows`) with a delegation handler: `app.requireAuth(req); const resp = await app.inject({ method: 'GET', url: \`/v1/projects/${req.params.ref}/postgrest\`, headers: fwdHeaders(req) }); return reply.status(resp.statusCode).send(resp.json<unknown>())`
 
-- [ ] T005 [US2] In `apps/api/tests/unit/platform-proxy-stubs.test.ts`: add tests using the existing inject mock and `buildApp()` helper: (1) GET api/rest happy path → inject mock returns `{ db_schema: 'public', max_rows: 1000, db_pool: 15 }` → verify 200 and mock response returned verbatim, (2) GET api/rest 401 unauthenticated, (3) GET api/rest 404 propagated from inject mock
+- [X] T005 [US2] In `apps/api/tests/unit/platform-proxy-stubs.test.ts`: add tests using the existing inject mock and `buildApp()` helper: (1) GET api/rest happy path → inject mock returns `{ db_schema: 'public', max_rows: 1000, db_pool: 15 }` → verify 200 and mock response returned verbatim, (2) GET api/rest 401 unauthenticated, (3) GET api/rest 404 propagated from inject mock
 
 **Checkpoint**: 3 additional tests (total 5) for US2 pass.
 
@@ -57,11 +57,11 @@
 
 **Independent Test**: Run `pnpm --filter @supastack/api exec vitest run tests/unit/platform-proxy-stubs.test.ts`; all US3 tests pass
 
-- [ ] T006 [US3] In `apps/api/src/routes/platform-misc.ts` line 886: replace the `GET /platform/projects/:ref/postgres-config` handler (which returns `{ effective_cache_size: '4096MB', maintenance_work_mem: '64MB', max_connections: 100, shared_buffers: '1024MB', work_mem: '16MB' }`) with a delegation handler: `app.requireAuth(req); const resp = await app.inject({ method: 'GET', url: \`/v1/projects/${req.params.ref}/config/database/postgres\`, headers: fwdHeaders(req) }); return reply.status(resp.statusCode).send(resp.json<unknown>())`
+- [X] T006 [US3] In `apps/api/src/routes/platform-misc.ts` line 886: replace the `GET /platform/projects/:ref/postgres-config` handler (which returns `{ effective_cache_size: '4096MB', maintenance_work_mem: '64MB', max_connections: 100, shared_buffers: '1024MB', work_mem: '16MB' }`) with a delegation handler: `app.requireAuth(req); const resp = await app.inject({ method: 'GET', url: \`/v1/projects/${req.params.ref}/config/database/postgres\`, headers: fwdHeaders(req) }); return reply.status(resp.statusCode).send(resp.json<unknown>())`
 
-- [ ] T007 [US3] In `apps/api/src/routes/platform-misc.ts` line 897: replace the `PATCH /platform/projects/:ref/postgres-config` handler (which returns `req.body ?? {}`) with a delegation handler: `app.requireAuth(req); const resp = await app.inject({ method: 'PATCH', url: \`/v1/projects/${req.params.ref}/config/database/postgres\`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) }); return reply.status(resp.statusCode).send(resp.json<unknown>())`
+- [X] T007 [US3] In `apps/api/src/routes/platform-misc.ts` line 897: replace the `PATCH /platform/projects/:ref/postgres-config` handler (which returns `req.body ?? {}`) with a delegation handler: `app.requireAuth(req); const resp = await app.inject({ method: 'PATCH', url: \`/v1/projects/${req.params.ref}/config/database/postgres\`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) }); return reply.status(resp.statusCode).send(resp.json<unknown>())`
 
-- [ ] T008 [US3] In `apps/api/tests/unit/platform-proxy-stubs.test.ts`: add tests: (1) GET postgres-config happy path → inject mock returns `{ max_connections: 100, shared_buffers: '1024MB' }` → verify 200 and mock response, (2) GET postgres-config 401, (3) PATCH postgres-config happy path → inject mock returns updated config → verify 200, (4) PATCH postgres-config 401
+- [X] T008 [US3] In `apps/api/tests/unit/platform-proxy-stubs.test.ts`: add tests: (1) GET postgres-config happy path → inject mock returns `{ max_connections: 100, shared_buffers: '1024MB' }` → verify 200 and mock response, (2) GET postgres-config 401, (3) PATCH postgres-config happy path → inject mock returns updated config → verify 200, (4) PATCH postgres-config 401
 
 **Checkpoint**: 4 additional tests (total 9) for US3 pass.
 
@@ -73,11 +73,11 @@
 
 **Independent Test**: Both endpoints return `{ message: 'API key not found', code: 'not_found' }` with status 404
 
-- [ ] T009 [US4] In `apps/api/src/routes/management/api-keys.ts` line 33: replace the `DELETE /projects/:ref/api-keys/:id` handler (currently `throw new ManagementApiError(501, ...)`) with: `const user = app.requireAuth(req); const row = await getProjectByRef(user.id, req.params.ref); if (!row) throw new ManagementApiError(404, 'Project not found', 'not_found', { ref: req.params.ref }); throw new ManagementApiError(404, 'API key not found', 'not_found', { id: req.params.id });`
+- [X] T009 [US4] In `apps/api/src/routes/management/api-keys.ts` line 33: replace the `DELETE /projects/:ref/api-keys/:id` handler (currently `throw new ManagementApiError(501, ...)`) with: `const user = app.requireAuth(req); const row = await getProjectByRef(user.id, req.params.ref); if (!row) throw new ManagementApiError(404, 'Project not found', 'not_found', { ref: req.params.ref }); throw new ManagementApiError(404, 'API key not found', 'not_found', { id: req.params.id });`
 
-- [ ] T010 [US4] In `apps/api/src/routes/management/api-keys.ts` line 44: replace the `PATCH /projects/:ref/api-keys/:id` handler (currently `throw new ManagementApiError(501, ...)`) with the same pattern as T009 — auth check, project lookup (404 if not found), then throw 404 for the key
+- [X] T010 [US4] In `apps/api/src/routes/management/api-keys.ts` line 44: replace the `PATCH /projects/:ref/api-keys/:id` handler (currently `throw new ManagementApiError(501, ...)`) with the same pattern as T009 — auth check, project lookup (404 if not found), then throw 404 for the key
 
-- [ ] T011 [US4] In `apps/api/tests/unit/platform-proxy-stubs.test.ts`: add a separate `describe('api-keys routes', ...)` block with a `buildApiKeysApp()` helper that registers `apiKeysRoutes` with mocked `requireAuth` and a `vi.hoisted()` mock for `../../src/services/project-store.js` (`getProjectByRef`); add tests: (1) DELETE api-keys/:id with valid project → 404 `not_found` API key, (2) DELETE api-keys/:id 401 unauthenticated, (3) DELETE api-keys/:id with unknown project ref → 404 `not_found` project, (4) PATCH api-keys/:id with valid project → 404 `not_found` API key, (5) PATCH api-keys/:id 401
+- [X] T011 [US4] In `apps/api/tests/unit/platform-proxy-stubs.test.ts`: add a separate `describe('api-keys routes', ...)` block with a `buildApiKeysApp()` helper that registers `apiKeysRoutes` with mocked `requireAuth` and a `vi.hoisted()` mock for `../../src/services/project-store.js` (`getProjectByRef`); add tests: (1) DELETE api-keys/:id with valid project → 404 `not_found` API key, (2) DELETE api-keys/:id 401 unauthenticated, (3) DELETE api-keys/:id with unknown project ref → 404 `not_found` project, (4) PATCH api-keys/:id with valid project → 404 `not_found` API key, (5) PATCH api-keys/:id 401
 
 **Checkpoint**: 5 additional tests (total 14) pass.
 
@@ -87,9 +87,9 @@
 
 **Purpose**: Full-suite confirmation
 
-- [ ] T012 Run `pnpm --filter @supastack/api test` and confirm ALL tests pass with 0 failures; new test count ≥ 14 (2 US1 + 3 US2 + 4 US3 + 5 US4 = 14)
+- [X] T012 Run `pnpm --filter @supastack/api test` and confirm ALL tests pass with 0 failures; new test count ≥ 14 (2 US1 + 3 US2 + 4 US3 + 5 US4 = 14)
 
-- [ ] T013 Run `git diff --name-only HEAD` and confirm only `apps/api/src/routes/platform-misc.ts`, `apps/api/src/routes/management/api-keys.ts`, `apps/api/tests/unit/platform-proxy-stubs.test.ts`, and `specs/111-platform-proxy-stubs/` paths appear — no other production files touched
+- [X] T013 Run `git diff --name-only HEAD` and confirm only `apps/api/src/routes/platform-misc.ts`, `apps/api/src/routes/management/api-keys.ts`, `apps/api/tests/unit/platform-proxy-stubs.test.ts`, and `specs/111-platform-proxy-stubs/` paths appear — no other production files touched
 
 ---
 
