@@ -860,16 +860,34 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(await loadStorageConfig(req.params.ref));
   });
 
-  // PostgREST config — delegate to existing management route for real data, stub if not found
+  // PostgREST config — platform shape (GetPostgrestConfigResponse) augments the
+  // /v1 shape with db_anon_role, role_claim_key, jwt_secret.
   app.get<RefParams>('/platform/projects/:ref/config/postgrest', async (req, reply) => {
-    app.requireAuth(req);
+    const user = app.requireAuth(req);
+    // Fetch jwt_secret from encryptedSecrets
+    const [inst] = await db()
+      .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
+      .from(schema.supabaseInstances)
+      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .limit(1);
+    const secrets = inst?.encryptedSecrets
+      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as { jwtSecret?: string })
+      : {};
     const resp = await app.inject({
       method: 'GET',
       url: `/v1/projects/${req.params.ref}/config/postgrest`,
       headers: req.headers as Record<string, string>,
     });
-    if (resp.statusCode === 200) return reply.status(200).send(resp.json<unknown>());
-    return reply.send({ db_schema: 'public', db_extra_search_path: 'public, extensions', max_rows: 1000, db_pool: 15 });
+    const base = resp.statusCode === 200
+      ? resp.json<Record<string, unknown>>()
+      : { db_schema: 'public,graphql_public', db_extra_search_path: 'public, extensions', max_rows: 1000, db_pool: null };
+    return reply.send({
+      ...base,
+      db_anon_role: 'anon',
+      role_claim_key: '.role',
+      jwt_secret: secrets.jwtSecret ?? '',
+    });
   });
 
   app.patch<RefParams>('/platform/projects/:ref/config/postgrest', async (req, reply) => {
