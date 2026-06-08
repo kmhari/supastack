@@ -18,6 +18,7 @@ import {
   resolveBackupSeq,
   initiateRestore,
   enqueueRestore,
+  hashRefToInt,
   RestoreError,
 } from '../services/backups-mgmt-service.js';
 import {
@@ -40,6 +41,7 @@ import { withPerInstancePg, InstanceNotRunningError } from '../services/per-inst
 const LINT_CHECKS: Record<string, {
   title: string;
   level: 'INFO' | 'WARN' | 'ERROR';
+  categories: string[];
   description: string;
   sql: string;
   mapRow: (row: Record<string, unknown>) => Record<string, unknown>;
@@ -47,6 +49,7 @@ const LINT_CHECKS: Record<string, {
   no_rls: {
     title: 'Tables Without Row Level Security',
     level: 'WARN',
+    categories: ['SECURITY'],
     description: 'Tables in the public schema without RLS enabled',
     sql: `SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' AND rowsecurity = false AND tablename NOT LIKE 'pg_%'`,
     mapRow: (r) => ({ schema: r.schemaname, table: r.tablename }),
@@ -54,6 +57,7 @@ const LINT_CHECKS: Record<string, {
   duplicate_index: {
     title: 'Duplicate Indexes',
     level: 'WARN',
+    categories: ['PERFORMANCE'],
     description: 'Indexes covering identical columns on the same table',
     sql: `SELECT tablename, indexdef, count(*) AS cnt FROM pg_indexes WHERE schemaname = 'public' GROUP BY tablename, indexdef HAVING count(*) > 1`,
     mapRow: (r) => ({ table: r.tablename, indexdef: r.indexdef, count: r.cnt }),
@@ -61,6 +65,7 @@ const LINT_CHECKS: Record<string, {
   unused_index: {
     title: 'Unused Indexes',
     level: 'INFO',
+    categories: ['PERFORMANCE'],
     description: 'Non-primary indexes that have never been scanned on non-empty tables',
     sql: `SELECT s.indexrelname AS indexname, s.relname AS tablename FROM pg_stat_user_indexes s JOIN pg_stat_user_tables t ON s.relname = t.relname WHERE s.idx_scan = 0 AND t.n_live_tup > 0 AND s.indexrelname NOT IN (SELECT conname FROM pg_constraint WHERE contype IN ('p','u'))`,
     mapRow: (r) => ({ index: r.indexname, table: r.tablename }),
@@ -68,6 +73,7 @@ const LINT_CHECKS: Record<string, {
   bloat: {
     title: 'Table Bloat',
     level: 'INFO',
+    categories: ['PERFORMANCE'],
     description: 'Tables with significant dead tuple accumulation (>10% dead tuples)',
     sql: `SELECT relname AS tablename, n_dead_tup, n_live_tup FROM pg_stat_user_tables WHERE n_live_tup > 0 AND n_dead_tup > n_live_tup * 0.1`,
     mapRow: (r) => ({ table: r.tablename, dead_tuples: r.n_dead_tup, live_tuples: r.n_live_tup }),
@@ -75,6 +81,7 @@ const LINT_CHECKS: Record<string, {
   sequence_wraparound: {
     title: 'Sequences Near Exhaustion',
     level: 'WARN',
+    categories: ['PERFORMANCE'],
     description: 'Sequences that have consumed more than 80% of their range',
     sql: `SELECT sequencename, last_value, max_value FROM pg_sequences WHERE max_value > 0 AND last_value IS NOT NULL AND last_value::float / max_value > 0.8`,
     mapRow: (r) => ({ sequence: r.sequencename, last_value: r.last_value, max_value: r.max_value }),
@@ -606,17 +613,28 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         return reply.status(resp.statusCode).send(resp.json<unknown>());
       }
 
-      const created = resp.json<{ ref: string; name: string; status: string }>();
+      const created = resp.json<{ ref: string; name: string; status: string; orgId?: string }>();
       const apex = process.env.SUPASTACK_APEX ?? '';
+      const orgSlug = (body?.organization_slug as string) || user.id;
+      const endpoint = apex ? `https://${created.ref}.${apex}` : '';
       return reply.status(201).send({
+        id: hashRefToInt(created.ref),
         ref: created.ref,
         name: created.name,
         status: 'COMING_UP',
         cloud_provider: 'SUPASTACK',
         region: 'local',
-        organization_id: user.id,
-        insertedAt: new Date().toISOString(),
-        restUrl: apex ? `https://${created.ref}.${apex}/rest/v1` : '',
+        organization_id: orgSlug,
+        organization_slug: orgSlug,
+        inserted_at: new Date().toISOString(),
+        is_branch_enabled: false,
+        is_physical_backups_enabled: false,
+        preview_branch_refs: [],
+        subscription_id: null,
+        anon_key: '',
+        service_key: '',
+        endpoint,
+        restUrl: endpoint ? `${endpoint}/rest/v1` : '',
         databases: [{ identifier: created.ref, status: 'COMING_UP', region: 'local', cloud_provider: 'SUPASTACK', inserted_at: new Date().toISOString(), infra_compute_size: 'nano' }],
       });
     },
@@ -737,6 +755,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       db_host: apex || 'localhost',
       db_name: 'postgres',
       db_port: 5432,
+      db_user: 'postgres',
       identifier: inst.ref,
       inserted_at: inst.insertedAt?.toISOString() ?? new Date().toISOString(),
       region: 'local',
@@ -1430,11 +1449,12 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     app.requireAuth(req);
     try {
       const results = await withPerInstancePg(req.params.ref, async (pg) => {
-        const out: Array<{ name: string; title: string; level: string; description: string; metadata: Record<string, unknown> }> = [];
+        const out: Array<{ name: string; title: string; level: string; categories: string[]; description: string; detail: string; remediation: string; metadata: Record<string, unknown>; cache_key: string; facing: string }> = [];
         for (const [name, check] of Object.entries(LINT_CHECKS)) {
           const res = await pg.query(check.sql);
           for (const row of res.rows as Record<string, unknown>[]) {
-            out.push({ name, title: check.title, level: check.level, description: check.description, metadata: check.mapRow(row) });
+            const metadata = check.mapRow(row);
+            out.push({ name, title: check.title, level: check.level, categories: check.categories, description: check.description, detail: '', remediation: '', metadata, cache_key: `${name}-${JSON.stringify(metadata)}`, facing: 'EXTERNAL' });
           }
         }
         return out;
@@ -4685,7 +4705,9 @@ function buildProject(
     is_physical_backups_enabled: false,
     name: inst.name,
     organization_id: inst.orgId,
+    organization_slug: inst.orgId,
     parent_project_ref: null,
+    preview_branch_refs: [],
     ref: inst.ref,
     region: 'local',
     restUrl: `${kongUrl}/rest/v1`,
