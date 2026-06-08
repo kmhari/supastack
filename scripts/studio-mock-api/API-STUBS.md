@@ -199,21 +199,21 @@ All intentionally cloud-only — stubs are correct for self-hosted. No plans to 
 
 ---
 
-## Storage (11 stubs)
+## Storage (11 stubs) — spec'd in [specs/114-storage-stubs](../../specs/114-storage-stubs/spec.md)
 
 | ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
 |---|---|---|---|---|
-| `/platform/projects/{ref}/storage/buckets` | DELETE | supastack | stub | 🔴 |
-| `/platform/projects/{ref}/storage/buckets` | PATCH | supastack | stub | 🔴 |
-| `/platform/projects/{ref}/storage/config` | GET | supastack | stub | 🔴 |
-| `/platform/projects/{ref}/storage/config` | PATCH | supastack | stub | 🔴 |
-| `/platform/projects/{ref}/storage/config/image-transformations` | GET | supastack | stub | ⚪ |
-| `/platform/projects/{ref}/storage/config/image-transformations` | PATCH | supastack | stub | ⚪ |
-| `/platform/projects/{ref}/storage/config/s3-connection` | DELETE | supastack | stub | ⚪ |
-| `/platform/projects/{ref}/storage/config/s3-connection` | GET | supastack | stub | ⚪ |
-| `/platform/projects/{ref}/storage/config/s3-connection` | POST | supastack | stub | ⚪ |
-| `/platform/projects/{ref}/storage/config/s3-connection/credentials` | DELETE | supastack | stub | ⚪ |
-| `/platform/projects/{ref}/storage/config/s3-connection/credentials` | POST | supastack | stub | ⚪ |
+| `/platform/projects/{ref}/storage/buckets` | DELETE | supastack | stub → 204 no-op pending | 🔴 |
+| `/platform/projects/{ref}/storage/buckets` | PATCH | supastack | stub → 200 no-op pending | 🔴 |
+| `/platform/projects/{ref}/storage/config` | GET | supastack | stub → alias of `/config/storage` | 🔴 |
+| `/platform/projects/{ref}/storage/config` | PATCH | supastack | stub → alias of `/config/storage` | 🔴 |
+| `/platform/projects/{ref}/storage/config/image-transformations` | GET | supastack | stub → imageTransformation slice | ⚪ |
+| `/platform/projects/{ref}/storage/config/image-transformations` | PATCH | supastack | stub → update imageTransformation | ⚪ |
+| `/platform/projects/{ref}/storage/config/s3-connection` | DELETE | supastack | stub → 204 no-op | ⚪ |
+| `/platform/projects/{ref}/storage/config/s3-connection` | GET | supastack | stub → 200 empty | ⚪ |
+| `/platform/projects/{ref}/storage/config/s3-connection` | POST | supastack | stub → 200 no-op | ⚪ |
+| `/platform/projects/{ref}/storage/config/s3-connection/credentials` | DELETE | supastack | stub → 204 no-op | ⚪ |
+| `/platform/projects/{ref}/storage/config/s3-connection/credentials` | POST | supastack | stub → 200 credential shape | ⚪ |
 
 ---
 
