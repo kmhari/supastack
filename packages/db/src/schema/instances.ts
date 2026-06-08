@@ -1,7 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
   pgTable,
-  uuid,
   text,
   timestamp,
   integer,
@@ -9,7 +8,7 @@ import {
   customType,
   check,
 } from 'drizzle-orm/pg-core';
-import { org } from './identity.js';
+import { organizations } from './identity.js';
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
 
@@ -18,9 +17,11 @@ export const supabaseInstances = pgTable(
   'supabase_instances',
   {
     ref: text('ref').primaryKey(),
-    orgId: uuid('org_id')
+    // Feature 084 — every project belongs to exactly one organization (20-char
+    // ref). RESTRICT: an org that still owns projects can't be deleted (FR-015).
+    orgId: text('org_id')
       .notNull()
-      .references(() => org.id, { onDelete: 'cascade' }),
+      .references(() => organizations.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
     status: text('status', {
       enum: ['provisioning', 'running', 'paused', 'stopped', 'failed', 'deleting', 'restoring'],

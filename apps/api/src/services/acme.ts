@@ -32,6 +32,17 @@ export interface DnsCheckResult {
   found: boolean;
 }
 
+/**
+ * The authoritative DNS-readiness signal (feature 087 / fix #94). True iff there
+ * is at least one challenge record AND every record is found by the public
+ * resolvers. The `length > 0` guard matters: `[].every()` is `true`, so without
+ * it an empty `challengeRecords` would report a vacuous "ready" (the #94 bug).
+ * Single source of truth — every consumer of `allDnsReady` MUST use this.
+ */
+export function computeAllDnsReady(dnsChecks: { found: boolean }[]): boolean {
+  return dnsChecks.length > 0 && dnsChecks.every((c) => c.found);
+}
+
 export interface VerifyResult {
   status: 'awaiting_dns' | 'issued' | 'failed';
   dnsChecks?: DnsCheckResult[];
@@ -73,7 +84,9 @@ export async function loadRow(apex: string) {
 }
 
 export async function initiateWildcardOrder(
-  orgId: string,
+  // Feature 084 — vestigial since the org singleton was split into installation
+  // + tenant orgs; certs are keyed by apex (installation-level). Nullable.
+  orgId: string | null,
   apex: string,
   email: string,
 ): Promise<InitiateResult> {
@@ -184,7 +197,7 @@ export async function verifyAndFinalize(apex: string): Promise<VerifyResult> {
 
   const challengeRecords = row.challengeRecords as { name: string; value: string }[];
   const dnsChecks = await checkDns(challengeRecords);
-  const allDnsReady = dnsChecks.every((c) => c.found);
+  const allDnsReady = computeAllDnsReady(dnsChecks);
 
   if (!allDnsReady) {
     return { status: 'awaiting_dns', dnsChecks, allDnsReady: false };

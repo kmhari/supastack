@@ -11,15 +11,16 @@ import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
-
-const QUEUE_NAME = 'selfbase.pooler-reconciler';
+import { QUEUES } from '@supastack/shared';
 
 let _queue: Queue | null = null;
 function getQueue(): Queue {
   if (!_queue) {
     const url = process.env.REDIS_URL;
     if (!url) throw new Error('REDIS_URL not set');
-    _queue = new Queue(QUEUE_NAME, { connection: new Redis(url, { maxRetriesPerRequest: null }) });
+    _queue = new Queue(QUEUES.poolerReconciler, {
+      connection: new Redis(url, { maxRetriesPerRequest: null }),
+    });
   }
   return _queue;
 }

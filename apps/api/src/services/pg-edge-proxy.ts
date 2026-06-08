@@ -60,7 +60,7 @@ export function startPgEdgeProxy(opts: ProxyOptions): PgEdgeProxy {
   });
 
   // Per-project cert cache: ref → SecureContext + expiry timestamp.
-  // Built lazily on SNI hit, invalidated on `selfbase:pg-edge-cert:issued` event.
+  // Built lazily on SNI hit, invalidated on `supastack:pg-edge-cert:issued` event.
   const perProjectCache = new Map<string, { ctx: tls.SecureContext; expiresAt: number }>();
   const PER_PROJECT_TTL_MS = 60_000;
 
@@ -241,15 +241,15 @@ export function startPgEdgeProxy(opts: ProxyOptions): PgEdgeProxy {
     redis = new Redis(opts.redisUrl, { maxRetriesPerRequest: null });
     redis
       .subscribe(
-        'selfbase:wildcard-cert:reloaded',
-        'selfbase:apex:changed',
-        'selfbase:instance:deleted',
-        'selfbase:pg-edge-cert:issued',
+        'supastack:wildcard-cert:reloaded',
+        'supastack:apex:changed',
+        'supastack:instance:deleted',
+        'supastack:pg-edge-cert:issued',
       )
       .catch((err) => logger.warn({ err: err.message }, 'pg-edge: redis subscribe failed'));
     redis.on('message', (channel, raw) => {
       try {
-        if (channel === 'selfbase:wildcard-cert:reloaded') {
+        if (channel === 'supastack:wildcard-cert:reloaded') {
           if (existsSync(opts.certPath) && existsSync(opts.keyPath)) {
             wildcardContext = tls.createSecureContext({
               cert: readFileSync(opts.certPath),
@@ -257,7 +257,7 @@ export function startPgEdgeProxy(opts: ProxyOptions): PgEdgeProxy {
             });
             logger.info('pg-edge: wildcard cert reloaded');
           }
-        } else if (channel === 'selfbase:apex:changed') {
+        } else if (channel === 'supastack:apex:changed') {
           const { apex } = JSON.parse(raw);
           if (typeof apex === 'string' && apex.length > 0) {
             sniRegex = new RegExp(`^db\\.([a-z]{20})\\.${apex.replace(/[.\\]/g, '\\$&')}$`);
@@ -265,14 +265,14 @@ export function startPgEdgeProxy(opts: ProxyOptions): PgEdgeProxy {
             perProjectCache.clear();
             logger.info({ apex }, 'pg-edge: apex updated');
           }
-        } else if (channel === 'selfbase:instance:deleted') {
+        } else if (channel === 'supastack:instance:deleted') {
           const { ref } = JSON.parse(raw);
           if (typeof ref === 'string') {
             backendCache.delete(ref);
             perProjectCache.delete(ref);
             logger.info({ ref }, 'pg-edge: caches invalidated');
           }
-        } else if (channel === 'selfbase:pg-edge-cert:issued') {
+        } else if (channel === 'supastack:pg-edge-cert:issued') {
           const { ref } = JSON.parse(raw);
           if (typeof ref === 'string') {
             perProjectCache.delete(ref);

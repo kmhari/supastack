@@ -1,15 +1,48 @@
-export const ROLES = ['admin', 'member'] as const;
+// Feature 084 — Supabase-Cloud-style org roles (Owner ⊇ Administrator ⊇
+// Developer ⊇ Read-only), org-scoped. Roles are exposed to the dashboard as
+// objects with stable NUMERIC ids (Studio assigns by role_id); storage uses the
+// string enum below and maps 1:1.
+
+export const ROLES = ['owner', 'administrator', 'developer', 'read_only'] as const;
 export type Role = (typeof ROLES)[number];
+
+/** Stable numeric ids for the wire (Studio `role_id` / `role_ids[]`). */
+export const ROLE_IDS = {
+  owner: 1,
+  administrator: 2,
+  developer: 3,
+  read_only: 4,
+} as const satisfies Record<Role, number>;
+
+/** Display names exactly as Studio's FIXED_ROLE_ORDER expects. */
+export const ROLE_NAMES = {
+  owner: 'Owner',
+  administrator: 'Administrator',
+  developer: 'Developer',
+  read_only: 'Read-only',
+} as const satisfies Record<Role, string>;
+
+const ROLE_BY_ID: Record<number, Role> = { 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' };
+
+export function roleToId(role: Role): number {
+  return ROLE_IDS[role];
+}
+export function roleFromId(id: number): Role | undefined {
+  return ROLE_BY_ID[id];
+}
 
 export const ACTIONS = [
   // setup + org
   'setup.run',
   'org.read',
+  'org.create',
   'org.update',
+  'org.delete',
   'org.backup-store.update',
   // members + invites
   'member.list',
   'member.invite',
+  'member.update-role',
   'member.remove',
   // tokens
   'token.create',
@@ -37,121 +70,107 @@ export const ACTIONS = [
   'pooler.reregister',
   'pooler.reconciler.run',
   'instance.pg-password.reset',
-  // feature 009 — runtime config tunables (postgres-config + auth-config)
+  // feature 009 — runtime config tunables
   'data_api_config.read',
   'data_api_config.write',
   'auth_config.read',
   'auth_config.write',
-  // feature 026 — supabase config push compat (database/postgres)
+  // feature 026 — supabase config push compat
   'database_config.read',
   'database_config.write',
-  // feature 010 — secrets management (vault-backed)
+  // feature 010 — secrets management
   'instance.secrets.read',
   'instance.secrets.write',
   'instance.vault.enable',
-  // feature 012 — CLI login-role (passwordless `supabase db push`)
+  // feature 012 — CLI login-role
   'database.create-login-role',
-  // feature 013 — db query + db dump endpoints (admin-only SQL + pg_dump)
+  // feature 013 — db query + db dump
   'database.write',
   // feature 019 — async backup restore
   'backup.restore',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
-// Authoritative permission matrix. `true` = allowed.
-// Member denials match spec.md FR-030.
-const MATRIX: Record<Role, Record<Action, boolean>> = {
-  admin: {
-    'setup.run': true,
-    'org.read': true,
-    'org.update': true,
-    'org.backup-store.update': true,
-    'member.list': true,
-    'member.invite': true,
-    'member.remove': true,
-    'token.create': true,
-    'token.list': true,
-    'token.revoke': true,
-    'instance.create': true,
-    'instance.list': true,
-    'instance.read': true,
-    'instance.update': true,
-    'instance.delete': true,
-    'instance.pause': true,
-    'instance.resume': true,
-    'instance.restart': true,
-    'instance.upgrade': true,
-    'instance.reveal-credentials': true,
-    'backup.create': true,
-    'backup.list': true,
-    'backup.download': true,
-    'audit.read': true,
-    'pooler.read': true,
-    'pooler.reregister': true,
-    'pooler.reconciler.run': true,
-    'instance.pg-password.reset': true,
-    'data_api_config.read': true,
-    'data_api_config.write': true,
-    'auth_config.read': true,
-    'auth_config.write': true,
-    'database_config.read': true,
-    'database_config.write': true,
-    'instance.secrets.read': true,
-    'instance.secrets.write': true,
-    'instance.vault.enable': true,
-    'database.create-login-role': true,
-    'database.write': true,
-    'backup.restore': true,
-  },
-  member: {
-    'setup.run': false, // setup only runs unauthenticated, before any user exists
-    'org.read': true,
-    'org.update': false,
-    'org.backup-store.update': false,
-    'member.list': true,
-    'member.invite': false,
-    'member.remove': false,
-    'token.create': true,
-    'token.list': true,
-    'token.revoke': true, // own tokens only — enforced in route handler
-    'instance.create': false,
-    'instance.list': true,
-    'instance.read': true,
-    'instance.update': false,
-    'instance.delete': false,
-    'instance.pause': false,
-    'instance.resume': false,
-    'instance.restart': false,
-    'instance.upgrade': false,
-    'instance.reveal-credentials': true, // per spec FR-030 + US4 scenario 2
-    'backup.create': false,
-    'backup.list': true,
-    'backup.download': true,
-    'audit.read': false,
-    'pooler.read': true, // dashboard read for members is fine
-    'pooler.reregister': false,
-    'pooler.reconciler.run': false,
-    'instance.pg-password.reset': false,
-    'data_api_config.read': true,
-    'data_api_config.write': false,
-    'auth_config.read': true,
-    'auth_config.write': false,
-    'database_config.read': true,
-    'database_config.write': false,
-    'instance.secrets.read': true, // members can view digests (no plaintext) — read-only dashboard view
-    'instance.secrets.write': false,
-    'instance.vault.enable': false,
-    'database.create-login-role': false, // members cannot mint write-capable PG creds via CLI exchange
-    'database.write': false, // members cannot run arbitrary SQL or pg_dump (admin-only superuser surface)
-    'backup.restore': false, // restore is admin-only (data destructive)
-  },
+// Capability tiers, cumulative (each role inherits the one below it).
+// `org.create` is allowed for every role — creating a NEW org you own is not
+// gated by your role in an existing org. `setup.run` is in no tier (it runs
+// unauthenticated, before any role exists).
+const READ_ONLY: Action[] = [
+  'org.read',
+  'org.create',
+  'member.list',
+  'token.create',
+  'token.list',
+  'token.revoke',
+  'instance.list',
+  'instance.read',
+  'instance.reveal-credentials',
+  'backup.list',
+  'backup.download',
+  'pooler.read',
+  'data_api_config.read',
+  'auth_config.read',
+  'database_config.read',
+  'instance.secrets.read',
+];
+
+const DEVELOPER_EXTRA: Action[] = [
+  'instance.create',
+  'instance.update',
+  'instance.delete',
+  'instance.pause',
+  'instance.resume',
+  'instance.restart',
+  'instance.upgrade',
+  'instance.pg-password.reset',
+  'backup.create',
+  'backup.restore',
+  'instance.secrets.write',
+  'instance.vault.enable',
+  'data_api_config.write',
+  'auth_config.write',
+  'database_config.write',
+  'database.create-login-role',
+  'database.write',
+  'pooler.reregister',
+  'pooler.reconciler.run',
+  'audit.read',
+];
+
+const ADMIN_EXTRA: Action[] = [
+  'member.invite',
+  'member.update-role',
+  'member.remove',
+  'org.update',
+  'org.backup-store.update',
+];
+
+const OWNER_EXTRA: Action[] = ['org.delete'];
+
+const developerGrants = [...READ_ONLY, ...DEVELOPER_EXTRA];
+const administratorGrants = [...developerGrants, ...ADMIN_EXTRA];
+const ownerGrants = [...administratorGrants, ...OWNER_EXTRA];
+
+const GRANTS: Record<Role, Action[]> = {
+  read_only: READ_ONLY,
+  developer: developerGrants,
+  administrator: administratorGrants,
+  owner: ownerGrants,
 };
+
+// Authoritative permission matrix — every (role × action) cell defined.
+const MATRIX: Record<Role, Record<Action, boolean>> = Object.fromEntries(
+  ROLES.map((role) => [
+    role,
+    Object.fromEntries(ACTIONS.map((action) => [action, GRANTS[role].includes(action)])),
+  ]),
+) as Record<Role, Record<Action, boolean>>;
 
 export function can(role: Role, action: Action): boolean {
   return MATRIX[role]?.[action] ?? false;
 }
 
-/** Used by RBAC matrix contract test — every (role × action) cell is asserted. */
+/** Used by the RBAC matrix contract test — every (role × action) cell asserted. */
 export function permissionMatrix(): ReadonlyArray<{
   role: Role;
   action: Action;

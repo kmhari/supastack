@@ -59,10 +59,13 @@ const VALID_PARAMS = {
 
 async function buildApp(sessionUserId: string | null = null): Promise<FastifyInstance> {
   const app = Fastify();
-  app.decorateRequest('session', null);
+  // Feature 084: authorize.ts resolves the operator from `req.user` (Bearer access
+  // token, set by the auth preHandler) — not the legacy `sb_sid` session. Simulate
+  // an authenticated operator by stamping req.user instead of req.session.
+  app.decorateRequest('user', null);
   if (sessionUserId !== null) {
     app.addHook('preHandler', async (req) => {
-      (req as any).session = { userId: sessionUserId, destroy: async () => {} };
+      (req as any).user = { id: sessionUserId, email: `${sessionUserId}@x.dev`, role: 'developer' };
     });
   }
   await app.register(

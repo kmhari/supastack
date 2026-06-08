@@ -7,6 +7,9 @@
  * Contract: specs/009-runtime-config-tunables/contracts/postgrest-config.md
  */
 import type { FastifyPluginAsync } from 'fastify';
+import { eq, and } from 'drizzle-orm';
+import { db, schema } from '@supastack/db';
+import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { getProjectByRef } from '../../services/project-store.js';
 import { getConfig, patchConfig } from '../../services/runtime-config-store.js';
@@ -21,7 +24,17 @@ export const postgrestConfigRoutes: FastifyPluginAsync = async (app) => {
         ref: req.params.ref,
       });
     }
-    return getConfig(req.params.ref, 'postgrest');
+    const config = await getConfig(req.params.ref, 'postgrest');
+    // Inject jwt_secret from encryptedSecrets — PostgrestConfigWithJWTSecretResponse
+    const [row] = await db()
+      .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
+      .from(schema.supabaseInstances)
+      .where(eq(schema.supabaseInstances.ref, req.params.ref))
+      .limit(1);
+    const secrets = row?.encryptedSecrets
+      ? (decryptJson(row.encryptedSecrets, loadMasterKey()) as { jwtSecret?: string })
+      : {};
+    return { ...config, jwt_secret: secrets.jwtSecret ?? '' };
   });
 
   app.patch<{ Params: { ref: string }; Body: unknown }>('/projects/:ref/postgrest', async (req) => {

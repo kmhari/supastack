@@ -6,7 +6,8 @@ vi.mock('@supastack/db', () => ({
   schema: {},
 }));
 vi.mock('@supastack/db/schema', () => ({
-  org: { apexDomain: 'apex_domain' },
+  // feature 084: apex moved from the `org` singleton to the `installation` table.
+  installation: { apexDomain: 'apex_domain' },
 }));
 
 describe('apex-resolver', () => {

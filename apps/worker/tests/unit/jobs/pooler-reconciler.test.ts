@@ -46,7 +46,7 @@ interface DbState {
     instancesSeen?: number;
     actionsTaken?: Record<string, number>;
   }>;
-  org: Array<{ apexDomain: string }>;
+  installation: Array<{ apexDomain: string }>;
 }
 
 const dbState: DbState = {
@@ -54,7 +54,7 @@ const dbState: DbState = {
   poolerTenants: [],
   poolerEvents: [],
   reconcilerRuns: [],
-  org: [{ apexDomain: 'example.test' }],
+  installation: [{ apexDomain: 'example.test' }],
 };
 
 let runIdCounter = 0;
@@ -254,8 +254,8 @@ function rowsFor(table: string, _cols?: Record<string, unknown>): unknown[] {
         status: p.status,
         updatedAt: p.updatedAt,
       }));
-    case 'org':
-      return dbState.org.map((o) => ({ apex: o.apexDomain }));
+    case 'installation':
+      return dbState.installation.map((o) => ({ apex: o.apexDomain }));
     case 'reconcilerRuns':
       return dbState.reconcilerRuns.map((r) => ({ id: r.id, startedAt: r.startedAt }));
     default:
@@ -297,7 +297,7 @@ vi.mock('@supastack/db', () => ({
       startedAt: 'startedAt',
       triggerSource: 'triggerSource',
     },
-    org: { __name: 'org', apexDomain: 'apexDomain' },
+    installation: { __name: 'installation', apexDomain: 'apexDomain' },
   },
 }));
 

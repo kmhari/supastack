@@ -32,7 +32,7 @@ interface ApexStatus {
 const WILDCARD_PROBE_LABEL = '_supastack-wildcard-probe';
 
 async function buildStatus(): Promise<ApexStatus> {
-  const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
+  const [orgRow] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
   const apex = orgRow?.apex ?? null;
 
   const expectedIp = await getPlatformIp();
@@ -95,7 +95,7 @@ export const apexRoutes: FastifyPluginAsync = async (app) => {
     // RequireAuth gate fall through to the actual page; otherwise every
     // browser-test navigation is intercepted into the Setup wizard.
     if (process.env.SUPASTACK_TEST_FAKE_DOCKER === '1') {
-      const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
+      const [orgRow] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
       const apex = orgRow?.apex ?? 'test.local';
       return reply.send({
         apex,

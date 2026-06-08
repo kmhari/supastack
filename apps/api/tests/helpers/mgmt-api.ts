@@ -12,11 +12,23 @@
  * Container side-effects (docker restart) are short-circuited via a recorded
  * fake docker-control that callers can inspect.
  */
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
+import { sql } from 'drizzle-orm';
+import { generateRef } from '@supastack/crypto';
+import type { Role } from '@supastack/shared';
 import { db, schema } from '@supastack/db';
+
+// Feature 084 — GoTrue owns `auth.users` in prod, but tests run without GoTrue,
+// so ensure a minimal projection exists in the test DB before seeding operators.
+async function ensureAuthUsers(): Promise<void> {
+  await db().execute(sql`CREATE SCHEMA IF NOT EXISTS auth`);
+  await db().execute(
+    sql`CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY, email text NOT NULL)`,
+  );
+}
 import {
   encryptInstanceSecrets,
   generateInstanceSecrets,
@@ -86,30 +98,34 @@ export async function mintTestToken(
 export async function seedTestUser(
   opts: {
     email?: string;
-    role?: 'admin' | 'member';
+    role?: Role;
   } = {},
 ) {
+  await ensureAuthUsers();
   const email = opts.email ?? `test-${randomBytes(4).toString('hex')}@selfbase.test`;
-  const [user] = await db()
-    .insert(schema.users)
-    .values({ email, hashedPassword: 'unused' })
-    .returning({ id: schema.users.id });
-  if (!user) throw new Error('failed to insert test user');
+  const userId = randomUUID();
+  await db().insert(schema.users).values({ id: userId, email });
 
-  // Org may already exist (singleton). Insert if missing.
-  const existingOrgs = await db().select({ id: schema.org.id }).from(schema.org).limit(1);
+  // Reuse the first existing org, or create one (tenant org — 20-char ref id).
+  const existingOrgs = await db()
+    .select({ id: schema.organizations.id })
+    .from(schema.organizations)
+    .limit(1);
   const orgId =
     existingOrgs[0]?.id ??
     (
-      await db().insert(schema.org).values({ name: 'Test Org' }).returning({ id: schema.org.id })
+      await db()
+        .insert(schema.organizations)
+        .values({ id: generateRef(), name: 'Test Org' })
+        .returning({ id: schema.organizations.id })
     )[0]!.id;
 
   await db()
-    .insert(schema.orgMembers)
-    .values({ orgId, userId: user.id, role: opts.role ?? 'admin' });
+    .insert(schema.organizationMembers)
+    .values({ organizationId: orgId, userId, role: opts.role ?? 'owner' });
 
-  const token = await mintTestToken(user.id);
-  return { userId: user.id, email, orgId, token };
+  const token = await mintTestToken(userId);
+  return { userId, email, orgId, token };
 }
 
 /**
@@ -128,11 +144,17 @@ export async function withMockInstance(ref: string, opts: { orgId?: string } = {
   // org (created by an earlier seedTestUser call) or insert a fresh singleton.
   let orgId = opts.orgId;
   if (!orgId) {
-    const existing = await db().select({ id: schema.org.id }).from(schema.org).limit(1);
+    const existing = await db()
+      .select({ id: schema.organizations.id })
+      .from(schema.organizations)
+      .limit(1);
     orgId =
       existing[0]?.id ??
       (
-        await db().insert(schema.org).values({ name: 'Test Org' }).returning({ id: schema.org.id })
+        await db()
+          .insert(schema.organizations)
+          .values({ id: generateRef(), name: 'Test Org' })
+          .returning({ id: schema.organizations.id })
       )[0]!.id;
   }
 

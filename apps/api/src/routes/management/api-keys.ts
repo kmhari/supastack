@@ -29,4 +29,24 @@ export const apiKeysRoutes: FastifyPluginAsync = async (app) => {
       return instanceApiKeys(secrets);
     },
   );
+
+  app.delete<{ Params: { ref: string; id: string } }>(
+    '/projects/:ref/api-keys/:id',
+    async (req) => {
+      const user = app.requireAuth(req);
+      const row = await getProjectByRef(user.id, req.params.ref);
+      if (!row) throw new ManagementApiError(404, 'Project not found', 'not_found', { ref: req.params.ref });
+      throw new ManagementApiError(404, 'API key not found', 'not_found', { id: req.params.id });
+    },
+  );
+
+  app.patch<{ Params: { ref: string; id: string } }>(
+    '/projects/:ref/api-keys/:id',
+    async (req) => {
+      const user = app.requireAuth(req);
+      const row = await getProjectByRef(user.id, req.params.ref);
+      if (!row) throw new ManagementApiError(404, 'Project not found', 'not_found', { ref: req.params.ref });
+      throw new ManagementApiError(404, 'API key not found', 'not_found', { id: req.params.id });
+    },
+  );
 };

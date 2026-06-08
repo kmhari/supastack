@@ -4,7 +4,7 @@ import { Redis } from 'ioredis';
 import { and, desc, eq } from 'drizzle-orm';
 import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import { db, schema } from '@supastack/db';
-import { errors } from '@supastack/shared';
+import { errors, QUEUES } from '@supastack/shared';
 import {
   LocalDiskStore,
   S3Store,
@@ -19,7 +19,7 @@ const BACKUPS_DIR = process.env.BACKUPS_DIR ?? '/var/selfbase/backups';
 let _q: Queue | null = null;
 function backupQueue(): Queue {
   if (!_q) {
-    _q = new Queue('selfbase.backup', {
+    _q = new Queue(QUEUES.backup, {
       connection: new Redis(REDIS_URL, { maxRetriesPerRequest: null }),
     });
   }
@@ -29,10 +29,10 @@ function backupQueue(): Queue {
 async function resolveStore(): Promise<{ kind: 'local' | 's3'; store: BackupStore }> {
   const [row] = await db()
     .select({
-      kind: schema.org.backupStoreKind,
-      cfg: schema.org.backupStoreConfigEncrypted,
+      kind: schema.installation.backupStoreKind,
+      cfg: schema.installation.backupStoreConfigEncrypted,
     })
-    .from(schema.org)
+    .from(schema.installation)
     .limit(1);
   if (!row || row.kind === 'local') {
     return { kind: 'local', store: new LocalDiskStore(BACKUPS_DIR) };

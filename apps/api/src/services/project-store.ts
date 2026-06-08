@@ -19,8 +19,8 @@ export async function listProjectsForUser(userId: string): Promise<InstanceRow[]
   const rows = await db()
     .select()
     .from(schema.supabaseInstances)
-    .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-    .where(eq(schema.orgMembers.userId, userId));
+    .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+    .where(eq(schema.organizationMembers.userId, userId));
   // Drizzle's join shape is `{ supabase_instances: {...}, org_members: {...} }`;
   // extract the instance row.
   return rows.map((r) => r.supabase_instances);
@@ -35,8 +35,8 @@ export async function getProjectByRef(userId: string, ref: string): Promise<Inst
   const rows = await db()
     .select()
     .from(schema.supabaseInstances)
-    .innerJoin(schema.orgMembers, eq(schema.orgMembers.orgId, schema.supabaseInstances.orgId))
-    .where(and(eq(schema.supabaseInstances.ref, ref), eq(schema.orgMembers.userId, userId)))
+    .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+    .where(and(eq(schema.supabaseInstances.ref, ref), eq(schema.organizationMembers.userId, userId)))
     .limit(1);
   return rows[0]?.supabase_instances ?? null;
 }

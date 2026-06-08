@@ -67,23 +67,23 @@ const PAYLOAD: SessionPayload = {
 describe('cli-login-store', () => {
   it('putSession writes the key with TTL ≤ 300', async () => {
     await putSession(SESSION_ID, PAYLOAD);
-    expect(await fake.exists(`selfbase:cli-login:${SESSION_ID}`)).toBe(1);
-    expect(await fake.ttl(`selfbase:cli-login:${SESSION_ID}`)).toBeLessThanOrEqual(300);
-    expect(await fake.ttl(`selfbase:cli-login:${SESSION_ID}`)).toBeGreaterThan(290);
+    expect(await fake.exists(`supastack:cli-login:${SESSION_ID}`)).toBe(1);
+    expect(await fake.ttl(`supastack:cli-login:${SESSION_ID}`)).toBeLessThanOrEqual(300);
+    expect(await fake.ttl(`supastack:cli-login:${SESSION_ID}`)).toBeGreaterThan(290);
   });
 
   it('getAndConsume with matching device_code returns payload + deletes key (single-use)', async () => {
     await putSession(SESSION_ID, PAYLOAD);
     const got = await getAndConsume(SESSION_ID, '91cbae4c');
     expect(got).toEqual(PAYLOAD);
-    expect(await fake.exists(`selfbase:cli-login:${SESSION_ID}`)).toBe(0);
+    expect(await fake.exists(`supastack:cli-login:${SESSION_ID}`)).toBe(0);
   });
 
   it('getAndConsume with mismatching device_code returns null and KEEPS the key', async () => {
     await putSession(SESSION_ID, PAYLOAD);
     const got = await getAndConsume(SESSION_ID, 'deadbeef');
     expect(got).toBeNull();
-    expect(await fake.exists(`selfbase:cli-login:${SESSION_ID}`)).toBe(1);
+    expect(await fake.exists(`supastack:cli-login:${SESSION_ID}`)).toBe(1);
   });
 
   it('getAndConsume on missing key returns null', async () => {
@@ -107,7 +107,7 @@ describe('cli-login-store', () => {
   });
 
   it('corrupt JSON payload is treated as miss (returns null, does NOT throw)', async () => {
-    await fake.set(`selfbase:cli-login:${SESSION_ID}`, '{not json', 'EX', 300);
+    await fake.set(`supastack:cli-login:${SESSION_ID}`, '{not json', 'EX', 300);
     const got = await getAndConsume(SESSION_ID, '91cbae4c');
     expect(got).toBeNull();
   });

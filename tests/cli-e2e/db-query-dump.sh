@@ -4,7 +4,7 @@
 # (feature 013) end-to-end against a live supastack deployment.
 #
 # Covers (US1 — db query):
-#   1. SELECT 1 → 201 + { result: [{ "?column?": 1 }] }
+#   1. SELECT 1 → 201 + [{ "one": 1 }] (bare array — matches upstream Cloud)
 #   2. Parameterized SELECT $1 → result row with substituted value
 #   3. Multi-statement → 400 multi_statement_not_supported
 #   4. read_only:true + DELETE → 400 read_only_violation
@@ -69,14 +69,14 @@ OUT=$(query '{"query":"SELECT 1 as one"}')
 STATUS=$(printf '%s\n' "$OUT" | parse_status)
 BODY=$(printf '%s\n' "$OUT" | parse_body)
 [[ "$STATUS" == "201" ]] || { echo "FAIL: expected 201, got $STATUS"; echo "$BODY"; exit 1; }
-echo "$BODY" | jq -e '.result[0].one == 1' >/dev/null || { echo "FAIL: bad shape"; echo "$BODY"; exit 1; }
+echo "$BODY" | jq -e '.[0].one == 1' >/dev/null || { echo "FAIL: bad shape (expected bare array [{one:1}])"; echo "$BODY"; exit 1; }
 
 # ─── 2. parameterized ─────────────────────────────────────────────────────
 echo "==> [2] parameterized SELECT \$1"
 OUT=$(query '{"query":"SELECT $1::int as x","parameters":[42]}')
 STATUS=$(printf '%s\n' "$OUT" | parse_status)
 [[ "$STATUS" == "201" ]] || { echo "FAIL: $STATUS"; exit 1; }
-printf '%s\n' "$OUT" | parse_body | jq -e '.result[0].x == 42' >/dev/null
+printf '%s\n' "$OUT" | parse_body | jq -e '.[0].x == 42' >/dev/null
 
 # ─── 3. multi-statement ───────────────────────────────────────────────────
 echo "==> [3] multi-statement → 400"

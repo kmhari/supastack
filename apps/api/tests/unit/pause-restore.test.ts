@@ -83,7 +83,7 @@ const REF = 'aaaaaaaaaaaaaaaaaaaa';
 
 async function buildApp(opts: { authorizeThrows?: boolean } = {}): Promise<FastifyInstance> {
   const app = Fastify();
-  app.decorate('requireAuth', () => ({ id: 'u1', email: 'a@b.c', role: 'admin' as const }));
+  app.decorate('requireAuth', () => ({ id: 'u1', email: 'a@b.c', role: 'owner' as const }));
   app.decorate('authorize', () => {
     if (opts.authorizeThrows) throw new AppError(403, 'forbidden', 'admin required');
   });

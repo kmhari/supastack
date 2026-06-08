@@ -58,11 +58,11 @@ describe('revoke + isRevoked', () => {
     expect(await isRevoked(redis, 'jti-1')).toBe(false);
   });
 
-  it('uses key prefix selfbase:oauth:revoked:', async () => {
+  it('uses key prefix supastack:oauth:revoked:', async () => {
     await revoke(redis, 'jti-x', 60);
     // Reach into the fake to verify the prefix was applied
     const innerStore = (redis as unknown as { store: Map<string, unknown> }).store;
-    expect([...innerStore.keys()]).toEqual(['selfbase:oauth:revoked:jti-x']);
+    expect([...innerStore.keys()]).toEqual(['supastack:oauth:revoked:jti-x']);
   });
 
   it('clamps sub-1-second TTL to 1', async () => {

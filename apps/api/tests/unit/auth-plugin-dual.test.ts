@@ -20,8 +20,8 @@ const ISSUER = `https://api.${APEX}`;
 const AUDIENCE = `https://mcp.${APEX}/mcp`;
 
 // User store: map user_id → { exists, email, role }
-const userStore = new Map<string, { email: string; role: 'admin' | 'member' }>();
-userStore.set('user-active', { email: 'a@b.c', role: 'admin' });
+const userStore = new Map<string, { email: string; role: 'owner' | 'administrator' | 'developer' | 'read_only' }>();
+userStore.set('user-active', { email: 'a@b.c', role: 'owner' });
 // user-inactive: NOT in userStore → org_members join fails → reject
 
 // PAT store
@@ -29,36 +29,49 @@ const patStore = new Map<string, { userId: string; tokenId: string }>();
 patStore.set('sbp_' + 'a'.repeat(40), { userId: 'user-active', tokenId: 'tok-1' });
 
 vi.mock('@supastack/db', () => {
-  // Mock that handles BOTH drizzle chains used by the auth plugin:
-  //   PAT path:   select().from(apiTokens).innerJoin(users).innerJoin(orgMembers).where().limit(1)
-  //   OAuth path: select().from(users).innerJoin(orgMembers).where().limit(1)
-  // We provide a uniform .where().limit() at each level so both chains resolve
-  // to the same lookup function (gated by _lastLookupKind).
-  const lookupResult = async () => {
+  // Feature 084 rewrote the auth plugin into TWO drizzle chains:
+  //   user lookup:  select(...).from(apiTokens).innerJoin(users).where().limit(1)  [PAT]
+  //                 select(...).from(users).where().limit(1)                        [OAuth → {id,email}]
+  //   resolveRole:  select({role}).from(organizationMembers).where()  ← AWAITED directly, NO .limit()
+  // So .where() returns a thenable: awaiting it yields the role rows (resolveRole),
+  // while .limit() on it yields the user-lookup row.
+  const findUser = async () => {
     if (_lastLookupKind === 'pat' && _lastPatSha) {
       for (const [token, val] of patStore) {
         const { createHash } = await import('node:crypto');
         const sha = createHash('sha256').update(token, 'utf8').digest();
         if (Buffer.compare(sha, _lastPatSha) === 0) {
           const u = userStore.get(val.userId);
-          if (!u) return [];
-          return [{ tokenId: val.tokenId, userId: val.userId, email: u.email, role: u.role }];
+          return u ? { tokenId: val.tokenId, userId: val.userId, email: u.email, role: u.role } : null;
         }
       }
-      return [];
+      return null;
     }
     if (_lastLookupKind === 'oauth' && _lastSub) {
       const u = userStore.get(_lastSub);
-      if (!u) return [];
-      return [{ userId: _lastSub, email: u.email, role: u.role }];
+      return u ? { userId: _lastSub, email: u.email, role: u.role } : null;
     }
-    return [];
+    return null;
   };
-  const limitable = () => ({ limit: lookupResult });
-  const _whereable = () => ({ where: () => limitable() });
+  const lookupResult = async () => {
+    const u = await findUser();
+    if (!u) return [];
+    return _lastLookupKind === 'pat'
+      ? [{ tokenId: u.tokenId, userId: u.userId, email: u.email }]
+      : [{ id: u.userId, email: u.email }];
+  };
+  const roleRows = async () => {
+    const u = await findUser();
+    return u ? [{ role: u.role }] : [];
+  };
+  const whereable = () => ({
+    limit: lookupResult,
+    then: (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
+      roleRows().then(resolve, reject),
+  });
   const joinable: () => Record<string, unknown> = () => ({
     innerJoin: () => joinable(),
-    where: () => limitable(),
+    where: () => whereable(),
   });
   return {
     db: () => ({
@@ -74,7 +87,7 @@ vi.mock('@supastack/db', () => {
     schema: {
       apiTokens: { id: 'id', userId: 'userId', tokenSha256: 'tokenSha256', revokedAt: 'revokedAt' },
       users: { id: 'id', email: 'email' },
-      orgMembers: { userId: 'userId', role: 'role' },
+      organizationMembers: { userId: 'userId', role: 'role' },
     },
   };
 });
@@ -189,6 +202,7 @@ describe('auth plugin — dual-credential', () => {
   it('revoked JWT (jti in Redis) → 401', async () => {
     const app = await buildApp();
     const { token, jti } = mintToken();
+    // Revocation key prefix: `supastack:oauth:revoked:` (packages/oauth/src/revocation.ts).
     redisStore.set(`supastack:oauth:revoked:${jti}`, '1');
     _lastLookupKind = 'oauth';
     _lastSub = 'user-active';
