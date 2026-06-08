@@ -298,24 +298,13 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     '/platform/profile/access-tokens/:id',
     async (req, reply) => {
       const user = app.requireAuth(req);
-      const [row] = await db()
-        .select({
-          id: schema.apiTokens.id,
-          name: schema.apiTokens.label,
-          tokenAlias: schema.apiTokens.prefix,
-          createdAt: schema.apiTokens.createdAt,
-          lastUsedAt: schema.apiTokens.lastUsedAt,
-          userId: schema.apiTokens.userId,
-        })
-        .from(schema.apiTokens)
-        .where(eq(schema.apiTokens.id, req.params.id))
-        .limit(1);
-      if (!row || row.userId !== user.id) return reply.status(404).send({ error: 'Not found' });
+      // Own-only revoke, scoped via the WHERE clause: revoking a token that is
+      // not yours simply matches no rows → still a 204 no-op (idempotent delete).
       await db()
         .update(schema.apiTokens)
         .set({ revokedAt: new Date() })
-        .where(eq(schema.apiTokens.id, req.params.id));
-      return reply.status(200).send(toAccessToken(row));
+        .where(and(eq(schema.apiTokens.id, req.params.id), eq(schema.apiTokens.userId, user.id)));
+      return reply.status(204).send();
     },
   );
 
@@ -1555,10 +1544,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
           serviceRoleKey?: string;
         })
       : {};
-    const kongBase = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
-    // storage_endpoint must be a bare hostname (no scheme, no path) — Studio prepends https:// itself
+    // app_config.endpoint + storage_endpoint must be a BARE hostname (no scheme,
+    // no port, no path) — Studio prepends https:// itself.
     // See: studio/data/config/project-endpoint-query.ts line ~41
-    const storageHost = apex ? `${inst.ref}.${apex}` : `localhost:${inst.portKong}`;
+    const hostBase = apex ? `${inst.ref}.${apex}` : 'localhost';
     return reply.send({
       cloud_provider: 'SUPASTACK',
       region: 'local',
@@ -1576,8 +1565,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       status: toStudioProjectStatus(inst.status),
       app_config: {
         db_schema: 'public',
-        endpoint: kongBase,
-        storage_endpoint: storageHost,
+        endpoint: hostBase,
+        storage_endpoint: hostBase,
       },
       jwt_secret: secrets.jwtSecret ?? '',
       service_api_keys: [
