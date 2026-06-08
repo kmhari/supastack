@@ -2,7 +2,7 @@
 
 All `/platform/*` (and appendix non-platform) endpoints currently returning stub/mock responses. These are the remaining implementation gaps — converting any row to a real handler removes it from this list.
 
-**Total stubs: 243 of 392 `/platform/*` rows**
+**Total stubs: 240 of 392 `/platform/*` rows + 8 `/v1/*` 501s**
 
 **Last updated**: 2026-06-08 — synced from API-FULL-COMPARISON.md after feature 112 (realtime + pgbouncer config promoted to real).
 
@@ -383,23 +383,20 @@ All `/platform/*` (and appendix non-platform) endpoints currently returning stub
 
 ---
 
-## Appendix — Non-`/platform` surfaces (11 stubs)
+## Appendix — Non-`/platform` surfaces (8 stubs)
 
-Management API (`/v1/*`) and other routes that are stubs or not yet real:
+Management API (`/v1/*`) routes with no handler — fall through to the `notImplementedRoutes` catch-all (501). Note: `/v1/projects/:ref/config/auth` (GET/PATCH) and `/v1/projects/:ref/secrets` (DELETE) are **real** and excluded here.
 
 | ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
 |---|---|---|---|---|
-| `/v1/projects/{ref}/config/auth` | GET | supastack | partial (stored config only, no live GoTrue sync) | 🔴 |
-| `/v1/projects/{ref}/config/auth` | PATCH | supastack | partial (persists but some fields stored-only) | 🔴 |
-| `/v1/projects/{ref}/database/webhooks` | GET | supastack | stub | 🔴 |
-| `/v1/projects/{ref}/database/webhooks` | POST | supastack | stub | 🔴 |
-| `/v1/projects/{ref}/database/webhooks/{id}` | DELETE | supastack | stub | 🔴 |
-| `/v1/projects/{ref}/database/webhooks/{id}` | GET | supastack | stub | 🔴 |
-| `/v1/projects/{ref}/database/webhooks/{id}` | PATCH | supastack | stub | 🔴 |
-| `/v1/projects/{ref}/pg-meta/roles` | GET | supastack | stub | 🔴 |
-| `/v1/projects/{ref}/secrets` | DELETE | supastack | stub | ⚪ |
-| `/v1/projects/{ref}/vanity-subdomain/activate` | POST | supastack | stub | ⚪ |
-| `/v1/projects/{ref}/vanity-subdomain/check-availability` | GET | supastack | stub | ⚪ |
+| `/v1/projects/{ref}/database/webhooks` | GET | notImplemented | 501 | 🔴 |
+| `/v1/projects/{ref}/database/webhooks` | POST | notImplemented | 501 | 🔴 |
+| `/v1/projects/{ref}/database/webhooks/{id}` | DELETE | notImplemented | 501 | 🔴 |
+| `/v1/projects/{ref}/database/webhooks/{id}` | GET | notImplemented | 501 | 🔴 |
+| `/v1/projects/{ref}/database/webhooks/{id}` | PATCH | notImplemented | 501 | 🔴 |
+| `/v1/projects/{ref}/pg-meta/roles` | GET | notImplemented | 501 | 🔴 |
+| `/v1/projects/{ref}/vanity-subdomain/activate` | POST | notImplemented | 501 | ⚪ |
+| `/v1/projects/{ref}/vanity-subdomain/check-availability` | GET | notImplemented | 501 | ⚪ |
 
 ---
 
