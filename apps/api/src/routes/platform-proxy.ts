@@ -84,6 +84,16 @@ export function normalizeDeleteObjectsBody(req: { method: string; params: Record
 }
 
 /**
+ * Studio IS_PLATFORM sends PATCH to update a single bucket, but storage-api
+ * registers updateBucket as PUT /:bucketId. Rewrite the method when the suffix
+ * matches exactly `buckets/:id` (individual bucket — not objects, not list).
+ */
+export function rewriteBucketUpdateMethod(suffix: string, method: string): string {
+  if (method === 'PATCH' && /^buckets\/[^/]+$/.test(suffix)) return 'PUT';
+  return method;
+}
+
+/**
  * Newer Studio posts bucket-create as `{ id, type, public }`, but the bundled
  * per-instance storage-api requires `name` (→ 400 "must have required property
  * 'name'"). Backfill `name` from `id` (Studio's create dialog uses one value for
@@ -249,13 +259,15 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
       normalizeDeleteObjectsBody(req);
       const body = bodyOf(req);
       const upstreamPath = `/storage/v1/${upstreamSuffix}${qs}`;
+      // storage-api registers updateBucket as PUT /:bucketId; Studio sends PATCH — rewrite.
+      const upstreamMethod = rewriteBucketUpdateMethod(suffix, req.method);
       // Inject service role JWT as Authorization — storage validates via GoTrue
       const forwardHeaders = { ...req.headers, authorization: `Bearer ${inst.serviceRoleKey}` } as Record<string, string | string[] | undefined>;
       for (const k of STRIP_REQUEST_HEADERS) delete forwardHeaders[k];
 
       let result: Awaited<ReturnType<typeof proxyToKong>>;
       try {
-        result = await proxyToKong(inst.portKong, upstreamPath, req.method, forwardHeaders, body);
+        result = await proxyToKong(inst.portKong, upstreamPath, upstreamMethod, forwardHeaders, body);
       } catch (err) {
         if (err instanceof ProxyUpstreamError) return reply.status(err.status).send({ error: err.message });
         throw err;
