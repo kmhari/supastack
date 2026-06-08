@@ -2807,10 +2807,17 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(501).send({ error: 'Dynamic OAuth client registration is not supported on self-hosted' });
   });
 
-  // CLI login session creation (POST variant — distinct from GET /:session_id retrieval).
+  // CLI login session creation — Studio (IS_PLATFORM) calls /platform/cli/login;
+  // delegate to the actual implementation at /api/v1/cli/login (feature 011).
   app.post('/platform/cli/login', async (req, reply) => {
     app.requireAuth(req);
-    return reply.status(501).send({ error: 'Use supabase login against your self-hosted instance directly' });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cli/login',
+      headers: { ...(req.headers as Record<string, string>), 'content-length': undefined as unknown as string },
+      payload: req.body as Record<string, unknown>,
+    });
+    return reply.status(res.statusCode).send(res.json());
   });
 
   // Feature 084 (US3) — rename an organization (display name only; ref is immutable).
