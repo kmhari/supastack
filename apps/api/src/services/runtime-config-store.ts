@@ -72,6 +72,8 @@ const LOCK_TTL_SECONDS = 60;
 const AUTH_CONFIG_DEFAULTS: ConfigJson = {
   jwt_exp: 3600,
   disable_signup: false,
+  site_url: '',
+  security_manual_linking_enabled: false,
   external_email_enabled: true,
   external_phone_enabled: false,
   external_anonymous_users_enabled: false,
@@ -268,10 +270,26 @@ async function loadCurrentPlaintext(ref: string, surface: ConfigSurface): Promis
       ),
     )
     .limit(1);
-  if (row[0]) {
-    return decryptJson<ConfigJson>(row[0].payload, loadMasterKey());
+  const base = row[0]
+    ? (() => {
+        const snapshot = decryptJson<ConfigJson>(row[0].payload, loadMasterKey());
+        // Back-fill any defaults added after the snapshot was created.
+        const defaults = defaultsFor(surface);
+        for (const [k, v] of Object.entries(defaults)) {
+          if (!(k in snapshot)) snapshot[k] = v;
+        }
+        return snapshot;
+      })()
+    : defaultsFor(surface);
+  // If site_url is empty (never explicitly saved), read the live value from
+  // the instance .env so the Studio form validator (min(1)) doesn't silently
+  // block saves on other fields.
+  if (surface === 'auth' && !base['site_url']) {
+    const envRaw = await readFile(envPathFor(ref), 'utf8').catch(() => '');
+    const match = envRaw.match(/^SITE_URL=(.+)$/m);
+    if (match?.[1]) base['site_url'] = match[1].trim();
   }
-  return defaultsFor(surface);
+  return base;
 }
 
 function redactSecrets(plain: ConfigJson): ConfigJson {
