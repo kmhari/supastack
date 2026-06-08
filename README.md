@@ -36,6 +36,12 @@ Compose silently mangles. Supastack ships the regression tests for both.
 secrets set`, etc. No fork, no patch, no shim. See
   [`docs/supabase-cli.md`](docs/supabase-cli.md) for the connect-and-go
   guide.
+- **Hosted MCP server** — paste one URL into Claude Code / Cursor / Windsurf
+  / Claude Desktop, authorize in the browser, and drive all your supastack
+  projects via LLM tool calls (`execute_sql`, `list_tables`, `apply_migration`,
+  `deploy_edge_function`, `get_logs`, `pause_project`, `restore_project`, …).
+  Same UX as Supabase Cloud's `mcp.supabase.com/mcp`. See the
+  [MCP setup](#mcp-server) section below.
 
 See [`specs/001-supastack-supabase-platform/spec.md`](specs/001-supastack-supabase-platform/spec.md)
 for the full functional requirements and success criteria.
@@ -180,6 +186,51 @@ TOML
 ```
 
 On first use the wrapper auto-generates `~/.config/supastack/<domain>.toml` (the CLI profile pointing at `api.<domain>`) and passes `--profile` on every invocation. To switch back to Supabase Cloud, `cd` out of any directory containing a `.supastack` file, or pass `--profile supabase` explicitly.
+
+## MCP server
+
+Supastack ships a hosted multi-project MCP server at `mcp.<apex>/mcp`, backed by an OAuth 2.1 authorization server. No token management needed — authorize once in the browser and every LLM tool call routes to the right project automatically.
+
+### Connect your editor
+
+Paste into your MCP client config. For Claude Code (`~/.claude/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "supastack": {
+      "type": "http",
+      "url": "https://mcp.<your-apex>/mcp"
+    }
+  }
+}
+```
+
+Same URL works for Cursor, Windsurf, and Claude Desktop (format varies by editor). On the first MCP call your browser opens to the supastack authorize page — if you're already logged into the dashboard, click **Authorize** and the tab closes automatically.
+
+### DNS
+
+`mcp.<apex>` must resolve to the same A-record as `api.<apex>`. The existing wildcard cert covers it — no extra provisioning needed.
+
+### Available tools
+
+| Tool | What it does |
+|---|---|
+| `list_projects` / `get_project` | List and inspect projects |
+| `execute_sql` | Run ad-hoc SQL against a project |
+| `list_tables` / `list_extensions` / `list_migrations` | Schema introspection |
+| `apply_migration` | Push a migration to a project |
+| `generate_typescript_types` | Generate TS types from the project schema |
+| `list_edge_functions` / `deploy_edge_function` | Manage Edge Functions |
+| `get_logs` | Fetch project logs |
+| `list_storage_buckets` | List storage buckets |
+| `pause_project` / `restore_project` | Lifecycle control |
+| `list_organizations` / `get_organization` | Org info |
+| `search_docs` | Search Supabase docs |
+
+### Revoke a client
+
+Open **`/settings/mcp-clients`** in the dashboard. Each row shows the client name, when it was authorized, last used, and a **Revoke** button. Revocation takes effect within ~5 seconds.
 
 ## Architecture
 
