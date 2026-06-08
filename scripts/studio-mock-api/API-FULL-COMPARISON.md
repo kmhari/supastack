@@ -10,13 +10,15 @@
 
 | Status | Count |
 |---|---|
-| ✅ real (handler / proxy / gotrue) | ~283 |
-| ✅/⚠️ stub responding (all gaps eliminated) | ~109 |
+| ✅ real (handler / proxy / gotrue) | ~287 |
+| ✅/⚠️ stub responding (all gaps eliminated) | ~105 |
 | **Total** | **392** |
 
-→ **✅ 392 / 392 (100%)** responding routes (no 404 gaps) · doc-audit 2026-06-08 reclassified 18 previously-marked stubs to ✅ real (project rename, project members, databases list, member role PUT, db-password PATCH, restart-services, update-email POST/PUT, hook-enable, available-versions GET, notifications stubs, mfa-enforcement, reached-free-project-limit, entitlements, functions/:slug GET/PATCH/DELETE, `v1/functions/:slug` PATCH) · feature 111 promoted 6 stub rows to ✅ real · feature 109 promoted 17 stub/mock rows to ✅ real.
+→ **✅ 392 / 392 (100%)** responding routes (no 404 gaps) · feature 112 promoted 4 stub rows to ✅ real (realtime config GET/PATCH, pgbouncer config GET/PATCH) · doc-audit 2026-06-08 reclassified 18 previously-marked stubs to ✅ real (project rename, project members, databases list, member role PUT, db-password PATCH, restart-services, update-email POST/PUT, hook-enable, available-versions GET, notifications stubs, mfa-enforcement, reached-free-project-limit, entitlements, functions/:slug GET/PATCH/DELETE, `v1/functions/:slug` PATCH) · feature 111 promoted 6 stub rows to ✅ real · feature 109 promoted 17 stub/mock rows to ✅ real.
 
-**Last updated**: 2026-06-08 — doc audit: reclassified 18 endpoints from ⚠️ stub to ✅ real — these were implemented in prior features but the doc was never updated. No code changes.
+**Last updated**: 2026-06-08 — feature 112 (fix-proxy-config): promoted 4 stub rows to ✅ real — `GET/PATCH /platform/projects/:ref/config/realtime` (delegates to `/v1/projects/:ref/config/realtime`) and `GET/PATCH /platform/projects/:ref/config/pgbouncer` (delegates to `/v1/projects/:ref/config/database/pgbouncer` and `/v1/.../pooler`). Also fixed `GET /platform/profile` to return real user UUID via v1 delegation (already marked ✅, no row change needed).
+
+**Previously**: 2026-06-08 — doc audit: reclassified 18 endpoints from ⚠️ stub to ✅ real — these were implemented in prior features but the doc was never updated. No code changes.
 
 **Previously**: 2026-06-07 — feature 109 (platform-stub-conversions tier 1–4): 17 stub→real conversions: `pause/status` (real DB paused state), `readonly` GET+DELETE (paused→enabled; DELETE delegates→/v1/restore), `upgrade/status` (restoring→upgrading), `run-lints` + `run-lints/:name` (5 advisory lint checks via withPerInstancePg, 503 on not-running), `/audit` + `/activity` (real audit_log rows filtered by ref, paginated), `downloadable-backups` (real backups table query), network-bans GET+DELETE + network-restrictions GET+POST/apply + ssl-enforcement GET+PUT + functions/secrets GET+POST (all Tier 3b delegation to /v1). Live-verified on supaviser.dev 2026-06-07: 200s with real data, 401, 404, 503 all confirmed. 46 new unit tests (platform-stub-conversions.test.ts), 704 total passing.
 
@@ -201,11 +203,11 @@
 | `/platform/projects/{ref}/api/rest` | GET | ✅ | supastack | Get REST API config (real PostgREST config: db_schema, max_rows, db_pool, db_extra_search_path) — delegates to `/v1/projects/:ref/postgrest` | `GET /platform/projects/:ref/api/rest` (real — Tier 3b delegation; feature 111) |
 | `/platform/projects/{ref}/billing/addons` | POST | ⚠️ | supastack | Updates project addon | `POST .../billing/addons` (stub 400 — not supported self-hosted) |
 | `/platform/projects/{ref}/billing/addons/{addon_variant}` | DELETE | ⚠️ | supastack | Removes project addon | `DELETE .../billing/addons/:addon_variant` (stub 400 — not supported self-hosted) |
-| `/platform/projects/{ref}/config/pgbouncer` | GET | ⚠️ | supastack | Get pgBouncer/pooler config | `GET .../config/pgbouncer` (stub 200) |
-| `/platform/projects/{ref}/config/pgbouncer` | PATCH | ⚠️ | supastack | Update pgBouncer config | `PATCH .../config/pgbouncer` (stub) |
+| `/platform/projects/{ref}/config/pgbouncer` | GET | ✅ | supastack | Get pgBouncer/pooler config — delegates to `GET /v1/projects/:ref/config/database/pgbouncer` | `GET /platform/projects/:ref/config/pgbouncer` (real — Tier 3b delegation; feature 112) |
+| `/platform/projects/{ref}/config/pgbouncer` | PATCH | ✅ | supastack | Update pgBouncer/pooler config — delegates to `PATCH /v1/projects/:ref/config/database/pooler` | `PATCH /platform/projects/:ref/config/pgbouncer` (real — Tier 3b delegation; feature 112) |
 | `/platform/projects/{ref}/config/pgbouncer/status` | GET | ⚠️ | supastack | Get pgBouncer status | `GET /api/v1/pooler/status` (partial) |
-| `/platform/projects/{ref}/config/realtime` | GET | ⚠️ | supastack | Get Realtime config | `GET .../config/realtime` (stub) |
-| `/platform/projects/{ref}/config/realtime` | PATCH | ⚠️ | supastack | Update Realtime config | `PATCH .../config/realtime` (stub) |
+| `/platform/projects/{ref}/config/realtime` | GET | ✅ | supastack | Get Realtime config — delegates to `GET /v1/projects/:ref/config/realtime` | `GET /platform/projects/:ref/config/realtime` (real — Tier 3b delegation; feature 112) |
+| `/platform/projects/{ref}/config/realtime` | PATCH | ✅ | supastack | Update Realtime config — delegates to `PATCH /v1/projects/:ref/config/realtime` | `PATCH /platform/projects/:ref/config/realtime` (real — Tier 3b delegation; feature 112) |
 | `/platform/projects/{ref}/config/realtime/shutdown` | POST | ⚠️ | supastack | Shutdowns realtime connections for a project | `POST .../config/realtime/shutdown` (stub 200) |
 | `/platform/projects/{ref}/config/secrets/update-status` | GET | ⚠️ | supastack | Get secret sync status | `GET .../config/secrets/update-status` (stub 200) |
 | `/platform/projects/{ref}/config/storage` | GET | ⚠️ | supastack | Get storage config (file size limits) | `GET .../config/storage` (stub) |
