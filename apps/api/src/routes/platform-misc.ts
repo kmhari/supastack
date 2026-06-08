@@ -10,7 +10,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
 import { decryptJson, encryptJson, loadMasterKey, signSupabaseJwt } from '@supastack/crypto';
-import { ROLE_IDS, ROLE_NAMES, roleFromId, type Role } from '@supastack/shared';
+import { ROLE_IDS, ROLE_NAMES, roleFromId, logger, type Role } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
 import { createOrganizationWithOwner } from '../services/org-store.js';
 import {
@@ -36,6 +36,8 @@ import {
   PerInstanceDbUnreachableError,
 } from '../services/pg-password-reset.js';
 import { withPerInstancePg, InstanceNotRunningError } from '../services/per-instance-pg.js';
+import { getAuthSession, consumeAuthSession } from '../services/oauth-auth-sessions-store.js';
+import { issueCode } from '../services/oauth-codes-store.js';
 
 // ── Lint check definitions (Tier 4, T017) ─────────────────────────────────────
 const LINT_CHECKS: Record<string, {
@@ -87,6 +89,28 @@ const LINT_CHECKS: Record<string, {
     mapRow: (r) => ({ sequence: r.sequencename, last_value: r.last_value, max_value: r.max_value }),
   },
 };
+
+// feature 115 — audit OAuth consent decisions (approve issues a code, deny
+// records the refusal). Best-effort: a failed audit insert never blocks consent.
+async function emitConsentAudit(
+  userId: string,
+  action: 'oauth.code.issued' | 'oauth.consent.denied',
+  payload: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await db()
+      .insert(schema.auditLog)
+      .values({
+        actorUserId: userId,
+        action,
+        targetKind: 'oauth_client',
+        targetId: (payload.client_id as string) ?? null,
+        payload,
+      });
+  } catch (err) {
+    logger.warn({ err, action }, 'oauth consent audit emit failed');
+  }
+}
 
 export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── Feature flags ──────────────────────────────────────────────────────────
@@ -2187,12 +2211,31 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  // ── Global OAuth authorization lookup ─────────────────────────────────────
+  // ── OAuth authorization lookup (feature 115) ──────────────────────────────
+  // The Studio consent page (/dashboard/authorize) reads pending-authorization
+  // details here. The auth_id is a capability token, so any authenticated member
+  // may read it (`oauth.consent.read`); the session is consumed only on
+  // approve/deny via the org-scoped POST/DELETE below.
   app.get<{ Params: { id: string } }>(
     '/platform/oauth/authorizations/:id',
     async (req, reply) => {
-      app.requireAuth(req);
-      return reply.send({});
+      app.authorize(req, 'oauth.consent.read');
+      const s = await getAuthSession(req.params.id);
+      if (!s) {
+        return reply
+          .status(404)
+          .send({ error: 'not_found', message: 'Authorization session not found or expired' });
+      }
+      return reply.send({
+        name: s.client_name,
+        website: s.client_website,
+        icon: s.client_icon,
+        domain: s.client_domain,
+        scopes: s.scopes,
+        expires_at: s.expires_at,
+        approved_at: null,
+        approved_organization_slug: null,
+      });
     },
   );
 
@@ -3083,15 +3126,63 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send([]);
   });
 
-  app.post<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/oauth/authorizations/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(200).send({});
+  // feature 115 — approve an OAuth authorization (org-scoped, owner/admin only).
+  // With ?skip_browser_redirect=true (the Studio path) returns { url } for the
+  // browser to follow; otherwise 302s straight to the client callback.
+  app.post<{
+    Params: { slug: string; id: string };
+    Querystring: { skip_browser_redirect?: string };
+  }>('/platform/organizations/:slug/oauth/authorizations/:id', async (req, reply) => {
+    await app.authorizeOrg(req, 'oauth.consent.approve', req.params.slug);
+    const user = app.requireAuth(req);
+    const s = await consumeAuthSession(req.params.id);
+    if (!s) {
+      return reply
+        .status(404)
+        .send({ error: 'not_found', message: 'Authorization session not found or already used' });
+    }
+    const { code } = await issueCode({
+      clientId: s.client_id,
+      userId: user.id,
+      redirectUri: s.redirect_uri,
+      codeChallenge: s.code_challenge,
+      scope: s.scopes.join(' '),
+    });
+    const sep = s.redirect_uri.includes('?') ? '&' : '?';
+    const url = `${s.redirect_uri}${sep}code=${encodeURIComponent(code)}&state=${encodeURIComponent(s.state)}`;
+    void emitConsentAudit(user.id, 'oauth.code.issued', {
+      client_id: s.client_id,
+      scope: s.scopes.join(' '),
+      redirect_uri: s.redirect_uri,
+      org: req.params.slug,
+    });
+    if (req.query.skip_browser_redirect === 'true') {
+      return reply.status(201).send({ url });
+    }
+    return reply.redirect(302, url);
   });
 
-  app.delete<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/oauth/authorizations/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(204).send();
-  });
+  // feature 115 — deny an OAuth authorization (org-scoped, owner/admin only).
+  // Consumes the session and audits the denial; the Studio page navigates away
+  // (it does not bounce the browser to the client callback).
+  app.delete<{ Params: { slug: string; id: string } }>(
+    '/platform/organizations/:slug/oauth/authorizations/:id',
+    async (req, reply) => {
+      await app.authorizeOrg(req, 'oauth.consent.approve', req.params.slug);
+      const user = app.requireAuth(req);
+      const s = await consumeAuthSession(req.params.id);
+      if (!s) {
+        return reply
+          .status(404)
+          .send({ error: 'not_found', message: 'Authorization session not found or already used' });
+      }
+      void emitConsentAudit(user.id, 'oauth.consent.denied', {
+        client_id: s.client_id,
+        org: req.params.slug,
+      });
+      return reply.status(200).send({ id: req.params.id });
+    },
+  );
 
   app.put<{ Params: { slug: string; gotrue_id: string; role_id: string } }>(
     '/platform/organizations/:slug/members/:gotrue_id/roles/:role_id',

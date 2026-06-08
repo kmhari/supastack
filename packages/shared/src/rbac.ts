@@ -88,6 +88,9 @@ export const ACTIONS = [
   'database.write',
   // feature 019 — async backup restore
   'backup.restore',
+  // feature 115 — OAuth consent (MCP authorize flow)
+  'oauth.consent.read',
+  'oauth.consent.approve',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -112,6 +115,9 @@ const READ_ONLY: Action[] = [
   'auth_config.read',
   'database_config.read',
   'instance.secrets.read',
+  // feature 115 — any authenticated member may read a pending OAuth authorization
+  // (the auth_id is a capability token).
+  'oauth.consent.read',
 ];
 
 const DEVELOPER_EXTRA: Action[] = [
@@ -143,6 +149,8 @@ const ADMIN_EXTRA: Action[] = [
   'member.remove',
   'org.update',
   'org.backup-store.update',
+  // feature 115 — granting an MCP client a broad-scope token is owner/admin-only.
+  'oauth.consent.approve',
 ];
 
 const OWNER_EXTRA: Action[] = ['org.delete'];
