@@ -134,6 +134,10 @@ async function buildApp(): Promise<FastifyInstance> {
   app.post('/api/v1/instances', async (_req, reply) => {
     reply.status(201).send({ ref: REF, name: 'Test Project', status: 'COMING_UP' });
   });
+  // Stub /v1/projects/:ref/postgrest (used by platform postgrest config delegation)
+  app.get('/v1/projects/:ref/postgrest', async (_req, reply) => {
+    reply.send({ db_schema: 'public,graphql_public', db_extra_search_path: 'public, extensions', max_rows: 1000, db_pool: null });
+  });
   await app.register(platformMiscRoutes);
   return app;
 }
@@ -327,6 +331,29 @@ describe('GET /platform/projects/:ref/run-lints — response shape', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual([]);
+    await app.close();
+  });
+});
+
+// ── GET /platform/projects/:ref/config/postgrest — GetPostgrestConfigResponse shape ──
+
+describe('GET /platform/projects/:ref/config/postgrest — response shape', () => {
+  it('includes db_anon_role, role_claim_key, jwt_secret (platform fields missing from /v1)', async () => {
+    // DB returns instance row so the handler can fetch encryptedSecrets
+    h.dbQueue.push([{ encryptedSecrets: Buffer.alloc(0) }]);
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/config/postgrest`,
+      headers: { authorization: 'Bearer tok' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as Record<string, unknown>;
+    expect(body).toHaveProperty('db_anon_role', 'anon');
+    expect(body).toHaveProperty('role_claim_key', '.role');
+    expect(body).toHaveProperty('jwt_secret');
+    expect(body).toHaveProperty('db_schema');
+    expect(body).toHaveProperty('max_rows');
     await app.close();
   });
 });
