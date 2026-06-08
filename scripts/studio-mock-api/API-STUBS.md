@@ -4,7 +4,7 @@ All `/platform/*` (and appendix non-platform) endpoints currently returning stub
 
 **Total stubs: 240 of 392 `/platform/*` rows + 8 `/v1/*` 501s**
 
-**Last updated**: 2026-06-08 — synced from API-FULL-COMPARISON.md after feature 112 (realtime + pgbouncer config promoted to real).
+**Last updated**: 2026-06-08 — billing & payments extracted into a dedicated section (no behaviour changes).
 
 **Legend:**
 - `supastack` = a handler exists in `apps/api` but returns empty/static/config-disabled response
@@ -28,14 +28,12 @@ All `/platform/*` (and appendix non-platform) endpoints currently returning stub
 
 ---
 
-## Organizations (71 stubs)
+## Organizations (43 stubs)
 
 | ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
 |---|---|---|---|---|
 | `/platform/organizations/:slug/oauth/apps/:id` | GET | supastack | stub _(not in platform.d.ts)_ | ⚪ |
 | `/platform/organizations/:slug/oauth/authorizations/:id` | GET | supastack | stub _(not in platform.d.ts)_ | ⚪ |
-| `/platform/organizations/cloud-marketplace` | POST | mock | — | 🟡 |
-| `/platform/organizations/confirm-subscription` | POST | mock | — | 🟡 |
 | `/platform/organizations/onboarding-survey` | POST | supastack | 200 | ⚪ |
 | `/platform/organizations/preview-creation` | POST | supastack | stub | ⚪ |
 | `/platform/organizations/{slug}/analytics/audit-log-drains` | GET | supastack | empty list | ⚪ |
@@ -56,6 +54,45 @@ All `/platform/*` (and appendix non-platform) endpoints currently returning stub
 | `/platform/organizations/{slug}/apps/{app_id}/signing-keys` | GET | supastack | 200 | ⚪ |
 | `/platform/organizations/{slug}/apps/{app_id}/signing-keys` | POST | supastack | stub | ⚪ |
 | `/platform/organizations/{slug}/apps/{app_id}/signing-keys/{key_id}` | DELETE | supastack | stub | ⚪ |
+| `/platform/organizations/{slug}/documents/dpa` | POST | supastack | 400 not supported | ⚪ |
+| `/platform/organizations/{slug}/documents/dpa-signed` | GET | supastack | 200 | ⚪ |
+| `/platform/organizations/{slug}/documents/iso27001-certificate` | GET | supastack | 200 | ⚪ |
+| `/platform/organizations/{slug}/documents/soc2-type-2-report` | GET | supastack | 200 | ⚪ |
+| `/platform/organizations/{slug}/documents/standard-security-questionnaire` | GET | supastack | 200 | ⚪ |
+| `/platform/organizations/{slug}/oauth/apps` | GET | supastack | stub (real OAuth clients at `/v1/oauth/*`) | ⚪ |
+| `/platform/organizations/{slug}/oauth/apps` | POST | supastack | stub | ⚪ |
+| `/platform/organizations/{slug}/oauth/apps/{app_id}/client-secrets` | GET | supastack | 200 | ⚪ |
+| `/platform/organizations/{slug}/oauth/apps/{app_id}/client-secrets` | POST | supastack | stub | ⚪ |
+| `/platform/organizations/{slug}/oauth/apps/{app_id}/client-secrets/{secret_id}` | DELETE | supastack | stub | ⚪ |
+| `/platform/organizations/{slug}/oauth/apps/{id}` | DELETE | supastack | stub | ⚪ |
+| `/platform/organizations/{slug}/oauth/apps/{id}` | PUT | supastack | 200 | ⚪ |
+| `/platform/organizations/{slug}/oauth/apps/{id}/revoke` | POST | supastack | stub | ⚪ |
+| `/platform/organizations/{slug}/oauth/authorizations/{id}` | DELETE | supastack | 204 | ⚪ |
+| `/platform/organizations/{slug}/oauth/authorizations/{id}` | POST | supastack | 200 | ⚪ |
+| `/platform/organizations/{slug}/sso` | DELETE | supastack | 400 not supported | 🟡 |
+| `/platform/organizations/{slug}/sso` | GET | mock | — | 🟡 |
+| `/platform/organizations/{slug}/sso` | POST | supastack | 400 not supported | 🟡 |
+| `/platform/organizations/{slug}/sso` | PUT | supastack | 400 not supported | 🟡 |
+| `/platform/organizations/{slug}/usage` | GET | supastack | stub | 🔴 |
+| `/platform/organizations/{slug}/usage/daily` | GET | supastack | stub | 🔴 |
+
+---
+
+## Billing & Payments (37 stubs)
+
+All intentionally cloud-only — stubs are correct for self-hosted. No plans to implement.
+
+| ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
+|---|---|---|---|---|
+| `/platform/plans` | GET | supastack | Free only | 🟡 |
+| `/platform/stripe/lead-gen` | POST | supastack | stub | 🟡 |
+| `/platform/stripe/setup-intent` | POST | supastack | stub | 🟡 |
+| `/platform/stripe/taxes` | GET | supastack | stub | 🟡 |
+| `/platform/stripe/trial` | POST | supastack | stub | 🟡 |
+| `/platform/cloud-marketplace/callback` | GET | supastack | stub | 🟡 |
+| `/platform/cloud-marketplace/redirect` | GET | supastack | stub | 🟡 |
+| `/platform/organizations/cloud-marketplace` | POST | mock | — | 🟡 |
+| `/platform/organizations/confirm-subscription` | POST | mock | — | 🟡 |
 | `/platform/organizations/{slug}/billing/credits/balance` | GET | supastack | zero balance | 🟡 |
 | `/platform/organizations/{slug}/billing/credits/preview` | POST | supastack | 400 not supported | 🟡 |
 | `/platform/organizations/{slug}/billing/credits/redeem` | POST | supastack | 400 not supported | 🟡 |
@@ -75,38 +112,19 @@ All `/platform/*` (and appendix non-platform) endpoints currently returning stub
 | `/platform/organizations/{slug}/cloud-marketplace/redirect` | GET | supastack | 200 | 🟡 |
 | `/platform/organizations/{slug}/customer` | GET | supastack | 200 | 🟡 |
 | `/platform/organizations/{slug}/customer` | PUT | supastack | 200 | 🟡 |
-| `/platform/organizations/{slug}/documents/dpa` | POST | supastack | 400 not supported | ⚪ |
-| `/platform/organizations/{slug}/documents/dpa-signed` | GET | supastack | 200 | ⚪ |
-| `/platform/organizations/{slug}/documents/iso27001-certificate` | GET | supastack | 200 | ⚪ |
-| `/platform/organizations/{slug}/documents/soc2-type-2-report` | GET | supastack | 200 | ⚪ |
-| `/platform/organizations/{slug}/documents/standard-security-questionnaire` | GET | supastack | 200 | ⚪ |
-| `/platform/organizations/{slug}/oauth/apps` | GET | supastack | stub (real OAuth clients at `/v1/oauth/*`) | ⚪ |
-| `/platform/organizations/{slug}/oauth/apps` | POST | supastack | stub | ⚪ |
-| `/platform/organizations/{slug}/oauth/apps/{app_id}/client-secrets` | GET | supastack | 200 | ⚪ |
-| `/platform/organizations/{slug}/oauth/apps/{app_id}/client-secrets` | POST | supastack | stub | ⚪ |
-| `/platform/organizations/{slug}/oauth/apps/{app_id}/client-secrets/{secret_id}` | DELETE | supastack | stub | ⚪ |
-| `/platform/organizations/{slug}/oauth/apps/{id}` | DELETE | supastack | stub | ⚪ |
-| `/platform/organizations/{slug}/oauth/apps/{id}` | PUT | supastack | 200 | ⚪ |
-| `/platform/organizations/{slug}/oauth/apps/{id}/revoke` | POST | supastack | stub | ⚪ |
-| `/platform/organizations/{slug}/oauth/authorizations/{id}` | DELETE | supastack | 204 | ⚪ |
-| `/platform/organizations/{slug}/oauth/authorizations/{id}` | POST | supastack | 200 | ⚪ |
 | `/platform/organizations/{slug}/payments` | DELETE | supastack | 204 | 🟡 |
 | `/platform/organizations/{slug}/payments` | GET | supastack | 200 | 🟡 |
 | `/platform/organizations/{slug}/payments/default` | PUT | supastack | 200 | 🟡 |
 | `/platform/organizations/{slug}/payments/setup-intent` | POST | supastack | 200 | 🟡 |
-| `/platform/organizations/{slug}/sso` | DELETE | supastack | 400 not supported | 🟡 |
-| `/platform/organizations/{slug}/sso` | GET | mock | — | 🟡 |
-| `/platform/organizations/{slug}/sso` | POST | supastack | 400 not supported | 🟡 |
-| `/platform/organizations/{slug}/sso` | PUT | supastack | 400 not supported | 🟡 |
 | `/platform/organizations/{slug}/tax-ids` | DELETE | supastack | 204 | 🟡 |
 | `/platform/organizations/{slug}/tax-ids` | GET | supastack | 200 | 🟡 |
 | `/platform/organizations/{slug}/tax-ids` | PUT | supastack | 200 | 🟡 |
-| `/platform/organizations/{slug}/usage` | GET | supastack | stub | 🔴 |
-| `/platform/organizations/{slug}/usage/daily` | GET | supastack | stub | 🔴 |
+| `/platform/projects/{ref}/billing/addons` | POST | supastack | 400 not supported | 🟡 |
+| `/platform/projects/{ref}/billing/addons/{addon_variant}` | DELETE | supastack | 400 not supported | 🟡 |
 
 ---
 
-## Projects (58 stubs)
+## Projects (56 stubs)
 
 | ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
 |---|---|---|---|---|
@@ -118,8 +136,6 @@ All `/platform/*` (and appendix non-platform) endpoints currently returning stub
 | `/platform/projects/{ref}/advisor-rules-exceptions` | GET | supastack | empty list | ⚪ |
 | `/platform/projects/{ref}/auth/config` | GET | supastack | stub _(not in platform.d.ts)_ | 🔴 |
 | `/platform/projects/{ref}/auth/config` | PATCH | supastack | stub _(not in platform.d.ts)_ | 🔴 |
-| `/platform/projects/{ref}/billing/addons` | POST | supastack | 400 not supported | 🟡 |
-| `/platform/projects/{ref}/billing/addons/{addon_variant}` | DELETE | supastack | 400 not supported | 🟡 |
 | `/platform/projects/{ref}/config/pgbouncer/status` | GET | supastack | partial (pooler status) | 🔴 |
 | `/platform/projects/{ref}/config/storage` | GET | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/config/storage` | PATCH | supastack | stub | 🔴 |
@@ -259,6 +275,7 @@ All `/platform/*` (and appendix non-platform) endpoints currently returning stub
 | `/platform/integrations/github/installations` | GET | supastack | empty list | ⚪ |
 | `/platform/integrations/github/token` | GET | supastack | stub | ⚪ |
 | `/platform/integrations/vercel` | GET | supastack | stub | ⚪ |
+| `/platform/integrations/vercel/bare-token` | GET | supastack | stub | ⚪ |
 | `/platform/integrations/vercel/connections/{connectionId}` | DELETE | supastack | stub | ⚪ |
 | `/platform/integrations/vercel/connections/{connectionId}` | PATCH | supastack | stub | ⚪ |
 | `/platform/integrations/vercel/connections/{connectionId}/projects` | GET | supastack | empty list | ⚪ |
@@ -297,25 +314,6 @@ All `/platform/*` (and appendix non-platform) endpoints currently returning stub
 
 ---
 
-## Stripe (4 stubs)
-
-| ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
-|---|---|---|---|---|
-| `/platform/stripe/lead-gen` | POST | supastack | stub | 🟡 |
-| `/platform/stripe/setup-intent` | POST | supastack | stub | 🟡 |
-| `/platform/stripe/taxes` | GET | supastack | stub | 🟡 |
-| `/platform/stripe/trial` | POST | supastack | stub | 🟡 |
-
----
-
-## Plans (1 stub)
-
-| ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
-|---|---|---|---|---|
-| `/platform/plans` | GET | supastack | Free only | 🟡 |
-
----
-
 ## Status (1 stub)
 
 | ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
@@ -340,29 +338,12 @@ All `/platform/*` (and appendix non-platform) endpoints currently returning stub
 
 ---
 
-## Cloud Marketplace (2 stubs)
-
-| ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
-|---|---|---|---|---|
-| `/platform/cloud-marketplace/callback` | GET | supastack | stub | 🟡 |
-| `/platform/cloud-marketplace/redirect` | GET | supastack | stub | 🟡 |
-
----
-
 ## Workflow Runs (2 stubs)
 
 | ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
 |---|---|---|---|---|
 | `/platform/projects/{ref}/workflow-runs` | GET | supastack | stub | ⚪ |
 | `/platform/projects/{ref}/workflow-runs/{id}` | GET | supastack | stub | ⚪ |
-
----
-
-## Vercel (1 stub)
-
-| ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
-|---|---|---|---|---|
-| `/platform/integrations/vercel/bare-token` | GET | supastack | stub | ⚪ |
 
 ---
 
@@ -402,8 +383,8 @@ Management API (`/v1/*`) routes with no handler — fall through to the `notImpl
 
 ## Summary by Priority
 
-| Priority | Count | Description |
+| Priority | Count | Sections |
 |---|---|---|
-| 🔴 self-hosted-relevant | ~72 | Features operators/users hit in normal use |
-| 🟡 cloud-only / billing | ~47 | Stripe, plans, marketplace — stubs are intentionally correct |
-| ⚪ cosmetic / low-traffic | ~124 | Audit drains, documents, telemetry, integrations, OAuth apps |
+| 🔴 self-hosted-relevant | ~72 | Projects, Database, Storage, Replication, Appendix |
+| 🟡 cloud-only / billing | ~37 | Billing & Payments (all intentionally correct stubs) |
+| ⚪ cosmetic / low-traffic | ~131 | Organizations, Integrations, Telemetry, Feedback, OAuth, misc |
