@@ -177,6 +177,49 @@ describe('platform-proxy routes', () => {
   });
 
   describe('storage proxy', () => {
+    it('rewrites list path and normalizes body for POST .../objects/list', async () => {
+      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
+      proxyHelpersMock.proxyToKong.mockResolvedValue(OK_RESPONSE);
+
+      await app.inject({
+        method: 'POST',
+        url: '/platform/storage/ref123/buckets/test/objects/list',
+        headers: { authorization: 'Bearer token', 'content-type': 'application/json' },
+        payload: {
+          path: 'my-folder/',
+          options: { limit: 20, offset: 5, search: 'img', sortBy: { column: 'size', order: 'desc' } },
+        },
+      });
+
+      const call = proxyHelpersMock.proxyToKong.mock.calls.at(-1)!;
+      // path must be rewritten to object/list/:bucket
+      expect(call[1]).toBe('/storage/v1/object/list/test');
+      // body must be normalized to flat storage-api shape
+      const forwarded = JSON.parse((call[4] as Buffer).toString());
+      expect(forwarded).toEqual({
+        prefix: 'my-folder/',
+        limit: 20,
+        offset: 5,
+        search: 'img',
+        sortBy: { column: 'size', order: 'desc' },
+      });
+    });
+
+    it('rewrites object download path: buckets/:b/objects/:key → object/:b/:key', async () => {
+      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
+      proxyHelpersMock.proxyToKong.mockResolvedValue(OK_RESPONSE);
+
+      await app.inject({
+        method: 'GET',
+        url: '/platform/storage/ref123/buckets/test/objects/dir/file.jpg',
+        headers: { authorization: 'Bearer token' },
+      });
+
+      expect(proxyHelpersMock.proxyToKong.mock.calls.at(-1)![1]).toBe(
+        '/storage/v1/object/test/dir/file.jpg',
+      );
+    });
+
     it('proxies GET to Kong /storage/v1/', async () => {
       proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
       proxyHelpersMock.proxyToKong.mockResolvedValue(OK_RESPONSE);

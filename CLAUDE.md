@@ -91,7 +91,9 @@ Single production-ish VM at `ubuntu@148.113.1.164`, apex `supaviser.dev`. Compos
 ## Active feature pointer
 
 <!-- SPECKIT START -->
-**Active feature plan**: No active feature. See previously active features below.
+**Active feature plan**: feature 113 — Comprehensive API & Proxy Test Coverage. Plan: [specs/113-api-proxy-test-coverage/plan.md](specs/113-api-proxy-test-coverage/plan.md). Spec: [specs/113-api-proxy-test-coverage/spec.md](specs/113-api-proxy-test-coverage/spec.md). **Status: In planning.** Pure test addition — 8 new test files, ~80 new cases: fake-upstream suite (US2) asserting exact proxy path/body/header contracts via `TEST_KONG_BASE_URL` seam; unit tests for `gen-types`, `migrations`, `postgrest-config` (US3); VM-backed smoke tests (US1) gated by `TEST_API_URL`/`TEST_TOKEN_ADMIN`/`TEST_INSTANCE_REF`; black-box tests for platform-misc routes: `platform-projects.test.ts` (GET/PATCH `:ref`, databases), `platform-access-tokens.test.ts` (PAT CRUD), `platform-misc-routes.test.ts` (notifications, available-versions, auth hooks config) (US4). No migrations, no RBAC changes, no `/v1/*` drift. Constitution Check: PASS.
+
+**Previously active**: No active feature (prior to 113). See previously active features below.
 
 **Previously active**: feature 112 — Fix Platform Proxy: Profile, Realtime & PgBouncer Config. Plan: [specs/112-fix-proxy-config/plan.md](specs/112-fix-proxy-config/plan.md). Spec: [specs/112-fix-proxy-config/spec.md](specs/112-fix-proxy-config/spec.md). **Status: COMPLETE — `GET /platform/profile` returns real user UUID via v1 delegation; `GET/PATCH /v1/projects/:ref/config/realtime` + `GET /v1/projects/:ref/config/database/pgbouncer` + `PATCH /v1/projects/:ref/config/database/pooler` created; all 5 platform proxy stubs fixed; migration 0021 widens surface CHECK; 21 tasks, committed `5702270`, merged to `supastack-rewrite`, deployed + live-verified on supaviser.dev.**
 

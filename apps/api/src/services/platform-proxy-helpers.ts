@@ -88,7 +88,8 @@ export async function proxyToKong(
     forwardHeaders[key] = Array.isArray(v) ? v.join(', ') : v;
   }
 
-  const url = `http://host.docker.internal:${portKong}${upstreamPath}`;
+  const base = process.env.TEST_KONG_BASE_URL ?? `http://host.docker.internal:${portKong}`;
+  const url = `${base}${upstreamPath}`;
 
   let res: Awaited<ReturnType<typeof request>>;
   try {
