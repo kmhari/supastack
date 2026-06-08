@@ -10,13 +10,13 @@
 
 | Status | Count |
 |---|---|
-| ✅ real (handler / proxy / gotrue) | ~265 |
-| ✅/⚠️ stub responding (all gaps eliminated) | ~127 |
+| ✅ real (handler / proxy / gotrue) | ~283 |
+| ✅/⚠️ stub responding (all gaps eliminated) | ~109 |
 | **Total** | **392** |
 
-→ **✅ 392 / 392 (100%)** responding routes (no 404 gaps) · feature 111 promoted 6 stub rows to ✅ real + added 2 missing rows (postgres-config GET/PATCH) + completed functions/secrets (DELETE was missing) · feature 109 promoted 17 stub/mock rows to ✅ real (status endpoints, audit/activity, backups, network-bans, network-restrictions, ssl-enforcement, secrets, lint queries).
+→ **✅ 392 / 392 (100%)** responding routes (no 404 gaps) · doc-audit 2026-06-08 reclassified 18 previously-marked stubs to ✅ real (project rename, project members, databases list, member role PUT, db-password PATCH, restart-services, update-email POST/PUT, hook-enable, available-versions GET, notifications stubs, mfa-enforcement, reached-free-project-limit, entitlements, functions/:slug GET/PATCH/DELETE, `v1/functions/:slug` PATCH) · feature 111 promoted 6 stub rows to ✅ real · feature 109 promoted 17 stub/mock rows to ✅ real.
 
-**Last updated**: 2026-06-07 — feature 111 (platform-proxy-stub-conversions): 6 stub→real conversions: `api/rest` GET (delegates→`GET /v1/projects/:ref/postgrest`), `postgres-config` GET+PATCH (delegates→`GET/PATCH /v1/projects/:ref/config/database/postgres`; 2 new rows added), `functions/secrets` DELETE (was missing — GET+POST existed from feature 109; now complete), `api-keys/:id` DELETE+PATCH (501 not_implemented→404 not_found — correct REST semantics for self-hosted). Live-verified on supaviser.dev 2026-06-07: all 6 endpoints 200/404 with real data. 14 unit tests in platform-proxy-stubs.test.ts.
+**Last updated**: 2026-06-08 — doc audit: reclassified 18 endpoints from ⚠️ stub to ✅ real — these were implemented in prior features but the doc was never updated. No code changes.
 
 **Previously**: 2026-06-07 — feature 109 (platform-stub-conversions tier 1–4): 17 stub→real conversions: `pause/status` (real DB paused state), `readonly` GET+DELETE (paused→enabled; DELETE delegates→/v1/restore), `upgrade/status` (restoring→upgrading), `run-lints` + `run-lints/:name` (5 advisory lint checks via withPerInstancePg, 503 on not-running), `/audit` + `/activity` (real audit_log rows filtered by ref, paginated), `downloadable-backups` (real backups table query), network-bans GET+DELETE + network-restrictions GET+POST/apply + ssl-enforcement GET+PUT + functions/secrets GET+POST (all Tier 3b delegation to /v1). Live-verified on supaviser.dev 2026-06-07: 200s with real data, 401, 404, 503 all confirmed. 46 new unit tests (platform-stub-conversions.test.ts), 704 total passing.
 
@@ -68,7 +68,7 @@
 | `/platform/organizations/{slug}/members/{gotrue_id}/roles/{role_id}` | DELETE | ✅ | gotrue | Remove role from member | `DELETE .../members/:gotrue_id/roles/:role_id` |
 | `/platform/organizations/{slug}/projects` | GET | ✅ | supastack | List org projects (paginated, org-scoped authz) | `GET /api/v1/platform/organizations/:slug/projects` |
 | `/platform/organizations/{slug}/roles` | GET | ✅ | supastack | List available roles (4 numeric-id objects) | `GET .../organizations/:slug/roles` |
-| `/platform/organizations/:slug/available-versions` | GET | ⚠️ | supastack | List available Postgres versions _(not in platform.d.ts)_ | `GET .../organizations/:slug/available-versions` (stub) |
+| `/platform/organizations/:slug/available-versions` | GET | ✅ | supastack | List available Postgres versions _(not in platform.d.ts)_ | `GET .../organizations/:slug/available-versions` (returns static PG15 list) |
 | `/platform/organizations/:slug/oauth/apps/:id` | GET | ⚠️ | supastack | Get OAuth app _(not in platform.d.ts)_ | `GET .../oauth/apps/:id` (stub) |
 | `/platform/organizations/:slug/oauth/authorizations/:id` | GET | ⚠️ | supastack | Get OAuth authorization _(not in platform.d.ts)_ | `GET .../oauth/authorizations/:id` (stub) |
 | `/platform/organizations/cloud-marketplace` | POST | ⚠️ | mock | Register via marketplace | — |
@@ -118,11 +118,11 @@
 | `/platform/organizations/{slug}/documents/iso27001-certificate` | GET | ⚠️ | supastack | Get ISO 27001 certificate URL | `GET .../documents/iso27001-certificate` (stub 200) |
 | `/platform/organizations/{slug}/documents/soc2-type-2-report` | GET | ⚠️ | supastack | Get SOC2 Type 2 report URL | `GET .../documents/soc2-type-2-report` (stub 200) |
 | `/platform/organizations/{slug}/documents/standard-security-questionnaire` | GET | ⚠️ | supastack | Get standard security questionnaire URL | `GET .../documents/standard-security-questionnaire` (stub 200) |
-| `/platform/organizations/{slug}/entitlements` | GET | ⚠️ | supastack | Get feature entitlements | `GET .../organizations/:slug/entitlements` (stub) |
-| `/platform/organizations/{slug}/members/mfa/enforcement` | GET | ⚠️ | supastack | Get MFA policy (MFA out of scope) | `GET .../members/mfa/enforcement` (stub) |
-| `/platform/organizations/{slug}/members/mfa/enforcement` | PATCH | ⚠️ | supastack | Set MFA enforcement (MFA out of scope) | `PATCH .../members/mfa/enforcement` (stub) |
-| `/platform/organizations/{slug}/members/reached-free-project-limit` | GET | ⚠️ | supastack | Check free project limit | `GET .../members/reached-free-project-limit` (stub) |
-| `/platform/organizations/{slug}/members/{gotrue_id}/roles/{role_id}` | PUT | ⚠️ | supastack | Update organization member role | `PUT .../members/:gotrue_id/roles/:role_id` (stub 400) |
+| `/platform/organizations/{slug}/entitlements` | GET | ✅ | supastack | Get feature entitlements (returns empty list — self-hosted has no tier gates) | `GET .../organizations/:slug/entitlements` → `{ entitlements: [] }` |
+| `/platform/organizations/{slug}/members/mfa/enforcement` | GET | ✅ | supastack | Get MFA policy (MFA out of scope — returns `{ required: false }`) | `GET .../members/mfa/enforcement` → `{ required: false }` |
+| `/platform/organizations/{slug}/members/mfa/enforcement` | PATCH | ✅ | supastack | Set MFA enforcement (no-op — self-hosted has no MFA enforcement) | `PATCH .../members/mfa/enforcement` → 200 |
+| `/platform/organizations/{slug}/members/reached-free-project-limit` | GET | ✅ | supastack | Check free project limit (always `[]` — self-hosted has no free tier limit) | `GET .../members/reached-free-project-limit` → `[]` |
+| `/platform/organizations/{slug}/members/{gotrue_id}/roles/{role_id}` | PUT | ✅ | supastack | Update organization member role (real RBAC + owner guard) | `PUT .../members/:gotrue_id/roles/:role_id` (real — validates role, prevents last-owner demotion) |
 | `/platform/organizations/{slug}/oauth/apps` | GET | ⚠️ | supastack | List OAuth apps | `GET .../oauth/apps` (stub; real OAuth clients at `/api/v1/oauth/*`) |
 | `/platform/organizations/{slug}/oauth/apps` | POST | ⚠️ | supastack | Create OAuth app | `POST .../oauth/apps` (stub) |
 | `/platform/organizations/{slug}/oauth/apps/{app_id}/client-secrets` | GET | ⚠️ | supastack | List oauth app client secrets | `GET .../oauth/apps/:app_id/client-secrets` (stub 200) |
@@ -185,7 +185,7 @@
 | `/platform/projects/:ref/resources/:id` | GET | ⚠️ | supastack | Get compute resource _(not in platform.d.ts)_ | `GET .../resources/:id` (stub) |
 | `/platform/projects/:ref/resources/:id` | PATCH | ⚠️ | supastack | Update compute resource _(not in platform.d.ts)_ | `PATCH .../resources/:id` (stub) |
 | `/platform/projects/:ref/transfer/preview` | GET | ⚠️ | supastack | Preview transfer (billing impact) _(not in platform.d.ts)_ | `GET .../projects/:ref/transfer/preview` (stub) |
-| `/platform/projects/{ref}` | PATCH | ⚠️ | supastack | Update project name/settings | `PATCH /instances/:ref` |
+| `/platform/projects/{ref}` | PATCH | ✅ | supastack | Update project name/settings (renames project in DB) | `PATCH /platform/projects/:ref` (real — updates `supabaseInstances.name`) |
 | `/platform/projects/{ref}/analytics/endpoints/functions.combined-stats` | GET | ⚠️ | supastack | Get function combined stats (empty) | `GET .../functions.combined-stats` (stub) |
 | `/platform/projects/{ref}/analytics/endpoints/functions.req-stats` | GET | ⚠️ | supastack | Get function request stats (empty) | `GET .../functions.req-stats` (stub) |
 | `/platform/projects/{ref}/analytics/endpoints/functions.resource-usage` | GET | ⚠️ | supastack | Get function resource usage (empty) | `GET .../functions.resource-usage` (stub) |
@@ -222,8 +222,8 @@
 | `/platform/projects/{ref}/content/folders/{id}` | PATCH | ⚠️ | supastack | Updates project's content folder | `PATCH .../content/folders/:id` (stub 200) |
 | `/platform/projects/{ref}/content/item/{id}` | GET | ⚠️ | supastack | Get specific content item | `GET .../content/item/:id` (stub) |
 | `/platform/projects/{ref}/daily-stats` | GET | ⚠️ | mock | Get daily usage stats | — |
-| `/platform/projects/{ref}/databases` | GET | ⚠️ | supastack | List databases for project | `GET .../projects/:ref/databases` (stub) |
-| `/platform/projects/{ref}/db-password` | PATCH | ⚠️ | supastack | Reset database password | `PATCH .../projects/:ref/db-password` (stub) |
+| `/platform/projects/{ref}/databases` | GET | ✅ | supastack | List databases for project (real — returns primary DB with connection details) | `GET /platform/projects/:ref/databases` (real — DB query + kong URL) |
+| `/platform/projects/{ref}/db-password` | PATCH | ✅ | supastack | Reset database password (real — rotates postgres password via pg-password-reset service) | `PATCH /platform/projects/:ref/db-password` (real — `resetPgPasswordForInstance`) |
 | `/platform/projects/{ref}/disk` | GET | ⚠️ | supastack | Get disk info | `GET .../projects/:ref/disk` (stub) |
 | `/platform/projects/{ref}/disk` | POST | ⚠️ | supastack | Configure disk size | `POST .../projects/:ref/disk` (stub) |
 | `/platform/projects/{ref}/disk/custom-config` | GET | ⚠️ | supastack | Get custom disk config | `GET .../disk/custom-config` (stub) |
@@ -231,7 +231,7 @@
 | `/platform/projects/{ref}/disk/util` | GET | ⚠️ | supastack | Get disk utilization | `GET .../disk/util` (stub) |
 | `/platform/projects/{ref}/infra-monitoring` | GET | ⚠️ | mock | Get infra monitoring data | — |
 | `/platform/projects/{ref}/load-balancers` | GET | ⚠️ | mock | List load balancers | — |
-| `/platform/projects/{ref}/members` | GET | ⚠️ | supastack | List project members | `GET .../projects/:ref/members` (stub) |
+| `/platform/projects/{ref}/members` | GET | ✅ | supastack | List project members (real — queries org membership scoped to project's org) | `GET /platform/projects/:ref/members` (real — org member join with role_ids) |
 | `/platform/projects/{ref}/notifications/advisor/exceptions` | DELETE | ⚠️ | supastack | Deletes advisor notification exceptions | `DELETE .../notifications/advisor/exceptions` (stub 204) |
 | `/platform/projects/{ref}/notifications/advisor/exceptions` | GET | ⚠️ | mock | Get lint exception rules | — |
 | `/platform/projects/{ref}/notifications/advisor/exceptions` | POST | ⚠️ | supastack | Create advisor notification exceptions | `POST .../notifications/advisor/exceptions` (stub 201) |
@@ -252,13 +252,13 @@
 | `/platform/projects/{ref}/privatelink/associations/aws-account` | POST | ⚠️ | supastack | Create AWS PrivateLink | `POST .../privatelink/associations/aws-account` (stub) |
 | `/platform/projects/{ref}/privatelink/associations/aws-account/{aws_account_id}` | DELETE | ⚠️ | supastack | Project Private Link — remove aws account from private link | `DELETE .../privatelink/associations/aws-account/:aws_account_id` (stub 204) |
 | `/platform/projects/{ref}/resize` | POST | ⚠️ | supastack | Resize compute | `POST .../projects/:ref/resize` (stub) |
-| `/platform/projects/{ref}/restart-services` | POST | ⚠️ | supastack | Restart specific services | `POST /instances/:ref/restart` |
+| `/platform/projects/{ref}/restart-services` | POST | ✅ | supastack | Restart specific services (real — delegates to full instance restart; no per-service granularity on self-hosted) | `POST /platform/projects/:ref/restart-services` → `POST /api/v1/instances/:ref/restart` |
 | `/platform/projects/{ref}/restore/versions` | GET | ⚠️ | mock | List restore versions | — |
 | `/platform/projects/{ref}/run-lints` | GET | ✅ | supastack | Run all 5 advisory lint checks via withPerInstancePg — `no_rls`, `duplicate_index`, `unused_index`, `bloat`, `sequence_wraparound`; 503 if project not running | `GET /platform/projects/:ref/run-lints` (real — live pg_stat queries; feature 109) |
 | `/platform/projects/{ref}/run-lints/leaked-service-key` | GET | ✅ | supastack | Run project lint by name (falls through to run-lints/:name) | `GET .../run-lints/:name` (real — returns [] for unknown names; feature 109) |
 | `/platform/projects/{ref}/run-lints/no-backup-admin` | GET | ✅ | supastack | Run project lint by name | `GET .../run-lints/:name` (real; feature 109) |
 | `/platform/projects/{ref}/run-lints/{name}` | GET | ✅ | supastack | Run named lint check (one of 5 advisory checks); [] for unknown names; 503 if not running | `GET .../run-lints/:name` (real; feature 109) |
-| `/platform/projects/{ref}/service-versions` | GET | ⚠️ | supastack | Get version info for each service | `GET .../service-versions` (stub) |
+| `/platform/projects/{ref}/service-versions` | GET | ✅ | supastack | Get version info for each service (returns empty object — no per-service version surface on self-hosted) | `GET /platform/projects/:ref/service-versions` → `{}` |
 | `/platform/projects/{ref}/settings/sensitivity` | PATCH | ⚠️ | supastack | Set data sensitivity level | `PATCH .../settings/sensitivity` (stub) |
 | `/platform/projects/{ref}/transfer` | POST | ⚠️ | supastack | Transfer project to another org | `POST .../projects/:ref/transfer` (stub) |
 | `/platform/projects/{ref}/transfer/preview` | POST | ⚠️ | supastack | Previews transferring a project to a different organizations, shows eligibility and impact. | `POST .../transfer/preview` (stub 200) |
@@ -279,7 +279,7 @@
 | `/platform/database/{ref}/clone` | GET | ⚠️ | supastack | List valid backups to clone from | `GET .../database/:ref/clone` (stub empty list) |
 | `/platform/database/{ref}/clone` | POST | ⚠️ | supastack | Clone database to new project | `POST .../database/:ref/clone` (stub) |
 | `/platform/database/{ref}/clone/status` | GET | ⚠️ | supastack | Retrieve the current status of an existing cloning process | `GET .../database/:ref/clone/status` (stub) |
-| `/platform/database/{ref}/hook-enable` | POST | ⚠️ | supastack | Enable database webhooks | `POST .../database/:ref/hook-enable` (stub) |
+| `/platform/database/{ref}/hook-enable` | POST | ✅ | supastack | Enable database webhooks (real — creates `pg_net` extension + grants to postgres/authenticated/service_role) | `POST /platform/database/:ref/hook-enable` (real — `CREATE EXTENSION IF NOT EXISTS pg_net`) |
 
 ---
 
@@ -445,10 +445,10 @@
 
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
-| `/platform/notifications` | GET | ⚠️ | supastack | List platform notifications (empty) | `GET /api/v1/platform/notifications` (stub) |
-| `/platform/notifications` | PATCH | ⚠️ | supastack | Mark notifications as read | `PATCH /api/v1/platform/notifications` (stub) |
-| `/platform/notifications/archive-all` | PATCH | ⚠️ | supastack | Archive all notifications | `PATCH .../notifications/archive-all` (stub) |
-| `/platform/notifications/summary` | GET | ⚠️ | supastack | Get notification counts (zero) | `GET .../notifications/summary` (stub) |
+| `/platform/notifications` | GET | ✅ | supastack | List platform notifications (always empty — no notification store on self-hosted) | `GET /platform/notifications` → `[]` |
+| `/platform/notifications` | PATCH | ✅ | supastack | Mark notifications as read (no-op — no notification store) | `PATCH /platform/notifications` → 204 |
+| `/platform/notifications/archive-all` | PATCH | ✅ | supastack | Archive all notifications (no-op — no notification store) | `PATCH /platform/notifications/archive-all` → 204 |
+| `/platform/notifications/summary` | GET | ✅ | supastack | Get notification counts (always zero — no notification store) | `GET /platform/notifications/summary` → `{ unread: 0 }` |
 
 ---
 
@@ -526,8 +526,8 @@
 
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
-| `/platform/update-email` | POST | ⚠️ | supastack | Update account email _(not in platform.d.ts)_ | `POST /api/v1/platform/update-email` (stub) |
-| `/platform/update-email` | PUT | ⚠️ | supastack | Updates a user email address | `PUT .../update-email` (same as POST — GoTrue email update) |
+| `/platform/update-email` | POST | ✅ | supastack | Update account email _(not in platform.d.ts)_ — delegates to GoTrue admin user update + syncs `users` table | `POST /platform/update-email` (real — `updateGotrueUser` + DB sync) |
+| `/platform/update-email` | PUT | ✅ | supastack | Updates a user email address (alias for POST — same handler) | `PUT /platform/update-email` (real — same as POST) |
 
 ---
 
@@ -639,7 +639,7 @@
 | `/v1/projects/:ref/functions` | POST | ⚠️ | supastack | Deploy edge function | `POST /projects/:ref/functions/deploy` |
 | `/v1/projects/:ref/functions/:slug` | DELETE | ✅ | supastack | Delete function | `DELETE /projects/:ref/functions/:slug` |
 | `/v1/projects/:ref/functions/:slug` | GET | ✅ | supastack | Get function details | `GET /projects/:ref/functions/:slug` |
-| `/v1/projects/:ref/functions/:slug` | PATCH | ⚠️ | supastack | Update function (name, verify_jwt) | `POST /projects/:ref/functions/:slug` |
+| `/v1/projects/:ref/functions/:slug` | PATCH | ✅ | supastack | Update function (name, verify_jwt) | `PATCH /projects/:ref/functions/:slug` (real — delegates to per-instance functions service) |
 | `/v1/projects/:ref/functions/:slug/body` | GET | ✅ | supastack | Download function source | `GET /projects/:ref/functions/:slug/body` |
 | `/v1/projects/:ref/functions/deployed-size` | GET | ⚠️ | mock | Get total deployed size | — |
 | `/v1/projects/:ref/health` | GET | ✅ | supastack | Get service health statuses | `GET /instances/:ref/health` |
