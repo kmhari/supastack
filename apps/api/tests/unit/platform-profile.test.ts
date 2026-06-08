@@ -34,6 +34,11 @@ async function buildApp(authed = true): Promise<FastifyInstance> {
     if (!authed) throw Object.assign(new Error('unauthenticated'), { statusCode: 401 });
     return { id: 'u1', email: 'op@x.dev', role: 'owner' as const };
   });
+  // Stub /v1/profile used by the platform profile delegation (feature 112)
+  app.get('/v1/profile', async (_req, reply) => {
+    if (!authed) return reply.status(401).send({ error: 'Unauthorized' });
+    reply.send({ id: 'u1', primary_email: 'op@x.dev' });
+  });
   await app.register(platformMiscRoutes);
   return app;
 }

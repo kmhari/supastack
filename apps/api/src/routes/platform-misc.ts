@@ -130,45 +130,59 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   // ── Profile ────────────────────────────────────────────────────────────────
   // Studio calls this immediately after login to get the current user's profile.
+  // Delegates to GET /v1/profile to get DB-validated id + primary_email,
+  // then augments with Studio-required fields (FR-001, FR-002).
   app.get('/platform/profile', async (req, reply) => {
-    const user = app.requireAuth(req);
+    app.requireAuth(req);
+    const v1Resp = await app.inject({
+      method: 'GET',
+      url: '/v1/profile',
+      headers: fwdHeaders(req),
+    });
+    if (v1Resp.statusCode !== 200) {
+      return reply.status(v1Resp.statusCode).send(v1Resp.json<unknown>());
+    }
+    const { id, primary_email } = v1Resp.json<{ id: string; primary_email: string }>();
     return reply.send({
-      auth0_id: `supastack|${user.id}`,
-      gotrue_id: user.id,
-      id: 1,
-      primary_email: user.email,
-      username: user.email.split('@')[0],
-      first_name: '',
-      last_name: '',
-      mobile: null,
+      id,
+      primary_email,
+      gotrue_id: id,
+      username: primary_email.split('@')[0],
+      free_project_limit: 999,
       is_alpha_user: false,
       is_sso_user: false,
       disabled_features: [
-        // Feature 084 — hide what supastack doesn't implement (billing + cross-org
-        // project transfer). Org/member/project create+delete stay ENABLED. Runtime,
-        // no Studio rebuild. Pre-login dashboard_auth:* flags live in the fork's
-        // enabled-features.json (build-time), not here. See docs/studio-feature-flags.md.
+        // Feature 084 — hide billing + cross-org transfer in self-hosted.
         'billing:account_data',
         'billing:credits',
         'billing:invoices',
         'billing:payment_methods',
         'projects:transfer',
       ],
-      free_project_limit: 999,
+      auth0_id: `supastack|${id}`,
+      first_name: '',
+      last_name: '',
+      mobile: null,
     });
   });
 
   app.post('/platform/profile', async (req, reply) => {
-    const user = app.requireAuth(req);
+    app.requireAuth(req);
+    const v1Resp = await app.inject({
+      method: 'GET',
+      url: '/v1/profile',
+      headers: fwdHeaders(req),
+    });
+    if (v1Resp.statusCode !== 200) {
+      return reply.status(v1Resp.statusCode).send(v1Resp.json<unknown>());
+    }
+    const { id, primary_email } = v1Resp.json<{ id: string; primary_email: string }>();
     return reply.send({
-      auth0_id: `supastack|${user.id}`,
-      gotrue_id: user.id,
-      id: 1,
-      primary_email: user.email,
-      username: user.email.split('@')[0],
-      first_name: '',
-      last_name: '',
-      mobile: null,
+      id,
+      primary_email,
+      gotrue_id: id,
+      username: primary_email.split('@')[0],
+      free_project_limit: 999,
       is_alpha_user: false,
       is_sso_user: false,
       disabled_features: [
@@ -178,7 +192,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         'billing:payment_methods',
         'projects:transfer',
       ],
-      free_project_limit: 999,
+      auth0_id: `supastack|${id}`,
+      first_name: '',
+      last_name: '',
+      mobile: null,
     });
   });
 
@@ -887,21 +904,48 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(req.body ?? {});
   });
 
-  // pgBouncer config PATCH (GET is in the stub loop below)
-  app.patch<RefParams>('/platform/projects/:ref/config/pgbouncer', async (req, reply) => {
+  // PgBouncer config — GET + PATCH both delegate to v1 (FR-009, FR-010)
+  app.get<RefParams>('/platform/projects/:ref/config/pgbouncer', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send(req.body ?? {});
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/config/database/pgbouncer`,
+      headers: fwdHeaders(req),
+    });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
-  // Realtime config
+  app.patch<RefParams>('/platform/projects/:ref/config/pgbouncer', async (req, reply) => {
+    app.requireAuth(req);
+    const resp = await app.inject({
+      method: 'PATCH',
+      url: `/v1/projects/${req.params.ref}/config/database/pooler`,
+      headers: fwdHeaders(req),
+      payload: JSON.stringify(req.body),
+    });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
+  });
+
+  // Realtime config — delegates to v1 (FR-005, FR-006)
   app.get<RefParams>('/platform/projects/:ref/config/realtime', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ max_concurrent_users: 200 });
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/config/realtime`,
+      headers: fwdHeaders(req),
+    });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.patch<RefParams>('/platform/projects/:ref/config/realtime', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send(req.body ?? {});
+    const resp = await app.inject({
+      method: 'PATCH',
+      url: `/v1/projects/${req.params.ref}/config/realtime`,
+      headers: fwdHeaders(req),
+      payload: JSON.stringify(req.body),
+    });
+    return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.get<RefParams>('/platform/projects/:ref/postgres-config', async (req, reply) => {
@@ -1409,7 +1453,6 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // Misc project stubs — key is always path.split('/').pop()
   for (const path of [
     '/platform/projects/:ref/infra-monitoring',
-    '/platform/projects/:ref/config/pgbouncer',
     '/platform/projects/:ref/config/pgbouncer/status',
     '/platform/projects/:ref/config/secrets/update-status',
     '/platform/projects/:ref/notifications/advisor/exceptions',
@@ -1419,7 +1462,6 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       app.requireAuth(req);
       const stub: Record<string, unknown> = {
         'infra-monitoring': { data: [] },
-        'config/pgbouncer': { pool_mode: 'transaction', default_pool_size: 15, ignore_startup_parameters: 'extra_float_digits' },
         'config/pgbouncer/status': { active: true },
         'config/secrets/update-status': { updating: false },
         'notifications/advisor/exceptions': { result: [] },

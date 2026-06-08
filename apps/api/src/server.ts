@@ -35,8 +35,10 @@ import { migrationsRoutes } from './routes/management/migrations.js';
 import { notImplementedRoutes } from './routes/management/not-implemented.js';
 import { organizationsRoutes } from './routes/management/organizations.js';
 import { pauseRestoreRoutes } from './routes/management/pause-restore.js';
+import { pgbouncerConfigRoutes } from './routes/management/pgbouncer-config.js';
 import { postgresConfigRoutes } from './routes/management/postgres-config.js';
 import { postgrestConfigRoutes } from './routes/management/postgrest-config.js';
+import { realtimeConfigRoutes } from './routes/management/realtime-config.js';
 import { profileRoutes } from './routes/management/profile.js';
 import { projectsRoutes } from './routes/management/projects.js';
 import { secretsRoutes } from './routes/management/secrets.js';
@@ -381,6 +383,9 @@ export async function buildApp(): Promise<FastifyInstance> {
       // Feature 009 — runtime config tunables (postgres-config + auth-config):
       await mgmt.register(postgrestConfigRoutes);
       await mgmt.register(authConfigRoutes);
+      // Feature 112 — realtime + pgbouncer store-only config:
+      await mgmt.register(realtimeConfigRoutes);
+      await mgmt.register(pgbouncerConfigRoutes);
       await mgmt.register(billingAddonsRoutes);
       await mgmt.register(postgresConfigRoutes);
       await mgmt.register(sslEnforcementRoutes);

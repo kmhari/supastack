@@ -56,9 +56,9 @@ import { removeEnvEntry, upsertEnvEntry } from './secret-store.js';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type ConfigSurface = 'postgrest' | 'auth';
+export type ConfigSurface = 'postgrest' | 'auth' | 'postgres' | 'storage' | 'realtime' | 'pgbouncer';
 
-type ConfigJson = Record<string, unknown>;
+export type ConfigJson = Record<string, unknown>;
 
 export type ConfigSource = { userId: string };
 
@@ -212,8 +212,49 @@ export function envPathFor(ref: string): string {
   return path.join(INSTANCES_DIR, ref, '.env');
 }
 
+const REALTIME_CONFIG_DEFAULTS: ConfigJson = {
+  max_concurrent_users: 200,
+};
+
+const PGBOUNCER_CONFIG_DEFAULTS: ConfigJson = {
+  pool_mode: 'transaction',
+  default_pool_size: 15,
+  ignore_startup_parameters: 'extra_float_digits',
+  max_client_conn: 200,
+  connection_string: '',
+};
+
 export function defaultsFor(surface: ConfigSurface): ConfigJson {
-  return surface === 'postgrest' ? { ...POSTGREST_CONFIG_DEFAULTS } : { ...AUTH_CONFIG_DEFAULTS };
+  switch (surface) {
+    case 'postgrest':
+      return { ...POSTGREST_CONFIG_DEFAULTS };
+    case 'realtime':
+      return { ...REALTIME_CONFIG_DEFAULTS };
+    case 'pgbouncer':
+      return { ...PGBOUNCER_CONFIG_DEFAULTS };
+    default:
+      return { ...AUTH_CONFIG_DEFAULTS };
+  }
+}
+
+/**
+ * Store-only config save — persists snapshot without writing .env or
+ * restarting the container. Used for surfaces (realtime, pgbouncer) that
+ * have no env-field mappings at this stage (deferred-apply posture).
+ *
+ * Does: load defaults → merge body → upsert snapshot → return merged.
+ * No Redis lock, no env write, no container restart.
+ */
+export async function saveConfigOnly(
+  ref: string,
+  surface: ConfigSurface,
+  data: ConfigJson,
+  userId: string,
+): Promise<ConfigJson> {
+  const current = await loadCurrentPlaintext(ref, surface);
+  const merged: ConfigJson = { ...current, ...data };
+  await persistSnapshot(ref, surface, merged, userId);
+  return merged;
 }
 
 async function loadCurrentPlaintext(ref: string, surface: ConfigSurface): Promise<ConfigJson> {
