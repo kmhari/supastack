@@ -31,7 +31,7 @@ function bodyOf(req: { body?: unknown }): Buffer {
  *                buckets/test/objects            → storage: object/test  (upload root)
  *                buckets / buckets/test          → storage: bucket / bucket/test
  */
-function rewriteStoragePath(suffix: string): string {
+export function rewriteStoragePath(suffix: string): string {
   // buckets/:bucket/objects/list → object/list/:bucket  (POST list)
   const listMatch = suffix.match(/^buckets\/([^/]+)\/objects\/list$/);
   if (listMatch) return `object/list/${listMatch[1]}`;
@@ -48,7 +48,7 @@ function rewriteStoragePath(suffix: string): string {
  * Studio IS_PLATFORM sends list-objects as { path, options: { limit, offset, search, sortBy } }
  * but storage-api expects { prefix, limit, offset, search, sortBy } (flat, prefix not path).
  */
-function normalizeObjectListBody(req: { method: string; params: Record<string, unknown>; body?: unknown }): void {
+export function normalizeObjectListBody(req: { method: string; params: Record<string, unknown>; body?: unknown }): void {
   if (req.method !== 'POST') return;
   const suffix = req.params['*'] as string | undefined;
   if (!suffix?.match(/^buckets\/[^/]+\/objects\/list$/)) return;
@@ -72,7 +72,7 @@ function normalizeObjectListBody(req: { method: string; params: Record<string, u
  * both) so the bucket is created. Mutates `req.body` in place. Scoped to
  * `POST .../buckets` — the only shape we've confirmed the upstream schema accepts.
  */
-function backfillBucketName(req: { method: string; params: Record<string, unknown>; body?: unknown }): void {
+export function backfillBucketName(req: { method: string; params: Record<string, unknown>; body?: unknown }): void {
   if (req.method !== 'POST') return;
   if ((req.params['*'] as string | undefined) !== 'buckets') return;
   const b = req.body as Record<string, unknown> | null | undefined;

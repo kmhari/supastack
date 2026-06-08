@@ -15,7 +15,7 @@ export const PgbouncerConfigPatchSchema = z.object({
   default_pool_size: z.number().int().positive().optional(),
   ignore_startup_parameters: z.string().optional(),
   max_client_conn: z.number().int().positive().optional(),
-});
+}).strict();
 
 export type PgbouncerConfig = z.infer<typeof PgbouncerConfigSchema>;
 export type PgbouncerConfigPatch = z.infer<typeof PgbouncerConfigPatchSchema>;
