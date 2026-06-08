@@ -3235,14 +3235,32 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const user = app.requireAuth(req);
     const body = (req.body ?? {}) as Record<string, unknown>;
     if (typeof body.id === 'string') {
-      const patch: Record<string, unknown> = { updatedAt: new Date() };
-      if (typeof body.name === 'string') patch.name = body.name;
-      if (typeof body.description === 'string') patch.description = body.description;
-      const sqlVal = typeof body.sql === 'string' ? body.sql : (typeof (body.content as Record<string, unknown>)?.sql === 'string' ? String((body.content as Record<string, unknown>).sql) : undefined);
-      if (sqlVal !== undefined) patch.content = sqlVal;
-      if (typeof body.visibility === 'string') patch.visibility = body.visibility;
-      if (body.folder_id !== undefined) patch.folderId = body.folder_id as string | null;
-      await db().update(schema.sqlSnippets).set(patch).where(and(eq(schema.sqlSnippets.id, body.id as string), eq(schema.sqlSnippets.ownerId, user.id)));
+      const sqlVal = typeof body.sql === 'string' ? body.sql : (typeof (body.content as Record<string, unknown>)?.sql === 'string' ? String((body.content as Record<string, unknown>).sql) : '');
+      const [upserted] = await db()
+        .insert(schema.sqlSnippets)
+        .values({
+          id: body.id as string,
+          instanceRef: req.params.ref,
+          ownerId: user.id,
+          name: typeof body.name === 'string' ? body.name : 'Untitled Query',
+          description: typeof body.description === 'string' ? body.description : null,
+          content: sqlVal,
+          visibility: typeof body.visibility === 'string' ? body.visibility : 'user',
+          folderId: typeof body.folder_id === 'string' ? body.folder_id : null,
+        })
+        .onConflictDoUpdate({
+          target: schema.sqlSnippets.id,
+          set: {
+            name: sql`EXCLUDED.name`,
+            description: sql`EXCLUDED.description`,
+            content: sql`EXCLUDED.content`,
+            visibility: sql`EXCLUDED.visibility`,
+            folderId: sql`EXCLUDED.folder_id`,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      return reply.send(snippetRow(upserted!));
     }
     return reply.send(body);
   });
