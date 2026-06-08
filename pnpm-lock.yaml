@@ -11,6 +11,9 @@ importers:
       '@types/node':
         specifier: ^20.16.0
         version: 20.19.41
+      '@types/pg':
+        specifier: ^8.11.10
+        version: 8.20.0
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.0.0
         version: 8.59.4(@typescript-eslint/parser@8.59.4(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
@@ -26,6 +29,9 @@ importers:
       eslint-config-prettier:
         specifier: ^9.1.0
         version: 9.1.2(eslint@9.39.4(jiti@2.7.0))
+      pg:
+        specifier: ^8.13.0
+        version: 8.21.0
       prettier:
         specifier: ^3.3.3
         version: 3.8.3
@@ -129,6 +135,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.4
         version: 1.29.0(zod@3.25.76)
+      '@supabase/mcp-server-supabase':
+        specifier: ^0.8.1
+        version: 0.8.1(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(zod@3.25.76)
       '@supastack/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
@@ -141,9 +150,6 @@ importers:
       '@supastack/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@supabase/mcp-server-supabase':
-        specifier: ^0.8.1
-        version: 0.8.1(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(zod@3.25.76)
       fastify:
         specifier: ^4.28.1
         version: 4.29.1

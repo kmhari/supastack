@@ -6,7 +6,7 @@ export const RealtimeConfigSchema = z.object({
 
 export const RealtimeConfigPatchSchema = z.object({
   max_concurrent_users: z.number().int().positive().optional(),
-});
+}).strict();
 
 export type RealtimeConfig = z.infer<typeof RealtimeConfigSchema>;
 export type RealtimeConfigPatch = z.infer<typeof RealtimeConfigPatchSchema>;
