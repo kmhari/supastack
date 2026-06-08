@@ -136,7 +136,7 @@ async function buildApp(): Promise<FastifyInstance> {
   });
   // Stub /v1/projects/:ref/postgrest (used by platform postgrest config delegation)
   app.get('/v1/projects/:ref/postgrest', async (_req, reply) => {
-    reply.send({ db_schema: 'public,graphql_public', db_extra_search_path: 'public, extensions', max_rows: 1000, db_pool: null });
+    reply.send({ db_schema: 'public,graphql_public', db_extra_search_path: 'public, extensions', max_rows: 1000, db_pool: null, jwt_secret: 'test-jwt-secret' });
   });
   await app.register(platformMiscRoutes);
   return app;
@@ -339,8 +339,6 @@ describe('GET /platform/projects/:ref/run-lints — response shape', () => {
 
 describe('GET /platform/projects/:ref/config/postgrest — response shape', () => {
   it('includes db_anon_role, role_claim_key, jwt_secret (platform fields missing from /v1)', async () => {
-    // DB returns instance row so the handler can fetch encryptedSecrets
-    h.dbQueue.push([{ encryptedSecrets: Buffer.alloc(0) }]);
     const app = await buildApp();
     const res = await app.inject({
       method: 'GET',

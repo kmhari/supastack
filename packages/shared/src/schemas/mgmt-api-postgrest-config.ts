@@ -42,6 +42,7 @@ export const PostgrestConfigResponseSchema = z.object({
   db_extra_search_path: z.string(),
   max_rows: z.number().int(),
   db_pool: z.number().int().nullable(),
+  jwt_secret: z.string().optional(),
 });
 
 export type PostgrestConfigResponse = z.infer<typeof PostgrestConfigResponseSchema>;
@@ -55,5 +56,6 @@ export const POSTGREST_CONFIG_DEFAULTS: PostgrestConfigResponse = {
   db_schema: 'public,storage,graphql_public',
   db_extra_search_path: 'public,extensions',
   max_rows: 1000,
-  db_pool: null, // auto-configured
+  db_pool: null,
+  jwt_secret: '',
 };

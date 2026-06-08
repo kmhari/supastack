@@ -860,41 +860,26 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(await loadStorageConfig(req.params.ref));
   });
 
-  // PostgREST config — platform shape (GetPostgrestConfigResponse) augments the
-  // /v1 shape with db_anon_role, role_claim_key, jwt_secret.
+  // PostgREST config — delegates to /v1 (which now returns jwt_secret) and adds
+  // the platform-only fields db_anon_role + role_claim_key (GetPostgrestConfigResponse).
   app.get<RefParams>('/platform/projects/:ref/config/postgrest', async (req, reply) => {
-    const user = app.requireAuth(req);
-    // Fetch jwt_secret from encryptedSecrets
-    const [inst] = await db()
-      .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
-      .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
-      .limit(1);
-    const secrets = inst?.encryptedSecrets
-      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as { jwtSecret?: string })
-      : {};
+    app.requireAuth(req);
     const resp = await app.inject({
       method: 'GET',
-      url: `/v1/projects/${req.params.ref}/config/postgrest`,
+      url: `/v1/projects/${req.params.ref}/postgrest`,
       headers: req.headers as Record<string, string>,
     });
     const base = resp.statusCode === 200
       ? resp.json<Record<string, unknown>>()
-      : { db_schema: 'public,graphql_public', db_extra_search_path: 'public, extensions', max_rows: 1000, db_pool: null };
-    return reply.send({
-      ...base,
-      db_anon_role: 'anon',
-      role_claim_key: '.role',
-      jwt_secret: secrets.jwtSecret ?? '',
-    });
+      : { db_schema: 'public,graphql_public', db_extra_search_path: 'public, extensions', max_rows: 1000, db_pool: null, jwt_secret: '' };
+    return reply.send({ ...base, db_anon_role: 'anon', role_claim_key: '.role' });
   });
 
   app.patch<RefParams>('/platform/projects/:ref/config/postgrest', async (req, reply) => {
     app.requireAuth(req);
     const resp = await app.inject({
       method: 'PATCH',
-      url: `/v1/projects/${req.params.ref}/config/postgrest`,
+      url: `/v1/projects/${req.params.ref}/postgrest`,
       headers: req.headers as Record<string, string>,
       payload: JSON.stringify(req.body),
     });
@@ -3601,11 +3586,11 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     app.requireAuth(req);
     const resp = await app.inject({
       method: 'GET',
-      url: `/v1/projects/${req.params.ref}/config/postgrest`,
+      url: `/v1/projects/${req.params.ref}/postgrest`,
       headers: req.headers as Record<string, string>,
     });
     if (resp.statusCode === 200) return reply.status(200).send(resp.json<unknown>());
-    return reply.send({ db_schema: 'public', db_extra_search_path: 'public,extensions', max_rows: 1000 });
+    return reply.send({ db_schema: 'public,graphql_public', db_extra_search_path: 'public,extensions', max_rows: 1000, db_pool: null, jwt_secret: '' });
   });
 
   // ── Pooling/tenant config (Studio Database → Connection Pooling) ──────────
