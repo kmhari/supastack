@@ -245,6 +245,14 @@ export async function buildApp(): Promise<FastifyInstance> {
   // array of active incidents — return none.
   app.get('/api/incident-status', async (_req, reply) => reply.send([]));
 
+  // Studio's AI SQL title endpoint — generate a title/description from SQL structure
+  // without an LLM (no OPENAI_API_KEY needed). Mirrors Cloud's response shape.
+  app.post('/api/ai/sql/title-v2', async (req, reply) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const rawSql = typeof body.sql === 'string' ? body.sql.trim() : '';
+    return reply.send(parseSqlTitle(rawSql));
+  });
+
   // Management API stubs for Studio IS_PLATFORM=true — registered before the
   // /v1 management plugin so they respond without the mgmt error envelope.
   type RefP = { Params: { ref: string } };
@@ -475,6 +483,79 @@ async function maybeStartPgEdgeProxy(app: FastifyInstance): Promise<PgEdgeProxy 
     app.log.error({ err: (err as Error).message }, 'pg-edge: failed to start');
     return null;
   }
+}
+
+function parseSqlTitle(sql: string): { title: string; description: string } {
+  const s = sql.replace(/\s+/g, ' ').trim();
+  const upper = s.toUpperCase();
+
+  const extractTable = (pattern: RegExp) => {
+    const m = s.match(pattern);
+    if (!m?.[1]) return '';
+    return m[1].replace(/^["'`]|["'`]$/g, '').replace(/^\w+\./, '');
+  };
+
+  let title: string;
+  let description: string;
+
+  if (upper.startsWith('SELECT')) {
+    const table = extractTable(/\bFROM\s+([\w."'`]+)/i);
+    const hasWhere = /\bWHERE\b/i.test(s);
+    const hasJoin = /\bJOIN\b/i.test(s);
+    const hasGroup = /\bGROUP\s+BY\b/i.test(s);
+    const isCountStar = /SELECT\s+COUNT\s*\(/i.test(s);
+    const selectAll = /SELECT\s+\*/i.test(s);
+    if (isCountStar) {
+      title = table ? `Count rows in ${table}` : 'Count rows';
+      description = `Returns the number of rows${table ? ` in ${table}` : ''}${hasWhere ? ' matching the filter' : ''}.`;
+    } else if (table) {
+      title = selectAll
+        ? `Select all from ${table}`
+        : `Query ${table}${hasWhere ? ' with filter' : ''}${hasJoin ? ' with join' : ''}`;
+      description = `Retrieves ${selectAll ? 'all columns' : 'selected columns'} from ${table}${hasGroup ? ', grouped by key' : ''}${hasWhere ? ', filtered by condition' : ''}.`;
+    } else {
+      title = 'SQL Query';
+      description = 'Executes a SELECT statement.';
+    }
+  } else if (upper.startsWith('INSERT')) {
+    const table = extractTable(/\bINTO\s+([\w."'`]+)/i);
+    title = table ? `Insert into ${table}` : 'Insert rows';
+    description = `Inserts one or more rows${table ? ` into ${table}` : ''}.`;
+  } else if (upper.startsWith('UPDATE')) {
+    const table = extractTable(/^UPDATE\s+([\w."'`]+)/i);
+    title = table ? `Update ${table}` : 'Update rows';
+    description = `Updates rows${table ? ` in ${table}` : ''}${/\bWHERE\b/i.test(s) ? ' matching the filter' : ''}.`;
+  } else if (upper.startsWith('DELETE')) {
+    const table = extractTable(/\bFROM\s+([\w."'`]+)/i);
+    title = table ? `Delete from ${table}` : 'Delete rows';
+    description = `Deletes rows${table ? ` from ${table}` : ''}${/\bWHERE\b/i.test(s) ? ' matching the filter' : ''}.`;
+  } else if (upper.startsWith('CREATE TABLE')) {
+    const table = extractTable(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w."'`]+)/i);
+    title = table ? `Create table ${table}` : 'Create table';
+    description = `Creates the ${table || 'new'} table with the specified columns and constraints.`;
+  } else if (upper.startsWith('DROP TABLE')) {
+    const table = extractTable(/DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?([\w."'`]+)/i);
+    title = table ? `Drop table ${table}` : 'Drop table';
+    description = `Drops the ${table || 'specified'} table${/\bCASCADE\b/i.test(s) ? ' and all dependent objects' : ''}.`;
+  } else if (upper.startsWith('ALTER TABLE')) {
+    const table = extractTable(/ALTER\s+TABLE\s+([\w."'`]+)/i);
+    title = table ? `Alter table ${table}` : 'Alter table';
+    description = `Modifies the structure of ${table ? `the ${table} table` : 'a table'}.`;
+  } else if (upper.startsWith('CREATE INDEX')) {
+    const table = extractTable(/\bON\s+([\w."'`]+)/i);
+    title = table ? `Create index on ${table}` : 'Create index';
+    description = `Creates an index${table ? ` on ${table}` : ''} to improve query performance.`;
+  } else if (upper.startsWith('TRUNCATE')) {
+    const table = extractTable(/^TRUNCATE\s+(?:TABLE\s+)?([\w."'`]+)/i);
+    title = table ? `Truncate ${table}` : 'Truncate table';
+    description = `Removes all rows from ${table ? `${table}` : 'the table'}.`;
+  } else {
+    const firstWord = (s.split(/\s/)[0] ?? 'SQL').toUpperCase();
+    title = `${firstWord.charAt(0) + firstWord.slice(1).toLowerCase()} statement`;
+    description = `Executes a ${firstWord} statement.`;
+  }
+
+  return { title, description };
 }
 
 // Suppress unused import warning — eq isn't directly used here but kept for
