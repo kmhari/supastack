@@ -758,18 +758,34 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const user = app.requireAuth(req);
     const apex = process.env.SUPASTACK_APEX ?? '';
     const [inst] = await db()
-      .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong, insertedAt: schema.supabaseInstances.createdAt })
+      .select({
+        ref: schema.supabaseInstances.ref,
+        portKong: schema.supabaseInstances.portKong,
+        encryptedSecrets: schema.supabaseInstances.encryptedSecrets,
+        insertedAt: schema.supabaseInstances.createdAt,
+      })
       .from(schema.supabaseInstances)
       .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
       .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
       .limit(1);
     if (!inst) return reply.send([]);
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
+    const dbHost = apex ? `db.${inst.ref}.${apex}` : 'localhost';
+    let connectionString = '';
+    if (inst.encryptedSecrets) {
+      try {
+        const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as { postgresPassword?: string };
+        if (secrets.postgresPassword) {
+          const pwd = encodeURIComponent(secrets.postgresPassword);
+          connectionString = `postgresql://postgres:${pwd}@${dbHost}:5432/postgres`;
+        }
+      } catch { /* leave empty on decrypt failure */ }
+    }
     return reply.send([{
       cloud_provider: 'SUPASTACK',
-      connectionString: '',
+      connectionString,
       connection_string_read_only: null,
-      db_host: apex || 'localhost',
+      db_host: dbHost,
       db_name: 'postgres',
       db_port: 5432,
       db_user: 'postgres',
