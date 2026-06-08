@@ -12,6 +12,15 @@
  */
 import { z } from 'zod';
 
+// RFC 8707 Resource Indicators — MCP clients (Claude Code, Cursor, Windsurf)
+// send `resource` (the protected-resource URI, e.g. https://mcp.<apex>/mcp) on
+// BOTH the authorize and token requests. It may appear once (string) or be
+// repeated (array). We accept it so `.strict()` doesn't reject the request; the
+// issued access token's audience is already fixed to mcp.<apex>/mcp, so we
+// accept-and-ignore rather than echo it. Omitting this rejects every real MCP
+// client with "Unrecognized key(s) in object: 'resource'".
+const ResourceIndicator = z.union([z.string(), z.array(z.string())]).optional();
+
 // ─── /v1/oauth/authorize query params ──────────────────────────────────────
 
 export const OAuthAuthorizeQuerySchema = z
@@ -23,6 +32,7 @@ export const OAuthAuthorizeQuerySchema = z
     code_challenge: z.string().min(43).max(128),
     code_challenge_method: z.literal('S256'),
     scope: z.string().optional().default('platform'),
+    resource: ResourceIndicator,
   })
   .strict();
 export type OAuthAuthorizeQuery = z.infer<typeof OAuthAuthorizeQuerySchema>;
@@ -36,6 +46,7 @@ export const OAuthTokenAuthCodeBodySchema = z
     redirect_uri: z.string().url(),
     client_id: z.string().uuid(),
     code_verifier: z.string().min(43).max(128),
+    resource: ResourceIndicator,
   })
   .strict();
 
@@ -45,6 +56,7 @@ export const OAuthTokenRefreshBodySchema = z
     refresh_token: z.string().min(1),
     client_id: z.string().uuid(),
     scope: z.string().optional(),
+    resource: ResourceIndicator,
   })
   .strict();
 

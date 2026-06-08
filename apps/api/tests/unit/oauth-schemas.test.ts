@@ -56,6 +56,12 @@ describe('OAuthAuthorizeQuerySchema', () => {
       OAuthAuthorizeQuerySchema.safeParse({ ...valid, code_challenge: 'a'.repeat(129) }).success,
     ).toBe(false);
   });
+  it('accepts resource (RFC 8707 — MCP sends it on authorize)', () => {
+    expect(
+      OAuthAuthorizeQuerySchema.safeParse({ ...valid, resource: 'https://mcp.example.dev/mcp' })
+        .success,
+    ).toBe(true);
+  });
 });
 
 describe('OAuthTokenRequestSchema (discriminated union)', () => {
@@ -94,6 +100,29 @@ describe('OAuthTokenRequestSchema (discriminated union)', () => {
   it('rejects refresh_token grant missing refresh_token', () => {
     const { refresh_token: _r, ...rest } = refreshReq;
     expect(OAuthTokenRequestSchema.safeParse(rest).success).toBe(false);
+  });
+  // feature 115 — RFC 8707 Resource Indicators: MCP clients send `resource` on
+  // the token request. Regression for "Unrecognized key(s) in object: 'resource'".
+  it('accepts authorization_code grant WITH resource (RFC 8707 — MCP)', () => {
+    expect(
+      OAuthTokenRequestSchema.safeParse({ ...codeReq, resource: 'https://mcp.example.dev/mcp' })
+        .success,
+    ).toBe(true);
+  });
+  it('accepts a repeated resource (array)', () => {
+    expect(
+      OAuthTokenRequestSchema.safeParse({ ...codeReq, resource: ['https://a/mcp', 'https://b/mcp'] })
+        .success,
+    ).toBe(true);
+  });
+  it('accepts refresh_token grant WITH resource', () => {
+    expect(
+      OAuthTokenRequestSchema.safeParse({ ...refreshReq, resource: 'https://mcp.example.dev/mcp' })
+        .success,
+    ).toBe(true);
+  });
+  it('still rejects other unknown keys (strict preserved)', () => {
+    expect(OAuthTokenRequestSchema.safeParse({ ...codeReq, bogus: 'x' }).success).toBe(false);
   });
 });
 

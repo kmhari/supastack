@@ -1,22 +1,21 @@
 /**
- * GET /v1/oauth/authorize — OAuth 2.1 authorization code flow entry.
- * POST /v1/oauth/authorize — consent handler (Authorize/Deny submit).
+ * GET /v1/oauth/authorize — OAuth 2.1 authorization code flow entry (feature 115).
  *
- * Browser-facing. Server-rendered consent UI; no React route required.
- * Session anchor: existing dashboard session cookie. If no session →
- * 302 to login with `?next=<urlencoded-authorize-path>`.
+ * Browser-facing and UNAUTHENTICATED. Validates the OAuth 2.1 PKCE params,
+ * stashes them in a short-lived server-side session (Redis, keyed by a UUID
+ * `auth_id`), and 303-redirects to the upstream Studio consent page
+ * (`https://<apex>/dashboard/authorize?auth_id=<UUID>`). The Studio page handles
+ * its own auth gate and drives consent via the `/platform/oauth/authorizations/*`
+ * endpoints (see routes/platform-misc.ts). No inline HTML; no POST handler —
+ * the endpoint is GET-only, matching upstream Supabase.
  *
- * Spec: 014-mcp-http-oauth — FR-001..003, FR-024b,
- *   contracts/oauth-authorize-endpoint.md.
+ * Spec: 115-oauth-authorize-flow — FR-001, FR-008; contracts/oauth-authorize-endpoint.md.
  */
-import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import { db, schema } from '@supastack/db';
-import { logger } from '@supastack/shared';
-import { loadMasterKey, verifyGotrueJwt } from '@supastack/crypto';
+import type { FastifyPluginAsync } from 'fastify';
 
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';
 import { getClientById, validateRedirectUri } from '../../services/oauth-clients-store.js';
-import { issueCode } from '../../services/oauth-codes-store.js';
+import { createAuthSession } from '../../services/oauth-auth-sessions-store.js';
 
 const ALLOWED_SCOPE = 'platform';
 
@@ -30,12 +29,8 @@ interface AuthorizeParams {
   scope?: string;
 }
 
-interface ConsentParams extends AuthorizeParams {
-  decision: 'authorize' | 'deny';
-}
-
 export const oauthAuthorizeRoutes: FastifyPluginAsync = async (app) => {
-  // GET — render consent page (or redirect to login)
+  // GET — validate params, store the session, redirect to the Studio consent page.
   app.get<{ Querystring: Partial<AuthorizeParams> }>('/oauth/authorize', async (req, reply) => {
     const params = validateParams(req.query);
     const client = await getClientById(params.client_id);
@@ -46,99 +41,31 @@ export const oauthAuthorizeRoutes: FastifyPluginAsync = async (app) => {
       throw new ManagementApiError(400, 'redirect_uri not in allow-list', 'invalid_request');
     }
 
-    // Feature 084 — authenticate via GoTrue (Bearer token, or the GoTrue
-    // access-token cookie for the browser navigation), not the legacy session.
-    const operator = await resolveOperator(req);
-    if (!operator) {
-      const next = buildAuthorizePath(params);
-      if (next.length > 4096) {
-        throw new ManagementApiError(400, 'authorize URL too long', 'invalid_request');
-      }
-      return reply.redirect(`/dashboard/login?next=${encodeURIComponent(next)}`);
-    }
-
-    reply.header('Content-Type', 'text/html; charset=utf-8');
-    return renderConsentHtml({
-      clientName: client.clientName,
-      redirectUris: client.redirectUris,
-      operatorEmail: operator.email,
-      scope: params.scope ?? ALLOWED_SCOPE,
-      params,
-    });
-  });
-
-  // POST — handle consent
-  app.post<{ Body: Partial<ConsentParams> }>('/oauth/authorize', async (req, reply) => {
-    const params = validateParams(req.body);
-    const decision = req.body?.decision;
-    if (decision !== 'authorize' && decision !== 'deny') {
-      throw new ManagementApiError(400, 'missing decision', 'invalid_request');
-    }
-    const client = await getClientById(params.client_id);
-    if (!client) {
-      throw new ManagementApiError(400, 'unknown client_id', 'invalid_client');
-    }
-    if (!validateRedirectUri(client, params.redirect_uri)) {
-      throw new ManagementApiError(400, 'redirect_uri not in allow-list', 'invalid_request');
-    }
-    const operator = await resolveOperator(req);
-    if (!operator) {
-      throw new ManagementApiError(401, 'authentication required', 'unauthenticated');
-    }
-    const userId = operator.id;
-
-    const stateParam = encodeURIComponent(params.state);
-
-    if (decision === 'deny') {
-      void emitAudit(userId, 'oauth.consent.denied', { client_id: client.id });
-      return reply.redirect(
-        `${params.redirect_uri}${params.redirect_uri.includes('?') ? '&' : '?'}error=access_denied&state=${stateParam}`,
-      );
-    }
-
-    const { code } = await issueCode({
-      clientId: client.id,
-      userId,
-      redirectUri: params.redirect_uri,
-      codeChallenge: params.code_challenge,
-      scope: params.scope ?? ALLOWED_SCOPE,
-    });
-    void emitAudit(userId, 'oauth.code.issued', {
+    const metadata = (client.metadata ?? {}) as { website?: unknown; icon?: unknown };
+    const authId = await createAuthSession({
       client_id: client.id,
-      scope: params.scope ?? ALLOWED_SCOPE,
+      client_name: client.clientName,
+      client_website: typeof metadata.website === 'string' ? metadata.website : '',
+      client_icon: typeof metadata.icon === 'string' ? metadata.icon : null,
+      client_domain: safeHostname(params.redirect_uri),
       redirect_uri: params.redirect_uri,
+      state: params.state,
+      code_challenge: params.code_challenge,
+      code_challenge_method: 'S256',
+      scopes: (params.scope ?? ALLOWED_SCOPE).split(' ').filter(Boolean),
     });
-    return reply.redirect(
-      `${params.redirect_uri}${params.redirect_uri.includes('?') ? '&' : '?'}code=${encodeURIComponent(code)}&state=${stateParam}`,
-    );
+
+    const apex = process.env.SUPASTACK_APEX ?? '';
+    return reply.redirect(303, `https://${apex}/dashboard/authorize?auth_id=${authId}`);
   });
 };
 
-/**
- * Feature 084 — resolve the consenting operator from GoTrue auth. Accepts a
- * Bearer access token (preHandler-set `req.user`, for programmatic clients) or a
- * GoTrue access-token cookie for the browser navigation. Replaces the legacy
- * `sb_sid` session anchor.
- */
-async function resolveOperator(
-  req: FastifyRequest,
-): Promise<{ id: string; email: string } | null> {
-  if (req.user) return { id: req.user.id, email: req.user.email };
-  const cookieTok = req.cookies?.['sb-access-token'] ?? req.cookies?.['sb-access-token-0'];
-  if (cookieTok) {
-    try {
-      const claims = verifyGotrueJwt(loadMasterKey(), cookieTok);
-      const [u] = await db()
-        .select({ id: schema.users.id, email: schema.users.email })
-        .from(schema.users)
-        .where(eq(schema.users.id, claims.sub))
-        .limit(1);
-      if (u) return { id: u.id, email: u.email };
-    } catch {
-      /* invalid cookie token → unauthenticated */
-    }
+function safeHostname(uri: string): string {
+  try {
+    return new URL(uri).hostname;
+  } catch {
+    return '';
   }
-  return null;
 }
 
 function validateParams(input: Partial<AuthorizeParams> = {}): AuthorizeParams {
@@ -183,92 +110,4 @@ function validateParams(input: Partial<AuthorizeParams> = {}): AuthorizeParams {
   };
 }
 
-function buildAuthorizePath(p: AuthorizeParams): string {
-  const params = new URLSearchParams({
-    response_type: p.response_type,
-    client_id: p.client_id,
-    redirect_uri: p.redirect_uri,
-    state: p.state,
-    code_challenge: p.code_challenge,
-    code_challenge_method: p.code_challenge_method,
-    scope: p.scope ?? ALLOWED_SCOPE,
-  });
-  return `/v1/oauth/authorize?${params.toString()}`;
-}
-
-function renderConsentHtml(args: {
-  clientName: string;
-  redirectUris: string[];
-  operatorEmail: string;
-  scope: string;
-  params: AuthorizeParams;
-}): string {
-  // Inline form POST submits consent decision. Hidden inputs preserve params.
-  const esc = (s: string): string =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const hidden = (Object.entries(args.params) as [string, string][])
-    .map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`)
-    .join('\n      ');
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Authorize ${esc(args.clientName)}</title>
-  <style>
-    body { font: 14px/1.5 system-ui, sans-serif; max-width: 480px; margin: 4em auto; padding: 0 1em; color: #222; }
-    h1 { font-size: 1.4em; margin-bottom: 0.5em; }
-    .client { font-weight: 600; }
-    .who { color: #666; font-size: 0.9em; margin-top: 0.25em; }
-    .perms { background: #f5f5f5; border-radius: 6px; padding: 1em; margin: 1.5em 0; }
-    .perms h2 { font-size: 0.9em; margin: 0 0 0.5em; text-transform: uppercase; letter-spacing: 0.05em; color: #555; }
-    .redirect { color: #666; font-size: 0.85em; margin-top: 1em; }
-    button { font: inherit; padding: 0.5em 1em; border-radius: 4px; border: 1px solid #ccc; background: #fff; cursor: pointer; margin-right: 0.5em; }
-    button[name="decision"][value="authorize"] { background: #2563eb; color: #fff; border-color: #2563eb; }
-    button:hover { opacity: 0.9; }
-  </style>
-</head>
-<body>
-  <h1>Authorize MCP client?</h1>
-  <p><span class="client">${esc(args.clientName)}</span> wants to access your selfbase deployment.</p>
-  <p class="who">Signed in as <strong>${esc(args.operatorEmail)}</strong></p>
-  <div class="perms">
-    <h2>Permissions requested</h2>
-    <p>Full platform access (read and manage all your projects).</p>
-  </div>
-  <p class="redirect">Will redirect to: <code>${esc(args.redirectUris.join(', '))}</code></p>
-  <form method="POST" action="/v1/oauth/authorize">
-    ${hidden}
-    <button type="submit" name="decision" value="authorize">Authorize</button>
-    <button type="submit" name="decision" value="deny">Deny</button>
-  </form>
-</body>
-</html>`;
-}
-
-async function emitAudit(
-  userId: string,
-  action: 'oauth.code.issued' | 'oauth.consent.denied',
-  payload: Record<string, unknown>,
-): Promise<void> {
-  try {
-    await db()
-      .insert(schema.auditLog)
-      .values({
-        actorUserId: userId,
-        action,
-        targetKind: 'oauth_client',
-        targetId: (payload.client_id as string) ?? null,
-        payload,
-      });
-  } catch (err) {
-    logger.warn({ err, action }, 'oauth audit emit failed');
-  }
-}
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// Drizzle eq used in user lookup
-import { eq } from 'drizzle-orm';
-
-// Suppress unused import warning if FastifyRequest ever drops out
-void (null as unknown as FastifyRequest);
