@@ -277,8 +277,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       const [row] = await db()
         .select({
           id: schema.apiTokens.id,
-          name: schema.apiTokens.name,
-          tokenAlias: schema.apiTokens.tokenAlias,
+          name: schema.apiTokens.label,
+          tokenAlias: schema.apiTokens.prefix,
           createdAt: schema.apiTokens.createdAt,
           lastUsedAt: schema.apiTokens.lastUsedAt,
           userId: schema.apiTokens.userId,
@@ -870,7 +870,21 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // Storage config — persisted in project_config_snapshots (surface='storage')
-  const STORAGE_CONFIG_DEFAULTS = { fileSizeLimit: 52428800, features: { imageTransformation: { enabled: true } } };
+  // Shape must match StorageConfigResponse (platform.d.ts) exactly — S3Connection.tsx
+  // reads config.features.s3Protocol.enabled directly (no optional chain).
+  const STORAGE_CONFIG_DEFAULTS = {
+    fileSizeLimit: 52428800,
+    migrationVersion: '1',
+    databasePoolMode: 'transaction',
+    capabilities: { iceberg_catalog: false, list_v2: true },
+    external: { upstreamTarget: 'main' as const },
+    features: {
+      imageTransformation: { enabled: true },
+      s3Protocol: { enabled: true },
+      icebergCatalog: { enabled: false, maxCatalogs: 0, maxNamespaces: 0, maxTables: 0 },
+      vectorBuckets: { enabled: false, maxBuckets: 0, maxIndexes: 0 },
+    },
+  };
 
   async function loadStorageConfig(ref: string): Promise<typeof STORAGE_CONFIG_DEFAULTS> {
     const rows = await db()
