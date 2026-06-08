@@ -492,7 +492,7 @@ services:
 
   # To use S3 backed storage: docker compose -f docker-compose.yml -f docker-compose.s3.yml up
   storage:
-    image: supabase/storage-api:v1.48.26
+    image: supabase/storage-api:v1.60.10
     restart: unless-stopped
     depends_on:
       db:

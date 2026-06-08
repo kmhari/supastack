@@ -158,7 +158,17 @@ export async function buildCaddyConfig(): Promise<unknown> {
       // (Per-instance `<ref>.<apex>` data-plane routes are terminal and matched
       // BEFORE this fallback, so they stay reachable regardless.)
       handle: setupDone
-        ? [{ handler: 'reverse_proxy', upstreams: [{ dial: 'studio:3000' }] }]
+        ? [
+            {
+              handler: 'reverse_proxy',
+              upstreams: [{ dial: 'studio:3000' }],
+              // Strip the Studio's baked-in CSP: it only allows *.supabase.co, not
+              // *.{apex} — so storage uploads, realtime WS, and pg-meta calls from
+              // per-project subdomains are blocked. Self-hosted operators control
+              // their own origin; removing the header is the right call here.
+              headers: { response: { delete: ['Content-Security-Policy'] } },
+            },
+          ]
         : [
             {
               handler: 'static_response',

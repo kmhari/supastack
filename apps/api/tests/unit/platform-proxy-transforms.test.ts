@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   backfillBucketName,
+  normalizeDeleteObjectsBody,
   normalizeObjectListBody,
   rewriteStoragePath,
 } from '../../src/routes/platform-proxy.js';
@@ -106,6 +107,51 @@ describe('normalizeObjectListBody', () => {
   it('no-ops when body is null', () => {
     const req = { method: 'POST', params: { '*': listSuffix }, body: null };
     normalizeObjectListBody(req);
+    expect(req.body).toBeNull();
+  });
+});
+
+// ─── normalizeDeleteObjectsBody ──────────────────────────────────────────────
+
+describe('normalizeDeleteObjectsBody', () => {
+  const deleteSuffix = 'buckets/test/objects';
+
+  it('translates paths → prefixes (platform→storage-api shape)', () => {
+    const req = {
+      method: 'DELETE',
+      params: { '*': deleteSuffix },
+      body: { paths: ['/.emptyFolderPlaceholder', 'file.jpg'] },
+    };
+    normalizeDeleteObjectsBody(req);
+    expect(req.body).toEqual({ prefixes: ['/.emptyFolderPlaceholder', 'file.jpg'] });
+  });
+
+  it('leaves body untouched when already using prefixes', () => {
+    const original = { prefixes: ['file.jpg'] };
+    const req = { method: 'DELETE', params: { '*': deleteSuffix }, body: { ...original } };
+    normalizeDeleteObjectsBody(req);
+    expect(req.body).toEqual(original);
+  });
+
+  it('no-ops for non-DELETE methods', () => {
+    const req = { method: 'POST', params: { '*': deleteSuffix }, body: { paths: ['a'] } };
+    normalizeDeleteObjectsBody(req);
+    expect(req.body).toEqual({ paths: ['a'] });
+  });
+
+  it('no-ops for paths with trailing file (single object delete)', () => {
+    const req = {
+      method: 'DELETE',
+      params: { '*': 'buckets/test/objects/file.jpg' },
+      body: { paths: ['a'] },
+    };
+    normalizeDeleteObjectsBody(req);
+    expect(req.body).toEqual({ paths: ['a'] });
+  });
+
+  it('no-ops when body is null', () => {
+    const req = { method: 'DELETE', params: { '*': deleteSuffix }, body: null };
+    normalizeDeleteObjectsBody(req);
     expect(req.body).toBeNull();
   });
 });

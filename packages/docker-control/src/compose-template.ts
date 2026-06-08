@@ -202,7 +202,7 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     JWT_JWKS: '',
     JWT_KEYS: '',
     CERTBOT_EMAIL: '',
-    GLOBAL_S3_BUCKET: '',
+    GLOBAL_S3_BUCKET: 'local',
     MINIO_ROOT_USER: 'supabase',
     STORAGE_TENANT_ID: ref,
     IMGPROXY_AUTO_WEBP: 'true',
