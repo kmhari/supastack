@@ -21,7 +21,7 @@ import { handleVaultEnable } from './vault-enable-job.js';
 
 const TEMPLATE_DIR = process.env.SUPABASE_TEMPLATE_DIR ?? '/app/infra/supabase-template';
 const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/supastack/instances';
-const STUDIO_IMAGE = process.env.STUDIO_IMAGE ?? 'supastack/studio:latest';
+const STUDIO_IMAGE = process.env.STUDIO_IMAGE ?? 'supabase/studio:2026.04.27-sha-5f60601';
 const API_URL = process.env.SUPASTACK_API_URL ?? 'http://api:3001';
 const HEALTH_TIMEOUT_MS = 180_000; // 3 min
 
