@@ -262,6 +262,17 @@
 | `/platform/projects/{ref}/run-lints/{name}` | GET | ✅ | supastack | Run named lint check (one of 5 advisory checks); [] for unknown names; 503 if not running | `GET .../run-lints/:name` (real; feature 109) |
 | `/platform/projects/{ref}/service-versions` | GET | ✅ | supastack | Get version info for each service (returns empty object — no per-service version surface on self-hosted) | `GET /platform/projects/:ref/service-versions` → `{}` |
 | `/platform/projects/{ref}/settings/sensitivity` | PATCH | ⚠️ | supastack | Set data sensitivity level | `PATCH .../settings/sensitivity` (stub) |
+| `/platform/projects/{ref}/storage/buckets` | DELETE | ⚠️ | supastack | Bulk delete buckets (no-op stub) _(not in platform.d.ts)_ | stub → 204 (specs/114) |
+| `/platform/projects/{ref}/storage/buckets` | PATCH | ⚠️ | supastack | Bulk update buckets (no-op stub) _(not in platform.d.ts)_ | stub → 200 (specs/114) |
+| `/platform/projects/{ref}/storage/config` | GET | ⚠️ | supastack | Get storage config — alias of `/config/storage` _(not in platform.d.ts)_ | stub → delegates to `/config/storage` (specs/114) |
+| `/platform/projects/{ref}/storage/config` | PATCH | ⚠️ | supastack | Update storage config — alias of `/config/storage` _(not in platform.d.ts)_ | stub → delegates to `/config/storage` (specs/114) |
+| `/platform/projects/{ref}/storage/config/image-transformations` | GET | ⚠️ | supastack | Get image transformation feature flag _(not in platform.d.ts)_ | stub → imageTransformation slice (specs/114) |
+| `/platform/projects/{ref}/storage/config/image-transformations` | PATCH | ⚠️ | supastack | Update image transformation feature flag _(not in platform.d.ts)_ | stub → update imageTransformation (specs/114) |
+| `/platform/projects/{ref}/storage/config/s3-connection` | DELETE | ⚠️ | supastack | Delete external S3 connection config (no-op) _(not in platform.d.ts)_ | stub → 204 (specs/114) |
+| `/platform/projects/{ref}/storage/config/s3-connection` | GET | ⚠️ | supastack | Get external S3 connection config _(not in platform.d.ts)_ | stub → 200 empty (specs/114) |
+| `/platform/projects/{ref}/storage/config/s3-connection` | POST | ⚠️ | supastack | Create/update external S3 connection config (no-op) _(not in platform.d.ts)_ | stub → 200 (specs/114) |
+| `/platform/projects/{ref}/storage/config/s3-connection/credentials` | DELETE | ⚠️ | supastack | Delete S3 connection credentials (no-op) _(not in platform.d.ts)_ | stub → 204 (specs/114) |
+| `/platform/projects/{ref}/storage/config/s3-connection/credentials` | POST | ⚠️ | supastack | Create S3 connection credentials (no-op) _(not in platform.d.ts)_ | stub → 200 (specs/114) |
 | `/platform/projects/{ref}/transfer` | POST | ⚠️ | supastack | Transfer project to another org | `POST .../projects/:ref/transfer` (stub) |
 | `/platform/projects/{ref}/transfer/preview` | POST | ⚠️ | supastack | Previews transferring a project to a different organizations, shows eligibility and impact. | `POST .../transfer/preview` (stub 200) |
 
