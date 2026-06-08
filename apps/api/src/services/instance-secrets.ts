@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   assertSafeForEnv,
+  deriveGotrueJwtSecret,
   encryptJson,
   generatePassword,
   loadMasterKey,
@@ -50,7 +51,9 @@ export function generateInstanceSecrets(opts: {
   jwtExpirySec: number;
   postgresPasswordOverride?: string;
 }): InstanceSecrets {
-  const jwtSecret = randomBytes(40).toString('base64');
+  // Use the platform GoTrue JWT secret so the control-plane user token is valid
+  // for all per-project Kong/storage/auth/rest services — same pattern as Cloud.
+  const jwtSecret = deriveGotrueJwtSecret(loadMasterKey());
   let postgresPassword: string;
   if (opts.postgresPasswordOverride) {
     assertSafeForEnv(opts.postgresPasswordOverride, 'postgresPassword');

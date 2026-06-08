@@ -9,7 +9,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
-import { decryptJson, encryptJson, loadMasterKey } from '@supastack/crypto';
+import { decryptJson, encryptJson, loadMasterKey, signSupabaseJwt } from '@supastack/crypto';
 import { ROLE_IDS, ROLE_NAMES, roleFromId, type Role } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
 import { createOrganizationWithOwner } from '../services/org-store.js';
@@ -274,21 +274,24 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     '/platform/profile/access-tokens/:id',
     async (req, reply) => {
       const user = app.requireAuth(req);
-      try {
-        const [row] = await db()
-          .select({ userId: schema.apiTokens.userId })
-          .from(schema.apiTokens)
-          .where(eq(schema.apiTokens.id, req.params.id))
-          .limit(1);
-        if (!row || row.userId !== user.id) return reply.status(204).send();
-        await db()
-          .update(schema.apiTokens)
-          .set({ revokedAt: new Date() })
-          .where(eq(schema.apiTokens.id, req.params.id));
-        return reply.status(204).send();
-      } catch {
-        return reply.status(204).send();
-      }
+      const [row] = await db()
+        .select({
+          id: schema.apiTokens.id,
+          name: schema.apiTokens.name,
+          tokenAlias: schema.apiTokens.tokenAlias,
+          createdAt: schema.apiTokens.createdAt,
+          lastUsedAt: schema.apiTokens.lastUsedAt,
+          userId: schema.apiTokens.userId,
+        })
+        .from(schema.apiTokens)
+        .where(eq(schema.apiTokens.id, req.params.id))
+        .limit(1);
+      if (!row || row.userId !== user.id) return reply.status(404).send({ error: 'Not found' });
+      await db()
+        .update(schema.apiTokens)
+        .set({ revokedAt: new Date() })
+        .where(eq(schema.apiTokens.id, req.params.id));
+      return reply.status(200).send(toAccessToken(row));
     },
   );
 
@@ -651,8 +654,6 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         anon_key: '',
         service_key: '',
         endpoint,
-        restUrl: endpoint ? `${endpoint}/rest/v1` : '',
-        databases: [{ identifier: created.ref, status: 'COMING_UP', region: 'local', cloud_provider: 'SUPASTACK', inserted_at: new Date().toISOString(), infra_compute_size: 'nano' }],
       });
     },
   );
@@ -749,7 +750,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     if (newName !== inst.name) {
       await db().update(schema.supabaseInstances).set({ name: newName }).where(eq(schema.supabaseInstances.ref, inst.ref));
     }
-    return reply.send({ id: inst.ref, name: newName, ref: inst.ref });
+    return reply.send({ id: hashRefToInt(inst.ref), name: newName, ref: inst.ref });
   });
 
   // Databases
@@ -1251,7 +1252,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // /content/folders: getSQLSnippetFolders expects data.data.{folders,contents} + data.cursor
   // SQL Snippets — real persistent store via sql_snippets + sql_snippet_folders tables
   function snippetRow(s: { id: string; name: string; description: string | null; content: string; visibility: string; folderId: string | null; ownerId: string | null; createdAt: Date; updatedAt: Date; instanceRef: string }) {
-    return { id: s.id, name: s.name, description: s.description, sql: s.content, content: { sql: s.content }, visibility: s.visibility, folder_id: s.folderId, owner_id: s.ownerId, project_id: s.instanceRef, inserted_at: s.createdAt?.toISOString(), updated_at: s.updatedAt?.toISOString(), type: 'sql' };
+    return { id: s.id, name: s.name, description: s.description ?? '', sql: s.content, content: { sql: s.content, content_id: s.id, schema_version: '1.0' }, visibility: s.visibility, folder_id: s.folderId, owner_id: s.ownerId, project_id: s.instanceRef, favorite: false, inserted_at: s.createdAt?.toISOString(), updated_at: s.updatedAt?.toISOString(), type: 'sql' };
   }
 
   app.get<RefParams>('/platform/projects/:ref/content/folders', async (req, reply) => {
@@ -1376,6 +1377,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         ref: schema.supabaseInstances.ref,
         name: schema.supabaseInstances.name,
         status: schema.supabaseInstances.status,
+        portKong: schema.supabaseInstances.portKong,
         encryptedSecrets: schema.supabaseInstances.encryptedSecrets,
         insertedAt: schema.supabaseInstances.createdAt,
       })
@@ -1396,7 +1398,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
           serviceRoleKey?: string;
         })
       : {};
-    const endpoint = apex ? `${inst.ref}.${apex}` : 'localhost';
+    const kongBase = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
+    // storage_endpoint must be a bare hostname (no scheme, no path) — Studio prepends https:// itself
+    // See: studio/data/config/project-endpoint-query.ts line ~41
+    const storageHost = apex ? `${inst.ref}.${apex}` : `localhost:${inst.portKong}`;
     return reply.send({
       cloud_provider: 'SUPASTACK',
       region: 'local',
@@ -1414,8 +1419,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       status: toStudioProjectStatus(inst.status),
       app_config: {
         db_schema: 'public',
-        endpoint,
-        storage_endpoint: endpoint,
+        endpoint: kongBase,
+        storage_endpoint: storageHost,
       },
       jwt_secret: secrets.jwtSecret ?? '',
       service_api_keys: [
@@ -1439,7 +1444,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     if (typeof body.name === 'string' && body.name.trim() && body.name.trim() !== inst.name) {
       await db().update(schema.supabaseInstances).set({ name: body.name.trim() }).where(eq(schema.supabaseInstances.ref, inst.ref));
     }
-    return reply.send({ ref: inst.ref, name: typeof body.name === 'string' ? body.name.trim() : inst.name });
+    return reply.send({ id: hashRefToInt(inst.ref), ref: inst.ref, name: typeof body.name === 'string' ? body.name.trim() : inst.name });
   });
 
   // Members — real: org members who have access to this project
@@ -3349,7 +3354,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
-  app.post<RefParams>('/platform/projects/:ref/api-keys/temporary', async (req, reply) => {
+  app.post<{
+    Params: { ref: string };
+    Querystring: { authorization_exp?: string; claims?: string };
+  }>('/platform/projects/:ref/api-keys/temporary', async (req, reply) => {
     const user = app.requireAuth(req);
     const [inst] = await db()
       .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
@@ -3359,9 +3367,18 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const secrets = inst.encryptedSecrets
-      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as { anonKey?: string; serviceRoleKey?: string })
+      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as { jwtSecret?: string; serviceRoleKey?: string })
       : {};
-    return reply.status(201).send({ anon_key: secrets.anonKey ?? '', service_role_key: secrets.serviceRoleKey ?? '' });
+    const jwtSecret = secrets.jwtSecret ?? '';
+    const expSec = parseInt(req.query.authorization_exp ?? '3600', 10);
+    let role = 'service_role';
+    try {
+      const parsed = JSON.parse(req.query.claims ?? '{}');
+      if (parsed.role) role = parsed.role;
+    } catch { /* use default */ }
+    const safeRole = role === 'anon' ? 'anon' : 'service_role';
+    const api_key = signSupabaseJwt(jwtSecret, { role: safeRole, expSec });
+    return reply.status(201).send({ api_key });
   });
 
   app.post<RefParams>('/platform/projects/:ref/api/graphql', async (req, reply) => {
@@ -4819,7 +4836,6 @@ function buildOrg(id: string, name: string, isOwner: boolean) {
     id,
     name,
     slug: id,
-    org_id: id,
     billing_email: '',
     billing_partner: null,
     integration_source: null,
@@ -4829,11 +4845,10 @@ function buildOrg(id: string, name: string, isOwner: boolean) {
     organization_missing_tax_id: false,
     organization_requires_mfa: false,
     plan: { id: 'pro', name: 'Pro' },
-    tier: 'tier_payg',
     restriction_data: null,
     restriction_status: null,
-    stripe_customer_id: 'cus_mock0000000000',
-    subscription_id: 'sub_mock0000000000',
-    usage_billing_enabled: true,
+    stripe_customer_id: null,
+    subscription_id: null,
+    usage_billing_enabled: false,
   };
 }

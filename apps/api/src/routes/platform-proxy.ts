@@ -66,6 +66,24 @@ export function normalizeObjectListBody(req: { method: string; params: Record<st
 }
 
 /**
+ * Studio (IS_PLATFORM) sends DELETE .../buckets/:bucket/objects with body
+ * { paths: string[] } (platform API shape, per platform.d.ts DeleteObjectsBody).
+ * storage-api DELETE /object/:bucket expects { prefixes: string[] }.
+ * Translate in place.
+ */
+export function normalizeDeleteObjectsBody(req: { method: string; params: Record<string, unknown>; body?: unknown }): void {
+  if (req.method !== 'DELETE') return;
+  const suffix = req.params['*'] as string | undefined;
+  if (!suffix?.match(/^buckets\/[^/]+\/objects$/)) return;
+  const b = req.body as Record<string, unknown> | null | undefined;
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return;
+  if ('prefixes' in b) return; // already correct
+  if (Array.isArray(b.paths)) {
+    req.body = { prefixes: b.paths };
+  }
+}
+
+/**
  * Newer Studio posts bucket-create as `{ id, type, public }`, but the bundled
  * per-instance storage-api requires `name` (→ 400 "must have required property
  * 'name'"). Backfill `name` from `id` (Studio's create dialog uses one value for
@@ -170,6 +188,43 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
       handleProxy(app, req as FastifyRequest<{ Params: { ref: string } }>, reply, '/pg/', (req.params as { ref: string; '*': string })['*'], 'apikey'),
   });
 
+  // ── storage / public-url ───────────────────────────────────────────────────
+  // Studio IS_PLATFORM calls POST /platform/storage/:ref/buckets/:bucket/objects/public-url
+  // with body { path: string, options?: { download?, transform? } } and expects
+  // { publicUrl: string }. There is no matching storage-api endpoint; the URL is
+  // constructed from the apex env var. Must be registered before the wildcard route.
+  app.post<{ Params: { ref: string; bucket: string } }>(
+    '/platform/storage/:ref/buckets/:bucket/objects/public-url',
+    async (req, reply) => {
+      app.requireAuth(req);
+      const { ref, bucket } = req.params;
+      const inst = await resolveInstance(ref).catch(() => null);
+      if (!inst) return reply.status(404).send({ error: 'Project not found' });
+
+      const body = req.body as Record<string, unknown> | null | undefined;
+      const objectPath = (body && typeof body === 'object' && typeof body.path === 'string') ? body.path : '';
+      const opts = (body && typeof body === 'object' && body.options && typeof body.options === 'object') ? body.options as Record<string, unknown> : {};
+
+      const apex = process.env.SUPASTACK_APEX ?? '';
+      const base = apex ? `https://${ref}.${apex}` : `http://localhost:${inst.portKong}`;
+      const urlBase = `${base}/storage/v1/object/public/${bucket}/${objectPath}`;
+
+      // Build optional query params from transform/download options
+      const params: string[] = [];
+      if (opts.download !== undefined) params.push(`download=${opts.download === true ? '' : encodeURIComponent(String(opts.downloadName ?? ''))}`);
+      if (opts.transform && typeof opts.transform === 'object') {
+        const t = opts.transform as Record<string, unknown>;
+        if (t.width !== undefined) params.push(`width=${t.width}`);
+        if (t.height !== undefined) params.push(`height=${t.height}`);
+        if (t.quality !== undefined) params.push(`quality=${t.quality}`);
+        if (t.resize !== undefined) params.push(`resize=${t.resize}`);
+        if (t.format !== undefined) params.push(`format=${t.format}`);
+      }
+      const publicUrl = params.length > 0 ? `${urlBase}?${params.join('&')}` : urlBase;
+      return reply.send({ publicUrl });
+    },
+  );
+
   // ── storage proxy ──────────────────────────────────────────────────────────
   // Studio calls /platform/storage/:ref/buckets/* but storage API uses /bucket/* (singular).
   // Kong route /storage/v1/ → storage:5000 with strip_path=true.
@@ -190,6 +245,8 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
       backfillBucketName(req);
       // Studio IS_PLATFORM sends list-objects as { path, options:{...} }; storage-api needs { prefix, limit, ... }.
       normalizeObjectListBody(req);
+      // Studio sends DELETE objects as { paths:[...] } (platform shape); storage-api needs { prefixes:[...] }.
+      normalizeDeleteObjectsBody(req);
       const body = bodyOf(req);
       const upstreamPath = `/storage/v1/${upstreamSuffix}${qs}`;
       // Inject service role JWT as Authorization — storage validates via GoTrue

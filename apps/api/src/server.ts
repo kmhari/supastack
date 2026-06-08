@@ -17,6 +17,7 @@ import { auditRoutes } from './routes/audit.js';
 import { authRoutes } from './routes/auth.js';
 import { backupsRoutes } from './routes/backups.js';
 import { caddyInternalRoutes } from './routes/caddy-internal.js';
+import { instanceInternalRoutes } from './routes/instance-internal.js';
 import { cliLoginRoutes } from './routes/cli-login.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 import { healthRoutes } from './routes/health.js';
@@ -219,6 +220,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(acmeChallengeRoutes); // /.well-known/acme-challenge/:token (HTTP-01)
   await app.register(pgEdgeCertInternalRoutes); // /internal/pg-edge-cert/issue
   await app.register(poolerInternalRoutes); // /internal/pooler/tenants
+  await app.register(instanceInternalRoutes); // /internal/instances/:ref/adopt-platform-jwt
   await app.register(poolerReconcilerRunRoutes); // /api/v1/pooler/reconciler/run (feature 008 US1)
   await app.register(resetPgPasswordRoutes); // /api/v1/instances/:ref/reset-pg-password (feature 008 US3)
   await app.register(poolerStatusRoutes); // /api/v1/pooler/status (feature 008 US2)
