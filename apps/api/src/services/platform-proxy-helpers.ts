@@ -26,7 +26,7 @@ export class ProxyUpstreamError extends Error {
   }
 }
 
-const UNAVAILABLE_STATUSES = new Set(['paused', 'stopped', 'deleting', 'failed']);
+const UNAVAILABLE_STATUSES = new Set(['paused', 'stopped', 'deleting']);
 
 export interface InstanceProxy {
   portKong: number;
