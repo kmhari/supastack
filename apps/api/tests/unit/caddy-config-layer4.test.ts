@@ -38,11 +38,14 @@ vi.mock('@supastack/db', () => {
         const idx = callIndex++;
         if (idx === 0) return chain(fixtures.orgRow ? [fixtures.orgRow] : []);
         if (idx === 1) return chain(fixtures.certRows);
-        if (idx === 2) return chain(fixtures.instances);
+        if (idx === 2) return chain([{ completedAt: new Date() }]); // setup_state (feature 086 US5)
+        if (idx === 3) return chain(fixtures.instances);
         return chain([]);
       },
     }),
     schema: {
+      installation: { id: {}, apexDomain: {} },
+      setupState: { completedAt: {} },
       org: { id: {}, name: {}, apexDomain: {} },
       wildcardCerts: { apex: {}, status: {} },
       supabaseInstances: {

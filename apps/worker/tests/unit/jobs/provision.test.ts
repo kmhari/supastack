@@ -61,7 +61,7 @@ vi.mock('@supastack/db', () => ({
   }),
   schema: {
     supabaseInstances: { ref: 'ref' },
-    org: { apexDomain: 'apexDomain', name: 'name' },
+    installation: { apexDomain: 'apexDomain', name: 'name' },
   },
 }));
 

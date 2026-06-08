@@ -44,8 +44,10 @@ export async function migrate(connectionString: string): Promise<void> {
       await client.query(sql);
     }
 
-    // Singleton constraint on org — see data-model.md §I1 fix.
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS org_singleton ON org ((1::int))');
+    // Feature 084 — the old `org` singleton was split into `installation`
+    // (apex+backups, with its own `CHECK (id = 1)`) + multi-row `organizations`,
+    // so the legacy `org_singleton` index is gone. (Was: CREATE UNIQUE INDEX ...
+    // ON org ((1::int)) — which crashed once `org` was dropped.)
   } finally {
     client.release();
     await pool.end();

@@ -59,7 +59,7 @@ export async function resetPgPasswordForInstance(ref: string): Promise<void> {
 
   const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as InstanceSecrets;
   const sql = buildResetSql(secrets.postgresPassword);
-  const containerName = `selfbase-${ref}-db-1`;
+  const containerName = `supastack-${ref}-db-1`;
   await dockerExecPsql(containerName, sql);
 }
 

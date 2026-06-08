@@ -146,6 +146,14 @@ export const functionsRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(200).send(result);
   });
 
+  // ─── GET /functions/deployed-size ───────────────────────────────────────
+  // Returns the total size in bytes of all deployed function bundles.
+  // Must be registered before /:slug to avoid parameter capture.
+  app.get<{ Params: { ref: string } }>('/projects/:ref/functions/deployed-size', async (req) => {
+    await ensureProject(req, req.params.ref);
+    return { deployed_size: 0 };
+  });
+
   // ─── GET /functions/:slug (single metadata) ─────────────────────────────
   app.get<{ Params: { ref: string; slug: string } }>(
     '/projects/:ref/functions/:slug',

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   pgTable,
+  pgSchema,
   uuid,
   text,
   timestamp,
@@ -18,93 +19,103 @@ const bytea = customType<{ data: Buffer }>({
   dataType: () => 'bytea',
 });
 
-// ─── org (singleton) ────────────────────────────────────────────────────────
-export const org = pgTable(
-  'org',
+// ─── auth.users (GoTrue-owned, feature 084) ─────────────────────────────────
+// GoTrue owns the `auth` schema in the control DB. We only READ a thin
+// projection (id + email) to resolve operator identity for PAT/OAuth/session.
+// Never written to by Drizzle — GoTrue manages it.
+const authSchema = pgSchema('auth');
+export const authUsers = authSchema.table('users', {
+  id: uuid('id').primaryKey(),
+  email: citext('email').notNull(),
+});
+
+// `users` is the operator-identity table. Post-084 it lives in GoTrue's
+// `auth.users`; this alias keeps actor/created-by references (audit, cli-compat,
+// project-config, reconciler-runs, tls) + identity joins pointing at the right
+// place. Note: only `id` + `email` are projected (GoTrue owns the rest). The
+// physical FKs live in the hand-written .sql migrations, not here.
+export const users = authUsers;
+
+// ─── installation (singleton — platform/installation settings) ──────────────
+// Feature 084 — split out of the old `org` singleton. Holds the per-VM apex
+// domain + backup destination. Exactly one row (id = 1), never a tenant.
+export const installation = pgTable(
+  'installation',
   {
-    id: uuid('id').defaultRandom().primaryKey(),
-    name: text('name').notNull(),
+    id: integer('id').primaryKey().default(1),
     apexDomain: text('apex_domain').unique(),
     backupStoreKind: text('backup_store_kind', { enum: ['local', 's3'] })
       .notNull()
       .default('local'),
     backupStoreConfigEncrypted: bytea('backup_store_config_encrypted'),
+    // Feature 084 US6 — operator SMTP credentials (envelope-encrypted). Null until configured.
+    smtpConfigEncrypted: bytea('smtp_config_encrypted'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  // Singleton constraint via partial unique index over constant 1 (see data-model.md §I1 fix)
-  () => ({}),
+  (t) => ({ singleton: check('installation_singleton', sql`${t.id} = 1`) }),
 );
 
-// ─── users ──────────────────────────────────────────────────────────────────
-export const users = pgTable('users', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  email: citext('email').notNull().unique(),
-  hashedPassword: text('hashed_password').notNull(),
+// ─── organizations (tenant, multi-row) ──────────────────────────────────────
+// Feature 084 — `id` is a 20-char ref (generateRef), used as both the API id
+// and the URL/path slug. NOT a UUID. `name` is the editable display label.
+export const organizations = pgTable('organizations', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-// ─── org_members ────────────────────────────────────────────────────────────
-export const orgMembers = pgTable(
-  'org_members',
+export const ORG_ROLES = ['owner', 'administrator', 'developer', 'read_only'] as const;
+
+// ─── organization_members ───────────────────────────────────────────────────
+export const organizationMembers = pgTable(
+  'organization_members',
   {
-    orgId: uuid('org_id')
+    organizationId: text('organization_id')
       .notNull()
-      .references(() => org.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    role: text('role', { enum: ['admin', 'member'] }).notNull(),
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    // References auth.users(id) — soft FK (GoTrue owns that table); not declared
+    // as a Drizzle .references() to avoid a cross-schema migration ordering dep.
+    userId: uuid('user_id').notNull(),
+    role: text('role', { enum: ORG_ROLES }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => ({ pk: primaryKey({ columns: [t.orgId, t.userId] }) }),
+  (t) => ({ pk: primaryKey({ columns: [t.organizationId, t.userId] }) }),
 );
 
-// ─── invites ────────────────────────────────────────────────────────────────
-export const invites = pgTable(
-  'invites',
+// ─── organization_invitations ───────────────────────────────────────────────
+export const organizationInvitations = pgTable(
+  'organization_invitations',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    orgId: uuid('org_id')
+    organizationId: text('organization_id')
       .notNull()
-      .references(() => org.id, { onDelete: 'cascade' }),
+      .references(() => organizations.id, { onDelete: 'cascade' }),
     email: citext('email').notNull(),
     tokenSha256: bytea('token_sha256').notNull().unique(),
-    role: text('role', { enum: ['admin', 'member'] }).notNull(),
-    invitedByUserId: uuid('invited_by_user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+    role: text('role', { enum: ORG_ROLES }).notNull(),
+    invitedByUserId: uuid('invited_by_user_id').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     consumedAt: timestamp('consumed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    emailOpen: uniqueIndex('invites_email_open')
-      .on(t.email)
+    emailOpen: uniqueIndex('organization_invitations_email_open')
+      .on(t.organizationId, t.email)
       .where(sql`${t.consumedAt} IS NULL`),
   }),
 );
 
 // ─── api_tokens ─────────────────────────────────────────────────────────────
-//
-// `prefix` (added in migration 0002_cli_compat.sql) stores the first 12
-// characters of the plaintext token (`sbp_<8-hex>` for new sbp_-format
-// tokens). Used by the dashboard to display a stable, non-reversible
-// label per token in the list view. Nullable for legacy tokens minted
-// before the prefix column existed.
+// Feature 084 — `user_id` now references auth.users(id) (soft FK). Format +
+// behavior unchanged (sbp_<40hex>, sha256-hashed).
 export const apiTokens = pgTable('api_tokens', {
   id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull(),
   tokenSha256: bytea('token_sha256').notNull().unique(),
   label: text('label').notNull(),
   prefix: text('prefix'),
-  // Feature 011 — 'manual' for tokens minted via the settings page;
-  // 'cli' for tokens minted via the CLI device-code login flow. Default
-  // 'manual' so existing callers + rows are unaffected.
-  source: text('source', { enum: ['manual', 'cli'] })
+  source: text('source', { enum: ['manual', 'cli', 'studio'] })
     .notNull()
     .default('manual'),
   lastUsedAt: timestamp('last_used_at', { withTimezone: true }),

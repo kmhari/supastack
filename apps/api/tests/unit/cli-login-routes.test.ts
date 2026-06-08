@@ -76,7 +76,7 @@ async function buildAppMint(
       err.statusCode = 401;
       throw err;
     }
-    return { id: authedUserId, email: 'test@example.com', role: 'admin' as const };
+    return { id: authedUserId, email: 'test@example.com', role: 'owner' as const };
   });
   app.setErrorHandler((err, _req, reply) => {
     const status = (err as Error & { statusCode?: number }).statusCode ?? 500;
@@ -124,7 +124,7 @@ describe('POST /api/v1/cli/login (dashboard mint)', () => {
       userId: '00000000-0000-0000-0000-000000000001',
     });
 
-    expect(await fake.exists(`selfbase:cli-login:${SESSION_ID}`)).toBe(1);
+    expect(await fake.exists(`supastack:cli-login:${SESSION_ID}`)).toBe(1);
     await app.close();
   });
 
@@ -213,7 +213,7 @@ async function seedRedis(): Promise<SessionPayload> {
     created_at: '2026-05-25T13:30:00.000Z',
     user_id: '00000000-0000-0000-0000-000000000001',
   };
-  await fake.set(`selfbase:cli-login:${SESSION_ID}`, JSON.stringify(payload), 'EX', 300);
+  await fake.set(`supastack:cli-login:${SESSION_ID}`, JSON.stringify(payload), 'EX', 300);
   return payload;
 }
 
@@ -234,7 +234,7 @@ describe('GET /platform/cli/login/:session_id (CLI poll)', () => {
       public_key: payload.public_key,
       nonce: payload.nonce,
     });
-    expect(await fake.exists(`selfbase:cli-login:${SESSION_ID}`)).toBe(0); // single-use
+    expect(await fake.exists(`supastack:cli-login:${SESSION_ID}`)).toBe(0); // single-use
     await app.close();
   });
 

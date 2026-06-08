@@ -18,8 +18,8 @@ describe.skipIf(!hasTestEnv)('/api/v1/* dashboard routes smoke', () => {
 
   beforeAll(async () => {
     app = await buildAuthedApp();
-    const admin = await seedTestUser({ role: 'admin' });
-    const member = await seedTestUser({ role: 'member' });
+    const admin = await seedTestUser({ role: 'owner' });
+    const member = await seedTestUser({ role: 'read_only' });
     adminToken = admin.token;
     memberToken = member.token;
     await withMockInstance(ref, { orgId: admin.orgId });
@@ -39,7 +39,7 @@ describe.skipIf(!hasTestEnv)('/api/v1/* dashboard routes smoke', () => {
     {
       method: 'POST',
       url: '/api/v1/members/invites',
-      body: { email: `inv-${randomBytes(3).toString('hex')}@x.io`, role: 'member' },
+      body: { email: `inv-${randomBytes(3).toString('hex')}@x.io`, role: 'read_only' },
     },
     // apex
     { method: 'GET', url: '/api/v1/apex' },

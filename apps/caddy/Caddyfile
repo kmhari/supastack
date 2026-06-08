@@ -47,8 +47,25 @@
 	handle /.well-known/acme-challenge/* {
 		reverse_proxy api:3001
 	}
-	# API routes go to the api container
-	handle /api/* {
+	# /api/get-deployment-commit — Studio Next.js route that returns 404 in dev
+	# mode; stub it at the API level instead.
+	handle /api/get-deployment-commit {
+	handle /api/incident-banner {
+		reverse_proxy api:3001
+	}		reverse_proxy api:3001
+	}
+	# /api/v1/* → Supastack API (includes /api/v1/v1/* which is handled
+	# internally by the double-v1 Fastify catch-all in server.ts).
+	# Other /api/* paths (Studio Next.js routes) fall through to Studio.
+	handle /api/v1* {
+		reverse_proxy api:3001
+	}
+	# Feature 086 US1 — base=root cutover: apex /v1* → api (disjoint from /api/v1*)
+	handle /v1* {
+		reverse_proxy api:3001
+	}
+	# Platform proxy routes (feature 025 — shared Studio)
+	handle /platform/* {
 		reverse_proxy api:3001
 	}
 	# WebSockets go to api too
@@ -62,9 +79,15 @@
 	handle /internal/* {
 		respond 404
 	}
-	# Everything else → the React dashboard
-	handle {
+	# Setup wizard + admin-only Supastack pages stay on the web SPA
+	handle /setup* {
 		reverse_proxy web:80
+	}
+	# Feature 086 US5 — boot default is GATED: redirect everything to /setup
+	# until first-time setup is done. The runtime caddy-config.ts (DB-aware)
+	# swaps this for the studio catch-all once setup_state.completed_at is set.
+	handle {
+		redir /setup 302
 	}
 }
 
@@ -79,6 +102,18 @@ mcp.{$SUPASTACK_APEX} {
 	reverse_proxy mcp:3002
 }
 
+# Feature 107 — dedicated API host (api.<apex>) for the platform + Management API
+# (mirrors Supabase's api.supabase.com). The whole host → api:3001, which demuxes
+# by path (/platform/*, /v1/*) and 404s anything else — it does NOT serve the
+# studio. The runtime caddy-config.ts has the same `apiHostRoute`; this is cold-boot
+# parity. The base=root Studio (apex) calls this host cross-origin (scoped CORS).
+api.{$SUPASTACK_APEX} {
+	tls {
+		on_demand
+	}
+	reverse_proxy api:3001
+}
+
 # Plain HTTPS — always listening so on-demand TLS can fire. The runtime
 # config from caddy-reload.ts adds per-host (apex + <ref>.<apex>) routes
 # on top of this.
@@ -88,7 +123,20 @@ mcp.{$SUPASTACK_APEX} {
 	}
 	# Default: route to dashboard. Per-instance routes are inserted via
 	# the admin API and matched before this fallback.
-	handle /api/* {
+	handle /api/get-deployment-commit {
+		reverse_proxy api:3001
+	}
+	handle /api/v1* {
+	handle /api/incident-banner {
+		reverse_proxy api:3001
+	}		reverse_proxy api:3001
+	}
+	# Feature 086 US1 — base=root cutover: apex /v1* → api (disjoint from /api/v1*)
+	handle /v1* {
+		reverse_proxy api:3001
+	}
+	# Platform proxy routes (feature 025 — shared Studio)
+	handle /platform/* {
 		reverse_proxy api:3001
 	}
 	@websocket {
@@ -100,7 +148,13 @@ mcp.{$SUPASTACK_APEX} {
 	handle /internal/* {
 		respond 404
 	}
-	handle {
+	# Setup wizard + admin-only Supastack pages stay on the web SPA
+	handle /setup* {
 		reverse_proxy web:80
+	}
+	# Feature 086 US5 — boot default is GATED (redirect to /setup until setup
+	# done; runtime caddy-config.ts swaps in the studio catch-all post-setup).
+	handle {
+		redir /setup 302
 	}
 }

@@ -1,6 +1,6 @@
 import { Queue, Worker, type QueueOptions, type WorkerOptions } from 'bullmq';
 import { Redis } from 'ioredis';
-import { logger } from '@supastack/shared';
+import { logger, QUEUES } from '@supastack/shared';
 import { handleCaddyReload } from './jobs/caddy-reload.js';
 import { handleProvision } from './jobs/provision.js';
 import { handleLifecycle } from './jobs/lifecycle.js';
@@ -27,22 +27,9 @@ function workerOpts(): WorkerOptions {
   return { connection: ioredisConnection(), concurrency: 1 };
 }
 
-/** All BullMQ queue names. */
-export const QUEUES = {
-  provision: 'supastack.provision',
-  lifecycle: 'supastack.lifecycle',
-  backup: 'supastack.backup',
-  backupScheduler: 'supastack.backup-scheduler',
-  caddyReload: 'supastack.caddy-reload',
-  healthReconciler: 'supastack.health-reconciler',
-  pgEdgeCertIssue: 'supastack.pg-edge-cert-issue',
-  poolerReconciler: 'supastack.pooler-reconciler',
-  vaultEnable: 'supastack.vault-enable',
-  cleanupOauthCodes: 'supastack.cleanup-oauth-codes',
-  cleanupOauthRefresh: 'supastack.cleanup-oauth-refresh',
-  restore: 'supastack.restore',
-  restoreGc: 'supastack.restore-gc',
-} as const;
+// Queue names are the single source of truth in @supastack/shared (QUEUES).
+// Re-exported so the worker's other modules can keep importing from './queues.js'.
+export { QUEUES };
 
 export interface Queues {
   provision: Queue;

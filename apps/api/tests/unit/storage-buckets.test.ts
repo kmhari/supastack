@@ -51,10 +51,10 @@ const { AppError } = await import('@supastack/shared');
 const REF = 'bbbbbbbbbbbbbbbbbbbb';
 
 async function buildApp(
-  opts: { user?: { id: string; email: string; role: 'admin' | 'member' } | null } = {},
+  opts: { user?: { id: string; email: string; role: 'owner' | 'administrator' | 'developer' | 'read_only' } | null } = {},
 ): Promise<FastifyInstance> {
   const user =
-    opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'member' as const } : opts.user;
+    opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'read_only' as const } : opts.user;
   const app = Fastify();
   app.decorate('requireAuth', () => {
     if (!user) throw new AppError(401, 'unauthenticated', 'PAT required');
@@ -117,12 +117,12 @@ describe('GET /v1/projects/:ref/storage/buckets', () => {
     expect(res.json()).toEqual([]);
   });
 
-  it('paused project → 409 project_not_runnable', async () => {
+  it('paused project → 409 project_not_running', async () => {
     dbStatus.value = 'paused';
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/v1/projects/${REF}/storage/buckets` });
     expect(res.statusCode).toBe(409);
-    expect(res.json().code).toBe('project_not_runnable');
+    expect(res.json().code).toBe('project_not_running');
   });
 
   it('storage unreachable → 503', async () => {

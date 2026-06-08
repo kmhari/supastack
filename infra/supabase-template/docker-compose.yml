@@ -12,71 +12,9 @@ name: supabase
 
 services:
 
-  studio:
-    image: supabase/studio:2026.04.27-sha-5f60601
-    restart: unless-stopped
-    ports:
-      # Published on the host so apex Caddy can proxy
-      # studio-<ref>.<apex> directly to this container. Kong no longer
-      # fronts Studio (the `dashboard` catch-all was removed from kong.yml);
-      # the subdomain <ref>.<apex> is data-plane only.
-      - ${STUDIO_PORT}:3000/tcp
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "node -e \"fetch('http://localhost:3000/api/platform/profile').then((r) => {if (r.status !== 200) throw new Error(r.status)})\""
-        ]
-      timeout: 10s
-      interval: 5s
-      retries: 3
-    depends_on:
-      analytics:
-        condition: service_healthy
-    environment:
-      #  Listen on all IPv4 interfaces
-      HOSTNAME: "0.0.0.0"
-
-      STUDIO_PG_META_URL: http://meta:8080
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
-      # See: https://supabase.com/docs/guides/self-hosting/remove-superuser-access
-      #POSTGRES_USER_READ_WRITE: postgres
-
-      PG_META_CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
-      PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS}
-      PGRST_DB_MAX_ROWS: ${PGRST_DB_MAX_ROWS:-1000}
-      PGRST_DB_EXTRA_SEARCH_PATH: ${PGRST_DB_EXTRA_SEARCH_PATH:-public}
-
-      DEFAULT_ORGANIZATION_NAME: ${STUDIO_DEFAULT_ORGANIZATION}
-      DEFAULT_PROJECT_NAME: ${STUDIO_DEFAULT_PROJECT}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-
-      SUPABASE_URL: http://kong:8000
-      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL}
-      SUPABASE_ANON_KEY: ${ANON_KEY}
-      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
-      AUTH_JWT_SECRET: ${JWT_SECRET}
-
-      # LOGFLARE_API_KEY is deprecated
-      LOGFLARE_API_KEY: ${LOGFLARE_PUBLIC_ACCESS_TOKEN}
-      LOGFLARE_PUBLIC_ACCESS_TOKEN: ${LOGFLARE_PUBLIC_ACCESS_TOKEN}
-      LOGFLARE_PRIVATE_ACCESS_TOKEN: ${LOGFLARE_PRIVATE_ACCESS_TOKEN}
-
-      LOGFLARE_URL: http://analytics:4000
-      NEXT_PUBLIC_ENABLE_LOGS: "true"
-      # Comment to use Big Query backend for analytics
-      NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
-      # Uncomment to use Big Query backend for analytics
-      # NEXT_ANALYTICS_BACKEND_PROVIDER: bigquery
-      SNIPPETS_MANAGEMENT_FOLDER: /app/snippets
-      EDGE_FUNCTIONS_MANAGEMENT_FOLDER: /app/edge-functions
-    volumes:
-      - ./volumes/snippets:/app/snippets:Z
-      - ./volumes/functions:/app/edge-functions:Z
+  # studio removed — replaced by single shared IS_PLATFORM=true Studio in the
+  # control-plane docker-compose.yml (feature 025). STUDIO_PORT is no longer
+  # allocated for new projects.
 
   kong:
     image: kong/kong:3.9.1
@@ -90,13 +28,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    depends_on:
-      studio:
-        condition: service_healthy
     ports:
-      # Only the HTTP port is published — Caddy terminates TLS for us,
-      # so Kong's :8443 HTTPS listener would collide with STUDIO_PORT
-      # (same numeric slot) and never be reached anyway.
+      # Only the HTTP port is published — Caddy terminates TLS for us.
       - ${KONG_HTTP_PORT}:8000/tcp
     volumes:
       # https://github.com/supabase/supabase/issues/12661
@@ -459,25 +392,29 @@ services:
 
       # Auth hooks (feature 082 / issue #64). Values flow from per-project .env
       # via applyEnvAndRestart. Only pg-functions:// URIs are accepted in Phase 1.
-      GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED: "${GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED:-}"
+      # NOTE: the *_ENABLED vars are bools — they MUST default to `false`, not ``
+      # (empty). GoTrue's envconfig fatals on an empty bool ("strconv.ParseBool:
+      # parsing \"\": invalid syntax"), which crash-loops auth on every fresh
+      # project. URI/SECRETS are strings, so empty is fine there.
+      GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED: "${GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED:-false}"
       GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI: "${GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI:-}"
       GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_SECRETS: "${GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_SECRETS:-}"
-      GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_ENABLED: "${GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_ENABLED:-}"
+      GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_ENABLED: "${GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_ENABLED:-false}"
       GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_URI: "${GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_URI:-}"
       GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_SECRETS: "${GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_SECRETS:-}"
-      GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_ENABLED: "${GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_ENABLED:-}"
+      GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_ENABLED: "${GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_ENABLED:-false}"
       GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_URI: "${GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_URI:-}"
       GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_SECRETS: "${GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_SECRETS:-}"
-      GOTRUE_HOOK_SEND_SMS_ENABLED: "${GOTRUE_HOOK_SEND_SMS_ENABLED:-}"
+      GOTRUE_HOOK_SEND_SMS_ENABLED: "${GOTRUE_HOOK_SEND_SMS_ENABLED:-false}"
       GOTRUE_HOOK_SEND_SMS_URI: "${GOTRUE_HOOK_SEND_SMS_URI:-}"
       GOTRUE_HOOK_SEND_SMS_SECRETS: "${GOTRUE_HOOK_SEND_SMS_SECRETS:-}"
-      GOTRUE_HOOK_SEND_EMAIL_ENABLED: "${GOTRUE_HOOK_SEND_EMAIL_ENABLED:-}"
+      GOTRUE_HOOK_SEND_EMAIL_ENABLED: "${GOTRUE_HOOK_SEND_EMAIL_ENABLED:-false}"
       GOTRUE_HOOK_SEND_EMAIL_URI: "${GOTRUE_HOOK_SEND_EMAIL_URI:-}"
       GOTRUE_HOOK_SEND_EMAIL_SECRETS: "${GOTRUE_HOOK_SEND_EMAIL_SECRETS:-}"
-      GOTRUE_HOOK_BEFORE_USER_CREATED_ENABLED: "${GOTRUE_HOOK_BEFORE_USER_CREATED_ENABLED:-}"
+      GOTRUE_HOOK_BEFORE_USER_CREATED_ENABLED: "${GOTRUE_HOOK_BEFORE_USER_CREATED_ENABLED:-false}"
       GOTRUE_HOOK_BEFORE_USER_CREATED_URI: "${GOTRUE_HOOK_BEFORE_USER_CREATED_URI:-}"
       GOTRUE_HOOK_BEFORE_USER_CREATED_SECRETS: "${GOTRUE_HOOK_BEFORE_USER_CREATED_SECRETS:-}"
-      GOTRUE_HOOK_AFTER_USER_CREATED_ENABLED: "${GOTRUE_HOOK_AFTER_USER_CREATED_ENABLED:-}"
+      GOTRUE_HOOK_AFTER_USER_CREATED_ENABLED: "${GOTRUE_HOOK_AFTER_USER_CREATED_ENABLED:-false}"
       GOTRUE_HOOK_AFTER_USER_CREATED_URI: "${GOTRUE_HOOK_AFTER_USER_CREATED_URI:-}"
       GOTRUE_HOOK_AFTER_USER_CREATED_SECRETS: "${GOTRUE_HOOK_AFTER_USER_CREATED_SECRETS:-}"
 

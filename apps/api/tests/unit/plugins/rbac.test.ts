@@ -7,7 +7,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { rbacPlugin } from '../../../src/plugins/rbac.js';
 import { errors } from '@supastack/shared';
 
-function buildApp(role: 'admin' | 'member' | null) {
+function buildApp(role: 'owner' | 'administrator' | 'developer' | 'read_only' | null) {
   const app = Fastify();
   // Provide a tiny fake auth contract before rbacPlugin's decorate runs.
   app.decorate('requireAuth', (_req: any) => {
@@ -25,7 +25,7 @@ describe('rbac plugin', () => {
   });
 
   it('admin → org.read allowed (handler runs)', async () => {
-    app = await buildApp('admin');
+    app = await buildApp('owner');
     const spy = vi.fn(async () => ({ ok: true }));
     app.get('/x', async (req, _reply) => {
       app.authorize(req as any, 'org.read');
@@ -38,7 +38,7 @@ describe('rbac plugin', () => {
   });
 
   it('member → org.update forbidden, handler body after authorize() not reached', async () => {
-    app = await buildApp('member');
+    app = await buildApp('read_only');
     let reached = false;
     app.get('/x', async (req, _reply) => {
       app.authorize(req as any, 'org.update');

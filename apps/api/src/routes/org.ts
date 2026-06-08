@@ -1,28 +1,32 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
 import { encryptJson, loadMasterKey } from '@supastack/crypto';
 import { schemas, errors } from '@supastack/shared';
 import { reloadCaddy } from '../services/caddy-reload.js';
+
+// Feature 084 — /org now manages INSTALLATION settings (apex domain + backup
+// store), which were split out of the old `org` singleton. Tenant organizations
+// (name, members) live under /platform/organizations. The `installation` row is
+// the singleton id = 1.
+const INSTALLATION_ID = 1;
 
 export const orgRoutes: FastifyPluginAsync = async (app) => {
   app.get('/org', async (req, reply) => {
     app.authorize(req, 'org.read');
     const [row] = await db()
       .select({
-        id: schema.org.id,
-        name: schema.org.name,
-        apexDomain: schema.org.apexDomain,
-        backupStoreKind: schema.org.backupStoreKind,
+        apexDomain: schema.installation.apexDomain,
+        backupStoreKind: schema.installation.backupStoreKind,
       })
-      .from(schema.org)
+      .from(schema.installation)
       .limit(1);
-    if (!row) throw errors.notFound('org not initialized');
+    if (!row) throw errors.notFound('installation not initialized');
 
     const certRows = await db()
       .select({ id: schema.wildcardCerts.id })
       .from(schema.wildcardCerts)
-      .where(and(eq(schema.wildcardCerts.orgId, row.id), eq(schema.wildcardCerts.status, 'issued')))
+      .where(eq(schema.wildcardCerts.status, 'issued'))
       .limit(1);
 
     return reply.send({ ...row, hasCert: certRows.length > 0 });
@@ -33,25 +37,23 @@ export const orgRoutes: FastifyPluginAsync = async (app) => {
     const body = schemas.OrgPatchRequest.parse(req.body);
     const user = app.requireAuth(req);
     const [existing] = await db()
-      .select({ id: schema.org.id, apex: schema.org.apexDomain })
-      .from(schema.org)
+      .select({ apex: schema.installation.apexDomain })
+      .from(schema.installation)
       .limit(1);
-    if (!existing) throw errors.notFound('org not initialized');
+    if (!existing) throw errors.notFound('installation not initialized');
 
-    await db()
-      .update(schema.org)
-      .set({
-        ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.apexDomain !== undefined ? { apexDomain: body.apexDomain } : {}),
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.org.id, existing.id));
+    if (body.apexDomain !== undefined) {
+      await db()
+        .update(schema.installation)
+        .set({ apexDomain: body.apexDomain, updatedAt: new Date() })
+        .where(eq(schema.installation.id, INSTALLATION_ID));
+    }
 
     await db().insert(schema.auditLog).values({
       actorUserId: user.id,
       action: 'org.update',
-      targetKind: 'org',
-      targetId: existing.id,
+      targetKind: 'installation',
+      targetId: 'installation',
       payload: body,
     });
 
@@ -66,12 +68,10 @@ export const orgRoutes: FastifyPluginAsync = async (app) => {
 
     const [updated] = await db()
       .select({
-        id: schema.org.id,
-        name: schema.org.name,
-        apexDomain: schema.org.apexDomain,
-        backupStoreKind: schema.org.backupStoreKind,
+        apexDomain: schema.installation.apexDomain,
+        backupStoreKind: schema.installation.backupStoreKind,
       })
-      .from(schema.org)
+      .from(schema.installation)
       .limit(1);
     return reply.send(updated);
   });
@@ -80,29 +80,18 @@ export const orgRoutes: FastifyPluginAsync = async (app) => {
     app.authorize(req, 'org.backup-store.update');
     const user = app.requireAuth(req);
     const body = schemas.BackupStoreConfig.parse(req.body);
-    const [existing] = await db().select({ id: schema.org.id }).from(schema.org).limit(1);
-    if (!existing) throw errors.notFound('org not initialized');
 
     if (body.kind === 'local') {
       await db()
-        .update(schema.org)
-        .set({
-          backupStoreKind: 'local',
-          backupStoreConfigEncrypted: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.org.id, existing.id));
+        .update(schema.installation)
+        .set({ backupStoreKind: 'local', backupStoreConfigEncrypted: null, updatedAt: new Date() })
+        .where(eq(schema.installation.id, INSTALLATION_ID));
     } else {
-      // Encrypt the whole S3 config (including secret access key).
       const encrypted = encryptJson(body, loadMasterKey());
       await db()
-        .update(schema.org)
-        .set({
-          backupStoreKind: 's3',
-          backupStoreConfigEncrypted: encrypted,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.org.id, existing.id));
+        .update(schema.installation)
+        .set({ backupStoreKind: 's3', backupStoreConfigEncrypted: encrypted, updatedAt: new Date() })
+        .where(eq(schema.installation.id, INSTALLATION_ID));
     }
 
     await db()
@@ -110,8 +99,8 @@ export const orgRoutes: FastifyPluginAsync = async (app) => {
       .values({
         actorUserId: user.id,
         action: 'org.backup-store.update',
-        targetKind: 'org',
-        targetId: existing.id,
+        targetKind: 'installation',
+        targetId: 'installation',
         payload: { kind: body.kind },
       });
 

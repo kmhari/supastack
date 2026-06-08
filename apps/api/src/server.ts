@@ -1,5 +1,6 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import { corsOptions } from './config/cors-config.js';
 import multipart from '@fastify/multipart';
 import { loadMasterKey } from '@supastack/crypto';
 import { db, makeDb, migrate, schema } from '@supastack/db';
@@ -34,14 +35,15 @@ import { migrationsRoutes } from './routes/management/migrations.js';
 import { notImplementedRoutes } from './routes/management/not-implemented.js';
 import { organizationsRoutes } from './routes/management/organizations.js';
 import { pauseRestoreRoutes } from './routes/management/pause-restore.js';
+import { pgbouncerConfigRoutes } from './routes/management/pgbouncer-config.js';
 import { postgresConfigRoutes } from './routes/management/postgres-config.js';
 import { postgrestConfigRoutes } from './routes/management/postgrest-config.js';
+import { realtimeConfigRoutes } from './routes/management/realtime-config.js';
 import { profileRoutes } from './routes/management/profile.js';
 import { projectsRoutes } from './routes/management/projects.js';
 import { secretsRoutes } from './routes/management/secrets.js';
 import { sslEnforcementRoutes } from './routes/management/ssl-enforcement.js';
 import { storageBucketsRoutes } from './routes/management/storage-buckets.js';
-import { membersRoutes } from './routes/members.js';
 import { oauthAuthorizeRoutes } from './routes/oauth/authorize.js';
 import { oauthClientsDashboardRoutes } from './routes/oauth/clients-dashboard.js';
 import { oauthDiscoveryRoutes } from './routes/oauth/discovery.js';
@@ -50,6 +52,8 @@ import { oauthTokenRoutes } from './routes/oauth/token.js';
 import { orgRoutes } from './routes/org.js';
 import { pgEdgeCertInternalRoutes } from './routes/pg-edge-cert-internal.js';
 import { platformCliLoginRoutes } from './routes/platform-cli-login.js';
+import { platformProxyRoutes } from './routes/platform-proxy.js';
+import { platformMiscRoutes } from './routes/platform-misc.js';
 import { poolerInternalRoutes } from './routes/pooler-internal.js';
 import { poolerReconcilerRunRoutes } from './routes/pooler-reconciler-run.js';
 import { poolerReregisterRoutes } from './routes/pooler-reregister.js';
@@ -193,7 +197,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   await app.register(helmet, { contentSecurityPolicy: false });
-  await app.register(cors, { origin: true, credentials: true });
+  // Feature 107 — scoped CORS (single source) for the cross-origin dashboard at
+  // api.<apex>; exact apex origin only (never *), Bearer auth → no credentials.
+  await app.register(cors, corsOptions());
   await app.register(authPlugin);
   await app.register(rbacPlugin);
 
@@ -205,7 +211,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(apexRoutes, { prefix: '/api/v1' });
   await app.register(instancesRoutes, { prefix: '/api/v1' });
   await app.register(backupsRoutes, { prefix: '/api/v1' });
-  await app.register(membersRoutes, { prefix: '/api/v1' });
   await app.register(auditRoutes, { prefix: '/api/v1' });
   await app.register(connectCliRoutes, { prefix: '/api/v1' });
   await app.register(wildcardCertRoutes, { prefix: '/api/v1' });
@@ -222,6 +227,122 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(secretsDashboardRoutes); // /api/v1/projects/:ref/secrets (feature 010 FR-006/007)
   await app.register(cliLoginRoutes); // /api/v1/cli/login (feature 011 — dashboard mint)
   await app.register(platformCliLoginRoutes); // /platform/cli/login/:session_id (feature 011 — CLI poll)
+  await app.register(platformProxyRoutes); // /platform/* (direct Caddy /platform/* rule)
+  // Feature 086 US1 — base=root cutover. Also mount platformMiscRoutes at root so
+  // the base=root Studio's /platform/* calls resolve at the apex (the proxy was
+  // already dual-mounted at root; misc was only at /api/v1). Disjoint paths from
+  // platformProxyRoutes, so co-registering at root is safe.
+  await app.register(platformMiscRoutes); // /platform/* misc at root (base=root, US1)
+  // Feature 086 T012 — the `/api/v1`-prefixed platform mounts were removed after the
+  // base=root cutover; the Studio reaches platform routes at the apex `/platform/*`.
+  // Studio Next.js API routes that the Supastack API stubs at the root level
+  app.get('/api/get-deployment-commit', async (_req, reply) =>
+    reply.send({ commit: 'dev', date: new Date().toISOString() }),
+  );
+  app.get('/api/incident-banner', async (_req, reply) => reply.send(null));
+  // Studio's incident-status route queries Supabase's StatusPage (api.statuspage.io)
+  // and 500s when STATUSPAGE_* env is absent (self-hosted). The client expects an
+  // array of active incidents — return none.
+  app.get('/api/incident-status', async (_req, reply) => reply.send([]));
+
+  // Management API stubs for Studio IS_PLATFORM=true — registered before the
+  // /v1 management plugin so they respond without the mgmt error envelope.
+  type RefP = { Params: { ref: string } };
+  app.get<RefP>('/v1/projects/:ref/network-bans', async (_req, reply) =>
+    reply.send({ banned_ipv4_addresses: [] }),
+  );
+  app.post<RefP>('/v1/projects/:ref/network-bans/retrieve', async (_req, reply) =>
+    reply.send({ banned_ipv4_addresses: [] }),
+  );
+  app.delete<RefP>('/v1/projects/:ref/network-bans', async (_req, reply) =>
+    reply.status(204).send(),
+  );
+  app.get<RefP>('/v1/projects/:ref/network-restrictions', async (_req, reply) =>
+    reply.send({ entitlement: 'disallowed', config: { dbAllowedCidrs: [], dbAllowedCidrsReadReplicas: [] } }),
+  );
+  app.post<RefP>('/v1/projects/:ref/network-restrictions/apply', async (req, reply) =>
+    reply.send(req.body ?? {}),
+  );
+  app.get<RefP>('/v1/projects/:ref/custom-hostname', async (_req, reply) =>
+    reply.send({ status: 'not_started', customHostname: null, data: {} }),
+  );
+  app.get<RefP>('/v1/projects/:ref/branches', async (_req, reply) => reply.send([]));
+  app.get<RefP>('/v1/projects/:ref/read-replicas', async (_req, reply) => reply.send([]));
+  app.get<RefP>('/v1/projects/:ref/upgrade/eligibility', async (_req, reply) =>
+    reply.send({ eligible: false, current_app_version: 'supabase-postgres-15.0.0.55' }),
+  );
+  // /legacy is the older Studio path for the same anon+service_role keys
+  // JIT DB access — Studio does `data.items` on this response
+  app.get<RefP>('/v1/projects/:ref/database/jit/list', async (_req, reply) =>
+    reply.send({ items: [] }),
+  );
+
+  app.get<RefP>('/v1/projects/:ref/config/auth/signing-keys/legacy', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const { getProjectByRef } = await import('./services/project-store.js');
+    const { decryptJson, loadMasterKey } = await import('@supastack/crypto');
+    const row = await getProjectByRef(user.id, req.params.ref);
+    if (!row) return reply.status(404).send({ error: 'Project not found' });
+    const secrets = decryptJson(row.encryptedSecrets, loadMasterKey()) as { jwtSecret: string };
+    return reply.send([{ algorithm: 'HS256', status: 'active', secret: secrets.jwtSecret }]);
+  });
+
+  app.get<RefP>('/v1/projects/:ref/api-keys/legacy', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const { getProjectByRef } = await import('./services/project-store.js');
+    const { decryptJson, loadMasterKey } = await import('@supastack/crypto');
+    const { instanceApiKeys } = await import('./services/mgmt-api-mapping.js');
+    const row = await getProjectByRef(user.id, req.params.ref);
+    if (!row) return reply.status(404).send({ error: 'Project not found' });
+    const secrets = decryptJson(row.encryptedSecrets, loadMasterKey());
+    return reply.send(instanceApiKeys(secrets as Parameters<typeof instanceApiKeys>[0]));
+  });
+
+  // JWT signing keys — return the jwtSecret as the active HS256 signing key
+  app.get<RefP>('/v1/projects/:ref/config/auth/signing-keys', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const { getProjectByRef } = await import('./services/project-store.js');
+    const { decryptJson, loadMasterKey } = await import('@supastack/crypto');
+    const row = await getProjectByRef(user.id, req.params.ref);
+    if (!row) return reply.status(404).send({ error: 'Project not found' });
+    const secrets = decryptJson(row.encryptedSecrets, loadMasterKey()) as { jwtSecret: string };
+    return reply.send({
+      signing_keys: [
+        { algorithm: 'HS256', status: 'active', secret: secrets.jwtSecret },
+      ],
+    });
+  });
+  app.get<RefP>('/v1/projects/:ref/upgrade/status', async (_req, reply) =>
+    reply.send({ status: 'ready' }),
+  );
+  app.get<RefP & { Querystring: { services?: string } }>(
+    '/v1/projects/:ref/health',
+    async (req, reply) => {
+      const services = req.query.services ? req.query.services.split(',') : ['auth', 'rest', 'realtime', 'storage', 'db'];
+      return reply.send(services.map((name) => ({ name, status: 'ACTIVE_HEALTHY', error: null })));
+    },
+  );
+
+  // Service versions — reflect actual image tags from the per-instance compose template.
+  app.get<RefP>('/v1/projects/:ref/services', async (_req, reply) =>
+    reply.send([
+      { name: 'db', version: 'postgres:15.8', status: 'ACTIVE_HEALTHY' },
+      { name: 'auth', version: 'supabase/gotrue:v2.186.0', status: 'ACTIVE_HEALTHY' },
+      { name: 'rest', version: 'postgrest/postgrest:v14.8', status: 'ACTIVE_HEALTHY' },
+      { name: 'realtime', version: 'supabase/realtime:v2.76.5', status: 'ACTIVE_HEALTHY' },
+      { name: 'storage', version: 'supabase/storage-api:v1.48.26', status: 'ACTIVE_HEALTHY' },
+      { name: 'functions', version: 'supabase/edge-runtime:v1.66.1', status: 'ACTIVE_HEALTHY' },
+    ]),
+  );
+
+  // Third-party auth providers — not supported in self-hosted
+  app.get<RefP>('/v1/projects/:ref/config/auth/third-party-auth', async (_req, reply) =>
+    reply.send([]),
+  );
+
+  // Feature 086 T012 — the `/api/v1/v1/*` double-v1 rewrite shim was removed after
+  // the base=root cutover: the base=root Studio now calls `/v1/*` at the apex
+  // directly (routed to the `/v1` mgmt mount by Caddy), so no rewrite is needed.
   await app.register(oauthDiscoveryRoutes); // /.well-known/oauth-authorization-server (feature 014 FR-006)
   await app.register(oauthClientsDashboardRoutes); // /api/v1/oauth/clients{,/:id} (feature 014 US3)
   // Feature 020 — dashboard mounts the auth-config route alongside the /v1 mgmt mount
@@ -262,6 +383,9 @@ export async function buildApp(): Promise<FastifyInstance> {
       // Feature 009 — runtime config tunables (postgres-config + auth-config):
       await mgmt.register(postgrestConfigRoutes);
       await mgmt.register(authConfigRoutes);
+      // Feature 112 — realtime + pgbouncer store-only config:
+      await mgmt.register(realtimeConfigRoutes);
+      await mgmt.register(pgbouncerConfigRoutes);
       await mgmt.register(billingAddonsRoutes);
       await mgmt.register(postgresConfigRoutes);
       await mgmt.register(sslEnforcementRoutes);
@@ -324,8 +448,11 @@ async function main(): Promise<void> {
 
 async function maybeStartPgEdgeProxy(app: FastifyInstance): Promise<PgEdgeProxy | null> {
   try {
-    const [orgRow] = await db().select({ apex: schema.org.apexDomain }).from(schema.org).limit(1);
-    const apex = orgRow?.apex;
+    const [instRow] = await db()
+      .select({ apex: schema.installation.apexDomain })
+      .from(schema.installation)
+      .limit(1);
+    const apex = instRow?.apex;
     if (!apex) {
       app.log.info('pg-edge: skipped (no apex configured)');
       return null;

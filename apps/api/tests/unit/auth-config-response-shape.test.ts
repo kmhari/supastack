@@ -1,5 +1,5 @@
 /**
- * Auth-config GET response shape — `_selfbase.fieldStatus` extension.
+ * Auth-config GET response shape — `_supastack.fieldStatus` extension.
  *
  * Spec: specs/020-auth-providers-dashboard/spec.md FR-002, FR-003, SC-005
  * Contract: specs/020-auth-providers-dashboard/contracts/auth-config-get-response.md
@@ -61,12 +61,12 @@ describe('buildAuthFieldStatusExtension', () => {
     expect((ext.fieldStatus.oauth_server_enabled?.reason as string).includes('#63')).toBe(true);
   });
 
-  it('CLI back-compat — stripping `_selfbase` yields a byte-shape compatible with feature 009', () => {
-    // Simulated: a GET response is `{ ...auth_config_fields, _selfbase: { fieldStatus } }`.
-    // The CLI consumes only the auth-config fields and ignores the unknown `_selfbase` key
+  it('CLI back-compat — stripping `_supastack` yields a byte-shape compatible with feature 009', () => {
+    // Simulated: a GET response is `{ ...auth_config_fields, _supastack: { fieldStatus } }`.
+    // The CLI consumes only the auth-config fields and ignores the unknown `_supastack` key
     // (FR-005 / SC-005). Verified by removing the extension and confirming no required
-    // auth-config field name collides with `_selfbase`.
+    // auth-config field name collides with `_supastack`.
     const allFields = Object.keys(AUTH_CONFIG_FIELD_STATUS);
-    expect(allFields.includes('_selfbase')).toBe(false);
+    expect(allFields.includes('_supastack')).toBe(false);
   });
 });

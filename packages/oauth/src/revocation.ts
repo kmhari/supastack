@@ -1,7 +1,7 @@
 /**
  * Redis-backed OAuth access-token revocation set.
  *
- * On revoke: set a key `selfbase:oauth:revoked:<jti>` with TTL equal to the
+ * On revoke: set a key `supastack:oauth:revoked:<jti>` with TTL equal to the
  * token's remaining lifetime. On every auth-gated request: check the key.
  * Auto-expires; no manual GC.
  *
@@ -15,7 +15,7 @@ export interface MinimalRedisClient {
   exists(key: string): Promise<number>;
 }
 
-const KEY_PREFIX = 'selfbase:oauth:revoked:';
+const KEY_PREFIX = 'supastack:oauth:revoked:';
 
 export async function revoke(
   redis: MinimalRedisClient,
