@@ -11,3 +11,5 @@ export * from './schemas/mgmt-api-auth-config.js';
 export * from './schemas/mgmt-api-postgres-config.js';
 export * from './oauth-schemas.js';
 export * from './schemas/mgmt-api-backups.js';
+export * from './schemas/mgmt-api-realtime-config.js';
+export * from './schemas/mgmt-api-pgbouncer-config.js';

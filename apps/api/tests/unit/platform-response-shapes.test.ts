@@ -138,6 +138,24 @@ async function buildApp(): Promise<FastifyInstance> {
   app.get('/v1/projects/:ref/postgrest', async (_req, reply) => {
     reply.send({ db_schema: 'public,graphql_public', db_extra_search_path: 'public, extensions', max_rows: 1000, db_pool: null, jwt_secret: 'test-jwt-secret' });
   });
+  // Stub /v1/profile (used by platform profile delegation, feature 112)
+  app.get('/v1/profile', async (_req, reply) => {
+    reply.send({ id: 'user-uuid-1', primary_email: 'op@x.dev' });
+  });
+  // Stub /v1/projects/:ref/config/realtime (feature 112)
+  app.get('/v1/projects/:ref/config/realtime', async (_req, reply) => {
+    reply.send({ max_concurrent_users: 200 });
+  });
+  app.patch('/v1/projects/:ref/config/realtime', async (req, reply) => {
+    reply.send({ ...(req.body as object), max_concurrent_users: (req.body as Record<string, unknown>).max_concurrent_users ?? 200 });
+  });
+  // Stub /v1/projects/:ref/config/database/pgbouncer (feature 112)
+  app.get('/v1/projects/:ref/config/database/pgbouncer', async (_req, reply) => {
+    reply.send({ pool_mode: 'transaction', default_pool_size: 15, ignore_startup_parameters: 'extra_float_digits', max_client_conn: 200, connection_string: '' });
+  });
+  app.patch('/v1/projects/:ref/config/database/pooler', async (req, reply) => {
+    reply.send({ pool_mode: 'transaction', default_pool_size: 15, ignore_startup_parameters: 'extra_float_digits', max_client_conn: 200, connection_string: '', ...(req.body as object) });
+  });
   await app.register(platformMiscRoutes);
   return app;
 }
@@ -352,6 +370,124 @@ describe('GET /platform/projects/:ref/config/postgrest — response shape', () =
     expect(body).toHaveProperty('jwt_secret');
     expect(body).toHaveProperty('db_schema');
     expect(body).toHaveProperty('max_rows');
+    await app.close();
+  });
+});
+
+// ── GET /platform/profile — Profile shape (feature 112 US1) ──────────────────
+
+describe('GET /platform/profile — response shape', () => {
+  it('returns real id (UUID) from /v1/profile, not hardcoded 1', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/platform/profile',
+      headers: { authorization: 'Bearer tok' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as Record<string, unknown>;
+    // id must be the real UUID string, not the old hardcoded integer 1
+    expect(body.id).toBe('user-uuid-1');
+    expect(typeof body.id).toBe('string');
+    await app.close();
+  });
+
+  it('includes all Studio-required profile fields', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/platform/profile',
+      headers: { authorization: 'Bearer tok' },
+    });
+    const body = res.json() as Record<string, unknown>;
+    expect(body).toHaveProperty('id');
+    expect(body).toHaveProperty('primary_email', 'op@x.dev');
+    expect(body).toHaveProperty('username', 'op');
+    expect(body).toHaveProperty('gotrue_id', 'user-uuid-1');
+    expect(body).toHaveProperty('free_project_limit', 999);
+    expect(Array.isArray(body.disabled_features)).toBe(true);
+    expect(typeof body.is_alpha_user).toBe('boolean');
+    await app.close();
+  });
+
+  it('gotrue_id equals id', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/platform/profile',
+      headers: { authorization: 'Bearer tok' },
+    });
+    const body = res.json() as Record<string, unknown>;
+    expect(body.gotrue_id).toBe(body.id);
+    await app.close();
+  });
+});
+
+// ── GET/PATCH /platform/projects/:ref/config/realtime — shape (feature 112 US2)
+
+describe('GET /platform/projects/:ref/config/realtime — response shape', () => {
+  it('returns max_concurrent_users (delegates to v1)', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/config/realtime`,
+      headers: { authorization: 'Bearer tok' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as Record<string, unknown>;
+    expect(body).toHaveProperty('max_concurrent_users');
+    expect(typeof body.max_concurrent_users).toBe('number');
+    await app.close();
+  });
+
+  it('PATCH delegates and returns updated value', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/platform/projects/${REF}/config/realtime`,
+      payload: JSON.stringify({ max_concurrent_users: 500 }),
+      headers: { 'content-type': 'application/json', authorization: 'Bearer tok' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as Record<string, unknown>;
+    expect(body).toHaveProperty('max_concurrent_users', 500);
+    await app.close();
+  });
+});
+
+// ── GET /platform/projects/:ref/config/pgbouncer — shape (feature 112 US3) ───
+
+describe('GET /platform/projects/:ref/config/pgbouncer — response shape', () => {
+  it('returns all required PgBouncerConfigResponse fields (delegates to v1)', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/config/pgbouncer`,
+      headers: { authorization: 'Bearer tok' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as Record<string, unknown>;
+    expect(body).toHaveProperty('pool_mode');
+    expect(body).toHaveProperty('default_pool_size');
+    expect(body).toHaveProperty('ignore_startup_parameters');
+    expect(body).toHaveProperty('max_client_conn');
+    expect(body).toHaveProperty('connection_string');
+    await app.close();
+  });
+
+  it('PATCH delegates to pooler endpoint and returns updated config', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/platform/projects/${REF}/config/pgbouncer`,
+      payload: JSON.stringify({ pool_mode: 'session', default_pool_size: 25 }),
+      headers: { 'content-type': 'application/json', authorization: 'Bearer tok' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as Record<string, unknown>;
+    expect(body).toHaveProperty('pool_mode', 'session');
+    expect(body).toHaveProperty('default_pool_size', 25);
+    expect(body).toHaveProperty('connection_string');
     await app.close();
   });
 });
