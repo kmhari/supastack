@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-08
 
-**Status**: Draft
+**Status**: Implemented — all 11 endpoints live in `apps/api/src/routes/platform-misc.ts` (US1 aliases + US2 image-transformation slice persist via the shared `loadStorageConfig`/`persistStorageConfig` snapshot helpers; US3–US5 are no-ops for embedded MinIO). SC-004 covered by `apps/api/tests/unit/storage-config-stubs.test.ts` (22 tests, happy + 401 for all 11). The storage bucket-update proxy fix (Studio `PATCH` → storage-api `PUT`) is in `platform-proxy.ts` with `rewriteBucketUpdateMethod` unit-tested in `platform-proxy-transforms.test.ts`.
 
 ## User Scenarios & Testing
 

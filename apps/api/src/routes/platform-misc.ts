@@ -927,9 +927,128 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return { ...STORAGE_CONFIG_DEFAULTS };
   }
 
+  // Upsert a fully-merged storage config into project_config_snapshots and
+  // return it. Shared by PATCH /config/storage and the feature-114 alias +
+  // sub-resource routes below.
+  async function persistStorageConfig(
+    ref: string,
+    merged: typeof STORAGE_CONFIG_DEFAULTS,
+  ): Promise<typeof STORAGE_CONFIG_DEFAULTS> {
+    const payload = encryptJson(merged, loadMasterKey());
+    const existing = await db()
+      .select({ id: schema.projectConfigSnapshots.id })
+      .from(schema.projectConfigSnapshots)
+      .where(
+        and(
+          eq(schema.projectConfigSnapshots.instanceRef, ref),
+          eq(schema.projectConfigSnapshots.surface, 'storage'),
+        ),
+      )
+      .limit(1);
+    if (existing[0]) {
+      await db()
+        .update(schema.projectConfigSnapshots)
+        .set({ encryptedPayload: payload, updatedAt: new Date() })
+        .where(eq(schema.projectConfigSnapshots.id, existing[0].id));
+    } else {
+      await db().insert(schema.projectConfigSnapshots).values({
+        instanceRef: ref,
+        surface: 'storage',
+        encryptedPayload: payload,
+      });
+    }
+    return merged;
+  }
+
   app.get<RefParams>('/platform/projects/:ref/config/storage', async (req, reply) => {
     app.requireAuth(req);
     return reply.send(await loadStorageConfig(req.params.ref));
+  });
+
+  // ── Feature 114 — storage config alias + sub-resource routes ────────────────
+  // `/storage/config` aliases `/config/storage` (Studio calls both). The
+  // sub-resources are slices of the same snapshot; s3-connection + bulk-bucket
+  // ops are no-ops for self-hosted supastack (embedded MinIO, not external S3).
+
+  // US1 — /storage/config aliases (FR-001, FR-002)
+  app.get<RefParams>('/platform/projects/:ref/storage/config', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(await loadStorageConfig(req.params.ref));
+  });
+  app.patch<RefParams>('/platform/projects/:ref/storage/config', async (req, reply) => {
+    app.requireAuth(req);
+    const current = await loadStorageConfig(req.params.ref);
+    const body = (req.body ?? {}) as Partial<typeof STORAGE_CONFIG_DEFAULTS>;
+    return reply.send(await persistStorageConfig(req.params.ref, { ...current, ...body }));
+  });
+
+  // US2 — image-transformation slice (FR-003, FR-004)
+  app.get<RefParams>(
+    '/platform/projects/:ref/storage/config/image-transformations',
+    async (req, reply) => {
+      app.requireAuth(req);
+      const cfg = await loadStorageConfig(req.params.ref);
+      return reply.send({ enabled: cfg.features.imageTransformation.enabled });
+    },
+  );
+  app.patch<RefParams>(
+    '/platform/projects/:ref/storage/config/image-transformations',
+    async (req, reply) => {
+      app.requireAuth(req);
+      const cfg = await loadStorageConfig(req.params.ref);
+      const enabled =
+        (req.body as { enabled?: boolean } | undefined)?.enabled ??
+        cfg.features.imageTransformation.enabled;
+      const merged = {
+        ...cfg,
+        features: { ...cfg.features, imageTransformation: { enabled } },
+      };
+      await persistStorageConfig(req.params.ref, merged);
+      return reply.send({ enabled });
+    },
+  );
+
+  // US3 — S3 connection (no-op for embedded MinIO) (FR-005, FR-006, FR-007)
+  app.get<RefParams>('/platform/projects/:ref/storage/config/s3-connection', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({});
+  });
+  app.post<RefParams>('/platform/projects/:ref/storage/config/s3-connection', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send({});
+  });
+  app.delete<RefParams>(
+    '/platform/projects/:ref/storage/config/s3-connection',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  // US4 — S3 connection credentials (no-op) (FR-008, FR-009)
+  app.post<RefParams>(
+    '/platform/projects/:ref/storage/config/s3-connection/credentials',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(200).send({});
+    },
+  );
+  app.delete<RefParams>(
+    '/platform/projects/:ref/storage/config/s3-connection/credentials',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
+
+  // US5 — bulk bucket ops (no confirmed Studio caller; safe no-op) (FR-010, FR-011)
+  app.patch<RefParams>('/platform/projects/:ref/storage/buckets', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(200).send({});
+  });
+  app.delete<RefParams>('/platform/projects/:ref/storage/buckets', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(204).send();
   });
 
   // PostgREST config — delegates to /v1 (which now returns jwt_secret) and adds
@@ -3323,34 +3442,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── Missing project endpoints ─────────────────────────────────────────────
   app.patch<RefParams>('/platform/projects/:ref/config/storage', async (req, reply) => {
     app.requireAuth(req);
-    const ref = req.params.ref;
-    const current = await loadStorageConfig(ref);
+    const current = await loadStorageConfig(req.params.ref);
     const body = (req.body ?? {}) as Partial<typeof STORAGE_CONFIG_DEFAULTS>;
-    const merged = { ...current, ...body };
-    const payload = encryptJson(merged, loadMasterKey());
-    const existing = await db()
-      .select({ id: schema.projectConfigSnapshots.id })
-      .from(schema.projectConfigSnapshots)
-      .where(
-        and(
-          eq(schema.projectConfigSnapshots.instanceRef, ref),
-          eq(schema.projectConfigSnapshots.surface, 'storage'),
-        ),
-      )
-      .limit(1);
-    if (existing[0]) {
-      await db()
-        .update(schema.projectConfigSnapshots)
-        .set({ encryptedPayload: payload, updatedAt: new Date() })
-        .where(eq(schema.projectConfigSnapshots.id, existing[0].id));
-    } else {
-      await db().insert(schema.projectConfigSnapshots).values({
-        instanceRef: ref,
-        surface: 'storage',
-        encryptedPayload: payload,
-      });
-    }
-    return reply.send(merged);
+    return reply.send(await persistStorageConfig(req.params.ref, { ...current, ...body }));
   });
 
   // DELETE /content — delete a snippet by id (passed as ?id= query or body.id)

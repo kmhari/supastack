@@ -3,8 +3,27 @@ import {
   backfillBucketName,
   normalizeDeleteObjectsBody,
   normalizeObjectListBody,
+  rewriteBucketUpdateMethod,
   rewriteStoragePath,
 } from '../../src/routes/platform-proxy.js';
+
+// ─── rewriteBucketUpdateMethod (feature 114 — Studio PATCH → storage-api PUT) ──
+
+describe('rewriteBucketUpdateMethod', () => {
+  it('rewrites PATCH on an individual bucket (buckets/:id) to PUT', () => {
+    expect(rewriteBucketUpdateMethod('buckets/test', 'PATCH')).toBe('PUT');
+    expect(rewriteBucketUpdateMethod('buckets/my-bucket', 'PATCH')).toBe('PUT');
+  });
+  it('leaves non-PATCH methods unchanged', () => {
+    expect(rewriteBucketUpdateMethod('buckets/test', 'GET')).toBe('GET');
+    expect(rewriteBucketUpdateMethod('buckets/test', 'DELETE')).toBe('DELETE');
+  });
+  it('does NOT rewrite the bucket-list path or object sub-paths', () => {
+    expect(rewriteBucketUpdateMethod('buckets', 'PATCH')).toBe('PATCH');
+    expect(rewriteBucketUpdateMethod('buckets/test/objects/list', 'PATCH')).toBe('PATCH');
+    expect(rewriteBucketUpdateMethod('buckets/test/empty', 'PATCH')).toBe('PATCH');
+  });
+});
 
 // ─── rewriteStoragePath ───────────────────────────────────────────────────────
 
