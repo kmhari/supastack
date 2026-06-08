@@ -101,6 +101,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
             '/dashboard/api/get-deployment-commit',
             '/dashboard/api/incident-banner',
             '/dashboard/api/incident-status',
+            '/dashboard/api/ai/*',
           ],
         },
       ],

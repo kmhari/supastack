@@ -126,10 +126,18 @@ api.{$SUPASTACK_APEX} {
 	handle /api/get-deployment-commit {
 		reverse_proxy api:3001
 	}
-	handle /api/v1* {
 	handle /api/incident-banner {
 		reverse_proxy api:3001
-	}		reverse_proxy api:3001
+	}
+	handle /api/incident-status {
+		reverse_proxy api:3001
+	}
+	handle /dashboard/api/ai/* {
+		uri strip_prefix /dashboard
+		reverse_proxy api:3001
+	}
+	handle /api/v1* {
+		reverse_proxy api:3001
 	}
 	# Feature 086 US1 — base=root cutover: apex /v1* → api (disjoint from /api/v1*)
 	handle /v1* {
