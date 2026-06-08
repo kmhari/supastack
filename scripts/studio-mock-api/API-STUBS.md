@@ -2,9 +2,9 @@
 
 All `/platform/*` (and appendix non-platform) endpoints currently returning stub/mock responses. These are the remaining implementation gaps — converting any row to a real handler removes it from this list.
 
-**Total stubs: 240 of 392 `/platform/*` rows + 8 `/v1/*` 501s**
+**Total stubs: 229 of 392 `/platform/*` rows + 8 `/v1/*` 501s**
 
-**Last updated**: 2026-06-08 — billing & payments extracted into a dedicated section (no behaviour changes).
+**Last updated**: 2026-06-08 — feature 114 shipped: the 11 storage `/storage/*` endpoints are now implemented (real `/config` aliases + image-transformation slice; s3-connection/buckets intentional no-ops for embedded MinIO) and removed from this list.
 
 **Legend:**
 - `supastack` = a handler exists in `apps/api` but returns empty/static/config-disabled response
@@ -196,24 +196,6 @@ All intentionally cloud-only — stubs are correct for self-hosted. No plans to 
 | `/platform/projects/{ref}/database/pooler` | PATCH | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/database/pooler` | PUT | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/database/pooler/config` | GET | supastack | stub | 🔴 |
-
----
-
-## Storage (11 stubs) — spec'd in [specs/114-storage-stubs](../../specs/114-storage-stubs/spec.md)
-
-| ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
-|---|---|---|---|---|
-| `/platform/projects/{ref}/storage/buckets` | DELETE | supastack | stub → 204 no-op pending | 🔴 |
-| `/platform/projects/{ref}/storage/buckets` | PATCH | supastack | stub → 200 no-op pending | 🔴 |
-| `/platform/projects/{ref}/storage/config` | GET | supastack | stub → alias of `/config/storage` | 🔴 |
-| `/platform/projects/{ref}/storage/config` | PATCH | supastack | stub → alias of `/config/storage` | 🔴 |
-| `/platform/projects/{ref}/storage/config/image-transformations` | GET | supastack | stub → imageTransformation slice | ⚪ |
-| `/platform/projects/{ref}/storage/config/image-transformations` | PATCH | supastack | stub → update imageTransformation | ⚪ |
-| `/platform/projects/{ref}/storage/config/s3-connection` | DELETE | supastack | stub → 204 no-op | ⚪ |
-| `/platform/projects/{ref}/storage/config/s3-connection` | GET | supastack | stub → 200 empty | ⚪ |
-| `/platform/projects/{ref}/storage/config/s3-connection` | POST | supastack | stub → 200 no-op | ⚪ |
-| `/platform/projects/{ref}/storage/config/s3-connection/credentials` | DELETE | supastack | stub → 204 no-op | ⚪ |
-| `/platform/projects/{ref}/storage/config/s3-connection/credentials` | POST | supastack | stub → 200 credential shape | ⚪ |
 
 ---
 
