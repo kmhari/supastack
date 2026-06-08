@@ -24,6 +24,48 @@ function bodyOf(req: { body?: unknown }): Buffer {
 }
 
 /**
+ * Rewrite Studio storage path suffixes to match the storage-api route shape.
+ *
+ * Studio calls:  buckets/test/objects/list      → storage: object/list/test
+ *                buckets/test/objects/file.jpg   → storage: object/test/file.jpg
+ *                buckets/test/objects            → storage: object/test  (upload root)
+ *                buckets / buckets/test          → storage: bucket / bucket/test
+ */
+function rewriteStoragePath(suffix: string): string {
+  // buckets/:bucket/objects/list → object/list/:bucket  (POST list)
+  const listMatch = suffix.match(/^buckets\/([^/]+)\/objects\/list$/);
+  if (listMatch) return `object/list/${listMatch[1]}`;
+
+  // buckets/:bucket/objects[/rest] → object/:bucket[/rest]  (upload, download, delete, sign)
+  const objectMatch = suffix.match(/^buckets\/([^/]+)\/objects(\/.*)?$/);
+  if (objectMatch) return `object/${objectMatch[1]}${objectMatch[2] ?? ''}`;
+
+  // buckets[/rest] → bucket[/rest]  (list buckets, create, get, update, delete)
+  return suffix.replace(/^buckets/, 'bucket');
+}
+
+/**
+ * Studio IS_PLATFORM sends list-objects as { path, options: { limit, offset, search, sortBy } }
+ * but storage-api expects { prefix, limit, offset, search, sortBy } (flat, prefix not path).
+ */
+function normalizeObjectListBody(req: { method: string; params: Record<string, unknown>; body?: unknown }): void {
+  if (req.method !== 'POST') return;
+  const suffix = req.params['*'] as string | undefined;
+  if (!suffix?.match(/^buckets\/[^/]+\/objects\/list$/)) return;
+  const b = req.body as Record<string, unknown> | null | undefined;
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return;
+  if ('prefix' in b) return; // already in correct format
+  const opts = (b.options ?? {}) as Record<string, unknown>;
+  req.body = {
+    prefix: b.path ?? '',
+    limit: opts.limit ?? 100,
+    offset: opts.offset ?? 0,
+    search: opts.search ?? '',
+    sortBy: opts.sortBy ?? { column: 'name', order: 'asc' },
+  };
+}
+
+/**
  * Newer Studio posts bucket-create as `{ id, type, public }`, but the bundled
  * per-instance storage-api requires `name` (→ 400 "must have required property
  * 'name'"). Backfill `name` from `id` (Studio's create dialog uses one value for
@@ -142,11 +184,12 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
       if (!inst) return reply.status(404).send({ error: 'Project not found' });
 
       const suffix = (req.params as { ref: string; '*': string })['*'];
-      // Rewrite: buckets → bucket (storage API uses singular)
-      const upstreamSuffix = suffix.replace(/^buckets/, 'bucket');
+      const upstreamSuffix = rewriteStoragePath(suffix);
       const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
       // Newer Studio sends bucket-create as {id,type,public}; storage-api needs `name`.
       backfillBucketName(req);
+      // Studio IS_PLATFORM sends list-objects as { path, options:{...} }; storage-api needs { prefix, limit, ... }.
+      normalizeObjectListBody(req);
       const body = bodyOf(req);
       const upstreamPath = `/storage/v1/${upstreamSuffix}${qs}`;
       // Inject service role JWT as Authorization — storage validates via GoTrue
