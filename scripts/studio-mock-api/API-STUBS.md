@@ -2,9 +2,9 @@
 
 All `/platform/*` (and appendix non-platform) endpoints currently returning stub/mock responses. These are the remaining implementation gaps — converting any row to a real handler removes it from this list.
 
-**Total stubs: 229 of 392 `/platform/*` rows + 8 `/v1/*` 501s**
+**Total stubs: 217 of 392 `/platform/*` rows + 8 `/v1/*` 501s**
 
-**Last updated**: 2026-06-08 — feature 114 shipped: the 11 storage `/storage/*` endpoints are now implemented (real `/config` aliases + image-transformation slice; s3-connection/buckets intentional no-ops for embedded MinIO) and removed from this list.
+**Last updated**: 2026-06-09 — code-audited every row against the actual handlers; removed 12 rows that were mislabeled stubs but are real (app.inject delegations / db-backed / proxies: profile, signup, projects/:ref/api, api-keys/temporary, config/storage, content, database/extensions, database/hooks, functions, api/graphql).
 
 **Legend:**
 - `supastack` = a handler exists in `apps/api` but returns empty/static/config-disabled response
@@ -18,11 +18,10 @@ All `/platform/*` (and appendix non-platform) endpoints currently returning stub
 
 ---
 
-## Profile (3 stubs)
+## Profile (2 stubs)
 
 | ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
 |---|---|---|---|---|
-| `/platform/profile` | POST | supastack | 200 empty | ⚪ |
 | `/platform/profile/audit` | GET | supastack | stub | ⚪ |
 | `/platform/profile/audit-login` | POST | supastack | stub | ⚪ |
 
@@ -124,12 +123,10 @@ All intentionally cloud-only — stubs are correct for self-hosted. No plans to 
 
 ---
 
-## Projects (56 stubs)
+## Projects (47 stubs)
 
 | ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
 |---|---|---|---|---|
-| `/platform/projects/:ref/api` | GET | supastack | stub _(not in platform.d.ts)_ | ⚪ |
-| `/platform/projects/:ref/api-keys/temporary` | GET | supastack | stub _(not in platform.d.ts)_ | ⚪ |
 | `/platform/projects/:ref/content` | POST | supastack | stub _(not in platform.d.ts)_ | ⚪ |
 | `/platform/projects/:ref/custom-hostname` | GET | supastack | stub _(not in platform.d.ts)_ | ⚪ |
 | `/platform/projects/:ref/subdomain` | GET | supastack | stub _(not in platform.d.ts)_ | 🔴 |
@@ -137,10 +134,7 @@ All intentionally cloud-only — stubs are correct for self-hosted. No plans to 
 | `/platform/projects/{ref}/auth/config` | GET | supastack | stub _(not in platform.d.ts)_ | 🔴 |
 | `/platform/projects/{ref}/auth/config` | PATCH | supastack | stub _(not in platform.d.ts)_ | 🔴 |
 | `/platform/projects/{ref}/config/pgbouncer/status` | GET | supastack | partial (pooler status) | 🔴 |
-| `/platform/projects/{ref}/config/storage` | GET | supastack | stub | 🔴 |
-| `/platform/projects/{ref}/config/storage` | PATCH | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/content` | DELETE | supastack | stub | ⚪ |
-| `/platform/projects/{ref}/content` | GET | supastack | stub | ⚪ |
 | `/platform/projects/{ref}/content` | PATCH | supastack | stub | ⚪ |
 | `/platform/projects/{ref}/content` | PUT | supastack | stub | ⚪ |
 | `/platform/projects/{ref}/content/move` | POST | supastack | stub | ⚪ |
@@ -148,10 +142,7 @@ All intentionally cloud-only — stubs are correct for self-hosted. No plans to 
 | `/platform/projects/{ref}/custom-hostname` | POST | supastack | stub | ⚪ |
 | `/platform/projects/{ref}/custom-hostname/activate` | POST | supastack | stub | ⚪ |
 | `/platform/projects/{ref}/custom-hostname/reverify` | POST | supastack | stub | ⚪ |
-| `/platform/projects/{ref}/database/extensions` | GET | supastack | stub | 🔴 |
-| `/platform/projects/{ref}/database/extensions` | POST | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/database/hooks` | DELETE | supastack | stub | 🔴 |
-| `/platform/projects/{ref}/database/hooks` | GET | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/database/hooks` | POST | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/database/hooks` | PATCH | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/database/publications` | DELETE | supastack | stub | 🔴 |
@@ -165,7 +156,6 @@ All intentionally cloud-only — stubs are correct for self-hosted. No plans to 
 | `/platform/projects/{ref}/database/schemas` | POST | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/edge-functions/limits` | GET | supastack | stub | ⚪ |
 | `/platform/projects/{ref}/edge-functions/secrets` | DELETE | supastack | stub _(not in platform.d.ts)_ | 🔴 |
-| `/platform/projects/{ref}/functions` | GET | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/functions` | POST | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/github` | DELETE | supastack | stub | ⚪ |
 | `/platform/projects/{ref}/github` | GET | supastack | stub | ⚪ |
@@ -187,11 +177,10 @@ All intentionally cloud-only — stubs are correct for self-hosted. No plans to 
 
 ---
 
-## Database (5 stubs)
+## Database (4 stubs)
 
 | ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
 |---|---|---|---|---|
-| `/platform/projects/{ref}/api/graphql` | POST | supastack | 200 | 🔴 |
 | `/platform/projects/{ref}/database/pooler` | GET | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/database/pooler` | PATCH | supastack | stub | 🔴 |
 | `/platform/projects/{ref}/database/pooler` | PUT | supastack | stub | 🔴 |
@@ -304,11 +293,10 @@ All intentionally cloud-only — stubs are correct for self-hosted. No plans to 
 
 ---
 
-## Signup (1 stub)
+## Signup (0 stubs)
 
 | ENDPOINT | METHOD | COVERED BY | STUB BEHAVIOUR | PRIORITY |
 |---|---|---|---|---|
-| `/platform/signup` | POST | supastack | stub | ⚪ |
 
 ---
 

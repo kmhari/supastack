@@ -37,7 +37,7 @@
 | `/platform/profile/access-tokens` | POST | ✅ | supastack | Create PAT | `POST /api/v1/platform/profile/access-tokens` |
 | `/platform/profile/access-tokens/{id}` | DELETE | ✅ | supastack | Revoke PAT | `DELETE /api/v1/platform/profile/access-tokens/:id` |
 | `/platform/profile/permissions` | GET | ✅ | supastack | Get user's RBAC permissions (per-org) | `GET /api/v1/platform/profile/permissions` |
-| `/platform/profile` | POST | ⚠️ | supastack | Creates user's profile | `POST /platform/profile` (stub 200) |
+| `/platform/profile` | POST | ✅ | supastack | Creates user's profile | `POST /platform/profile` (stub 200) |
 | `/platform/profile/access-tokens/{id}` | GET | ✅ | supastack | Gets the access token with the given ID | `GET /platform/profile/access-tokens/:id` (real — 404 for missing) |
 | `/platform/profile/audit` | GET | ⚠️ | supastack | Get user login audit log | `GET /api/v1/platform/profile/audit` (stub) |
 | `/platform/profile/audit-login` | POST | ⚠️ | supastack | Record login audit event | `POST /api/v1/platform/profile/audit-login` (stub) |
@@ -178,8 +178,8 @@
 | `/platform/projects/{ref}/restore` | POST | ✅ | supastack | Restore a paused project | `POST /projects/:ref/restore` |
 | `/platform/projects/{ref}/settings` | GET | ✅ | supastack | jwt_secret + service_api_keys (anon/service_role) + db host/port/user | `GET /api/v1/platform/projects/:ref/settings` |
 | `/platform/projects/{ref}/status` | GET | ✅ | supastack | Project lifecycle/health status (Backups page polls during restore) | `GET /platform/projects/:ref/status` (real — `running→ACTIVE_HEALTHY`, `restoring→RESTORING`; feature 086 US6) |
-| `/platform/projects/:ref/api` | GET | ⚠️ | supastack | Get Auto API (Kong) config _(not in platform.d.ts)_ | `GET .../projects/:ref/api` (stub) |
-| `/platform/projects/:ref/api-keys/temporary` | GET | ⚠️ | supastack | Get short-lived API keys _(not in platform.d.ts)_ | `GET .../api-keys/temporary` (stub) |
+| `/platform/projects/:ref/api` | GET | ✅ | supastack | Get Auto API (Kong) config _(not in platform.d.ts)_ | `GET .../projects/:ref/api` (stub) |
+| `/platform/projects/:ref/api-keys/temporary` | GET | ✅ | supastack | Get short-lived API keys _(not in platform.d.ts)_ | `GET .../api-keys/temporary` (stub) |
 | `/platform/projects/:ref/content` | POST | ⚠️ | supastack | Save a SQL snippet _(not in platform.d.ts)_ | `POST .../projects/:ref/content` (stub) |
 | `/platform/projects/:ref/live-queries` | GET | ⚠️ | supastack | List active live queries (empty) _(not in platform.d.ts)_ | `GET .../live-queries` (stub) |
 | `/platform/projects/:ref/privatelink/associations/aws-account/:id` | GET | ⚠️ | supastack | Get AWS PrivateLink _(not in platform.d.ts)_ | `GET .../aws-account/:id` (stub) |
@@ -199,7 +199,7 @@
 | `/platform/projects/{ref}/analytics/log-drains/{token}` | PATCH | ⚠️ | supastack | Patch a log drain | `PATCH .../log-drains/:token` (stub 200) |
 | `/platform/projects/{ref}/analytics/log-drains/{token}` | PUT | ⚠️ | supastack | Update log drain | `PUT .../log-drains/:token` (stub) |
 | `/platform/projects/{ref}/api-keys/temporary` | POST | ⚠️ | supastack | Create a temporary API key | `POST .../api-keys/temporary` (stub 201) |
-| `/platform/projects/{ref}/api/graphql` | POST | ⚠️ | supastack | Queries project Graphql | `POST .../api/graphql` (stub 200) |
+| `/platform/projects/{ref}/api/graphql` | POST | ✅ | supastack | Queries project Graphql | `POST .../api/graphql` (stub 200) |
 | `/platform/projects/{ref}/api/rest` | GET | ✅ | supastack | Get REST API config (real PostgREST config: db_schema, max_rows, db_pool, db_extra_search_path) — delegates to `/v1/projects/:ref/postgrest` | `GET /platform/projects/:ref/api/rest` (real — Tier 3b delegation; feature 111) |
 | `/platform/projects/{ref}/billing/addons` | POST | ⚠️ | supastack | Updates project addon | `POST .../billing/addons` (stub 400 — not supported self-hosted) |
 | `/platform/projects/{ref}/billing/addons/{addon_variant}` | DELETE | ⚠️ | supastack | Removes project addon | `DELETE .../billing/addons/:addon_variant` (stub 400 — not supported self-hosted) |
@@ -210,11 +210,11 @@
 | `/platform/projects/{ref}/config/realtime` | PATCH | ✅ | supastack | Update Realtime config — delegates to `PATCH /v1/projects/:ref/config/realtime` | `PATCH /platform/projects/:ref/config/realtime` (real — Tier 3b delegation; feature 112) |
 | `/platform/projects/{ref}/config/realtime/shutdown` | POST | ⚠️ | supastack | Shutdowns realtime connections for a project | `POST .../config/realtime/shutdown` (stub 200) |
 | `/platform/projects/{ref}/config/secrets/update-status` | GET | ⚠️ | supastack | Get secret sync status | `GET .../config/secrets/update-status` (stub 200) |
-| `/platform/projects/{ref}/config/storage` | GET | ⚠️ | supastack | Get storage config (file size limits) | `GET .../config/storage` (stub) |
-| `/platform/projects/{ref}/config/storage` | PATCH | ⚠️ | supastack | Updates project's storage config | `PATCH .../config/storage` (stub 200) |
+| `/platform/projects/{ref}/config/storage` | GET | ✅ | supastack | Get storage config (file size limits) | `GET .../config/storage` (stub) |
+| `/platform/projects/{ref}/config/storage` | PATCH | ✅ | supastack | Updates project's storage config | `PATCH .../config/storage` (stub 200) |
 | `/platform/projects/{ref}/config/supavisor` | GET | ✅ | supastack | Gets project's supavisor config | `GET .../config/supavisor` (real 200) |
 | `/platform/projects/{ref}/content` | DELETE | ⚠️ | supastack | Deletes project's contents | `DELETE .../content` (stub 200) |
-| `/platform/projects/{ref}/content` | GET | ⚠️ | supastack | List saved SQL queries/snippets (empty) | `GET .../projects/:ref/content` (stub) |
+| `/platform/projects/{ref}/content` | GET | ✅ | supastack | List saved SQL queries/snippets (empty) | `GET .../projects/:ref/content` (stub) |
 | `/platform/projects/{ref}/content` | PUT | ⚠️ | supastack | Updates project's content | `PUT .../content` (stub 200) |
 | `/platform/projects/{ref}/content/count` | GET | ⚠️ | supastack | Count content items | `GET .../content/count` (stub) |
 | `/platform/projects/{ref}/content/folders` | DELETE | ⚠️ | supastack | Deletes project's content folders | `DELETE .../content/folders` (stub 204) |
@@ -523,7 +523,7 @@
 
 | SUPABASE API | METHOD | COVERED | COVERED BY | WHAT IT DOES | SUPASTACK ENDPOINT |
 |---|---|---|---|---|---|
-| `/platform/signup` | POST | ⚠️ | supastack | Create new account (signups disabled — `GOTRUE_DISABLE_SIGNUP`) | `POST /api/v1/platform/signup` (stub) |
+| `/platform/signup` | POST | ✅ | supastack | Create new account (signups disabled — `GOTRUE_DISABLE_SIGNUP`) | `POST /api/v1/platform/signup` (stub) |
 
 ---
 
