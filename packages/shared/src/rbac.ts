@@ -91,6 +91,11 @@ export const ACTIONS = [
   // feature 115 — OAuth consent (MCP authorize flow)
   'oauth.consent.read',
   'oauth.consent.approve',
+  // feature 116 — admin ops console (installation-wide, read-only)
+  'admin.console.read',
+  'admin.resources.read',
+  'admin.queues.read',
+  'admin.certs.read',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -151,6 +156,11 @@ const ADMIN_EXTRA: Action[] = [
   'org.backup-store.update',
   // feature 115 — granting an MCP client a broad-scope token is owner/admin-only.
   'oauth.consent.approve',
+  // feature 116 — the admin ops console is installation-admin-only (owner + administrator).
+  'admin.console.read',
+  'admin.resources.read',
+  'admin.queues.read',
+  'admin.certs.read',
 ];
 
 const OWNER_EXTRA: Action[] = ['org.delete'];

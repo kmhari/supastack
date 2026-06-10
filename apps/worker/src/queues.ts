@@ -13,6 +13,7 @@ import { handleVaultEnable, type VaultEnableJobData } from './jobs/vault-enable-
 import { handleCleanupOauthCodes } from './jobs/cleanup-oauth-codes.js';
 import { handleCleanupOauthRefresh } from './jobs/cleanup-oauth-refresh.js';
 import { handleRestore, handleRestoreGc } from './jobs/restore.js';
+import { handleObserver } from './jobs/observer.js';
 
 const REDIS_URL = process.env.REDIS_URL!;
 
@@ -45,6 +46,7 @@ export interface Queues {
   cleanupOauthRefresh: Queue;
   restore: Queue;
   restoreGc: Queue;
+  observer: Queue;
 }
 
 export function connectQueues(): Queues {
@@ -62,6 +64,7 @@ export function connectQueues(): Queues {
     cleanupOauthRefresh: new Queue(QUEUES.cleanupOauthRefresh, queueOpts()),
     restore: new Queue(QUEUES.restore, queueOpts()),
     restoreGc: new Queue(QUEUES.restoreGc, queueOpts()),
+    observer: new Queue(QUEUES.observer, queueOpts()),
   };
 }
 
@@ -126,6 +129,7 @@ export function startWorkers(): WorkersHandle {
       async (job) => handleRestoreGc(job.data as { restore_job_id: string }),
       workerOpts(),
     ),
+    new Worker(QUEUES.observer, async () => handleObserver(), workerOpts()),
   ];
   for (const w of workers) {
     w.on('failed', (job, err) => {

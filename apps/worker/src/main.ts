@@ -61,6 +61,15 @@ async function main(): Promise<void> {
     {},
     { repeat: { pattern: '0 * * * *', tz: 'UTC' }, removeOnComplete: 1 },
   );
+  // feature 116 — admin ops console resource/health/log sampler.
+  await queues.observer.add(
+    'tick',
+    {},
+    {
+      repeat: { every: Number(process.env.OBSERVER_INTERVAL_MS ?? 60_000) },
+      removeOnComplete: 1,
+    },
+  );
 
   logger.info({ queues: Object.keys(queues) }, 'worker started');
 
