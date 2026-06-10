@@ -80,6 +80,16 @@ describe('buildCaddyConfig — /docs* + /admin* routing (feature 116)', () => {
     expect(webRoute.handle[0].upstreams[0].dial).toBe('web:80');
   });
 
+  it('also routes the SPA static assets to web:80 (regression: blank /docs + /admin)', async () => {
+    // The live bug: only the HTML routes (/docs*, /admin*) reached web, so the
+    // bundle's /assets/* + /fonts/* + /favicon.ico fell through to the studio
+    // catch-all → 404 → blank page. The same web rule MUST carry the asset paths.
+    const routes = findDashboardSubroutes(await buildCaddyConfig());
+    const webRoute = routes.find((r: any) => r.match?.some((m: any) => m.path?.includes('/docs*')));
+    const paths = webRoute.match[0].path as string[];
+    expect(paths).toEqual(expect.arrayContaining(['/assets/*', '/fonts/*', '/favicon.ico']));
+  });
+
   it('the web route precedes the setup-gate catch-all (so /docs + /admin are never redirected)', async () => {
     const routes = findDashboardSubroutes(await buildCaddyConfig());
     const webIdx = routes.findIndex((r: any) => r.match?.some((m: any) => m.path?.includes('/docs*')));

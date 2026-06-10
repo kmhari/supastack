@@ -65,6 +65,16 @@ export const setupApi = {
 // The api returns the operator's global role (highest across their orgs).
 export type DashboardRole = 'owner' | 'administrator' | 'developer' | 'read_only';
 
+/**
+ * Installation-admin gate for /admin (feature 116). The api returns the
+ * operator's global role (owner/administrator/developer/read_only) — NOT the
+ * legacy 'admin'/'member' pair the guard originally checked, which silently
+ * locked out every real operator. Only owner/administrator may see the console.
+ */
+export function isInstallationAdmin(role: string | null | undefined): boolean {
+  return role === 'owner' || role === 'administrator';
+}
+
 export const authApi = {
   login: (body: { email: string; password: string }) => unwrap(client.post('/auth/login', body)),
   logout: () => unwrap(client.post('/auth/logout')),

@@ -134,3 +134,46 @@ describe('wildcardCertApi', () => {
     expect(lastCall().url).toBe('/wildcard-certs/status');
   });
 });
+
+// feature 116 — the two live-fix bugs: the dashboard session lives in
+// localStorage (NOT a cookie), and the api returns owner/administrator/... (NOT
+// the legacy admin/member). These pure helpers guard both.
+describe('getDashboardToken (localStorage session reuse)', () => {
+  const setLs = (raw: string | null) => {
+    (globalThis as { window?: unknown }).window = {
+      localStorage: { getItem: (k: string) => (k === 'supabase.dashboard.auth.token' ? raw : null) },
+    };
+  };
+  afterEach(() => {
+    delete (globalThis as { window?: unknown }).window;
+  });
+
+  it('reads the top-level access_token', () => {
+    setLs(JSON.stringify({ access_token: 'tok-top' }));
+    expect(apiMod.getDashboardToken()).toBe('tok-top');
+  });
+  it('falls back to currentSession.access_token', () => {
+    setLs(JSON.stringify({ currentSession: { access_token: 'tok-nested' } }));
+    expect(apiMod.getDashboardToken()).toBe('tok-nested');
+  });
+  it('returns null when no session is stored', () => {
+    setLs(null);
+    expect(apiMod.getDashboardToken()).toBeNull();
+  });
+  it('returns null (never throws) on malformed JSON', () => {
+    setLs('{not json');
+    expect(apiMod.getDashboardToken()).toBeNull();
+  });
+});
+
+describe('isInstallationAdmin (role gate)', () => {
+  it('grants owner + administrator', () => {
+    expect(apiMod.isInstallationAdmin('owner')).toBe(true);
+    expect(apiMod.isInstallationAdmin('administrator')).toBe(true);
+  });
+  it('denies developer, read_only, legacy admin/member, and nullish', () => {
+    for (const r of ['developer', 'read_only', 'admin', 'member', null, undefined, '']) {
+      expect(apiMod.isInstallationAdmin(r)).toBe(false);
+    }
+  });
+});

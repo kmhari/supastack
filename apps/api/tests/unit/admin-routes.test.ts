@@ -98,6 +98,45 @@ describe('GET /admin/fleet', () => {
   });
 });
 
+describe('GET /admin/projects/:ref (health derivation — field-mismatch regression)', () => {
+  it('running project → every service healthy:true + database ACTIVE_HEALTHY', async () => {
+    dbResults = [[{ ref: 'aaaaaaaaaaaaaaaaaaaa', status: 'running', version: '2026.05.01' }]];
+    const app = await buildApp({ admin: true });
+    const res = await app.inject({ method: 'GET', url: '/api/v1/admin/projects/aaaaaaaaaaaaaaaaaaaa' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    // regression: the page reads `healthy` (not the platform's `status` field),
+    // so every service object MUST carry a boolean `healthy`.
+    expect(body.services.length).toBeGreaterThan(0);
+    expect(body.services.every((s: { healthy: boolean }) => s.healthy === true)).toBe(true);
+    expect(body.database.status).toBe('ACTIVE_HEALTHY');
+  });
+
+  it('paused project → every service healthy:false + database UNAVAILABLE', async () => {
+    dbResults = [[{ ref: 'aaaaaaaaaaaaaaaaaaaa', status: 'paused', version: '2026.05.01' }]];
+    const app = await buildApp({ admin: true });
+    const res = await app.inject({ method: 'GET', url: '/api/v1/admin/projects/aaaaaaaaaaaaaaaaaaaa' });
+    const body = res.json();
+    expect(body.services.every((s: { healthy: boolean }) => s.healthy === false)).toBe(true);
+    expect(body.database.status).toBe('UNAVAILABLE');
+  });
+
+  it('unknown ref → 404', async () => {
+    dbResults = [[]];
+    const app = await buildApp({ admin: true });
+    const res = await app.inject({ method: 'GET', url: '/api/v1/admin/projects/zzzzzzzzzzzzzzzzzzzz' });
+    expect(res.statusCode).toBe(404);
+    await app.close();
+  });
+
+  it('non-admin → 403', async () => {
+    const app = await buildApp({ admin: false });
+    const res = await app.inject({ method: 'GET', url: '/api/v1/admin/projects/aaaaaaaaaaaaaaaaaaaa' });
+    expect(res.statusCode).toBe(403);
+    await app.close();
+  });
+});
+
 describe('GET /admin/system (graceful empty)', () => {
   it('returns empty components + version when no snapshots (FR-030)', async () => {
     dbResults = [[]]; // controlPlaneSnapshots empty
