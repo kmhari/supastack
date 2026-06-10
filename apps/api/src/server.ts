@@ -22,6 +22,7 @@ import { cliLoginRoutes } from './routes/cli-login.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 import { healthRoutes } from './routes/health.js';
 import { instancesRoutes } from './routes/instances.js';
+import { adminRoutes } from './routes/admin.js';
 import { apiKeysRoutes } from './routes/management/api-keys.js';
 import { authConfigRoutes } from './routes/management/auth-config.js';
 import { backupsMgmtRoutes } from './routes/management/backups-mgmt.js';
@@ -211,6 +212,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(orgRoutes, { prefix: '/api/v1' });
   await app.register(apexRoutes, { prefix: '/api/v1' });
   await app.register(instancesRoutes, { prefix: '/api/v1' });
+  await app.register(adminRoutes, { prefix: '/api/v1' }); // feature 116 — /api/v1/admin/*
   await app.register(backupsRoutes, { prefix: '/api/v1' });
   await app.register(auditRoutes, { prefix: '/api/v1' });
   await app.register(connectCliRoutes, { prefix: '/api/v1' });
