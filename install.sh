@@ -11,6 +11,7 @@
 # Environment overrides:
 #   INSTALL_DIR      where the repo lives (default: /opt/supastack)
 #   DATA_DIR         host bind-mount root (default: /var/supastack)
+#   SUPASTACK_APEX   apex domain, e.g. supastack.example.com (prompts if unset; default: localhost)
 #   REPO_URL         git source (default: this repo's origin)
 #   REPO_REF         git branch/tag/commit (default: main)
 #   SUPASTACK_VERSION docker tag suffix for built images (default: dev)
@@ -91,38 +92,90 @@ cd "$INSTALL_DIR"
 
 # ─── 3. data dirs ───────────────────────────────────────────────────────────
 info "Creating data dirs under $DATA_DIR"
-sudo mkdir -p "$DATA_DIR/instances" "$DATA_DIR/backups"
+sudo mkdir -p "$DATA_DIR/instances" "$DATA_DIR/backups" "$DATA_DIR/certs"
 sudo chown -R "$USER:$USER" "$DATA_DIR"
 
-# ─── 4. .env (idempotent — won't overwrite existing secrets) ────────────────
+# ─── 4. .env (idempotent — generate-if-absent + back-fill missing vars) ─────
+# Generates a fresh .env on first run and back-fills any required var missing
+# from a pre-existing .env (e.g. one written by an older installer). compose
+# refuses to boot unless every required secret is present.
 ENV_FILE="$INSTALL_DIR/.env"
-if [[ -f "$ENV_FILE" ]]; then
-  ok "Existing .env preserved at $ENV_FILE"
-else
-  info "Generating fresh .env (secrets via openssl rand)…"
-  MASTER_KEY="$(openssl rand -hex 32)"
-  SESSION_SECRET="$(openssl rand -hex 32)"
-  CONTROL_DB_PASSWORD="$(openssl rand -base64 32 | tr -d '/+=$\\`' | cut -c1-32)"
-  STUDIO_COMMIT="$(cat "$INSTALL_DIR/infra/supabase-template/COMMIT" 2>/dev/null || echo 'unknown')"
 
-  cat > "$ENV_FILE" <<EOF
-# Supastack control-plane secrets — DO NOT COMMIT
-# Generated $(date -u +%FT%TZ) by install.sh
-
-MASTER_KEY=$MASTER_KEY
-SESSION_SECRET=$SESSION_SECRET
-CONTROL_DB_PASSWORD=$CONTROL_DB_PASSWORD
-
-# Logging
-LOG_LEVEL=$LOG_LEVEL
-
-# Image tags
-SUPASTACK_VERSION=$SUPASTACK_VERSION
-STUDIO_IMAGE=supastack/studio:$STUDIO_COMMIT
-EOF
-  chmod 600 "$ENV_FILE"
-  ok "Wrote $ENV_FILE (600)"
+# Resolve the apex: explicit env override → value already in .env → prompt → localhost.
+SUPASTACK_APEX="${SUPASTACK_APEX:-}"
+if [[ -z "$SUPASTACK_APEX" && -f "$ENV_FILE" ]]; then
+  SUPASTACK_APEX="$(grep '^SUPASTACK_APEX=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)"
 fi
+if [[ -z "$SUPASTACK_APEX" ]]; then
+  if [[ -t 0 ]]; then
+    read -rp "Apex domain (e.g. supastack.example.com) [localhost]: " SUPASTACK_APEX || true
+  fi
+  SUPASTACK_APEX="${SUPASTACK_APEX:-localhost}"
+fi
+
+# derive_gotrue_secret <master-key> → prints the 64-hex secret. NOT independent:
+# it is HKDF-derived from MASTER_KEY and must match the api at runtime, so it
+# goes through the canonical scripts/derive-gotrue-secret.mjs (node, or docker
+# node:20-alpine when node isn't on the host).
+derive_gotrue_secret() {
+  local mk="$1"
+  if command -v node >/dev/null 2>&1; then
+    MASTER_KEY="$mk" node "$INSTALL_DIR/scripts/derive-gotrue-secret.mjs" 2>/dev/null | cut -d= -f2-
+  else
+    MASTER_KEY="$mk" docker run --rm -e MASTER_KEY \
+      -v "$INSTALL_DIR/scripts/derive-gotrue-secret.mjs:/derive.mjs:ro" \
+      node:20-alpine node /derive.mjs 2>/dev/null | cut -d= -f2-
+  fi
+}
+
+# ensure_env <KEY> <VALUE> — append KEY=VALUE only if KEY is absent from .env.
+ensure_env() {
+  local key="$1" val="$2"
+  if ! grep -q "^${key}=" "$ENV_FILE" 2>/dev/null; then
+    printf '%s=%s\n' "$key" "$val" >> "$ENV_FILE"
+    ok "Set $key"
+  fi
+}
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  info "Generating fresh .env (secrets via openssl rand)…"
+  {
+    echo "# Supastack control-plane secrets — DO NOT COMMIT"
+    echo "# Generated $(date -u +%FT%TZ) by install.sh"
+  } > "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
+else
+  ok "Existing .env found at $ENV_FILE — back-filling any missing required vars"
+fi
+
+STUDIO_COMMIT="$(cat "$INSTALL_DIR/infra/supabase-template/COMMIT" 2>/dev/null || echo 'unknown')"
+
+# Required — compose refuses to boot without these.
+ensure_env MASTER_KEY                "$(openssl rand -hex 32)"
+ensure_env SESSION_SECRET            "$(openssl rand -hex 32)"
+ensure_env CONTROL_DB_PASSWORD       "$(openssl rand -base64 32 | tr -d '/+=$\\`' | cut -c1-32)"
+ensure_env SUPASTACK_APEX            "$SUPASTACK_APEX"
+ensure_env SUPAVISOR_API_JWT_SECRET  "$(openssl rand -hex 32)"
+ensure_env SUPAVISOR_SECRET_KEY_BASE "$(openssl rand -hex 32)"
+ensure_env SUPAVISOR_VAULT_ENC_KEY   "$(openssl rand -hex 32)"
+
+# GOTRUE_JWT_SECRET — derived from the MASTER_KEY now in .env.
+if ! grep -q '^GOTRUE_JWT_SECRET=' "$ENV_FILE" 2>/dev/null; then
+  _mk="$(grep '^MASTER_KEY=' "$ENV_FILE" | cut -d= -f2-)"
+  _gotrue="$(derive_gotrue_secret "$_mk")"
+  [[ -n "$_gotrue" ]] || die "Failed to derive GOTRUE_JWT_SECRET. Run manually: MASTER_KEY=<key> node scripts/derive-gotrue-secret.mjs >> $ENV_FILE"
+  ensure_env GOTRUE_JWT_SECRET "$_gotrue"
+fi
+
+# Non-secret settings.
+ensure_env LOG_LEVEL         "$LOG_LEVEL"
+ensure_env SUPASTACK_VERSION "$SUPASTACK_VERSION"
+ensure_env STUDIO_IMAGE      "supastack/studio:$STUDIO_COMMIT"
+
+chmod 600 "$ENV_FILE"
+ok "Config ready at $ENV_FILE (600)"
+[[ "$SUPASTACK_APEX" == "localhost" ]] && \
+  warn "SUPASTACK_APEX=localhost — fine for local testing. For a public deploy, set a real apex (edit .env or re-run with SUPASTACK_APEX=…) before /setup."
 
 # Export so docker compose picks up secrets
 set -a

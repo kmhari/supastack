@@ -116,3 +116,21 @@ describe('role-id mapping (Studio wire contract)', () => {
     expect(roleFromId(99)).toBeUndefined();
   });
 });
+
+describe('feature 116 — admin ops console actions are installation-admin-only', () => {
+  const ADMIN_ACTIONS = [
+    'admin.console.read',
+    'admin.resources.read',
+    'admin.queues.read',
+    'admin.certs.read',
+  ] as const;
+
+  for (const action of ADMIN_ACTIONS) {
+    it(`${action}: granted to owner + administrator, denied to developer + read_only`, () => {
+      expect(can('owner', action)).toBe(true);
+      expect(can('administrator', action)).toBe(true);
+      expect(can('developer', action)).toBe(false);
+      expect(can('read_only', action)).toBe(false);
+    });
+  }
+});

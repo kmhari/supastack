@@ -26,6 +26,8 @@ export const QUEUES = {
   restore: 'supastack.restore',
   restoreGc: 'supastack.restore-gc',
   certCheck: 'cert-check',
+  // feature 116 — admin ops console resource/health/log sampler (worker-only)
+  observer: 'supastack.observer',
 } as const;
 
 export type QueueKey = keyof typeof QUEUES;
