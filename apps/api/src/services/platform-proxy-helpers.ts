@@ -32,6 +32,7 @@ export interface InstanceProxy {
   portKong: number;
   dashboardPassword: string;
   serviceRoleKey: string;
+  logflarePrivateAccessToken: string;
 }
 
 export async function resolveKongPort(ref: string): Promise<number> {
@@ -58,6 +59,7 @@ export async function resolveInstance(ref: string): Promise<InstanceProxy> {
     portKong: row.portKong,
     dashboardPassword: secrets.dashboardPassword,
     serviceRoleKey: secrets.serviceRoleKey,
+    logflarePrivateAccessToken: secrets.logflarePrivateAccessToken,
   };
 }
 

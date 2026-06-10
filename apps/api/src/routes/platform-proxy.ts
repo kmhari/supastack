@@ -45,6 +45,52 @@ export function rewriteStoragePath(suffix: string): string {
 }
 
 /**
+ * Studio sends analytics calls as `endpoints/<name>` (e.g. `endpoints/logs.all`),
+ * but Logflare's run-by-name route is `endpoints/query/<name>`. Insert `query/`
+ * idempotently: a suffix already targeting `query/…` is forwarded verbatim, which
+ * lets the proxy be probed via `endpoints/query/<name>` while the legacy
+ * single-segment `endpoints/:name` stub still shadows `endpoints/<name>`.
+ * Non-`endpoints/` suffixes (other analytics paths) pass through unchanged.
+ */
+export function rewriteAnalyticsPath(suffix: string): string {
+  return suffix.replace(/^endpoints\/(?!query\/)/, 'endpoints/query/');
+}
+
+/**
+ * Self-hosted vector stamps every log event `project = "default"` (see the
+ * per-instance vector.yml `project_logs` transform), and the `logs.all` /
+ * endpoint-query CTEs filter `where t.project = @project`. Supabase Cloud binds
+ * @project server-side at its API edge; Studio never sends it. So append
+ * `project=default` to endpoint-query calls or every row is filtered out.
+ * Idempotent + scoped: only `endpoints/…` paths, and an explicit `project=` wins.
+ */
+export function injectAnalyticsProject(upstreamSuffix: string, qs: string): string {
+  if (!upstreamSuffix.startsWith('endpoints/')) return qs;
+  if (/[?&]project=/.test(qs)) return qs;
+  return qs ? `${qs}&project=default` : '?project=default';
+}
+
+/**
+ * Real log-query endpoints whose upstream errors are surfaced to the caller —
+ * the Logs Explorer is user-driven (bad SQL etc.) and needs that feedback.
+ */
+const REAL_LOG_QUERY_ENDPOINTS = new Set(['logs.all', 'logs.all.otel']);
+
+/**
+ * Whether an upstream analytics error should degrade to `{ result: [] }` (HTTP 200)
+ * instead of propagating. True for the Cloud-only metric endpoints (usage.*,
+ * service-health, auth.metrics, functions.*) that self-hosted Logflare does not
+ * implement — they fire automatically on `IS_PLATFORM` pages and must stay benign,
+ * exactly as the old platform-misc stub did. False for the real log-query endpoints
+ * (logs.all / logs.all.otel), whose errors are surfaced.
+ */
+export function suppressAnalyticsErrorToEmpty(upstreamSuffix: string): boolean {
+  if (!upstreamSuffix.startsWith('endpoints/query/')) return false;
+  const name = upstreamSuffix.slice('endpoints/query/'.length);
+  return !REAL_LOG_QUERY_ENDPOINTS.has(name);
+}
+
+/**
  * Studio IS_PLATFORM sends list-objects as { path, options: { limit, offset, search, sortBy } }
  * but storage-api expects { prefix, limit, offset, search, sortBy } (flat, prefix not path).
  */
@@ -305,16 +351,61 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
   }
 
   // ── analytics proxy ────────────────────────────────────────────────────────
-  // Kong route: /analytics/v1/api/endpoints/ → analytics:4000/api/endpoints/
-  // Studio sends /platform/projects/:ref/analytics/endpoints/logs.all
-  // → forward to /analytics/v1/api/endpoints/logs.all
+  // Kong route /analytics/v1/api/endpoints/ → analytics:4000/api/endpoints/ is a
+  // bare pass-through (no key-auth). Logflare's run-by-name route is
+  // /api/endpoints/query/:name and authenticates via X-API-KEY:
+  // <logflarePrivateAccessToken> — NOT the dashboard bearer (probe: bearer/no-key
+  // → 401; endpoints/<name> without query/ → 400). So: rewrite endpoints/<name> →
+  // endpoints/query/<name> (idempotent) and inject the per-instance Logflare key,
+  // mirroring services/logflare-client.ts (the proven /v1 + MCP get_logs path).
   app.route<{ Params: { ref: string; '*': string } }>({
     method: ['GET', 'POST'],
     url: '/platform/projects/:ref/analytics/*',
-    handler: (req, reply) =>
-      // The `*` suffix already includes `endpoints/...` (e.g. `endpoints/logs.all`),
-      // so the prefix is `/analytics/v1/api/` — NOT `/analytics/v1/api/endpoints/`,
-      // which doubled to `/analytics/v1/api/endpoints/endpoints/logs.all`.
-      handleProxy(app, req as FastifyRequest<{ Params: { ref: string } }>, reply, '/analytics/v1/api/', (req.params as { ref: string; '*': string })['*']),
+    handler: async (req, reply) => {
+      app.requireAuth(req);
+      const inst = await resolveInstance(req.params.ref).catch(() => null);
+      if (!inst) return reply.status(404).send({ error: 'Project not found' });
+
+      const suffix = (req.params as { ref: string; '*': string })['*'];
+      const upstreamSuffix = rewriteAnalyticsPath(suffix);
+      const rawQs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+      const qs = injectAnalyticsProject(upstreamSuffix, rawQs);
+
+      const forwardHeaders: Record<string, string | string[] | undefined> = {};
+      for (const [k, v] of Object.entries(req.headers)) {
+        if (!STRIP_REQUEST_HEADERS.has(k.toLowerCase())) forwardHeaders[k] = v;
+      }
+      // Logflare authenticates via X-API-KEY; never leak the dashboard bearer upstream.
+      delete forwardHeaders['authorization'];
+      delete forwardHeaders['apikey'];
+      forwardHeaders['x-api-key'] = inst.logflarePrivateAccessToken;
+
+      const suppressErr = suppressAnalyticsErrorToEmpty(upstreamSuffix);
+
+      let result: Awaited<ReturnType<typeof proxyToKong>>;
+      try {
+        result = await proxyToKong(inst.portKong, `/analytics/v1/api/${upstreamSuffix}${qs}`, req.method, forwardHeaders, bodyOf(req));
+      } catch (err) {
+        if (err instanceof ProxyUpstreamError) {
+          if (suppressErr) {
+            app.log.warn({ ref: req.params.ref, endpoint: upstreamSuffix, status: err.status }, 'analytics endpoint unreachable — returning empty (Cloud-only metric)');
+            return reply.status(200).send({ result: [] });
+          }
+          return reply.status(err.status).send({ error: err.message });
+        }
+        throw err;
+      }
+      // Cloud-only metric endpoints aren't implemented self-hosted (undefined → 401,
+      // BigQuery-dialect → 500). Degrade their errors to empty so IS_PLATFORM panels
+      // stay benign; real log queries (logs.all) surface their errors unchanged.
+      if (suppressErr && result.status >= 400) {
+        app.log.warn({ ref: req.params.ref, endpoint: upstreamSuffix, status: result.status }, 'analytics endpoint unavailable self-hosted — returning empty (Cloud-only metric)');
+        return reply.status(200).send({ result: [] });
+      }
+      for (const [k, v] of Object.entries(result.headers)) {
+        if (!STRIP_RESPONSE_HEADERS.has(k.toLowerCase())) reply.header(k, v as string);
+      }
+      return reply.status(result.status).send(result.body);
+    },
   });
 };

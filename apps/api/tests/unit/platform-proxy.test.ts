@@ -329,8 +329,11 @@ describe('platform-proxy routes', () => {
   });
 
   describe('analytics proxy', () => {
-    it('proxies GET to Kong /analytics/v1/', async () => {
-      proxyHelpersMock.resolveInstance.mockResolvedValue({ portKong: MOCK_PORT });
+    it('rewrites endpoints/<name> → endpoints/query/<name> and injects X-API-KEY', async () => {
+      proxyHelpersMock.resolveInstance.mockResolvedValue({
+        portKong: MOCK_PORT,
+        logflarePrivateAccessToken: 'lpat-xyz',
+      });
       proxyHelpersMock.proxyToKong.mockResolvedValue(OK_RESPONSE);
 
       await app.inject({
@@ -341,11 +344,14 @@ describe('platform-proxy routes', () => {
 
       expect(proxyHelpersMock.proxyToKong).toHaveBeenCalledWith(
         MOCK_PORT,
-        '/analytics/v1/api/endpoints/logs.all',
+        '/analytics/v1/api/endpoints/query/logs.all?project=default',
         'GET',
-        expect.any(Object),
+        expect.objectContaining({ 'x-api-key': 'lpat-xyz' }),
         expect.any(Buffer),
       );
+      // Dashboard bearer must not leak upstream to Logflare.
+      const headers = proxyHelpersMock.proxyToKong.mock.calls[0][3] as Record<string, unknown>;
+      expect(headers.authorization).toBeUndefined();
     });
   });
 });
