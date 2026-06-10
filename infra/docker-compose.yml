@@ -230,6 +230,9 @@ services:
       # Feature 008 — worker pooler-reconciler needs to call supavisor admin API.
       SUPAVISOR_URL: http://supavisor:4000
       SUPAVISOR_API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET:-}
+      # Feature 116 — admin ops console observer sampler cadence + retention.
+      OBSERVER_INTERVAL_MS: ${OBSERVER_INTERVAL_MS:-60000}
+      OBSERVER_RETENTION_DAYS: ${OBSERVER_RETENTION_DAYS:-7}
     volumes:
       - /var/supastack/instances:/var/supastack/instances
       - /var/supastack/backups:/var/supastack/backups
