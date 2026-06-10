@@ -59,4 +59,4 @@ one-shot), admin endpoints (auth 403 + graceful-empty + no-payload). Full suite 
 
 ## Status
 
-Implemented; not yet deployed/live-verified at time of writing.
+Implemented + deployed to supaviser.dev + live-verified 2026-06-10: /docs/{cli,mcp} 200 (public); /admin 401 without auth, fleet/queues/system/resources return real data with an admin PAT; observer populated 8 control-plane + 8 resource rows on first tick. Known minor gap: /apex is session-gated, so logged-out docs visitors see the <your-apex> placeholder (graceful, no error).
