@@ -35,11 +35,14 @@ export function AdminGuard({ children }: { children: ReactNode }): React.ReactEl
     );
   }
 
-  if (user.role !== 'admin') {
+  if (user.role !== 'owner' && user.role !== 'administrator') {
     return (
       <div className="py-16 text-sm text-foreground-light">
         <p className="font-medium text-foreground">Not authorized</p>
-        <p className="mt-1">The admin console requires an Owner or Administrator role.</p>
+        <p className="mt-1">
+          The admin console requires an Owner or Administrator role (you are{' '}
+          {user.role.replace('_', ' ')}).
+        </p>
       </div>
     );
   }

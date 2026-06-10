@@ -1,10 +1,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { authApi } from './api.js';
+import { authApi, type DashboardRole } from './api.js';
 
 export interface User {
   userId: string;
   email: string;
-  role: 'admin' | 'member';
+  role: DashboardRole;
 }
 
 interface AuthState {
