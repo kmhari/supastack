@@ -90,6 +90,16 @@
 	handle /admin* {
 		reverse_proxy web:80
 	}
+	# SPA static assets (Vite output + public/) must reach the web container too.
+	handle /assets/* {
+		reverse_proxy web:80
+	}
+	handle /fonts/* {
+		reverse_proxy web:80
+	}
+	handle /favicon.ico {
+		reverse_proxy web:80
+	}
 	# Feature 086 US5 — boot default is GATED: redirect everything to /setup
 	# until first-time setup is done. The runtime caddy-config.ts (DB-aware)
 	# swaps this for the studio catch-all once setup_state.completed_at is set.
@@ -172,6 +182,16 @@ api.{$SUPASTACK_APEX} {
 		reverse_proxy web:80
 	}
 	handle /admin* {
+		reverse_proxy web:80
+	}
+	# SPA static assets (Vite output + public/) must reach the web container too.
+	handle /assets/* {
+		reverse_proxy web:80
+	}
+	handle /fonts/* {
+		reverse_proxy web:80
+	}
+	handle /favicon.ico {
 		reverse_proxy web:80
 	}
 	# Feature 086 US5 — boot default is GATED (redirect to /setup until setup
