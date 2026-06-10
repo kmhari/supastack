@@ -1,8 +1,12 @@
 import { describe, expect, test, beforeAll } from 'vitest';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { renderInstanceEnv, type ComposeTemplateInputs } from '../src/compose-template.js';
+import {
+  renderInstanceEnv,
+  renderVectorConfig,
+  type ComposeTemplateInputs,
+} from '../src/compose-template.js';
 
 /**
  * Anti-Multibase regression test suite. Three concrete failures we observed:
@@ -200,5 +204,86 @@ describe('renderInstanceEnv — completeness assertion', () => {
     );
 
     await rm(tmpTemplate, { recursive: true });
+  });
+});
+
+// Minimal slice of the vendored vanilla vector.yml (source + router) — the parts
+// renderVectorConfig rewrites. Mirrors infra/supabase-template/volumes/logs/vector.yml.
+const VANILLA_VECTOR = `sources:
+  docker_host:
+    type: docker_logs
+    exclude_containers:
+      - supabase-vector
+
+transforms:
+  project_logs:
+    type: remap
+    inputs:
+      - docker_host
+    source: |-
+      .appname = del(.container_name)
+  router:
+    type: route
+    inputs:
+      - project_logs
+    route:
+      kong: '.appname == "supabase-kong" || .appname == "supabase-envoy"'
+      auth: '.appname == "supabase-auth"'
+      rest: '.appname == "supabase-rest"'
+      realtime: '.appname == "realtime-dev.supabase-realtime"'
+      storage: '.appname == "supabase-storage"'
+      functions: '.appname == "supabase-edge-functions"'
+      db: '.appname == "supabase-db"'
+`;
+
+describe('renderVectorConfig — supastack container-name routing', () => {
+  const REF = 'abcdefghij0123456789';
+  const out = () => renderVectorConfig(VANILLA_VECTOR, REF);
+
+  test('rewrites every route condition to ref-qualified container names', () => {
+    const o = out();
+    expect(o).toContain(`kong: '.appname == "supastack-${REF}-kong-1"'`);
+    expect(o).toContain(`auth: '.appname == "supastack-${REF}-auth-1"'`);
+    expect(o).toContain(`rest: '.appname == "supastack-${REF}-rest-1"'`);
+    expect(o).toContain(`realtime: '.appname == "supastack-${REF}-realtime-1"'`);
+    expect(o).toContain(`storage: '.appname == "supastack-${REF}-storage-1"'`);
+    // vanilla service "edge-functions" → supastack container "functions"
+    expect(o).toContain(`functions: '.appname == "supastack-${REF}-functions-1"'`);
+    expect(o).toContain(`db: '.appname == "supastack-${REF}-db-1"'`);
+  });
+
+  test('scopes docker_logs to this project + excludes its own vector', () => {
+    const o = out();
+    expect(o).toContain(`include_containers:\n      - supastack-${REF}-`);
+    expect(o).toContain(`exclude_containers:\n      - supastack-${REF}-vector-1`);
+  });
+
+  test('leaves NO vanilla supabase-*/realtime-dev appname condition behind', () => {
+    expect(out()).not.toMatch(/\.appname == "(supabase-|realtime-dev)/);
+  });
+
+  test('throws if an expected route condition is missing (guards silent log-drop)', () => {
+    const broken = VANILLA_VECTOR.replace(`auth: '.appname == "supabase-auth"'`, 'auth: removed');
+    expect(() => renderVectorConfig(broken, REF)).toThrow(/route condition not found/);
+  });
+
+  test('throws if the docker_logs source block is missing', () => {
+    const broken = VANILLA_VECTOR.replace('      - supabase-vector', '      - other');
+    expect(() => renderVectorConfig(broken, REF)).toThrow(/docker_logs source block not found/);
+  });
+
+  // Drift guard: runs against the ACTUAL vendored template. If a future re-vendor
+  // changes the vector.yml route/source strings, renderVectorConfig throws here —
+  // failing CI loudly instead of silently re-dropping every project's logs.
+  test('transforms the real vendored template without leaving vanilla names', async () => {
+    const real = await readFile(
+      new URL('../../../infra/supabase-template/volumes/logs/vector.yml', import.meta.url),
+      'utf8',
+    );
+    const o = renderVectorConfig(real, REF);
+    expect(o).toContain(`auth: '.appname == "supastack-${REF}-auth-1"'`);
+    expect(o).toContain(`functions: '.appname == "supastack-${REF}-functions-1"'`);
+    expect(o).toContain(`include_containers:\n      - supastack-${REF}-`);
+    expect(o).not.toMatch(/\.appname == "(supabase-|realtime-dev)/);
   });
 });

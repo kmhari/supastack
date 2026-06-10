@@ -228,6 +228,56 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
 }
 
 /**
+ * Rewrite the vendored vanilla `vector.yml` for supastack's container naming.
+ *
+ * The upstream vector config routes docker logs to per-service Logflare sinks by
+ * matching exact vanilla container names (`.appname == "supabase-auth"`, …). But
+ * supastack runs each project's containers as `supastack-<ref>-<svc>-1`, so the
+ * vanilla conditions NEVER match → every log event falls through unrouted and is
+ * silently dropped before reaching Logflare (the whole self-hosted Logs Explorer
+ * goes dark). This rewrites the route conditions to the ref-qualified names and
+ * scopes the docker_logs source to this project's containers (each instance's
+ * vector otherwise reads the entire docker host → cross-tenant ingest).
+ *
+ * Throws if any expected vanilla condition is missing, or if any vanilla
+ * `supabase-*` appname condition survives — a silent miss would re-break logging.
+ */
+export function renderVectorConfig(content: string, ref: string): string {
+  const p = `supastack-${ref}`;
+  const routeSubs: [string, string][] = [
+    [`'.appname == "supabase-kong" || .appname == "supabase-envoy"'`, `'.appname == "${p}-kong-1"'`],
+    [`'.appname == "supabase-auth"'`, `'.appname == "${p}-auth-1"'`],
+    [`'.appname == "supabase-rest"'`, `'.appname == "${p}-rest-1"'`],
+    [`'.appname == "realtime-dev.supabase-realtime"'`, `'.appname == "${p}-realtime-1"'`],
+    [`'.appname == "supabase-storage"'`, `'.appname == "${p}-storage-1"'`],
+    [`'.appname == "supabase-edge-functions"'`, `'.appname == "${p}-functions-1"'`],
+    [`'.appname == "supabase-db"'`, `'.appname == "${p}-db-1"'`],
+  ];
+  let out = content;
+  for (const [from, to] of routeSubs) {
+    if (!out.includes(from)) {
+      throw new Error(`renderVectorConfig: expected route condition not found: ${from}`);
+    }
+    out = out.replace(from, to);
+  }
+
+  // Scope docker_logs to this project's containers and exclude vector's own logs.
+  const srcFrom = `    type: docker_logs\n    exclude_containers:\n      - supabase-vector`;
+  const srcTo =
+    `    type: docker_logs\n    include_containers:\n      - ${p}-\n` +
+    `    exclude_containers:\n      - ${p}-vector-1`;
+  if (!out.includes(srcFrom)) {
+    throw new Error('renderVectorConfig: expected docker_logs source block not found');
+  }
+  out = out.replace(srcFrom, srcTo);
+
+  if (/\.appname == "(supabase-|realtime-dev)/.test(out)) {
+    throw new Error('renderVectorConfig: a vanilla supabase-* appname condition survived substitution');
+  }
+  return out;
+}
+
+/**
  * Write the per-instance compose stack to disk and run `docker compose config -q`
  * to verify it parses. Returns the resolved instance directory.
  */
@@ -240,6 +290,15 @@ export async function writeInstanceStack(inputs: ComposeTemplateInputs): Promise
 
   // Write the rendered .env (mode 0600 — secrets at rest on disk).
   await fs.writeFile(path.join(inputs.outDir, '.env'), env, { mode: 0o600 });
+
+  // Rewrite vector.yml for supastack container naming (vanilla matches supabase-*).
+  const vectorPath = path.join(inputs.outDir, 'volumes', 'logs', 'vector.yml');
+  try {
+    const vectorRaw = await fs.readFile(vectorPath, 'utf8');
+    await fs.writeFile(vectorPath, renderVectorConfig(vectorRaw, inputs.ref));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+  }
 
   // Round-trip with `docker compose config -q`.
   await dockerComposeConfigCheck(inputs.outDir);
