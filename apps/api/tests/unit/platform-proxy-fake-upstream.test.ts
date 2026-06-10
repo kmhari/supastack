@@ -25,6 +25,9 @@ interface CapturedRequest {
 let lastRequest: CapturedRequest | null = null;
 let fakeServer: http.Server;
 let fakePort: number;
+// Tests can force the next upstream response status/body to exercise error paths.
+let nextResponseStatus = 200;
+let nextResponseBody: string = JSON.stringify([]);
 
 beforeAll(
   () =>
@@ -39,8 +42,8 @@ beforeAll(
             headers: req.headers as Record<string, string | string[] | undefined>,
             body: Buffer.concat(chunks).toString(),
           };
-          res.writeHead(200, { 'content-type': 'application/json' });
-          res.end(JSON.stringify([]));
+          res.writeHead(nextResponseStatus, { 'content-type': 'application/json' });
+          res.end(nextResponseBody);
         });
       });
       fakeServer.listen(0, '127.0.0.1', () => {
@@ -62,6 +65,7 @@ vi.mock('../../src/services/platform-proxy-helpers.js', async (importOriginal) =
       portKong: 0,
       serviceRoleKey: 'test-srk',
       dashboardPassword: 'test-dp',
+      logflarePrivateAccessToken: 'test-lpat',
     }),
   };
 });
@@ -84,6 +88,8 @@ let app: FastifyInstance;
 
 beforeEach(async () => {
   lastRequest = null;
+  nextResponseStatus = 200;
+  nextResponseBody = JSON.stringify([]);
   process.env.TEST_KONG_BASE_URL = `http://127.0.0.1:${fakePort}`;
   app = await buildApp();
 });
@@ -168,19 +174,65 @@ describe('Fake-upstream proxy contract tests', () => {
   });
 
   describe('analytics', () => {
-    it('upstream path is /analytics/v1/api/endpoints/logs.all (not doubled)', async () => {
+    it('rewrites endpoints/<name> → endpoints/query/<name>, injects X-API-KEY, strips dashboard bearer', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/platform/projects/testref/analytics/endpoints/logs.all',
-        headers: { authorization: 'Bearer user-token' },
+        url: '/platform/projects/testref/analytics/endpoints/logs.all?sql=SELECT%201',
+        headers: { authorization: 'Bearer user-token', apikey: 'anon-key' },
       });
 
       expect(res.statusCode).toBe(200);
       expect(lastRequest).not.toBeNull();
-      // Guards the feature 112 regression: prefix is /analytics/v1/api/ + wildcard endpoints/logs.all
-      // → must NOT become /analytics/v1/api/endpoints/endpoints/logs.all
-      expect(lastRequest!.path).toBe('/analytics/v1/api/endpoints/logs.all');
+      // Logflare run-by-name route is endpoints/query/:name (probe: endpoints/<name> → 400);
+      // self-hosted vector tags project="default", bound via the injected query param.
+      expect(lastRequest!.path).toBe(
+        '/analytics/v1/api/endpoints/query/logs.all?sql=SELECT%201&project=default',
+      );
       expect(lastRequest!.path).not.toContain('endpoints/endpoints');
+      // Logflare authenticates via X-API-KEY, not the forwarded dashboard bearer (probe: bearer-only → 401).
+      expect(lastRequest!.headers['x-api-key']).toBe('test-lpat');
+      expect(lastRequest!.headers['authorization']).toBeUndefined();
+      expect(lastRequest!.headers['apikey']).toBeUndefined();
+    });
+
+    it('leaves endpoints/query/<name> unchanged (idempotent — lets the proxy be probed behind the stub)', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/platform/projects/testref/analytics/endpoints/query/logs.all',
+        headers: { authorization: 'Bearer user-token' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(lastRequest!.path).toBe('/analytics/v1/api/endpoints/query/logs.all?project=default');
+      expect(lastRequest!.path).not.toContain('query/query');
+      expect(lastRequest!.headers['x-api-key']).toBe('test-lpat');
+    });
+
+    it('degrades a Cloud-only metric endpoint upstream error to 200 {result:[]}', async () => {
+      nextResponseStatus = 500; // self-hosted Logflare 500s on usage.api-counts (BigQuery dialect)
+      nextResponseBody = '"Internal Server Error"';
+      const res = await app.inject({
+        method: 'GET',
+        url: '/platform/projects/testref/analytics/endpoints/usage.api-counts',
+        headers: { authorization: 'Bearer user-token' },
+      });
+
+      expect(lastRequest).not.toBeNull(); // it DID hit upstream
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ result: [] });
+    });
+
+    it('surfaces upstream errors for the real logs.all endpoint (no masking)', async () => {
+      nextResponseStatus = 400; // e.g. user bad SQL in the Logs Explorer
+      nextResponseBody = '{"error":"bad sql"}';
+      const res = await app.inject({
+        method: 'GET',
+        url: '/platform/projects/testref/analytics/endpoints/logs.all?sql=BAD',
+        headers: { authorization: 'Bearer user-token' },
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toEqual({ error: 'bad sql' });
     });
   });
 });

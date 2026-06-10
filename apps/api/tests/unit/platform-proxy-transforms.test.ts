@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   backfillBucketName,
+  injectAnalyticsProject,
   normalizeDeleteObjectsBody,
   normalizeObjectListBody,
+  rewriteAnalyticsPath,
   rewriteBucketUpdateMethod,
   rewriteStoragePath,
+  suppressAnalyticsErrorToEmpty,
 } from '../../src/routes/platform-proxy.js';
 
 // ─── rewriteBucketUpdateMethod (feature 114 — Studio PATCH → storage-api PUT) ──
@@ -53,6 +56,79 @@ describe('rewriteStoragePath', () => {
     // buckets/b/objects/list/extra is not a list call — falls to object match
     const result = rewriteStoragePath('buckets/b/objects/list/extra');
     expect(result).toBe('object/b/list/extra');
+  });
+});
+
+// ─── rewriteAnalyticsPath (Logflare run-by-name route + idempotency) ──────────
+
+describe('rewriteAnalyticsPath', () => {
+  it('inserts query/ for endpoints/<name> (Studio shape)', () => {
+    expect(rewriteAnalyticsPath('endpoints/logs.all')).toBe('endpoints/query/logs.all');
+    expect(rewriteAnalyticsPath('endpoints/usage.api-requests-count')).toBe(
+      'endpoints/query/usage.api-requests-count',
+    );
+  });
+
+  it('is idempotent: endpoints/query/<name> stays single query/', () => {
+    expect(rewriteAnalyticsPath('endpoints/query/logs.all')).toBe('endpoints/query/logs.all');
+  });
+
+  it('leaves non-endpoints/ analytics suffixes unchanged', () => {
+    expect(rewriteAnalyticsPath('log-drains')).toBe('log-drains');
+    expect(rewriteAnalyticsPath('')).toBe('');
+  });
+});
+
+// ─── injectAnalyticsProject (self-hosted @project binding) ────────────────────
+
+describe('injectAnalyticsProject', () => {
+  it('appends project=default to an endpoint query with an existing querystring', () => {
+    expect(injectAnalyticsProject('endpoints/query/logs.all', '?sql=SELECT%201')).toBe(
+      '?sql=SELECT%201&project=default',
+    );
+  });
+
+  it('adds project=default as the only param when there is no querystring', () => {
+    expect(injectAnalyticsProject('endpoints/query/logs.all', '')).toBe('?project=default');
+  });
+
+  it('respects an explicit project (idempotent)', () => {
+    expect(injectAnalyticsProject('endpoints/query/logs.all', '?project=myref&sql=x')).toBe(
+      '?project=myref&sql=x',
+    );
+  });
+
+  it('does NOT inject for non-endpoints/ analytics paths', () => {
+    expect(injectAnalyticsProject('log-drains', '?token=abc')).toBe('?token=abc');
+    expect(injectAnalyticsProject('log-drains', '')).toBe('');
+  });
+});
+
+// ─── suppressAnalyticsErrorToEmpty (Cloud-only metric fallback) ───────────────
+
+describe('suppressAnalyticsErrorToEmpty', () => {
+  it('suppresses Cloud-only metric endpoints (degrade error → empty)', () => {
+    for (const name of [
+      'usage.api-counts',
+      'usage.api-requests-count',
+      'service-health',
+      'auth.metrics',
+      'functions.req-stats',
+      'functions.combined-stats',
+      'functions.resource-usage',
+    ]) {
+      expect(suppressAnalyticsErrorToEmpty(`endpoints/query/${name}`)).toBe(true);
+    }
+  });
+
+  it('does NOT suppress the real log-query endpoints (errors surface)', () => {
+    expect(suppressAnalyticsErrorToEmpty('endpoints/query/logs.all')).toBe(false);
+    expect(suppressAnalyticsErrorToEmpty('endpoints/query/logs.all.otel')).toBe(false);
+  });
+
+  it('does NOT suppress non-endpoint analytics paths', () => {
+    expect(suppressAnalyticsErrorToEmpty('log-drains')).toBe(false);
+    expect(suppressAnalyticsErrorToEmpty('')).toBe(false);
   });
 });
 

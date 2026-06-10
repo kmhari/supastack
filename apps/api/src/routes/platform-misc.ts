@@ -1737,15 +1737,12 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // Studio's Logs > Log Drains page lists/creates/deletes drain configs.
   type LogDrainParams = { Params: { ref: string; token: string } };
 
-  // Analytics usage endpoints — Studio calls these for project home metrics
-  app.get<RefParams & { Querystring: Record<string, string> }>(
-    '/platform/projects/:ref/analytics/endpoints/:name',
-    async (req, reply) => {
-      app.requireAuth(req);
-      // Return empty result for all analytics usage endpoints
-      return reply.send({ result: [] });
-    },
-  );
+  // NOTE: `GET /platform/projects/:ref/analytics/endpoints/:name` is intentionally
+  // NOT handled here. It is served by the analytics proxy in platform-proxy.ts,
+  // which forwards `logs.all` to Logflare (real data) and gracefully returns
+  // `{ result: [] }` for the Cloud-only metric endpoints that self-hosted Logflare
+  // does not implement (usage.*, service-health, auth.metrics, functions.*). The
+  // previous stub here returned `{ result: [] }` for ALL of them, shadowing logs.all.
 
   app.get<RefParams>('/platform/projects/:ref/analytics/log-drains', async (req, reply) => {
     app.requireAuth(req);
