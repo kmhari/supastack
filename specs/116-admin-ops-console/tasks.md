@@ -43,15 +43,15 @@ Tests are included (Constitution VI + spec request happy + sad paths). Stories a
 **Goal**: Admin signs in and observes every project, its health, control-plane health, and recent logs — read-only.
 **Independent test**: Sign in as admin → fleet lists all projects; project detail shows services/db; system shows control-plane health + commit; logs show project (fresh) + control-plane (≤60s). Non-admin denied.
 
-- [ ] T019 [P] [US2] `GET /api/v1/admin/fleet` (installation-wide `supabase_instances` + org join) gated `authorize(req, 'admin.console.read')` in `apps/api/src/routes/admin/fleet.ts`
-- [ ] T020 [P] [US2] `GET /api/v1/admin/projects/:ref` (delegate to existing `/platform/projects/:ref/{services,service-versions,databases-statuses}`) in `apps/api/src/routes/admin/fleet.ts`
-- [ ] T021 [P] [US2] `GET /api/v1/admin/system` (read `control_plane_snapshots` + deployed commit) + `control-plane-reader` service in `apps/api/src/routes/admin/system.ts` and `apps/api/src/services/control-plane-reader.ts`
-- [ ] T022 [P] [US2] `GET /api/v1/admin/logs?source=&tail=` (project → existing Kong `logs.all` proxy; control-plane → `control_plane_snapshots.log_tail`) in `apps/api/src/routes/admin/logs.ts`
-- [ ] T023 [P] [US2] Admin endpoint tests — happy (admin 200 + shapes) + sad (non-admin/signed-out 403; empty `control_plane_snapshots` → graceful empty, not 500) in `apps/api/tests/unit/admin-fleet.test.ts`, `admin-system.test.ts`, `admin-logs.test.ts`
-- [ ] T024 [US2] Admin `Fleet` (scrollable list + a text filter/search so it stays usable at ≥50 projects — FR-031/SC-008) + `ProjectDetail` pages in `apps/web/src/pages/admin/Fleet.tsx` and `apps/web/src/pages/admin/ProjectDetail.tsx`
-- [ ] T025 [P] [US2] Admin `System` page (control-plane health + version) in `apps/web/src/pages/admin/System.tsx`
-- [ ] T026 [P] [US2] Admin `Logs` page (source selector: project service / control-plane; freshness badge) in `apps/web/src/pages/admin/Logs.tsx`
-- [ ] T027 [US2] Wire `/admin` routes behind `AdminGuard` into `apps/web/src/App.tsx`
+- [X] T019 [P] [US2] `GET /api/v1/admin/fleet` (installation-wide `supabase_instances` + org join) gated `authorize(req, 'admin.console.read')` in `apps/api/src/routes/admin/fleet.ts`
+- [X] T020 [P] [US2] `GET /api/v1/admin/projects/:ref` (delegate to existing `/platform/projects/:ref/{services,service-versions,databases-statuses}`) in `apps/api/src/routes/admin/fleet.ts`
+- [X] T021 [P] [US2] `GET /api/v1/admin/system` (read `control_plane_snapshots` + deployed commit) + `control-plane-reader` service in `apps/api/src/routes/admin/system.ts` and `apps/api/src/services/control-plane-reader.ts`
+- [X] T022 [P] [US2] `GET /api/v1/admin/logs?source=&tail=` (project → existing Kong `logs.all` proxy; control-plane → `control_plane_snapshots.log_tail`) in `apps/api/src/routes/admin/logs.ts`
+- [X] T023 [P] [US2] Admin endpoint tests — happy (admin 200 + shapes) + sad (non-admin/signed-out 403; empty `control_plane_snapshots` → graceful empty, not 500) in `apps/api/tests/unit/admin-fleet.test.ts`, `admin-system.test.ts`, `admin-logs.test.ts`
+- [X] T024 [US2] Admin `Fleet` (scrollable list + a text filter/search so it stays usable at ≥50 projects — FR-031/SC-008) + `ProjectDetail` pages in `apps/web/src/pages/admin/Fleet.tsx` and `apps/web/src/pages/admin/ProjectDetail.tsx`
+- [X] T025 [P] [US2] Admin `System` page (control-plane health + version) in `apps/web/src/pages/admin/System.tsx`
+- [X] T026 [P] [US2] Admin `Logs` page (source selector: project service / control-plane; freshness badge) in `apps/web/src/pages/admin/Logs.tsx`
+- [X] T027 [US2] Wire `/admin` routes behind `AdminGuard` into `apps/web/src/App.tsx`
 
 **Checkpoint**: an admin can log in and observe the whole fleet + system + logs (MVP of the console).
 
@@ -60,9 +60,9 @@ Tests are included (Constitution VI + spec request happy + sad paths). Stories a
 **Goal**: Host totals + per-project usage + disk breakdown + avg footprint + per-project trend; "collecting" before first sample.
 **Independent test**: After the observer ticks, Resources shows host + per-project + breakdown + avg footprint; a project trend renders; pre-sample shows "collecting".
 
-- [ ] T028 [P] [US3] `GET /api/v1/admin/resources` (latest host + per-project + disk breakdown + avg footprint; `collecting` empty-state) and `GET /api/v1/admin/resources/:ref/trend` gated `admin.resources.read`, reading `resource_samples`, in `apps/api/src/routes/admin/resources.ts`
-- [ ] T029 [P] [US3] Resources endpoint tests — happy (host+projects+breakdown+avg; trend series) + sad (no samples → `collecting:true`, not error; non-admin 403); assert NO "N more projects" field in `apps/api/tests/unit/admin-resources.test.ts`
-- [ ] T030 [US3] Admin `Resources` page (host totals, per-project ranking in a scrollable list + text filter for ≥50 projects, disk breakdown, avg footprint, sparkline trend, collecting state) in `apps/web/src/pages/admin/Resources.tsx`
+- [X] T028 [P] [US3] `GET /api/v1/admin/resources` (latest host + per-project + disk breakdown + avg footprint; `collecting` empty-state) and `GET /api/v1/admin/resources/:ref/trend` gated `admin.resources.read`, reading `resource_samples`, in `apps/api/src/routes/admin/resources.ts`
+- [X] T029 [P] [US3] Resources endpoint tests — happy (host+projects+breakdown+avg; trend series) + sad (no samples → `collecting:true`, not error; non-admin 403); assert NO "N more projects" field in `apps/api/tests/unit/admin-resources.test.ts`
+- [X] T030 [US3] Admin `Resources` page (host totals, per-project ranking in a scrollable list + text filter for ≥50 projects, disk breakdown, avg footprint, sparkline trend, collecting state) in `apps/web/src/pages/admin/Resources.tsx`
 
 **Checkpoint**: capacity/resource visibility from real samples.
 
@@ -71,10 +71,10 @@ Tests are included (Constitution VI + spec request happy + sad paths). Stories a
 **Goal**: Per-queue counts + redacted failed-item detail; zero-count clean; read-only.
 **Independent test**: Queues view shows counts per queue; a forced failure appears with redacted reason; `job.data` never returned.
 
-- [ ] T031 [P] [US4] `queue-inspector` service — iterate `QUEUES.*`, read-only `Queue.getJobCounts()` + `getFailed(0,N)`, map failures to `{id,name,failedReason(redacted via job-redactor),failedAt,attemptsMade}` (never `job.data`) in `apps/api/src/services/queue-inspector.ts`
-- [ ] T032 [P] [US4] `GET /api/v1/admin/queues` gated `admin.queues.read` in `apps/api/src/routes/admin/queues.ts`
-- [ ] T033 [P] [US4] Queues tests — happy (counts + redacted failures) + sad (zero-count queue renders cleanly; non-admin 403; assert no `data`/payload key in response; reason redacted) in `apps/api/tests/unit/admin-queues.test.ts`
-- [ ] T034 [US4] Admin `Queues` page (per-queue counts + expandable redacted failures; no retry controls) in `apps/web/src/pages/admin/Queues.tsx`
+- [X] T031 [P] [US4] `queue-inspector` service — iterate `QUEUES.*`, read-only `Queue.getJobCounts()` + `getFailed(0,N)`, map failures to `{id,name,failedReason(redacted via job-redactor),failedAt,attemptsMade}` (never `job.data`) in `apps/api/src/services/queue-inspector.ts`
+- [X] T032 [P] [US4] `GET /api/v1/admin/queues` gated `admin.queues.read` in `apps/api/src/routes/admin/queues.ts`
+- [X] T033 [P] [US4] Queues tests — happy (counts + redacted failures) + sad (zero-count queue renders cleanly; non-admin 403; assert no `data`/payload key in response; reason redacted) in `apps/api/tests/unit/admin-queues.test.ts`
+- [X] T034 [US4] Admin `Queues` page (per-queue counts + expandable redacted failures; no retry controls) in `apps/web/src/pages/admin/Queues.tsx`
 
 **Checkpoint**: operator can spot stuck/failing background work.
 
@@ -83,9 +83,9 @@ Tests are included (Constitution VI + spec request happy + sad paths). Stories a
 **Goal**: Wildcard + per-project cert expiry/days-left/warning; apex+wildcard DNS readiness; per-project backup recency + total storage; read-only.
 **Independent test**: Status view shows wildcard expiry/days-left/warning, per-project certs, DNS readiness, per-project last-backup + total backup storage.
 
-- [ ] T035 [P] [US5] `GET /api/v1/admin/certs` (read `wildcard_certs.not_after`→days-left + 30d warning, `pg_edge_certs` per-project, apex/wildcard DNS readiness via `allDnsReady`, backups recency + total from host `disk_breakdown.backups`) gated `admin.certs.read` in `apps/api/src/routes/admin/certs.ts`
-- [ ] T036 [P] [US5] Certs tests — happy (expiry/days-left/warning + DNS + backups) + sad (missing wildcard/per-project cert → graceful nulls, not 500; non-admin 403) in `apps/api/tests/unit/admin-certs.test.ts`
-- [ ] T037 [US5] Admin `Certs` page (wildcard + per-project certs, DNS readiness, backup status) in `apps/web/src/pages/admin/Certs.tsx`
+- [X] T035 [P] [US5] `GET /api/v1/admin/certs` (read `wildcard_certs.not_after`→days-left + 30d warning, `pg_edge_certs` per-project, apex/wildcard DNS readiness via `allDnsReady`, backups recency + total from host `disk_breakdown.backups`) gated `admin.certs.read` in `apps/api/src/routes/admin/certs.ts`
+- [X] T036 [P] [US5] Certs tests — happy (expiry/days-left/warning + DNS + backups) + sad (missing wildcard/per-project cert → graceful nulls, not 500; non-admin 403) in `apps/api/tests/unit/admin-certs.test.ts`
+- [X] T037 [US5] Admin `Certs` page (wildcard + per-project certs, DNS readiness, backup status) in `apps/web/src/pages/admin/Certs.tsx`
 
 **Checkpoint**: TLS/DNS/backup assurance at a glance.
 
