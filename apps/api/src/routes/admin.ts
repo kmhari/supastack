@@ -6,7 +6,7 @@
  * the worker observer's job). Every handler degrades to an empty shape on a
  * missing/empty source rather than 500 (FR-030).
  */
-import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import { desc, eq } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
 import { queryLogs, type LogService } from '../services/logflare-client.js';
@@ -73,16 +73,29 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
 
-    const headers = forwardAuth(req);
-    const services = await delegate(app, `/platform/projects/${ref}/services`, headers);
-    const dbStatus = await delegate(app, `/platform/projects/${ref}/databases-statuses`, headers);
-
+    // Per-service health is derived from the instance status (installation-wide;
+    // not org-scoped). The platform /services endpoint synthesizes the same thing
+    // (all services = instance status) but requires org membership, so we compute
+    // it directly here for the installation-admin view.
+    const running = inst.status === 'running';
+    const SERVICES = [
+      'kong',
+      'auth',
+      'rest',
+      'storage',
+      'realtime',
+      'meta',
+      'functions',
+      'analytics',
+      'imgproxy',
+      'studio',
+    ];
     return reply.send({
       ref: inst.ref,
       status: inst.status,
       version: inst.version,
-      services: Array.isArray(services) ? services : [],
-      database: { status: extractDbStatus(dbStatus) },
+      services: SERVICES.map((name) => ({ name, healthy: running })),
+      database: { status: running ? 'ACTIVE_HEALTHY' : 'UNAVAILABLE' },
     });
   });
 
@@ -284,34 +297,3 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
   });
 };
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
-function forwardAuth(req: FastifyRequest): Record<string, string> {
-  const h: Record<string, string> = {};
-  if (typeof req.headers.authorization === 'string') h.authorization = req.headers.authorization;
-  if (typeof req.headers.cookie === 'string') h.cookie = req.headers.cookie;
-  return h;
-}
-
-async function delegate(
-  app: Parameters<FastifyPluginAsync>[0],
-  url: string,
-  headers: Record<string, string>,
-): Promise<unknown> {
-  try {
-    const res = await app.inject({ method: 'GET', url, headers });
-    return res.statusCode === 200 ? res.json() : null;
-  } catch {
-    return null;
-  }
-}
-
-function extractDbStatus(payload: unknown): string {
-  if (Array.isArray(payload) && payload[0] && typeof payload[0] === 'object') {
-    const s = (payload[0] as { status?: string }).status;
-    if (typeof s === 'string') return s;
-  }
-  if (payload && typeof payload === 'object' && typeof (payload as { status?: string }).status === 'string') {
-    return (payload as { status: string }).status;
-  }
-  return 'UNKNOWN';
-}
