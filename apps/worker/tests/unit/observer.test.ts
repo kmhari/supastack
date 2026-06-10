@@ -21,7 +21,7 @@ vi.mock('@supastack/db', () => {
       controlPlaneSnapshots: table('control_plane_snapshots'),
     },
     db: () => ({
-      insert: (t: { __table: string }) => ({
+      insert: () => ({
         values: (rows: Record<string, unknown> | Record<string, unknown>[]) => {
           const builder = {
             onConflictDoUpdate: (cfg: { set: Record<string, unknown> }) => {

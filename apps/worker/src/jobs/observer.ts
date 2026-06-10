@@ -166,13 +166,27 @@ function round2(n: number): number {
 export function makeRealDeps(): ObserverDeps {
   // Lazy-import dockerode so the module (pure fns + runObserver) loads without it
   // in unit tests, which never call makeRealDeps.
-  let cached: { listContainers: Function; getContainer: Function; info: Function } | null = null;
-  const docker = async () => {
+  type DockerLike = {
+    listContainers: (o: { all: boolean }) => Promise<{ Id: string; Names?: string[] }[]>;
+    getContainer: (id: string) => {
+      stats: (o: { stream: boolean }) => Promise<unknown>;
+      inspect: () => Promise<unknown>;
+      logs: (o: {
+        stdout: boolean;
+        stderr: boolean;
+        tail: number;
+        timestamps: boolean;
+      }) => Promise<unknown>;
+    };
+    info: () => Promise<unknown>;
+  };
+  let cached: DockerLike | null = null;
+  const docker = async (): Promise<DockerLike> => {
     if (!cached) {
       const Docker = (await import('dockerode')).default;
-      cached = new Docker() as unknown as typeof cached;
+      cached = new Docker() as unknown as DockerLike;
     }
-    return cached!;
+    return cached;
   };
 
   return {
