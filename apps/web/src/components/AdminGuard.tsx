@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { isInstallationAdmin } from '@/lib/api';
 
 /**
  * Client-side gate for /admin: only an installation admin (role 'admin', i.e.
@@ -35,7 +36,7 @@ export function AdminGuard({ children }: { children: ReactNode }): React.ReactEl
     );
   }
 
-  if (user.role !== 'owner' && user.role !== 'administrator') {
+  if (!isInstallationAdmin(user.role)) {
     return (
       <div className="py-16 text-sm text-foreground-light">
         <p className="font-medium text-foreground">Not authorized</p>
