@@ -91,9 +91,9 @@ Tests are included (Constitution VI + spec request happy + sad paths). Stories a
 
 ## Phase 8: Polish & cross-cutting
 
-- [ ] T038 [P] Runbook `docs/changes/116-admin-ops-console.md` (architecture, observer cadence/retention env, deploy order, slice status)
-- [ ] T039 [P] Add `OBSERVER_INTERVAL_MS` + `OBSERVER_RETENTION_DAYS` to the worker service env in `infra/docker-compose.yml` (defaults 60000 / 7) — no api change
-- [ ] T040 Full gate: `pnpm -w build && pnpm -w lint` + run all new test files green (api, web, worker, shared, db migration idempotency)
+- [X] T038 [P] Runbook `docs/changes/116-admin-ops-console.md` (architecture, observer cadence/retention env, deploy order, slice status)
+- [X] T039 [P] Add `OBSERVER_INTERVAL_MS` + `OBSERVER_RETENTION_DAYS` to the worker service env in `infra/docker-compose.yml` (defaults 60000 / 7) — no api change
+- [X] T040 Full gate: `pnpm -w build && pnpm -w lint` + run all new test files green (api, web, worker, shared, db migration idempotency)
 - [ ] T041 Deploy + live-VM smoke per [quickstart.md](./quickstart.md): rebuild `web` + `api` + `worker`, run migration, reload Caddy; verify docs personalization, admin gate (admin 200 / non-admin 403), fleet/system/logs, resources after a tick, queues redaction, certs/DNS/backups; confirm the fleet + resources lists stay responsive and the filter works with ≥50 projects (SC-008/FR-031)
 
 ## Dependencies & order
