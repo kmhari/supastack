@@ -11,3 +11,4 @@ export * from './project-config.js';
 export * from './oauth.js';
 export * from './restore-jobs.js';
 export * from './sql-snippets.js';
+export * from './observability.js';

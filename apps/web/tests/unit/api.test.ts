@@ -40,6 +40,8 @@ const mockClient = {
     calls.push({ method: 'delete', url, cfg });
     return Promise.resolve({ data: { url, method: 'delete' } });
   }),
+  // feature 116 — api.ts registers a request interceptor (dashboard-token Bearer) at load.
+  interceptors: { request: { use: vi.fn() } },
 };
 
 vi.mock('axios', () => ({

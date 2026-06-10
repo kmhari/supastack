@@ -314,6 +314,9 @@ importers:
       bullmq:
         specifier: ^5.12.0
         version: 5.76.11
+      dockerode:
+        specifier: ^4.0.2
+        version: 4.0.12
       drizzle-orm:
         specifier: ^0.33.0
         version: 0.33.0(@types/pg@8.20.0)(@types/react@18.3.29)(pg@8.21.0)(postgres@3.4.9)(react@18.3.1)
@@ -327,6 +330,9 @@ importers:
         specifier: ^6.19.7
         version: 6.25.0
     devDependencies:
+      '@types/dockerode':
+        specifier: ^3.3.31
+        version: 3.3.47
       '@types/pg':
         specifier: ^8.11.10
         version: 8.20.0

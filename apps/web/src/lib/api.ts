@@ -12,13 +12,44 @@ import axios, { type AxiosInstance } from 'axios';
 const BASE: string =
   (import.meta as ImportMeta & { env: { VITE_API_URL?: string } }).env.VITE_API_URL ?? '';
 
-const client: AxiosInstance = axios.create({
+// Exported so feature-specific clients (e.g. lib/admin-api.ts) reuse the same
+// configured instance + envelope unwrap.
+export const client: AxiosInstance = axios.create({
   baseURL: `${BASE}/api/v1`,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true, // session cookies
 });
 
-const unwrap = <T>(p: Promise<{ data: T }>): Promise<T> => p.then((r) => r.data);
+export const unwrap = <T>(p: Promise<{ data: T }>): Promise<T> => p.then((r) => r.data);
+
+/**
+ * Reuse the dashboard's GoTrue session as the Bearer credential for the
+ * control-plane API. The Studio (same apex origin) persists its session in
+ * localStorage under `supabase.dashboard.auth.token`; we read the access token
+ * and attach it so `/auth/me` + `/admin/*` authenticate as the logged-in
+ * operator. The api validates it as a GoTrue JWT (feature 084). Feature 116.
+ */
+export function getDashboardToken(): string | null {
+  try {
+    const raw = window.localStorage.getItem('supabase.dashboard.auth.token');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      access_token?: string;
+      currentSession?: { access_token?: string };
+    };
+    return parsed.access_token ?? parsed.currentSession?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+client.interceptors.request.use((config) => {
+  const token = getDashboardToken();
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 // ─── setup ───────────────────────────────────────────────────────────────────
 export const setupApi = {
@@ -31,11 +62,14 @@ export const setupApi = {
 // Feature 084 — login/logout moved to GoTrue (/auth/v1/{token,logout}); these
 // two helpers are retained only because `auth-context` still references them.
 // `me` resolves via the api and is used by the setup wizard's auth gate.
+// The api returns the operator's global role (highest across their orgs).
+export type DashboardRole = 'owner' | 'administrator' | 'developer' | 'read_only';
+
 export const authApi = {
   login: (body: { email: string; password: string }) => unwrap(client.post('/auth/login', body)),
   logout: () => unwrap(client.post('/auth/logout')),
   me: () =>
-    unwrap<{ userId: string; email: string; role: 'admin' | 'member' }>(client.get('/auth/me')),
+    unwrap<{ userId: string; email: string; role: DashboardRole }>(client.get('/auth/me')),
 };
 
 // ─── apex domain + TLS status (setup wizard step 2) ─────────────────────────

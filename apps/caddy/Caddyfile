@@ -79,8 +79,25 @@
 	handle /internal/* {
 		respond 404
 	}
-	# Setup wizard + admin-only Supastack pages stay on the web SPA
+	# Setup wizard + supastack-owned web pages (docs + admin) stay on the web SPA.
+	# Feature 116 — /docs (public) + /admin (console) precede the setup-gate below.
 	handle /setup* {
+		reverse_proxy web:80
+	}
+	handle /docs* {
+		reverse_proxy web:80
+	}
+	handle /admin* {
+		reverse_proxy web:80
+	}
+	# SPA static assets (Vite output + public/) must reach the web container too.
+	handle /assets/* {
+		reverse_proxy web:80
+	}
+	handle /fonts/* {
+		reverse_proxy web:80
+	}
+	handle /favicon.ico {
 		reverse_proxy web:80
 	}
 	# Feature 086 US5 — boot default is GATED: redirect everything to /setup
@@ -156,8 +173,25 @@ api.{$SUPASTACK_APEX} {
 	handle /internal/* {
 		respond 404
 	}
-	# Setup wizard + admin-only Supastack pages stay on the web SPA
+	# Setup wizard + supastack-owned web pages (docs + admin) stay on the web SPA.
+	# Feature 116 — /docs (public) + /admin (console) precede the setup-gate below.
 	handle /setup* {
+		reverse_proxy web:80
+	}
+	handle /docs* {
+		reverse_proxy web:80
+	}
+	handle /admin* {
+		reverse_proxy web:80
+	}
+	# SPA static assets (Vite output + public/) must reach the web container too.
+	handle /assets/* {
+		reverse_proxy web:80
+	}
+	handle /fonts/* {
+		reverse_proxy web:80
+	}
+	handle /favicon.ico {
 		reverse_proxy web:80
 	}
 	# Feature 086 US5 — boot default is GATED (redirect to /setup until setup

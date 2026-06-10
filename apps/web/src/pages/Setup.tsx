@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Circle, Loader2, AlertTriangle, AlertCircle } from 'lucide-react';
 import {
   apexApi,
@@ -25,7 +25,6 @@ const masterTokenRef: { current: string | null } = { current: null };
 const apexRef: { current: string } = { current: '' };
 
 export function SetupPage(): React.ReactElement {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { refresh } = useAuth();
   const [step, setStep] = useState<Step>('loading');
@@ -54,7 +53,10 @@ export function SetupPage(): React.ReactElement {
       }
       if (cancelled) return;
       if (!authed) {
-        navigate('/login', { replace: true });
+        // Setup is done but no session — leave the SPA to the dashboard (which
+        // handles sign-in). Full-page nav: a react-router navigate to '/' would
+        // be caught by the SPA catch-all and bounce back to /setup (loop).
+        window.location.replace('/');
         return;
       }
       try {
@@ -67,7 +69,9 @@ export function SetupPage(): React.ReactElement {
           if (searchParams.get('step') === '4') {
             setStep('cli-onboard');
           } else {
-            navigate('/', { replace: true });
+            // Already set up — leave the SPA to the dashboard (full-page nav, not
+            // react-router, which would loop via the catch-all → /setup).
+            window.location.replace('/');
             return;
           }
         } else {
@@ -75,7 +79,7 @@ export function SetupPage(): React.ReactElement {
           setStep('domain-certs');
         }
       } catch {
-        if (!cancelled) navigate('/', { replace: true });
+        if (!cancelled) window.location.replace('/');
         return;
       }
       setBootstrapped(true);
@@ -83,7 +87,7 @@ export function SetupPage(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [bootstrapped, navigate, searchParams]);
+  }, [bootstrapped, searchParams]);
 
   if (step === 'loading') {
     return (
