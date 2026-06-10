@@ -150,7 +150,12 @@ export async function buildCaddyConfig(): Promise<unknown> {
       // Setup wizard + supastack-owned web pages stay on the web SPA. Feature 116
       // adds the public `/docs/*` guides + the admin `/admin/*` console; both must
       // precede the setup-gate catch-all below so they are always reachable.
-      match: [{ path: ['/setup*', '/docs*', '/admin*'] }],
+      // The pages (/setup, /docs, /admin) AND the SPA's static assets
+      // (/assets, /fonts, /favicon) must reach the web container — otherwise the
+      // JS/CSS bundle falls to the studio catch-all and 404s (blank page).
+      match: [
+        { path: ['/setup*', '/docs*', '/admin*', '/assets/*', '/fonts/*', '/favicon.ico'] },
+      ],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'web:80' }] }],
     },
     {
