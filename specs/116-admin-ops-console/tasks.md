@@ -6,8 +6,8 @@ Tests are included (Constitution VI + spec request happy + sad paths). Stories a
 
 ## Phase 1: Setup (shared scaffolding)
 
-- [ ] T001 [P] Replace the `/setup`-only router with a real router + shared `AppShell` (header, public nav "Setup · Docs", Supabase-DS theme) in `apps/web/src/App.tsx` and `apps/web/src/components/AppShell.tsx`
-- [ ] T002 [P] Route `/docs*` and `/admin*` → `web:80` in BOTH `apps/caddy/Caddyfile` and `apps/api/src/services/caddy-config.ts` `dashboardSubroutes` (before the setup-gate catch-all), with a caddy-config unit test asserting both routes precede the catch-all in `apps/api/tests/unit/caddy-config-docs-admin.test.ts`
+- [X] T001 [P] Replace the `/setup`-only router with a real router + shared `AppShell` (header, public nav "Setup · Docs", Supabase-DS theme) in `apps/web/src/App.tsx` and `apps/web/src/components/AppShell.tsx`
+- [X] T002 [P] Route `/docs*` and `/admin*` → `web:80` in BOTH `apps/caddy/Caddyfile` and `apps/api/src/services/caddy-config.ts` `dashboardSubroutes` (before the setup-gate catch-all), with a caddy-config unit test asserting both routes precede the catch-all in `apps/api/tests/unit/caddy-config-docs-admin.test.ts`
 - [ ] T003 [P] Add admin RBAC actions (`admin.console.read`, `admin.resources.read`, `admin.queues.read`, `admin.certs.read`) to `packages/shared/src/rbac.ts` (granted to `owner` + `administrator` only) and `QUEUES.observer` to `packages/shared/src/queues.ts`
 
 ## Phase 2: Foundational (blocking prerequisites)
@@ -21,20 +21,20 @@ Tests are included (Constitution VI + spec request happy + sad paths). Stories a
 - [ ] T008 [P] `AdminGuard` (gate on session role via `authApi.me`; owner/administrator only, else redirect/deny) + `AdminLayout` (admin nav) in `apps/web/src/components/AdminGuard.tsx` and `apps/web/src/components/AdminLayout.tsx`
 - [ ] T009 [P] Typed admin API client for `/api/v1/admin/*` in `apps/web/src/lib/admin-api.ts`
 - [ ] T010 [P] RBAC matrix contract test asserting each new `admin.*` action is granted to `owner`+`administrator` and denied to `developer`+`read_only` in `packages/shared/tests/rbac-matrix.test.ts`
-- [ ] T011 [P] Add the new admin/docs pages to the `EXPECTED_PAGES` registry so coverage lint passes in `apps/web/scripts/check-page-coverage.mjs`
+- [X] T011 ~~[P] Add the new admin/docs pages to the `EXPECTED_PAGES` registry so coverage lint passes in `apps/web/scripts/check-page-coverage.mjs`~~ — N/A: the EXPECTED_PAGES page-coverage registry was removed with the apps/web e2e harness in feature 086; no registry to update.
 
 ## Phase 3: User Story 1 — Public setup docs (Priority: P1)
 
 **Goal**: Public `/docs/{index,cli,mcp}` with apex-personalized, copy-ready snippets — reachable signed-out.
 **Independent test**: Open `/docs/cli` + `/docs/mcp` on a configured platform; snippets show the real apex; copy works; pages load without sign-in.
 
-- [ ] T012 [P] [US1] Pure `buildSnippets(apex)` (reuses `getWrapperSnippet` from `cli-wrapper.ts`; per-editor MCP JSON map for Claude Code/Cursor/Windsurf/Claude Desktop; `<your-apex>` fallback when apex null) in `apps/web/src/lib/snippets.ts`
-- [ ] T013 [P] [US1] `buildSnippets` unit test (apex personalization vs `<your-apex>` fallback; 4 editor JSON shapes; CLI profile path) in `apps/web/tests/unit/snippets.test.ts`
-- [ ] T014 [P] [US1] `DocsLayout` (left sidebar Overview · CLI · MCP + content area) in `apps/web/src/components/DocsLayout.tsx`
-- [ ] T015 [P] [US1] `/docs` index page (intro + CLI/MCP cards) in `apps/web/src/pages/docs/Index.tsx`
-- [ ] T016 [P] [US1] `/docs/cli` page (wrapper quickstart + collapsible "Manual setup" + per-block Copy; fetches apex via `apexApi.status`) in `apps/web/src/pages/docs/Cli.tsx`
-- [ ] T017 [P] [US1] `/docs/mcp` page (personalized `mcp.<apex>/mcp`, 4 editor tabs, authorize-flow explainer, revoke link, Copy) in `apps/web/src/pages/docs/Mcp.tsx`
-- [ ] T018 [US1] Wire `/docs` routes + the "Docs" nav entry into `apps/web/src/App.tsx` / `AppShell`
+- [X] T012 [P] [US1] Pure `buildSnippets(apex)` (reuses `getWrapperSnippet` from `cli-wrapper.ts`; per-editor MCP JSON map for Claude Code/Cursor/Windsurf/Claude Desktop; `<your-apex>` fallback when apex null) in `apps/web/src/lib/snippets.ts`
+- [X] T013 [P] [US1] `buildSnippets` unit test (apex personalization vs `<your-apex>` fallback; 4 editor JSON shapes; CLI profile path) in `apps/web/tests/unit/snippets.test.ts`
+- [X] T014 [P] [US1] `DocsLayout` (left sidebar Overview · CLI · MCP + content area) in `apps/web/src/components/DocsLayout.tsx`
+- [X] T015 [P] [US1] `/docs` index page (intro + CLI/MCP cards) in `apps/web/src/pages/docs/Index.tsx`
+- [X] T016 [P] [US1] `/docs/cli` page (wrapper quickstart + collapsible "Manual setup" + per-block Copy; fetches apex via `apexApi.status`) in `apps/web/src/pages/docs/Cli.tsx`
+- [X] T017 [P] [US1] `/docs/mcp` page (personalized `mcp.<apex>/mcp`, 4 editor tabs, authorize-flow explainer, revoke link, Copy) in `apps/web/src/pages/docs/Mcp.tsx`
+- [X] T018 [US1] Wire `/docs` routes + the "Docs" nav entry into `apps/web/src/App.tsx` / `AppShell`
 
 **Checkpoint**: docs shippable on their own (no auth, no admin).
 
