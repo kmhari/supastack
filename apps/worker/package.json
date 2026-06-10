@@ -19,12 +19,14 @@
     "@supastack/docker-control": "workspace:*",
     "@supastack/shared": "workspace:*",
     "bullmq": "^5.12.0",
+    "dockerode": "^4.0.2",
     "drizzle-orm": "^0.33.0",
     "ioredis": "^5.4.1",
     "pg": "^8.13.0",
     "undici": "^6.19.7"
   },
   "devDependencies": {
+    "@types/dockerode": "^3.3.31",
     "@types/pg": "^8.11.10",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",

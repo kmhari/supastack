@@ -12,13 +12,15 @@ import axios, { type AxiosInstance } from 'axios';
 const BASE: string =
   (import.meta as ImportMeta & { env: { VITE_API_URL?: string } }).env.VITE_API_URL ?? '';
 
-const client: AxiosInstance = axios.create({
+// Exported so feature-specific clients (e.g. lib/admin-api.ts) reuse the same
+// configured instance + envelope unwrap.
+export const client: AxiosInstance = axios.create({
   baseURL: `${BASE}/api/v1`,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true, // session cookies
 });
 
-const unwrap = <T>(p: Promise<{ data: T }>): Promise<T> => p.then((r) => r.data);
+export const unwrap = <T>(p: Promise<{ data: T }>): Promise<T> => p.then((r) => r.data);
 
 // ─── setup ───────────────────────────────────────────────────────────────────
 export const setupApi = {
