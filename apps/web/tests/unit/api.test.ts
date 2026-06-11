@@ -82,17 +82,22 @@ describe('setupApi', () => {
 });
 
 describe('authApi', () => {
-  it('login posts credentials', async () => {
+  it('login posts credentials to GoTrue and stores the session for the Bearer interceptor', async () => {
+    // NOT /api/v1/auth/login — feature 084 deleted that route; the wizard
+    // was sessionless after admin creation until this went to GoTrue.
+    window.localStorage.removeItem('supabase.dashboard.auth.token');
     await apiMod.authApi.login({ email: 'a@b', password: 'x' });
     expect(lastCall()).toMatchObject({
       method: 'post',
-      url: '/auth/login',
+      url: '/auth/v1/token?grant_type=password',
       body: { email: 'a@b', password: 'x' },
     });
+    expect(window.localStorage.getItem('supabase.dashboard.auth.token')).toBeTruthy();
   });
-  it('logout → POST /auth/logout', async () => {
+  it('logout clears the stored session', async () => {
+    window.localStorage.setItem('supabase.dashboard.auth.token', '{"access_token":"t"}');
     await apiMod.authApi.logout();
-    expect(lastCall()).toMatchObject({ method: 'post', url: '/auth/logout' });
+    expect(window.localStorage.getItem('supabase.dashboard.auth.token')).toBeNull();
   });
   it('me → GET /auth/me', async () => {
     await apiMod.authApi.me();

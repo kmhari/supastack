@@ -76,8 +76,21 @@ export function isInstallationAdmin(role: string | null | undefined): boolean {
 }
 
 export const authApi = {
-  login: (body: { email: string; password: string }) => unwrap(client.post('/auth/login', body)),
-  logout: () => unwrap(client.post('/auth/logout')),
+  // Login goes straight to GoTrue (feature 084 deleted the api's /auth/login;
+  // this helper kept posting to the dead route — fresh-install wizard had no
+  // session after creating the admin and every authed call 401'd). The session
+  // is stored under the SAME localStorage key the request interceptor (and
+  // Studio) read the Bearer token from.
+  login: async (body: { email: string; password: string }): Promise<void> => {
+    const session = await unwrap<{ access_token: string }>(
+      client.post('/auth/v1/token?grant_type=password', body),
+    );
+    window.localStorage.setItem('supabase.dashboard.auth.token', JSON.stringify(session));
+  },
+  logout: () => {
+    window.localStorage.removeItem('supabase.dashboard.auth.token');
+    return Promise.resolve();
+  },
   me: () =>
     unwrap<{ userId: string; email: string; role: DashboardRole }>(client.get('/auth/me')),
 };

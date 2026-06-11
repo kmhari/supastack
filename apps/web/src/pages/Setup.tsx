@@ -103,6 +103,16 @@ export function SetupPage(): React.ReactElement {
         <AdminStep
           onCreated={async () => {
             await refresh();
+            // Fresh install: apexRef was never populated (the bootstrap only
+            // fills it on the setup-already-done path) — without this the
+            // cert step rendered the "real domain required" block on a real
+            // apex (shipfan.xyz E2E, 2026-06-12).
+            try {
+              const st = await apexApi.status();
+              apexRef.current = st.apex ?? '';
+            } catch {
+              /* DomainCertsStep shows its own error states */
+            }
             setStep('domain-certs');
           }}
           setMasterToken={(t) => {
@@ -148,6 +158,10 @@ function AdminStep({
     try {
       const out = await setupApi.run({ email, password, orgName });
       setMasterToken(out.apiToken);
+      // Establish the GoTrue session NOW — every later wizard call (apex
+      // status, cert initiate/verify) is authenticated, and on a fresh
+      // install no session exists yet.
+      await authApi.login({ email, password });
       onCreated();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
