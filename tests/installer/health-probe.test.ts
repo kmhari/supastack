@@ -22,3 +22,10 @@ describe('install.sh — health gate probe', () => {
     expect(src).toMatch(/exec -T api node -e .*fetch\('http:\/\/localhost:3001\/api\/v1\/health'\)/);
   });
 });
+
+describe('install.sh — repo-free staging is the installer\'s job', () => {
+  it('stages pre-staged files from the script dir into INSTALL_DIR itself (no operator sudo/mkdir)', () => {
+    expect(src).toMatch(/have_needed_files "\$SCRIPT_DIR"/);
+    expect(src).toMatch(/sudo mkdir -p "\$INSTALL_DIR\/infra" "\$INSTALL_DIR\/scripts"/);
+  });
+});

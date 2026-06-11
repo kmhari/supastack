@@ -90,31 +90,45 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 ok "docker compose $(docker compose version --short)"
 
-# ─── 2. source files — git checkout, pre-staged files, or clone ─────────────
+# ─── 2. source files — git checkout, files beside this script, or clone ─────
 # Pull mode needs exactly THREE repo files; everything else is pulled images.
-# Pre-stage them (e.g. scp) into $INSTALL_DIR and no git/repo access is needed:
+# Repo-free install: scp this script PLUS those files (keeping their relative
+# layout) into any directory — e.g. your home dir — and run it. No sudo, no
+# git, no prep on the operator's part; the installer stages them into
+# $INSTALL_DIR itself:
 #   infra/docker-compose.yml   infra/Caddyfile   scripts/derive-gotrue-secret.mjs
 NEEDED_FILES=(infra/docker-compose.yml infra/Caddyfile scripts/derive-gotrue-secret.mjs)
-have_needed_files() {
-  local f
-  for f in "${NEEDED_FILES[@]}"; do [[ -f "$INSTALL_DIR/$f" ]] || return 1; done
+have_needed_files() { # <base-dir>
+  local base="$1" f
+  for f in "${NEEDED_FILES[@]}"; do [[ -f "$base/$f" ]] || return 1; done
 }
+SCRIPT_DIR=""
+if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
 
 if [[ -d "$INSTALL_DIR/.git" ]]; then
   info "Updating existing checkout in $INSTALL_DIR"
   git -C "$INSTALL_DIR" fetch --depth=1 origin "$REPO_REF"
   git -C "$INSTALL_DIR" checkout "$REPO_REF"
   git -C "$INSTALL_DIR" reset --hard "origin/$REPO_REF" || true
-elif have_needed_files; then
-  ok "Pre-staged install files found in $INSTALL_DIR — skipping git entirely"
+elif have_needed_files "$INSTALL_DIR"; then
+  ok "Install files already present in $INSTALL_DIR — skipping git entirely"
+  [[ "$INSTALL_MODE" == "build" ]] && die "INSTALL_MODE=build needs a full source checkout, not pre-staged files. Clone the repo or use pull mode."
+elif [[ -n "$SCRIPT_DIR" && "$SCRIPT_DIR" != "$INSTALL_DIR" ]] && have_needed_files "$SCRIPT_DIR"; then
+  info "Staging install files from $SCRIPT_DIR → $INSTALL_DIR"
+  sudo mkdir -p "$INSTALL_DIR/infra" "$INSTALL_DIR/scripts"
+  sudo chown -R "$USER:$USER" "$INSTALL_DIR"
+  local_f=""
+  for local_f in "${NEEDED_FILES[@]}"; do cp "$SCRIPT_DIR/$local_f" "$INSTALL_DIR/$local_f"; done
   [[ "$INSTALL_MODE" == "build" ]] && die "INSTALL_MODE=build needs a full source checkout, not pre-staged files. Clone the repo or use pull mode."
 else
-  command -v git >/dev/null 2>&1 || die "git not found. Install it (sudo apt install -y git) — or pre-stage ${NEEDED_FILES[*]} into $INSTALL_DIR and re-run (no git needed)."
+  command -v git >/dev/null 2>&1 || die "git not found. Install it (sudo apt install -y git) — or place ${NEEDED_FILES[*]} next to this script and re-run (no git needed)."
   info "Cloning $REPO_URL@$REPO_REF → $INSTALL_DIR"
   sudo mkdir -p "$INSTALL_DIR"
   sudo chown -R "$USER:$USER" "$INSTALL_DIR"
   git clone --depth=1 --branch "$REPO_REF" "$REPO_URL" "$INSTALL_DIR" \
-    || die "Clone failed (private repo / no auth?). Alternative: scp ${NEEDED_FILES[*]} into $INSTALL_DIR and re-run."
+    || die "Clone failed (private repo / no auth?). Alternative: place ${NEEDED_FILES[*]} next to this script and re-run."
 fi
 cd "$INSTALL_DIR"
 
