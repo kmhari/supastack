@@ -30,6 +30,12 @@ FROM base AS runtime
 COPY --from=deps /app /app
 COPY apps/worker ./apps/worker
 COPY packages ./packages
+# Per-project compose template, baked in so the image is self-contained
+# (registry-pullable without the source repo). provision.ts reads it at
+# TEMPLATE_DIR (/app/infra/supabase-template) — previously a bind-mount,
+# which silently became an empty dir on hosts without the repo checkout.
+# Template changes now ship as a new worker image (versioned, auditable).
+COPY infra/supabase-template ./infra/supabase-template
 WORKDIR /app/apps/worker
 ENV NODE_ENV=production
 CMD ["pnpm", "exec", "tsx", "src/main.ts"]

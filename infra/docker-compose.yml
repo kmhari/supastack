@@ -241,7 +241,8 @@ services:
       - /var/supastack/instances:/var/supastack/instances
       - /var/supastack/backups:/var/supastack/backups
       - /var/run/docker.sock:/var/run/docker.sock
-      - ../infra/supabase-template:/app/infra/supabase-template:ro
+      # supabase-template is baked into the image (apps/worker/Dockerfile) — no
+      # bind-mount, so the pulled image works without the source repo on disk.
     networks: [internal]
     # Feature 008 — pg-password probe (provision worker + pooler-reconciler)
     # needs to reach per-instance Postgres via host.docker.internal:<port_db_direct>.
