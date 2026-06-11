@@ -120,7 +120,9 @@ services:
       - '443:443'
       # Port 5432 is owned by the api container's pg-edge-proxy (feature 005)
     volumes:
-      - ../apps/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Sibling file — the full install distributable is this dir: compose +
+      # Caddyfile + generated .env (everything else is pulled images).
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
       - certs-data:/var/supastack/certs:ro
@@ -230,7 +232,11 @@ services:
       CADDY_ADMIN_URL: http://caddy:2019
       INSTANCES_DIR: /var/supastack/instances
       BACKUPS_DIR: /var/supastack/backups
-      STUDIO_IMAGE: ${STUDIO_IMAGE:-supastack/studio:latest}
+      # Per-instance Studio = the STOCK upstream image (IS_PLATFORM=false is
+      # domain-agnostic by design). NOT the old locally-built supastack/studio —
+      # that build is gone; a non-hub default here breaks provisioning on
+      # pull-mode installs. Keep in sync with provision.ts's default.
+      STUDIO_IMAGE: ${STUDIO_IMAGE:-supabase/studio:2026.04.27-sha-5f60601}
       # Feature 008 — worker pooler-reconciler needs to call supavisor admin API.
       SUPAVISOR_URL: http://supavisor:4000
       SUPAVISOR_API_JWT_SECRET: ${SUPAVISOR_API_JWT_SECRET:-}

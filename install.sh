@@ -18,10 +18,13 @@
 #                    so curl|bash still prompts) > localhost (warned).
 #   REPO_URL         git source (default: this repo's origin)
 #   REPO_REF         git branch/tag/commit (default: main)
-#   SUPASTACK_VERSION docker tag suffix for built images (default: dev)
-#   STUDIO_IMAGE     prebuilt Studio image tag (default: supastack/studio:<commit>)
+#   INSTALL_MODE     pull (default) — pull prebuilt platform images from Docker
+#                    Hub, no source builds; build — build images from this
+#                    checkout (development / hacking on supastack itself).
+#   SUPASTACK_VERSION image tag: pull mode defaults to 'latest' (pin a git sha
+#                    for production); build mode defaults to 'dev'.
 #   LOG_LEVEL        pino log level for api+worker (default: info)
-#   SKIP_BUILD       set to 1 to skip image builds (useful if pre-pulled)
+#   SUPASTACK_SKIP_UP set to 1 to stop after config generation (CI / testing).
 set -Eeuo pipefail
 
 # ─── colours ────────────────────────────────────────────────────────────────
@@ -42,11 +45,18 @@ REPO_URL_DEFAULT=""
 if [[ -d "${BASH_SOURCE[0]%/*}/.git" ]]; then
   REPO_URL_DEFAULT="$(git -C "${BASH_SOURCE[0]%/*}" remote get-url origin 2>/dev/null || true)"
 fi
-REPO_URL="${REPO_URL:-${REPO_URL_DEFAULT:-https://github.com/your-org/supastack.git}}"
+REPO_URL="${REPO_URL:-${REPO_URL_DEFAULT:-https://github.com/kmhari/selfbase.git}}"
 REPO_REF="${REPO_REF:-main}"
-SUPASTACK_VERSION="${SUPASTACK_VERSION:-dev}"
+# pull = prebuilt images from Docker Hub (default); build = compile from source.
+INSTALL_MODE="${INSTALL_MODE:-pull}"
+case "$INSTALL_MODE" in pull|build) ;; *) die "INSTALL_MODE must be 'pull' or 'build' (got '$INSTALL_MODE')" ;; esac
+if [[ "$INSTALL_MODE" == "pull" ]]; then
+  SUPASTACK_VERSION="${SUPASTACK_VERSION:-latest}"
+else
+  SUPASTACK_VERSION="${SUPASTACK_VERSION:-dev}"
+fi
 LOG_LEVEL="${LOG_LEVEL:-info}"
-SKIP_BUILD="${SKIP_BUILD:-0}"
+SUPASTACK_SKIP_UP="${SUPASTACK_SKIP_UP:-0}"
 
 # ─── root check ─────────────────────────────────────────────────────────────
 if [[ $EUID -eq 0 ]]; then
@@ -103,7 +113,16 @@ sudo chown -R "$USER:$USER" "$DATA_DIR"
 # Generates a fresh .env on first run and back-fills any required var missing
 # from a pre-existing .env (e.g. one written by an older installer). compose
 # refuses to boot unless every required secret is present.
-ENV_FILE="$INSTALL_DIR/.env"
+#
+# Lives NEXT TO the compose file (infra/.env) — that's the directory docker
+# compose resolves .env from when invoked with -f, so manual compose commands
+# work after install without exporting anything. Older installers wrote
+# $INSTALL_DIR/.env; migrate it once.
+ENV_FILE="$INSTALL_DIR/infra/.env"
+if [[ -f "$INSTALL_DIR/.env" && ! -f "$ENV_FILE" ]]; then
+  info "Migrating legacy $INSTALL_DIR/.env → $ENV_FILE"
+  mv "$INSTALL_DIR/.env" "$ENV_FILE"
+fi
 
 # Resolve the apex (feature 117): positional arg → SUPASTACK_APEX env → existing
 # .env → interactive prompt → 'localhost'. Pure helper (first non-empty wins) so
@@ -166,8 +185,6 @@ else
   ok "Existing .env found at $ENV_FILE — back-filling any missing required vars"
 fi
 
-STUDIO_COMMIT="$(cat "$INSTALL_DIR/infra/supabase-template/COMMIT" 2>/dev/null || echo 'unknown')"
-
 # Required — compose refuses to boot without these.
 ensure_env MASTER_KEY                "$(openssl rand -hex 32)"
 ensure_env SESSION_SECRET            "$(openssl rand -hex 32)"
@@ -185,10 +202,13 @@ if ! grep -q '^GOTRUE_JWT_SECRET=' "$ENV_FILE" 2>/dev/null; then
   ensure_env GOTRUE_JWT_SECRET "$_gotrue"
 fi
 
-# Non-secret settings.
-ensure_env LOG_LEVEL         "$LOG_LEVEL"
-ensure_env SUPASTACK_VERSION "$SUPASTACK_VERSION"
-ensure_env STUDIO_IMAGE      "supastack/studio:$STUDIO_COMMIT"
+# Non-secret settings. SUPASTACK_VERSION / STUDIO_PLATFORM_VERSION select the
+# Docker Hub tags for the platform images — pin git shas for production
+# (see docs/containers-and-updates.md). Per-instance Studio uses the stock
+# upstream image (compose default); no STUDIO_IMAGE entry needed.
+ensure_env LOG_LEVEL               "$LOG_LEVEL"
+ensure_env SUPASTACK_VERSION       "$SUPASTACK_VERSION"
+ensure_env STUDIO_PLATFORM_VERSION "${STUDIO_PLATFORM_VERSION:-latest}"
 
 chmod 600 "$ENV_FILE"
 ok "Config ready at $ENV_FILE (600)"
@@ -201,39 +221,26 @@ set -a
 source "$ENV_FILE"
 set +a
 
-# ─── 5. build the Studio image once (per pinned commit) ─────────────────────
-if [[ "$SKIP_BUILD" != "1" ]]; then
-  STUDIO_COMMIT="$(cat "$INSTALL_DIR/infra/supabase-template/COMMIT" 2>/dev/null || echo '')"
-  if [[ -z "$STUDIO_COMMIT" ]]; then
-    warn "infra/supabase-template/COMMIT not found yet — Studio image will be built later."
-  else
-    STUDIO_TAG="supastack/studio:$STUDIO_COMMIT"
-    if docker image inspect "$STUDIO_TAG" >/dev/null 2>&1; then
-      ok "Studio image already built ($STUDIO_TAG)"
-    else
-      info "Building Studio image $STUDIO_TAG (one-time, ~2–4 min)…"
-      docker build \
-        --build-arg NEXT_PUBLIC_BASE_PATH=/studio \
-        --build-arg SUPABASE_COMMIT="$STUDIO_COMMIT" \
-        -t "$STUDIO_TAG" \
-        -f "$INSTALL_DIR/infra/studio/Dockerfile" \
-        "$INSTALL_DIR/infra/studio"
-      ok "Built $STUDIO_TAG"
-    fi
-  fi
+if [[ "$SUPASTACK_SKIP_UP" == "1" ]]; then
+  ok "SUPASTACK_SKIP_UP=1 — config generated, stopping before image pull/start."
+  exit 0
 fi
 
-# ─── 6. control-plane stack up ──────────────────────────────────────────────
-info "Pulling base images…"
-docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" pull --ignore-pull-failures || true
-
-if [[ "$SKIP_BUILD" != "1" ]]; then
-  info "Building control-plane images (api, worker, web)…"
-  docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" build
+# ─── 5. control-plane stack up ──────────────────────────────────────────────
+COMPOSE=(docker compose -f "$INSTALL_DIR/infra/docker-compose.yml")
+if [[ "$INSTALL_MODE" == "pull" ]]; then
+  info "Pulling platform images from Docker Hub (tag: $SUPASTACK_VERSION)…"
+  "${COMPOSE[@]}" pull
+  info "Starting control plane…"
+  "${COMPOSE[@]}" up -d --no-build
+else
+  info "Pulling vendor images…"
+  "${COMPOSE[@]}" pull --ignore-pull-failures || true
+  info "Building platform images from source (api, worker, mcp, web)…"
+  "${COMPOSE[@]}" build
+  info "Starting control plane…"
+  "${COMPOSE[@]}" up -d
 fi
-
-info "Starting control plane…"
-docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" up -d
 
 # ─── 7. wait for health ─────────────────────────────────────────────────────
 info "Waiting for control plane to become healthy…"
@@ -258,9 +265,10 @@ echo -e "${G}${B}  Supastack is running.${X}"
 echo -e "${B}═══════════════════════════════════════════════════${X}"
 echo
 echo -e "  Open: ${B}http://${PUBLIC_HOST}/setup${X}"
-echo "    create the super-admin account, then optionally register your apex domain."
+echo "    the wizard shows the DNS records for $SUPASTACK_APEX, verifies them,"
+echo "    issues the wildcard certificate, then creates the super-admin."
 echo
-echo "  Config:   $INSTALL_DIR/.env  (secrets — keep safe)"
+echo "  Config:   $ENV_FILE  (secrets — keep safe)"
 echo "  Data:     $DATA_DIR/instances  +  $DATA_DIR/backups"
 echo "  Manage:   docker compose -f $INSTALL_DIR/infra/docker-compose.yml ps"
 echo "            docker compose -f $INSTALL_DIR/infra/docker-compose.yml logs -f"
