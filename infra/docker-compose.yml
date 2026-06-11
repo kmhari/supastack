@@ -141,7 +141,7 @@ services:
       retries: 6
 
   api:
-    image: supastack/api:${SUPASTACK_VERSION:-dev}
+    image: kmhariharasudhan/supastack-api:${SUPASTACK_VERSION:-latest}
     build:
       context: ..
       dockerfile: apps/api/Dockerfile
@@ -211,7 +211,7 @@ services:
       retries: 12
 
   worker:
-    image: supastack/worker:${SUPASTACK_VERSION:-dev}
+    image: kmhariharasudhan/supastack-worker:${SUPASTACK_VERSION:-latest}
     build:
       context: ..
       dockerfile: apps/worker/Dockerfile
@@ -258,7 +258,7 @@ services:
   # Streamable HTTP transport at mcp.<apex>/mcp, gated by supastack OAuth
   # bearer tokens (feature 014).
   mcp:
-    image: supastack/mcp:${SUPASTACK_VERSION:-dev}
+    image: kmhariharasudhan/supastack-mcp:${SUPASTACK_VERSION:-latest}
     build:
       context: ..
       dockerfile: apps/mcp/Dockerfile
@@ -330,7 +330,7 @@ services:
       start_period: 30s
 
   web:
-    image: supastack/web:${SUPASTACK_VERSION:-dev}
+    image: kmhariharasudhan/supastack-web:${SUPASTACK_VERSION:-latest}
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
@@ -350,7 +350,7 @@ services:
     # not a restart — the entrypoint refuses a mismatched restart by design.
     # Replaces the Phase-1 checkout + in-container build (node:22-alpine +
     # /opt/supabase-vanilla + 18g build caps) — rollback = git revert this block.
-    image: supastack/studio-platform:${STUDIO_PLATFORM_VERSION:-spike}
+    image: kmhariharasudhan/supastack-studio-platform:${STUDIO_PLATFORM_VERSION:-latest}
     environment:
       SUPASTACK_APEX: ${SUPASTACK_APEX:?SUPASTACK_APEX required}
     networks: [internal]
