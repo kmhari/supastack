@@ -1,0 +1,23 @@
+# Per-Dockerfile ignore (BuildKit) for infra/studio-platform/Dockerfile.
+# Mirror of the upstream supabase monorepo .dockerignore PLUS `**/.env`:
+# the VM checkout carries apps/studio/.env with real secrets and
+# NEXT_PUBLIC_SITE_URL — plain `.env` is NOT covered by upstream's `**/.env.*`
+# and must never enter a domain-agnostic, publishable image.
+.git
+.github
+about
+docker
+examples
+i18n
+**/node_modules
+apps/docs/spec
+supabase
+tests
+
+**/.next
+.vercel
+**/.env
+**/.env.*
+
+.dockerignore
+apps/studio/Dockerfile
