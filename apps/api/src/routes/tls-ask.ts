@@ -1,7 +1,7 @@
 import { and, eq, not, inArray } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { db, schema } from '@supastack/db';
-import { logger } from '@supastack/shared';
+import { getApex, logger } from '@supastack/shared';
 
 // Tiny per-process LRU. 60-second TTL absorbs cert-renewal storms.
 const cache = new Map<string, { allowed: boolean; expires: number }>();
@@ -42,8 +42,7 @@ export const tlsAskRoutes: FastifyPluginAsync = async (app) => {
 };
 
 async function isAdmissible(domain: string): Promise<boolean> {
-  const orgRow = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
-  const apex = orgRow[0]?.apex;
+  const apex = getApex();
   if (!apex) return false;
 
   if (domain === apex) return true;

@@ -36,9 +36,9 @@ vi.mock('@supastack/db', () => {
     db: () => ({
       select: () => {
         const idx = callIndex++;
-        if (idx === 0) return chain([]); // installation — no apex
-        if (idx === 1) return chain([]); // wildcardCerts — none issued
-        if (idx === 2) return chain(fixtures.setupRows, fixtures.throwOnSetup); // setup_state
+        // feature 117 — buildCaddyConfig no longer selects installation (apex from env).
+        if (idx === 0) return chain([]); // wildcardCerts — none issued
+        if (idx === 1) return chain(fixtures.setupRows, fixtures.throwOnSetup); // setup_state
         return chain([]); // instances — none
       },
     }),
@@ -70,6 +70,7 @@ describe('buildCaddyConfig — setup-completion gate (feature 086 US5)', () => {
   beforeEach(() => {
     fixtures.setupRows = [];
     fixtures.throwOnSetup = false;
+    delete process.env.SUPASTACK_APEX; // no apex configured for these gate cases
     reset();
   });
 

@@ -3,7 +3,6 @@ import { eq } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
 import { encryptJson, loadMasterKey } from '@supastack/crypto';
 import { schemas, errors } from '@supastack/shared';
-import { reloadCaddy } from '../services/caddy-reload.js';
 
 // Feature 084 — /org now manages INSTALLATION settings (apex domain + backup
 // store), which were split out of the old `org` singleton. Tenant organizations
@@ -16,7 +15,6 @@ export const orgRoutes: FastifyPluginAsync = async (app) => {
     app.authorize(req, 'org.read');
     const [row] = await db()
       .select({
-        apexDomain: schema.installation.apexDomain,
         backupStoreKind: schema.installation.backupStoreKind,
       })
       .from(schema.installation)
@@ -37,18 +35,14 @@ export const orgRoutes: FastifyPluginAsync = async (app) => {
     const body = schemas.OrgPatchRequest.parse(req.body);
     const user = app.requireAuth(req);
     const [existing] = await db()
-      .select({ apex: schema.installation.apexDomain })
+      .select({ backupStoreKind: schema.installation.backupStoreKind })
       .from(schema.installation)
       .limit(1);
     if (!existing) throw errors.notFound('installation not initialized');
 
-    if (body.apexDomain !== undefined) {
-      await db()
-        .update(schema.installation)
-        .set({ apexDomain: body.apexDomain, updatedAt: new Date() })
-        .where(eq(schema.installation.id, INSTALLATION_ID));
-    }
-
+    // Apex is the single source of truth from SUPASTACK_APEX (feature 117) — it is
+    // NOT settable here. /org now only carries the audit trail + backup store; the
+    // domain changes via re-install, not this endpoint.
     await db().insert(schema.auditLog).values({
       actorUserId: user.id,
       action: 'org.update',
@@ -57,18 +51,8 @@ export const orgRoutes: FastifyPluginAsync = async (app) => {
       payload: body,
     });
 
-    // Apex change → reload Caddy so the new hostname starts serving.
-    if (body.apexDomain && body.apexDomain !== existing.apex) {
-      try {
-        await reloadCaddy();
-      } catch (err) {
-        req.log.warn({ err }, 'caddy reload after apex change failed');
-      }
-    }
-
     const [updated] = await db()
       .select({
-        apexDomain: schema.installation.apexDomain,
         backupStoreKind: schema.installation.backupStoreKind,
       })
       .from(schema.installation)

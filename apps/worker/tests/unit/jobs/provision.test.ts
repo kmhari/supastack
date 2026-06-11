@@ -172,6 +172,7 @@ describe('handleProvision', () => {
     provisionDefaultsMock.mockClear();
     instanceRow = freshRow();
     orgRow = { apex: 'example.test', name: 'demo' };
+    process.env.SUPASTACK_APEX = 'example.test'; // feature 117 — apex from env
   });
 
   it('happy path: provisioning → running, calls each pipeline step', async () => {
@@ -202,9 +203,9 @@ describe('handleProvision', () => {
     expect(dockerCalls).toHaveLength(0);
   });
 
-  it('missing apex_domain → throws + status=failed', async () => {
-    orgRow = null;
-    await expect(handleProvision({ ref })).rejects.toThrow(/apex_domain/);
+  it('missing apex (SUPASTACK_APEX unset) → throws + status=failed', async () => {
+    delete process.env.SUPASTACK_APEX;
+    await expect(handleProvision({ ref })).rejects.toThrow(/SUPASTACK_APEX/);
     expect(statusUpdates.some((u) => u.status === 'failed')).toBe(true);
   });
 

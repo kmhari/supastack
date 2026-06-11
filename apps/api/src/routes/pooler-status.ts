@@ -9,6 +9,7 @@ import { desc } from 'drizzle-orm';
 import { fetch } from 'undici';
 import crypto from 'node:crypto';
 import { db, schema } from '@supastack/db';
+import { getApex } from '@supastack/shared';
 
 const SUPAVISOR_URL = process.env.SUPAVISOR_URL ?? 'http://supavisor:4000';
 const SUPAVISOR_JWT_SECRET = process.env.SUPAVISOR_API_JWT_SECRET ?? '';
@@ -65,8 +66,7 @@ export const poolerStatusRoutes: FastifyPluginAsync = async (app) => {
   app.get('/api/v1/pooler/status', async (req) => {
     app.authorize(req, 'pooler.read');
 
-    const [orgRow] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
-    const apex = orgRow?.apex ?? null;
+    const apex = getApex();
     const endpoint = apex ? `pooler.${apex}:6543` : null;
 
     const health = await supavisorHealth();

@@ -223,6 +223,10 @@ services:
       DATABASE_URL: postgres://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack
       REDIS_URL: redis://redis:6379
       MASTER_KEY: ${MASTER_KEY:?MASTER_KEY required}
+      # Feature 117 — single-source apex: the worker reads SUPASTACK_APEX (via
+      # getApex) in provision + pooler-reconciler now that installation.apex_domain
+      # is dropped. Recreate (not restart) the worker to pick this up.
+      SUPASTACK_APEX: ${SUPASTACK_APEX:?SUPASTACK_APEX required}
       CADDY_ADMIN_URL: http://caddy:2019
       INSTANCES_DIR: /var/supastack/instances
       BACKUPS_DIR: /var/supastack/backups
