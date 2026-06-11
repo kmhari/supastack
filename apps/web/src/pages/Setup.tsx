@@ -40,30 +40,7 @@ export function SetupPage(): React.ReactElement {
         .catch(() => false);
       if (cancelled) return;
       if (open) {
-        // Cert-first ordering: DNS + wildcard cert (step 1) happens BEFORE
-        // account creation (step 2) so the admin password is submitted over
-        // HTTPS on the real domain, never plain http://<ip>. The apex/cert
-        // endpoints allow unauthenticated access while setup is open.
-        try {
-          const apexStatus = await apexApi.status();
-          if (cancelled) return;
-          const apex = apexStatus.apex ?? '';
-          apexRef.current = apex;
-          if (!isRealApex(apex)) {
-            setStep('admin'); // local/offline install — no public cert possible
-          } else if (apexStatus.cert?.issued) {
-            if (window.location.hostname !== apex) {
-              window.location.replace(`https://${apex}/setup`);
-              return;
-            }
-            setStep('admin');
-          } else {
-            setStep('domain-certs');
-          }
-        } catch {
-          if (cancelled) return;
-          setStep('domain-certs');
-        }
+        setStep('admin');
         setBootstrapped(true);
         return;
       }
@@ -122,23 +99,23 @@ export function SetupPage(): React.ReactElement {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8 font-sans">
+      {step === 'admin' && (
+        <AdminStep
+          onCreated={async () => {
+            await refresh();
+            setStep('domain-certs');
+          }}
+          setMasterToken={(t) => {
+            masterTokenRef.current = t;
+          }}
+        />
+      )}
       {step === 'domain-certs' && (
         <DomainCertsStep
           initialApex={apexRef.current}
           onDone={(apex) => {
             apexRef.current = apex;
-            setStep('admin');
-          }}
-        />
-      )}
-      {step === 'admin' && (
-        <AdminStep
-          onCreated={async () => {
-            await refresh();
             setStep('cli-onboard');
-          }}
-          setMasterToken={(t) => {
-            masterTokenRef.current = t;
           }}
         />
       )}
@@ -149,7 +126,7 @@ export function SetupPage(): React.ReactElement {
   );
 }
 
-// ─── Step 2: admin form (after certs — submitted over HTTPS on the apex) ───
+// ─── Step 1: admin form ────────────────────────────────────────────────────
 
 function AdminStep({
   onCreated,
@@ -185,7 +162,7 @@ function AdminStep({
       <Wordmark />
       <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">First-time setup</h1>
       <p className="m-0 text-sm text-muted-foreground">
-        Step 2 of 3 — create the super-admin account for this Supastack install.
+        Step 1 of 3 — create the super-admin account for this Supastack install.
       </p>
       <Field label="Email">
         <Input
@@ -229,7 +206,7 @@ function AdminStep({
   );
 }
 
-// ─── Step 1: domain + certs (merged) ───────────────────────────────────────
+// ─── Step 2: domain + certs (merged) ───────────────────────────────────────
 
 type DomainCertsSub = 'verifying-dns' | 'issuing-certs' | 'verifying-https' | 'done';
 
@@ -372,12 +349,11 @@ export function DomainCertsStep({
 
   const onFinishSetup = (): void => {
     if (window.location.hostname === apex) {
-      onDone(apex); // already on the apex over HTTPS — continue to admin creation in-page
+      window.location.href = `/setup?step=4`;
     } else {
-      // Hop to the real domain so the admin password travels over TLS; the
-      // bootstrap there lands on the admin step (setup open + cert issued).
-      window.location.href = `https://${apex}/setup`;
+      window.location.href = `https://${apex}/setup?step=4`;
     }
+    onDone(apex);
   };
 
   const apexHost = apex.split('.').length > 2 ? (apex.split('.')[0] ?? '@') : '@';
@@ -490,7 +466,7 @@ export function DomainCertsStep({
         Set up DNS for {apex}
       </h1>
       <p className="m-0 text-sm text-muted-foreground">
-        Step 1 of 3 — add all 4 records at your DNS registrar. A records route traffic; TXT records
+        Step 2 of 3 — add all 4 records at your DNS registrar. A records route traffic; TXT records
         prove domain ownership for the wildcard certificate.
       </p>
 

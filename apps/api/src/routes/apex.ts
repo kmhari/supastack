@@ -1,5 +1,4 @@
 import { errors, getApex } from '@supastack/shared';
-import { setupIsOpen } from '../services/setup-open.js';
 import type { FastifyPluginAsync } from 'fastify';
 import { reloadCaddy } from '../services/caddy-reload.js';
 import { probeHttpsCert, type CertProbeResult } from '../services/cert-probe.js';
@@ -88,8 +87,7 @@ async function buildStatus(): Promise<ApexStatus> {
 
 export const apexRoutes: FastifyPluginAsync = async (app) => {
   app.get('/apex', async (req, reply) => {
-    // Cert-first setup: open during the first-run window (setup-open.ts).
-    if (!(await setupIsOpen())) app.authorize(req, 'org.read');
+    app.authorize(req, 'org.read');
     // CI e2e mode: skip real DNS + cert probes (no DNS for test.local on the
     // runner, no ACME). Returning a "fully configured" status lets the
     // RequireAuth gate fall through to the actual page; otherwise every
@@ -111,7 +109,7 @@ export const apexRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/apex/recheck', async (req, reply) => {
-    if (!(await setupIsOpen())) app.authorize(req, 'org.update');
+    app.authorize(req, 'org.update');
     try {
       await reloadCaddy();
     } catch (err) {
@@ -121,7 +119,7 @@ export const apexRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/apex/issue', async (req, reply) => {
-    if (!(await setupIsOpen())) app.authorize(req, 'org.update');
+    app.authorize(req, 'org.update');
 
     try {
       await reloadCaddy();

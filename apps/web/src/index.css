@@ -302,7 +302,12 @@
    * to work without a global find-and-replace. Migrate call sites to
    * canonical names opportunistically.
    */
-  --color-muted-foreground: hsl(var(--foreground-muted));       /* → text-foreground-muted */
+  /* shadcn `muted-foreground` means READABLE secondary text. Supabase's
+   * `foreground-muted` (30.2% lightness) is their faintest tier (disabled/
+   * placeholder) — mapping by name made every step description, table header
+   * and hint near-invisible on the dark background (shipfan.xyz install,
+   * 2026-06-12). `foreground-light` (70.6%) is Studio's secondary-text tier. */
+  --color-muted-foreground: hsl(var(--foreground-light));       /* → text-foreground-light */
   --color-foreground-light-compat: hsl(var(--foreground-light)); /* via --color-foreground-light */
   --color-primary: hsl(var(--brand-default));                    /* → bg-brand / text-brand */
   --color-primary-foreground: hsl(var(--foreground-default));

@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, desc } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
-import { setupIsOpen } from '../services/setup-open.js';
 import {
   initiateWildcardOrder,
   verifyAndFinalize,
@@ -15,25 +14,21 @@ import { errors, getApex } from '@supastack/shared';
 export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
   // POST /wildcard-certs/initiate — start (or restart) a DNS-01 ACME order
   app.post('/wildcard-certs/initiate', async (req, reply) => {
-    // Cert-first setup: reachable unauthenticated only while setup is open
-    // (see services/setup-open.ts) so /setup can issue the cert before the
-    // admin account exists; afterwards normal RBAC applies.
-    let email = 'admin@selfbase.local';
-    if (!(await setupIsOpen())) {
-      app.authorize(req, 'org.update');
-      const user = app.requireAuth(req);
-      const [userRow] = await db()
-        .select({ email: schema.users.email })
-        .from(schema.users)
-        .where(eq(schema.users.id, user.id))
-        .limit(1);
-      email = userRow?.email ?? email;
-    }
+    app.authorize(req, 'org.update');
+    const user = app.requireAuth(req);
 
     const apex = getApex();
     if (!apex) {
       throw errors.conflict('Apex domain must be set before requesting a wildcard certificate');
     }
+
+    // Get admin email from requesting user
+    const [userRow] = await db()
+      .select({ email: schema.users.email })
+      .from(schema.users)
+      .where(eq(schema.users.id, user.id))
+      .limit(1);
+    const email = userRow?.email ?? 'admin@selfbase.local';
 
     const result = await initiateWildcardOrder(null, apex, email);
     return reply.status(201).send(result);
@@ -41,7 +36,7 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /wildcard-certs/verify — check DNS then complete ACME challenge
   app.post('/wildcard-certs/verify', async (req, reply) => {
-    if (!(await setupIsOpen())) app.authorize(req, 'org.update');
+    app.authorize(req, 'org.update');
 
     const apex = getApex();
     if (!apex) throw errors.conflict('No apex domain configured');
@@ -69,7 +64,7 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /wildcard-certs/status — live status for wizard polling and dashboard
   app.get('/wildcard-certs/status', async (req, reply) => {
-    if (!(await setupIsOpen())) app.authorize(req, 'org.read');
+    app.authorize(req, 'org.read');
 
     const apex = getApex();
     if (!apex) return reply.send({ cert: null });
