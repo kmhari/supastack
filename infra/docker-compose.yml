@@ -102,12 +102,13 @@ services:
       retries: 12
 
   caddy:
-    # Custom Caddy build with caddy-l4 module (Postgres SNI routing on :5432).
-    # See apps/caddy/Dockerfile for build context. First feature requiring a
-    # custom Caddy build (feature 005); feature 004 wildcard cert stayed on stock.
-    build:
-      context: ..
-      dockerfile: apps/caddy/Dockerfile
+    # Stock Caddy. The former custom caddy-l4 build (feature 005, Postgres SNI on
+    # :5432) was vestigial — the shipped 005 implementation moved SNI routing into
+    # the api's pg-edge-proxy, and no layer4 config exists anywhere (boot Caddyfile,
+    # runtime caddy-config.ts, or the live admin config all show http+tls only).
+    # Boot config is the bind-mounted Caddyfile below; full runtime routes are
+    # pushed by the api (caddy-config.ts → admin :2019 /load).
+    image: caddy:2.11-alpine
     restart: unless-stopped
     cap_add:
       - NET_BIND_SERVICE
