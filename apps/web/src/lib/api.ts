@@ -82,13 +82,24 @@ export const authApi = {
   // is stored under the SAME localStorage key the request interceptor (and
   // Studio) read the Bearer token from.
   login: async (body: { email: string; password: string }): Promise<void> => {
+    // baseURL override: the client prefixes /api/v1, but GoTrue lives at the
+    // ORIGIN's /auth/v1 (Caddy strips the prefix → auth:9999). Without this
+    // the request resolves to /api/v1/auth/v1/token → 404.
     const session = await unwrap<{ access_token: string }>(
-      client.post('/auth/v1/token?grant_type=password', body),
+      client.post('/auth/v1/token?grant_type=password', body, { baseURL: BASE }),
     );
-    window.localStorage.setItem('supabase.dashboard.auth.token', JSON.stringify(session));
+    try {
+      window.localStorage.setItem('supabase.dashboard.auth.token', JSON.stringify(session));
+    } catch {
+      /* non-browser context — same tolerance as getDashboardToken */
+    }
   },
   logout: () => {
-    window.localStorage.removeItem('supabase.dashboard.auth.token');
+    try {
+      window.localStorage.removeItem('supabase.dashboard.auth.token');
+    } catch {
+      /* non-browser context */
+    }
     return Promise.resolve();
   },
   me: () =>

@@ -1,4 +1,4 @@
-// @vitest-environment node
+// @vitest-environment jsdom
 //
 // Coverage for src/lib/api.ts (the setup-only SPA surface, feature 086).
 //
@@ -92,6 +92,10 @@ describe('authApi', () => {
       url: '/auth/v1/token?grant_type=password',
       body: { email: 'a@b', password: 'x' },
     });
+    // The client's baseURL is /api/v1; GoTrue lives at the ORIGIN's /auth/v1 —
+    // the per-request baseURL override is what keeps this from resolving to
+    // /api/v1/auth/v1/token (404).
+    expect((lastCall().cfg as { baseURL?: string }).baseURL).toBe('');
     expect(window.localStorage.getItem('supabase.dashboard.auth.token')).toBeTruthy();
   });
   it('logout clears the stored session', async () => {
