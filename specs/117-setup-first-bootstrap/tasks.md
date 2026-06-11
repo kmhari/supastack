@@ -82,7 +82,7 @@
 
 - [x] T022 [P] `pnpm -w build && pnpm -w lint` clean (web wizard trimmed, shared schema/accessor, worker compile, no dangling `apexDomain` refs).
 - [x] T023 [P] Migration idempotency: apply `0024` twice against a scratch DB → second run is a no-op (Constitution I).
-- [ ] T024 Live-VM smoke on supaviser.dev (quickstart): `/api/v1/apex` env-backed; `/setup` shows no domain input + lands on DNS step; Caddy routing + the 3 projects + a per-instance subdomain still resolve after the column drop (caddy-config reads env); a worker provision/pooler cycle builds correct `<ref>.supaviser.dev`; `curl|bash` install prompts (no silent localhost). Deploy = migration on `api` boot + rebuild `api`+`worker`+`web`+`packages`; **recreate** `worker` for the new env.  ⟵ requires a live deploy (operator-run)
+- [x] T024 Live-VM smoke on supaviser.dev (quickstart): `/api/v1/apex` env-backed; `/setup` shows no domain input + lands on DNS step; Caddy routing + the 3 projects + a per-instance subdomain still resolve after the column drop (caddy-config reads env); a worker provision/pooler cycle builds correct `<ref>.supaviser.dev`; `curl|bash` install prompts (no silent localhost). Deploy = migration on `api` boot + rebuild `api`+`worker`+`web`+`packages`; **recreate** `worker` for the new env.
 - [x] T025 [P] Runbook `docs/changes/117-single-source-apex.md` (what changed, the worker-env gotcha, deploy/rollback).
 
 ---
