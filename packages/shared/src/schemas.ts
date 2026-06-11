@@ -21,7 +21,6 @@ export const SetupRequest = z.object({
   email: Email,
   password: Password,
   orgName: z.string().min(1).max(100),
-  apexDomain: ApexDomain.optional(),
 });
 export type SetupRequest = z.infer<typeof SetupRequest>;
 
@@ -109,7 +108,6 @@ export type CredentialRevealRequest = z.infer<typeof CredentialRevealRequest>;
 export const OrgPatchRequest = z
   .object({
     name: z.string().min(1).max(100).optional(),
-    apexDomain: ApexDomain.optional(),
   })
   .strict();
 export type OrgPatchRequest = z.infer<typeof OrgPatchRequest>;

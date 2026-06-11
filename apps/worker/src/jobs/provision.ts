@@ -6,7 +6,7 @@ import {
   writeInstanceStack,
   type ComposeContext,
 } from '@supastack/docker-control';
-import { logger } from '@supastack/shared';
+import { getApex, logger } from '@supastack/shared';
 import { Queue } from 'bullmq';
 import { eq } from 'drizzle-orm';
 import { Redis } from 'ioredis';
@@ -58,14 +58,10 @@ export async function handleProvision(payload: { ref: string }): Promise<void> {
       return;
     }
 
-    // 1. Read apex domain (installation-level, feature 084)
-    const [orgRow] = await db()
-      .select({ apex: schema.installation.apexDomain })
-      .from(schema.installation)
-      .limit(1);
-    const apex = orgRow?.apex;
+    // 1. Read apex domain (single source: SUPASTACK_APEX env, feature 117)
+    const apex = getApex();
     if (!apex) {
-      throw new Error('apex_domain not configured on org — set it via PATCH /org first');
+      throw new Error('SUPASTACK_APEX not configured');
     }
 
     // 2. Decrypt secrets

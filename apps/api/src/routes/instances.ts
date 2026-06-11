@@ -4,6 +4,7 @@ import { composePs } from '@supastack/docker-control';
 import {
   canTransition,
   errors,
+  getApex,
   schemas,
   type Action,
   type InstanceState,
@@ -67,14 +68,6 @@ const PUBLIC_INSTANCE_FIELDS = (apex: string | null) => ({
       ? eq(schema.supabaseInstances.ref, schema.supabaseInstances.ref)
       : eq(schema.supabaseInstances.ref, schema.supabaseInstances.ref),
 });
-
-async function getApex(): Promise<string | null> {
-  const rows = await db()
-    .select({ apex: schema.installation.apexDomain })
-    .from(schema.installation)
-    .limit(1);
-  return rows[0]?.apex ?? null;
-}
 
 function instanceUrls(ref: string, apex: string | null) {
   if (!apex) return { kong: null, studio: null };

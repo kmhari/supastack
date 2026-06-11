@@ -6,7 +6,6 @@ import { describe, expect, test, beforeAll } from 'vitest';
  * SETUP_TEST_RESET_HOOK lets the integration suite reset between runs.
  */
 const API = process.env.TEST_API_URL;
-const TEST_APEX = process.env.TEST_APEX ?? 'selfbase.test';
 
 let setupAlreadyComplete = false;
 
@@ -35,7 +34,6 @@ describe.skipIf(!API)('POST /api/v1/setup', () => {
         email: 'test@selfbase.test',
         password: 'test-password-with-12+',
         orgName: 'Test Org',
-        apexDomain: TEST_APEX,
       }),
     });
     expect(res.status).toBe(201);

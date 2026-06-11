@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
+import { getApex } from '@supastack/shared';
 import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import type { InstanceSecrets } from './instance-secrets.js';
 import { registerTenant, unregisterTenant } from './pooler-client.js';
@@ -24,8 +25,7 @@ export async function registerTenantForInstance(ref: string): Promise<void> {
     .limit(1);
   if (!inst) throw new Error(`instance ${ref} not found`);
 
-  const [orgRow] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
-  const apex = orgRow?.apex;
+  const apex = getApex();
   if (!apex) throw new Error('apex domain not configured');
 
   // dbDirect is the host port that publishes the per-instance db:5432.

@@ -3,8 +3,8 @@ import helmet from '@fastify/helmet';
 import { corsOptions } from './config/cors-config.js';
 import multipart from '@fastify/multipart';
 import { loadMasterKey } from '@supastack/crypto';
-import { db, makeDb, migrate, schema } from '@supastack/db';
-import { AppError, errors } from '@supastack/shared';
+import { makeDb, migrate } from '@supastack/db';
+import { AppError, errors, getApex } from '@supastack/shared';
 import { eq } from 'drizzle-orm';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { existsSync } from 'node:fs';
@@ -460,11 +460,7 @@ async function main(): Promise<void> {
 
 async function maybeStartPgEdgeProxy(app: FastifyInstance): Promise<PgEdgeProxy | null> {
   try {
-    const [instRow] = await db()
-      .select({ apex: schema.installation.apexDomain })
-      .from(schema.installation)
-      .limit(1);
-    const apex = instRow?.apex;
+    const apex = getApex();
     if (!apex) {
       app.log.info('pg-edge: skipped (no apex configured)');
       return null;

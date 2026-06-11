@@ -9,7 +9,7 @@ import {
   computeAllDnsReady,
 } from '../services/acme.js';
 import { reloadCaddy } from '../services/caddy-reload.js';
-import { errors } from '@supastack/shared';
+import { errors, getApex } from '@supastack/shared';
 
 export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
   // POST /wildcard-certs/initiate — start (or restart) a DNS-01 ACME order
@@ -17,11 +17,8 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
     app.authorize(req, 'org.update');
     const user = app.requireAuth(req);
 
-    const [orgRow] = await db()
-      .select({ apex: schema.installation.apexDomain })
-      .from(schema.installation)
-      .limit(1);
-    if (!orgRow?.apex) {
+    const apex = getApex();
+    if (!apex) {
       throw errors.conflict('Apex domain must be set before requesting a wildcard certificate');
     }
 
@@ -33,7 +30,7 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
       .limit(1);
     const email = userRow?.email ?? 'admin@selfbase.local';
 
-    const result = await initiateWildcardOrder(null, orgRow.apex, email);
+    const result = await initiateWildcardOrder(null, apex, email);
     return reply.status(201).send(result);
   });
 
@@ -41,10 +38,10 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
   app.post('/wildcard-certs/verify', async (req, reply) => {
     app.authorize(req, 'org.update');
 
-    const [orgRow] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
-    if (!orgRow?.apex) throw errors.conflict('No apex domain configured');
+    const apex = getApex();
+    if (!apex) throw errors.conflict('No apex domain configured');
 
-    const row = await loadRow(orgRow.apex);
+    const row = await loadRow(apex);
     if (!row) {
       throw errors.notFound('No pending wildcard cert order. Call /initiate first.');
     }
@@ -52,7 +49,7 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
       throw errors.conflict('Certificate is disabled. Call /initiate to start a new order.');
     }
 
-    const result = await verifyAndFinalize(orgRow.apex);
+    const result = await verifyAndFinalize(apex);
 
     if (result.status === 'issued') {
       try {
@@ -69,13 +66,10 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
   app.get('/wildcard-certs/status', async (req, reply) => {
     app.authorize(req, 'org.read');
 
-    const [orgRow] = await db()
-      .select({ id: schema.installation.id, apex: schema.installation.apexDomain })
-      .from(schema.installation)
-      .limit(1);
-    if (!orgRow?.apex) return reply.send({ cert: null });
+    const apex = getApex();
+    if (!apex) return reply.send({ cert: null });
 
-    const row = await loadRow(orgRow.apex);
+    const row = await loadRow(apex);
     if (!row) return reply.send({ cert: null });
 
     // For awaiting_dns: refresh DNS check live so the UI shows current propagation state
@@ -123,19 +117,16 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
     app.authorize(req, 'org.update');
     const user = app.requireAuth(req);
 
-    const [orgRow] = await db()
-      .select({ id: schema.installation.id, apex: schema.installation.apexDomain })
-      .from(schema.installation)
-      .limit(1);
-    if (!orgRow?.apex) return reply.status(204).send();
+    const apex = getApex();
+    if (!apex) return reply.status(204).send();
 
-    const row = await loadRow(orgRow.apex);
+    const row = await loadRow(apex);
     if (!row) throw errors.notFound('No wildcard certificate configured');
 
     await db()
       .update(schema.wildcardCerts)
       .set({ status: 'disabled', updatedAt: new Date(), updatedBy: user.id })
-      .where(eq(schema.wildcardCerts.apex, orgRow.apex));
+      .where(eq(schema.wildcardCerts.apex, apex));
 
     await db()
       .insert(schema.auditLog)
@@ -144,7 +135,7 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
         action: 'tls.disabled',
         targetKind: 'wildcard_cert',
         targetId: row.id,
-        payload: { apex: orgRow.apex },
+        payload: { apex },
       });
 
     try {

@@ -14,8 +14,6 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { db, schema } from '@supastack/db';
-import { eq } from 'drizzle-orm';
 import { buildAuthedApp, hasTestEnv, seedTestUser } from '../../helpers/mgmt-api.js';
 import { PAT_FORMAT_REGEX } from '../../../src/services/api-tokens.js';
 
@@ -24,22 +22,17 @@ const TEST_APEX = 'cli-e2e.selfbase.test';
 describe.skipIf(!hasTestEnv)('/api/v1/cli/* helpers', () => {
   let app: FastifyInstance;
   let token: string;
-  let orgId: string;
 
   beforeAll(async () => {
     app = await buildAuthedApp();
     const seeded = await seedTestUser();
     token = seeded.token;
-    orgId = seeded.orgId;
-    // Ensure the org has an apex configured so profile.toml has something
-    // concrete to render. Updates rather than depending on seed default.
-    await db()
-      .insert(schema.installation)
-      .values({ id: 1, apexDomain: TEST_APEX })
-      .onConflictDoUpdate({ target: schema.installation.id, set: { apexDomain: TEST_APEX } });
+    // Apex is env-sourced (feature 117) — set it so profile.toml renders concretely.
+    process.env.SUPASTACK_APEX = TEST_APEX;
   });
 
   afterAll(async () => {
+    delete process.env.SUPASTACK_APEX;
     await app?.close();
   });
 

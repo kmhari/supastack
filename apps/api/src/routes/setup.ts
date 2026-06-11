@@ -55,13 +55,14 @@ export const setupRoutes: FastifyPluginAsync = async (app) => {
         .limit(1);
       if (state[0]?.completedAt) throw errors.setupComplete();
 
-      // Installation singleton (apex + backups).
+      // Installation singleton (backups; apex is env-sourced via SUPASTACK_APEX
+      // — feature 117, the column is gone).
       await tx
         .insert(schema.installation)
-        .values({ id: 1, apexDomain: body.apexDomain ?? null })
+        .values({ id: 1 })
         .onConflictDoUpdate({
           target: schema.installation.id,
-          set: { apexDomain: body.apexDomain ?? null, updatedAt: new Date() },
+          set: { updatedAt: new Date() },
         });
 
       // First tenant organization + owner membership via the shared primitive

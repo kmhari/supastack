@@ -352,7 +352,10 @@ process.env.SUPAVISOR_URL = 'http://supavisor:4000';
 // ─── tests ─────────────────────────────────────────────────────────────────
 
 describe('pooler-reconciler — 7 drift classes', () => {
-  beforeEach(() => resetState());
+  beforeEach(() => {
+    resetState();
+    process.env.SUPASTACK_APEX = 'example.test'; // feature 117 — apex from env
+  });
 
   for (const fixture of driftFixtures) {
     it(`fixture '${fixture.id}' → classification=${fixture.expected}, remediation=${fixture.expectedRemediation}`, async () => {

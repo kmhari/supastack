@@ -1,4 +1,5 @@
 import { db, schema } from '@supastack/db';
+import { getApex } from '@supastack/shared';
 import { eq, inArray, not } from 'drizzle-orm';
 
 const CERTS_DIR = process.env.SUPASTACK_CERTS_DIR ?? '/var/supastack/certs';
@@ -25,9 +26,7 @@ const CERTS_DIR = process.env.SUPASTACK_CERTS_DIR ?? '/var/supastack/certs';
  * The caller POSTs the result to Caddy admin `/load` which swaps atomically.
  */
 export async function buildCaddyConfig(): Promise<unknown> {
-  const orgRows = await db().select().from(schema.installation).limit(1);
-  const org = orgRows[0];
-  const apex = org?.apexDomain ?? null;
+  const apex = getApex();
 
   // Check for an issued wildcard cert to use instead of per-subdomain on-demand TLS.
   const certRows = await db()

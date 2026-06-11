@@ -3,7 +3,7 @@
  * sad (non-admin 403; empty source → graceful empty, not 500; no job payload
  * leaked). db() + the queue/logs services are mocked; no live infra.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 
 // queue-based db mock: each db().select() resolves to the next pushed result set.
@@ -60,6 +60,10 @@ async function buildApp(opts: { admin: boolean }): Promise<FastifyInstance> {
 beforeEach(() => {
   dbResults = [];
   inspectQueues.mockReset();
+  process.env.SUPASTACK_APEX = 'supaviser.dev'; // feature 117 — apexOf reads env now
+});
+afterEach(() => {
+  delete process.env.SUPASTACK_APEX;
 });
 
 describe('admin auth gate (FR-009)', () => {
@@ -80,7 +84,6 @@ describe('admin auth gate (FR-009)', () => {
 describe('GET /admin/fleet', () => {
   it('lists installation-wide projects with org name + api endpoint', async () => {
     dbResults = [
-      [{ apex: 'supaviser.dev' }], // apexOf
       [{ ref: 'aaaaaaaaaaaaaaaaaaaa', name: 'demo', orgId: 'org1', status: 'running', createdAt: new Date('2026-06-08') }],
       [{ id: 'org1', name: 'Acme' }],
     ];
@@ -212,8 +215,8 @@ describe('GET /admin/queues', () => {
 
 describe('GET /admin/certs (graceful)', () => {
   it('returns null wildcard + empty lists when nothing is provisioned', async () => {
+    delete process.env.SUPASTACK_APEX; // no apex configured → wildcard null
     dbResults = [
-      [], // apexOf (no installation row)
       [], // wildcardCerts
       [], // pgEdgeCerts
       [], // backups

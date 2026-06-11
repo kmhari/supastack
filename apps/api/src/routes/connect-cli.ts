@@ -14,8 +14,8 @@
  * applies here, not the cloud envelope.
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { db, schema } from '@supastack/db';
-import { errors } from '@supastack/shared';
+import { db } from '@supastack/db';
+import { errors, getApex } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
 
 interface MintBody {
@@ -26,8 +26,7 @@ export const connectCliRoutes: FastifyPluginAsync = async (app) => {
   // ─── GET /cli/profile.toml ────────────────────────────────────────────
   app.get('/cli/profile.toml', async (req, reply) => {
     app.requireAuth(req);
-    const rows = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
-    const apex = rows[0]?.apex;
+    const apex = getApex();
     if (!apex) {
       throw errors.invalidInput(
         'This deployment has no apex domain configured. Complete setup before connecting the CLI.',
