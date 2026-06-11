@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 /**
  * Caddy NEVER emits a layer4 block — Postgres routing is owned by the
@@ -7,7 +7,6 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
  */
 
 const fixtures = {
-  orgRow: null as { apexDomain: string | null } | null,
   certRows: [] as { apex: string }[],
   instances: [] as {
     ref: string;
@@ -36,10 +35,10 @@ vi.mock('@supastack/db', () => {
     db: () => ({
       select: () => {
         const idx = callIndex++;
-        if (idx === 0) return chain(fixtures.orgRow ? [fixtures.orgRow] : []);
-        if (idx === 1) return chain(fixtures.certRows);
-        if (idx === 2) return chain([{ completedAt: new Date() }]); // setup_state (feature 086 US5)
-        if (idx === 3) return chain(fixtures.instances);
+        // feature 117 — buildCaddyConfig no longer selects installation (apex from env).
+        if (idx === 0) return chain(fixtures.certRows);
+        if (idx === 1) return chain([{ completedAt: new Date() }]); // setup_state (feature 086 US5)
+        if (idx === 2) return chain(fixtures.instances);
         return chain([]);
       },
     }),
@@ -71,10 +70,13 @@ interface CaddyConfig {
 
 describe('buildCaddyConfig — no layer4 emission (feature 005)', () => {
   beforeEach(() => {
-    fixtures.orgRow = null;
     fixtures.certRows = [];
     fixtures.instances = [];
+    delete process.env.SUPASTACK_APEX;
     resetDbCallIndex();
+  });
+  afterEach(() => {
+    delete process.env.SUPASTACK_APEX;
   });
 
   it('never emits layer4 when no apex + no cert', async () => {
@@ -83,7 +85,7 @@ describe('buildCaddyConfig — no layer4 emission (feature 005)', () => {
   });
 
   it('never emits layer4 even with apex + wildcard cert + instances', async () => {
-    fixtures.orgRow = { apexDomain: 'selfbase.example.com' };
+    process.env.SUPASTACK_APEX = 'selfbase.example.com';
     fixtures.certRows = [{ apex: 'selfbase.example.com' }];
     fixtures.instances = [
       {

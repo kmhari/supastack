@@ -4,12 +4,12 @@ import { CheckCircle2, Circle, Loader2, AlertTriangle, AlertCircle } from 'lucid
 import {
   apexApi,
   authApi,
-  orgApi,
   setupApi,
   wildcardCertApi,
   type ChallengeRecord,
   type DnsCheck,
 } from '@/lib/api';
+import { isRealApex } from '@supastack/shared';
 import { getWrapperSnippet, getSupastackFileContent } from '@/lib/cli-wrapper';
 import { useAuth } from '@/lib/auth-context';
 import { dnsGateReady } from '@/lib/dns-gate';
@@ -203,18 +203,21 @@ function AdminStep({
 
 // ─── Step 2: domain + certs (merged) ───────────────────────────────────────
 
-type DomainCertsSub = 'enter-apex' | 'verifying-dns' | 'issuing-certs' | 'verifying-https' | 'done';
+type DomainCertsSub = 'verifying-dns' | 'issuing-certs' | 'verifying-https' | 'done';
 
-function DomainCertsStep({
+export function DomainCertsStep({
   initialApex,
   onDone,
 }: {
   initialApex: string;
   onDone: (apex: string) => void;
 }): React.ReactElement {
-  const [sub, setSub] = useState<DomainCertsSub>(initialApex ? 'verifying-dns' : 'enter-apex');
-  const [apexInput, setApexInput] = useState(initialApex);
-  const [apex, setApex] = useState(initialApex);
+  // Feature 117 — apex is the single source (SUPASTACK_APEX), fetched by the
+  // parent via apexApi.status(). The wizard never asks for it; it guides DNS +
+  // certs for the established domain (and blocks on a local/default domain).
+  const apex = initialApex;
+  const real = isRealApex(apex);
+  const [sub, setSub] = useState<DomainCertsSub>('verifying-dns');
   const [challengeRecords, setChallengeRecords] = useState<ChallengeRecord[]>([]);
   const [dnsChecks, setDnsChecks] = useState<DnsCheck[]>([]);
   const [apexDnsOk, setApexDnsOk] = useState(false);
@@ -225,25 +228,27 @@ function DomainCertsStep({
   const [recheckLoading, setRecheckLoading] = useState(false);
   const [issuingError, setIssuingError] = useState<string | null>(null);
   const [httpsCheckRetries, setHttpsCheckRetries] = useState(0);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Gate on the authoritative backend signal (fix #94) — not a brittle client recount.
   const allDnsResolved = dnsGateReady(apexDnsOk, wildcardDnsOk, allTxtReady);
 
-  const saveApex = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
-    setSaveError(null);
-    try {
-      await orgApi.patch({ apexDomain: apexInput.trim() });
-      setApex(apexInput.trim());
-      const initiated = await wildcardCertApi.initiate();
-      setChallengeRecords(initiated.challengeRecords);
-      setSub('verifying-dns');
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
-      setSaveError(e.response?.data?.error?.message ?? e.message ?? 'save failed');
-    }
-  };
+  // Ensure a DNS-01 order exists once we land here (was previously triggered by
+  // the removed apex-entry form). Idempotent on the backend.
+  useEffect(() => {
+    if (!real) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const initiated = await wildcardCertApi.initiate();
+        if (!cancelled) setChallengeRecords(initiated.challengeRecords);
+      } catch {
+        /* the verifying-dns poll also surfaces challenge records */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [real]);
 
   // Poll DNS every 10s while in verifying-dns state
   useEffect(() => {
@@ -349,34 +354,30 @@ function DomainCertsStep({
   const apexHost = apex.split('.').length > 2 ? (apex.split('.')[0] ?? '@') : '@';
   const wildcardHost = apex.split('.').length > 2 ? `*.${apex.split('.')[0]}` : '*';
 
-  if (sub === 'enter-apex') {
+  if (!real) {
     return (
-      <form onSubmit={(e) => void saveApex(e)} className="flex w-96 max-w-full flex-col gap-4">
+      <div className="flex w-[32rem] max-w-full flex-col gap-4">
         <Wordmark />
         <h1 className="m-0 text-3xl font-normal tracking-tight text-foreground">
-          Connect your domain
+          A real domain is required
         </h1>
-        <p className="m-0 text-sm text-muted-foreground">
-          Step 2 of 3 — your Supastack dashboard and instance subdomains will live under this apex.
-          Pick something you control DNS for, like <code>supastack.example.com</code>.
-        </p>
-        <Field label="Apex domain">
-          <Input
-            required
-            value={apexInput}
-            onChange={(e) => setApexInput(e.target.value)}
-            placeholder="supastack.example.com"
-            autoFocus
-          />
-        </Field>
-        {saveError && (
-          <Alert variant="destructive">
-            <AlertCircle />
-            <AlertDescription>{saveError}</AlertDescription>
-          </Alert>
-        )}
-        <Button htmlType="submit">Save & continue</Button>
-      </form>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription>
+            This deployment is running on a local/default domain
+            {apex ? (
+              <>
+                {' '}(<code>{apex}</code>)
+              </>
+            ) : (
+              ''
+            )}
+            . Public HTTPS certificates can&apos;t be issued for it. Re-run the installer with a
+            real apex domain (e.g. <code>./install.sh supastack.example.com</code>) to enable
+            HTTPS, then return here.
+          </AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
@@ -541,14 +542,6 @@ function DomainCertsStep({
           {allDnsResolved ? 'Create Certs' : 'Waiting for DNS…'}
         </Button>
       </div>
-
-      <button
-        type="button"
-        onClick={() => setSub('enter-apex')}
-        className="self-start bg-transparent p-0 text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← Change apex domain
-      </button>
     </div>
   );
 }

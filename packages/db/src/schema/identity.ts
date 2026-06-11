@@ -37,13 +37,14 @@ export const authUsers = authSchema.table('users', {
 export const users = authUsers;
 
 // ─── installation (singleton — platform/installation settings) ──────────────
-// Feature 084 — split out of the old `org` singleton. Holds the per-VM apex
-// domain + backup destination. Exactly one row (id = 1), never a tenant.
+// Feature 084 — split out of the old `org` singleton. Holds the backup
+// destination + SMTP. Exactly one row (id = 1), never a tenant. The apex domain
+// is NOT stored here — it is the single source `SUPASTACK_APEX` env (feature 117;
+// migration 0024 dropped the old column).
 export const installation = pgTable(
   'installation',
   {
     id: integer('id').primaryKey().default(1),
-    apexDomain: text('apex_domain').unique(),
     backupStoreKind: text('backup_store_kind', { enum: ['local', 's3'] })
       .notNull()
       .default('local'),

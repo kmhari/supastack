@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 /**
  * Feature 116 (US1) — buildCaddyConfig() must route `/docs*` + `/admin*` to
@@ -29,10 +29,10 @@ vi.mock('@supastack/db', () => {
     db: () => ({
       select: () => {
         const idx = i++;
-        if (idx === 0) return chain([{ id: 1, apexDomain: APEX }]);
-        if (idx === 1) return chain([{ apex: APEX, status: 'issued' }]);
-        if (idx === 2) return chain([{ completedAt: new Date() }]); // setup done → catch-all = studio
-        return chain([]);
+        // feature 117 — buildCaddyConfig no longer selects installation (apex from env).
+        if (idx === 0) return chain([{ apex: APEX, status: 'issued' }]); // wildcardCerts
+        if (idx === 1) return chain([{ completedAt: new Date() }]); // setup_state — done
+        return chain([]); // instances
       },
     }),
     schema: {
@@ -48,7 +48,13 @@ const dbMod = await import('@supastack/db');
 const reset = (dbMod as unknown as { __reset: () => void }).__reset;
 const { buildCaddyConfig } = await import('../../src/services/caddy-config.js');
 
-beforeEach(() => reset());
+beforeEach(() => {
+  reset();
+  process.env.SUPASTACK_APEX = APEX;
+});
+afterEach(() => {
+  delete process.env.SUPASTACK_APEX;
+});
 
 function findDashboardSubroutes(cfg: any): any[] {
   let found: any[] | undefined;

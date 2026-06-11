@@ -153,6 +153,7 @@ vi.mock('@supastack/crypto', () => ({
 
 vi.mock('@supastack/shared', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  getApex: () => process.env.SUPASTACK_APEX ?? null, // feature 117 — apex from env
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -195,6 +196,7 @@ beforeEach(() => {
   pgQuery.mockReset();
   pgEnd.mockReset();
   pgEnd.mockResolvedValue(undefined);
+  process.env.SUPASTACK_APEX = 'test.dev'; // feature 117 — apex from env (was a DB query)
   setupDb(); // clear queue
 });
 
@@ -452,7 +454,6 @@ describe('remediation success — registerTenantForInstance completes', () => {
       [inst('r1')], // runSingleInstanceReconcile: inst
       [], // poolerRow → none → classification: missing_pooler_row
       [instSecrets('r1')], // registerTenantForInstance: inst
-      [{ apex: 'test.dev' }], // registerTenantForInstance: org
       [], // insert POOLER_TENANTS (onConflictDoUpdate)
       [], // update POOLER_TENANTS status='active'
       [], // emitEvent('reconciler.registered_missing')
@@ -475,7 +476,6 @@ describe('remediation success — registerTenantForInstance completes', () => {
       [inst('r1')],
       [poolerRow('r1', 'active')],
       [instSecrets('r1')],
-      [{ apex: 'test.dev' }],
       [], // insert POOLER_TENANTS
       [], // update POOLER_TENANTS active
       [], // emitEvent('reconciler.registered_missing')
@@ -498,7 +498,6 @@ describe('remediation success — registerTenantForInstance completes', () => {
       [inst('r1')],
       [poolerRow('r1', 'pg_password_drift')],
       [instSecrets('r1')],
-      [{ apex: 'test.dev' }],
       [], // insert POOLER_TENANTS
       [], // update POOLER_TENANTS active
       [], // emitEvent('password_reset_then_registered')
@@ -523,7 +522,6 @@ describe('remediation success — registerTenantForInstance completes', () => {
       [inst('r1')],
       [poolerRow('r1', 'failed', new Date(Date.now() - 1))],
       [instSecrets('r1')],
-      [{ apex: 'test.dev' }],
       [], // insert POOLER_TENANTS
       [], // update POOLER_TENANTS active
       [], // emitEvent('reconciler.retry_succeeded')

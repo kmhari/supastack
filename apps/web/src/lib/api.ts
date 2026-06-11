@@ -54,7 +54,7 @@ client.interceptors.request.use((config) => {
 // ─── setup ───────────────────────────────────────────────────────────────────
 export const setupApi = {
   status: () => unwrap<{ open: boolean }>(client.get('/setup/status')),
-  run: (body: { email: string; password: string; orgName: string; apexDomain?: string }) =>
+  run: (body: { email: string; password: string; orgName: string }) =>
     unwrap<{ userId: string; orgId: string; apiToken: string }>(client.post('/setup', body)),
 };
 
@@ -113,7 +113,7 @@ export const apexApi = {
 
 // ─── org (apex domain write, setup wizard step 2) ───────────────────────────
 export const orgApi = {
-  patch: (body: { name?: string; apexDomain?: string }) => unwrap(client.patch('/org', body)),
+  patch: (body: { name?: string }) => unwrap(client.patch('/org', body)),
 };
 
 // ─── wildcard cert (DNS-01, setup wizard step 2) ─────────────────────────────

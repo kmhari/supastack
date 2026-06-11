@@ -22,7 +22,7 @@ import { fetch } from 'undici';
 import pg from 'pg';
 import { db, schema } from '@supastack/db';
 import { decryptJson, loadMasterKey } from '@supastack/crypto';
-import { logger } from '@supastack/shared';
+import { getApex, logger } from '@supastack/shared';
 
 type Classification =
   | 'consistent'
@@ -44,7 +44,6 @@ const RECONCILER_RUNS = schema.reconcilerRuns;
 const POOLER_TENANTS = schema.poolerTenants;
 const POOLER_EVENTS = schema.poolerEvents;
 const SUPABASE_INSTANCES = schema.supabaseInstances;
-const ORG = schema.installation;
 const STALE_RUNNING_MS = 60 * 60 * 1000; // 1h
 const STALE_FAILED_MS = 60 * 60 * 1000; // 1h
 const RETAIN_RUNS = 30;
@@ -222,9 +221,8 @@ async function registerTenantForInstance(ref: string): Promise<void> {
     .limit(1);
   if (!inst) throw new Error(`instance ${ref} not found`);
 
-  const [orgRow] = await db().select({ apex: ORG.apexDomain }).from(ORG).limit(1);
-  if (!orgRow?.apex) throw new Error('apex domain not configured');
-  const apex = orgRow.apex;
+  const apex = getApex();
+  if (!apex) throw new Error('apex domain not configured');
 
   const dbHostPort = inst.portDbDirect ?? inst.portPostgres;
   const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as {

@@ -21,7 +21,14 @@ CREATE TABLE IF NOT EXISTS installation (
 
 DO $$
 BEGIN
+  -- The `apex_domain` column existence is guarded (feature 117): migration 0024
+  -- drops it, and 0000 recreates an empty `org` on every full-sequence re-run, so
+  -- without this guard the second run would try to copy a column that no longer
+  -- exists. On an already-set-up installation the row-exists guard already skips
+  -- this copy, so the extra check is a no-op there.
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'org')
+     AND EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'installation' AND column_name = 'apex_domain')
      AND NOT EXISTS (SELECT 1 FROM installation) THEN
     INSERT INTO installation (id, apex_domain, backup_store_kind, backup_store_config_encrypted)
     SELECT 1, apex_domain, backup_store_kind, backup_store_config_encrypted FROM org LIMIT 1;

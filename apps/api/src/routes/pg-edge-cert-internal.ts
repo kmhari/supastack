@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
+import { getApex } from '@supastack/shared';
 import { issuePerProjectCert } from '../services/acme.js';
 
 /**
@@ -18,8 +19,8 @@ export const pgEdgeCertInternalRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: { code: 'bad_request', message: 'invalid ref' } });
     }
 
-    const [orgRow] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
-    if (!orgRow?.apex) {
+    const apex = getApex();
+    if (!apex) {
       return reply.status(409).send({
         error: { code: 'no_apex', message: 'apex domain not configured' },
       });
@@ -43,7 +44,7 @@ export const pgEdgeCertInternalRoutes: FastifyPluginAsync = async (app) => {
     }
 
     try {
-      const result = await issuePerProjectCert(ref, orgRow.apex);
+      const result = await issuePerProjectCert(ref, apex);
       return reply.send({ hostname: result.hostname, notAfter: result.notAfter.toISOString() });
     } catch (err) {
       app.log.error({ err, ref }, 'per-project cert issuance failed');

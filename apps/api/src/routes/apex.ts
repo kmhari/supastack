@@ -1,5 +1,4 @@
-import { db, schema } from '@supastack/db';
-import { errors } from '@supastack/shared';
+import { errors, getApex } from '@supastack/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { reloadCaddy } from '../services/caddy-reload.js';
 import { probeHttpsCert, type CertProbeResult } from '../services/cert-probe.js';
@@ -32,8 +31,7 @@ interface ApexStatus {
 const WILDCARD_PROBE_LABEL = '_supastack-wildcard-probe';
 
 async function buildStatus(): Promise<ApexStatus> {
-  const [orgRow] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
-  const apex = orgRow?.apex ?? null;
+  const apex = getApex();
 
   const expectedIp = await getPlatformIp();
 
@@ -95,8 +93,7 @@ export const apexRoutes: FastifyPluginAsync = async (app) => {
     // RequireAuth gate fall through to the actual page; otherwise every
     // browser-test navigation is intercepted into the Setup wizard.
     if (process.env.SUPASTACK_TEST_FAKE_DOCKER === '1') {
-      const [orgRow] = await db().select({ apex: schema.installation.apexDomain }).from(schema.installation).limit(1);
-      const apex = orgRow?.apex ?? 'test.local';
+      const apex = getApex() ?? 'test.local';
       return reply.send({
         apex,
         expectedIp: '127.0.0.1',

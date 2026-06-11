@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 /**
  * Feature 107 — `buildCaddyConfig()` emits an explicit terminal `api.<apex>` host
@@ -28,9 +28,9 @@ vi.mock('@supastack/db', () => {
     db: () => ({
       select: () => {
         const idx = i++;
-        if (idx === 0) return chain([{ id: 1, apexDomain: APEX }]); // installation (apex set)
-        if (idx === 1) return chain([{ apex: APEX, status: 'issued' }]); // wildcardCerts
-        if (idx === 2) return chain([{ completedAt: new Date() }]); // setup done
+        // feature 117 — buildCaddyConfig no longer selects installation (apex from env).
+        if (idx === 0) return chain([{ apex: APEX, status: 'issued' }]); // wildcardCerts
+        if (idx === 1) return chain([{ completedAt: new Date() }]); // setup_state — done
         return chain([]); // instances
       },
     }),
@@ -47,7 +47,13 @@ const dbMod = await import('@supastack/db');
 const reset = (dbMod as unknown as { __reset: () => void }).__reset;
 const { buildCaddyConfig } = await import('../../src/services/caddy-config.js');
 
-beforeEach(() => reset());
+beforeEach(() => {
+  reset();
+  process.env.SUPASTACK_APEX = APEX;
+});
+afterEach(() => {
+  delete process.env.SUPASTACK_APEX;
+});
 
 function httpsRoutes(cfg: unknown): any[] {
   return (cfg as any).apps.http.servers.openfront_https.routes;

@@ -2,16 +2,20 @@
 #
 # Supastack installer — bootstraps the control plane on a Linux host.
 #
-# After this finishes, a single command (the printed URL) opens the dashboard
-# at /setup, where the operator creates the super-admin and optionally
-# registers an apex domain.
+# Usage:  ./install.sh [apex-domain]      e.g.  ./install.sh supastack.example.com
+#
+# The apex domain is established HERE, at install (feature 117). After this
+# finishes, the operator opens /setup to create the super-admin and follow the
+# DNS steps for the domain — /setup does NOT ask for the domain again.
 #
 # Idempotent. Safe to re-run; existing data is preserved.
 #
 # Environment overrides:
 #   INSTALL_DIR      where the repo lives (default: /opt/supastack)
 #   DATA_DIR         host bind-mount root (default: /var/supastack)
-#   SUPASTACK_APEX   apex domain, e.g. supastack.example.com (prompts if unset; default: localhost)
+#   SUPASTACK_APEX   apex domain, e.g. supastack.example.com. Resolution order:
+#                    positional arg > this env > existing .env > prompt (/dev/tty,
+#                    so curl|bash still prompts) > localhost (warned).
 #   REPO_URL         git source (default: this repo's origin)
 #   REPO_REF         git branch/tag/commit (default: main)
 #   SUPASTACK_VERSION docker tag suffix for built images (default: dev)
@@ -101,17 +105,31 @@ sudo chown -R "$USER:$USER" "$DATA_DIR"
 # refuses to boot unless every required secret is present.
 ENV_FILE="$INSTALL_DIR/.env"
 
-# Resolve the apex: explicit env override → value already in .env → prompt → localhost.
-SUPASTACK_APEX="${SUPASTACK_APEX:-}"
-if [[ -z "$SUPASTACK_APEX" && -f "$ENV_FILE" ]]; then
-  SUPASTACK_APEX="$(grep '^SUPASTACK_APEX=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)"
+# Resolve the apex (feature 117): positional arg → SUPASTACK_APEX env → existing
+# .env → interactive prompt → 'localhost'. Pure helper (first non-empty wins) so
+# the ordering is unit-testable; the caller supplies the prompt result.
+resolve_apex() {
+  local arg="$1" env="$2" dotenv="$3" tty_input="$4"
+  if [[ -n "$arg" ]]; then echo "$arg"; return; fi
+  if [[ -n "$env" ]]; then echo "$env"; return; fi
+  if [[ -n "$dotenv" ]]; then echo "$dotenv"; return; fi
+  if [[ -n "$tty_input" ]]; then echo "$tty_input"; return; fi
+  echo "localhost"
+}
+
+ARG_APEX="${1:-}"
+ENV_APEX="${SUPASTACK_APEX:-}"
+DOTENV_APEX=""
+if [[ -f "$ENV_FILE" ]]; then
+  DOTENV_APEX="$(grep '^SUPASTACK_APEX=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)"
 fi
-if [[ -z "$SUPASTACK_APEX" ]]; then
-  if [[ -t 0 ]]; then
-    read -rp "Apex domain (e.g. supastack.example.com) [localhost]: " SUPASTACK_APEX || true
-  fi
-  SUPASTACK_APEX="${SUPASTACK_APEX:-localhost}"
+# Prompt from /dev/tty (NOT stdin) so `curl … | bash` still prompts — its stdin
+# is the pipe, so the old `[[ -t 0 ]]` test was false and silently defaulted.
+TTY_APEX=""
+if [[ -z "$ARG_APEX" && -z "$ENV_APEX" && -z "$DOTENV_APEX" && -r /dev/tty ]]; then
+  read -rp "Apex domain (e.g. supastack.example.com) [localhost]: " TTY_APEX < /dev/tty || true
 fi
+SUPASTACK_APEX="$(resolve_apex "$ARG_APEX" "$ENV_APEX" "$DOTENV_APEX" "$TTY_APEX")"
 
 # derive_gotrue_secret <master-key> → prints the 64-hex secret. NOT independent:
 # it is HKDF-derived from MASTER_KEY and must match the api at runtime, so it

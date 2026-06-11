@@ -9,17 +9,14 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { desc, eq } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
+import { getApex } from '@supastack/shared';
 import { queryLogs, type LogService } from '../services/logflare-client.js';
 import { inspectQueues } from '../services/queue-inspector.js';
 
 const VERSION = process.env.SUPASTACK_VERSION ?? 'dev';
 
-async function apexOf(): Promise<string | null> {
-  const [row] = await db()
-    .select({ apex: schema.installation.apexDomain })
-    .from(schema.installation)
-    .limit(1);
-  return row?.apex ?? null;
+function apexOf(): string | null {
+  return getApex();
 }
 
 function daysLeft(notAfter: Date | null): number | null {
