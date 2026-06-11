@@ -683,11 +683,18 @@ function DnsRecordRow({
         {host}
         <span className="ml-1.5 text-muted-foreground not-mono text-[11px]">({hint})</span>
       </td>
-      <td className="px-3.5 py-2 font-mono text-xs max-w-[12rem] truncate">
-        {value}
-        {copyable && value !== '…' && (
-          <CopyButton value={value} variant="ghost" size="xs" className="ml-1" />
-        )}
+      <td className="px-3.5 py-2 font-mono text-xs max-w-[14rem]">
+        {/* Flex split: the VALUE truncates, the copy button never does — with
+            `truncate` on the td itself, long TXT values clipped the button
+            (shipfan.xyz E2E: no way to copy the ACME challenge). */}
+        <span className="flex items-center gap-1">
+          <span className="min-w-0 truncate" title={value}>
+            {value}
+          </span>
+          {copyable && value !== '…' && (
+            <CopyButton value={value} variant="ghost" size="xs" className="shrink-0" />
+          )}
+        </span>
       </td>
       <td className="px-3.5 py-2">
         {resolved ? (
