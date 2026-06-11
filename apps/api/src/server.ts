@@ -68,6 +68,7 @@ import { vaultEnableRoutes } from './routes/vault-enable.js';
 import { wildcardCertRoutes } from './routes/wildcard-certs.js';
 import { createCertCheckQueue, createCertCheckWorker } from './services/cert-check.js';
 import { startPgEdgeProxy, type PgEdgeProxy } from './services/pg-edge-proxy.js';
+import { ensurePlaceholderCertAtBoot } from './services/placeholder-cert.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -111,6 +112,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   // DB
   makeDb(DATABASE_URL);
   await migrate(DATABASE_URL);
+
+  // First-boot placeholder wildcard cert (fresh-install fix): supavisor
+  // hard-fails on a missing GLOBAL_DOWNSTREAM_CERT_PATH file, and the real
+  // cert only exists after /setup. Non-fatal, no-op when certs exist.
+  await ensurePlaceholderCertAtBoot();
 
   // Use Fastify's own pino with LoggerOptions — avoids the v4 instance-type
   // mismatch between our shared logger's full pino.Logger and Fastify's

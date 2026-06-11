@@ -14,6 +14,10 @@ COPY packages ./packages/
 RUN pnpm install --frozen-lockfile=false --filter @supastack/api...
 
 FROM base AS runtime
+# openssl: first-boot placeholder wildcard cert (services/placeholder-cert.ts)
+# — node:20-slim ships no openssl CLI.
+RUN apt-get update -qq && apt-get install -y --no-install-recommends openssl \
+ && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app /app
 COPY apps/api ./apps/api
 COPY packages ./packages

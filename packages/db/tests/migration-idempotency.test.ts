@@ -45,6 +45,31 @@ describe.skipIf(!TEST_DATABASE_URL)('migration idempotency', () => {
     }
   });
 
+  it('creates the postgres role GoTrue requires (fresh-install regression)', async () => {
+    // GoTrue's upstream migrations run `GRANT ... TO postgres` — a fresh
+    // control-plane DB (POSTGRES_USER=supastack) has no such role, so auth
+    // crash-looped on virgin installs (caught on the first pull-mode install,
+    // 2026-06-11; supaviser.dev was masked by a hand-created role). Migration
+    // 0025 must guarantee the role after the sequence runs.
+    const files = (await readdir(MIGRATIONS_DIR)).filter((f) => f.endsWith('.sql')).sort();
+    const pool = new pg.Pool({ connectionString: TEST_DATABASE_URL, max: 1 });
+    const client = await pool.connect();
+    try {
+      await client.query('CREATE EXTENSION IF NOT EXISTS citext');
+      await client.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+      for (const file of files) {
+        await client.query(await readFile(path.join(MIGRATIONS_DIR, file), 'utf8'));
+      }
+      const { rows } = await client.query("select 1 from pg_roles where rolname = 'postgres'");
+      expect(rows.length, 'postgres role must exist after migrations (GoTrue GRANTs to it)').toBe(
+        1,
+      );
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  });
+
   it('full migration sequence run twice produces zero schema diff (SC-005)', async () => {
     // T050: end-to-end — apply EVERY migration in order, snapshot, apply them
     // ALL again as a single sequence, snapshot. The two snapshots must match.

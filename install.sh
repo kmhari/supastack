@@ -262,7 +262,7 @@ TIMEOUT=180
 elapsed=0
 until docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" ps --format json \
         | grep -q '"Health":"healthy"' && \
-      docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" exec -T api wget -qO- http://localhost:3001/api/v1/health >/dev/null 2>&1; do
+      docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" exec -T api node -e "fetch('http://localhost:3001/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; do
   if (( elapsed >= TIMEOUT )); then
     die "Control plane did not become healthy in ${TIMEOUT}s. Check: docker compose -f $INSTALL_DIR/infra/docker-compose.yml logs"
   fi
