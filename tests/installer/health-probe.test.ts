@@ -26,6 +26,31 @@ describe('install.sh — health gate probe', () => {
 describe('install.sh — repo-free staging is the installer\'s job', () => {
   it('stages pre-staged files from the script dir into INSTALL_DIR itself (no operator sudo/mkdir)', () => {
     expect(src).toMatch(/have_needed_files "\$SCRIPT_DIR"/);
-    expect(src).toMatch(/sudo mkdir -p "\$INSTALL_DIR\/infra" "\$INSTALL_DIR\/scripts"/);
+    expect(src).toMatch(/\$SUDO mkdir -p "\$INSTALL_DIR\/infra" "\$INSTALL_DIR\/scripts"/);
+  });
+});
+
+describe('install.sh — preflight (root VPS reality)', () => {
+  it('supports running as root (fresh VPSes often only have root) — no root rejection', () => {
+    // The old `die "Do not run as root"` blocked every root-only VPS.
+    expect(src).not.toMatch(/Do not run as root/);
+    // Root path: privileged commands run bare; non-root path keeps sudo.
+    expect(src).toMatch(/if \[\[ \$EUID -eq 0 \]\]; then\n\s+SUDO=""/);
+    // No privileged command bypasses the wrapper (allowed bare-sudo: the
+    // -n probe, usermod inside the non-root branch, and help-text strings).
+    const bareSudo = src
+      .split('\n')
+      .filter((l) => /^\s*sudo /.test(l) && !/usermod|sudo -n/.test(l));
+    expect(bareSudo).toEqual([]);
+  });
+
+  it('refuses to run inside a container', () => {
+    expect(src).toMatch(/\/\.dockerenv/);
+  });
+
+  it('fails fast when ports 80/443 are taken — but not by our own caddy (idempotent re-run)', () => {
+    expect(src).toMatch(/supastack-caddy/);
+    expect(src).toMatch(/ss -ltn/);
+    expect(src).toMatch(/already listening on port/);
   });
 });

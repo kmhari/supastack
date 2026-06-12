@@ -26,6 +26,7 @@
 #   LOG_LEVEL        pino log level for api+worker (default: info)
 #   SUPASTACK_SKIP_UP set to 1 to stop after config generation (CI / testing).
 set -Eeuo pipefail
+export DEBIAN_FRONTEND=noninteractive
 
 # ─── colours ────────────────────────────────────────────────────────────────
 if [[ -t 1 ]]; then
@@ -58,12 +59,15 @@ fi
 LOG_LEVEL="${LOG_LEVEL:-info}"
 SUPASTACK_SKIP_UP="${SUPASTACK_SKIP_UP:-0}"
 
-# ─── root check ─────────────────────────────────────────────────────────────
+# ─── privileges ─────────────────────────────────────────────────────────────
+# Root and sudo-capable users both work — fresh VPSes often only have root.
 if [[ $EUID -eq 0 ]]; then
-  die "Do not run as root. Run as a sudo-capable regular user."
-fi
-if ! sudo -n true 2>/dev/null; then
-  warn "This script needs sudo for Docker install, /opt and /var paths. You may be prompted."
+  SUDO=""
+else
+  SUDO="sudo"
+  if ! sudo -n true 2>/dev/null; then
+    warn "This script needs sudo for Docker install, /opt and /var paths. You may be prompted."
+  fi
 fi
 
 # ─── OS / arch sanity ───────────────────────────────────────────────────────
@@ -71,19 +75,27 @@ case "$(uname -s)" in
   Linux) ;;
   *) die "Linux only (got $(uname -s))." ;;
 esac
+if [[ -f /.dockerenv ]]; then
+  die "Running inside a container is not supported. Run directly on the host."
+fi
 
 # ─── 1. install Docker if missing ───────────────────────────────────────────
 if ! command -v docker >/dev/null 2>&1; then
   info "Installing Docker via get.docker.com…"
-  curl -fsSL https://get.docker.com | sudo sh
-  sudo usermod -aG docker "$USER"
-  warn "User '$USER' added to the docker group. Log out and back in if subsequent commands fail with permission errors."
+  curl -fsSL https://get.docker.com | $SUDO sh
+  if [[ -n "$SUDO" ]]; then
+    sudo usermod -aG docker "$USER"
+    warn "User '$USER' added to the docker group. Log out and back in if subsequent commands fail with permission errors."
+  fi
 else
   ok "docker $(docker --version | awk '{print $3}' | tr -d ',')"
 fi
 if ! docker info >/dev/null 2>&1; then
-  warn "Docker daemon not reachable yet. Re-running via 'sg docker'…"
-  exec sg docker "$0 $*"
+  if [[ -n "$SUDO" ]]; then
+    warn "Docker daemon not reachable yet. Re-running via 'sg docker'…"
+    exec sg docker "$0 $*"
+  fi
+  die "Docker daemon not reachable. Check: systemctl status docker"
 fi
 if ! docker compose version >/dev/null 2>&1; then
   die "docker compose v2 plugin missing. Install: https://docs.docker.com/compose/install/"
@@ -117,16 +129,16 @@ elif have_needed_files "$INSTALL_DIR"; then
   [[ "$INSTALL_MODE" == "build" ]] && die "INSTALL_MODE=build needs a full source checkout, not pre-staged files. Clone the repo or use pull mode."
 elif [[ -n "$SCRIPT_DIR" && "$SCRIPT_DIR" != "$INSTALL_DIR" ]] && have_needed_files "$SCRIPT_DIR"; then
   info "Staging install files from $SCRIPT_DIR → $INSTALL_DIR"
-  sudo mkdir -p "$INSTALL_DIR/infra" "$INSTALL_DIR/scripts"
-  sudo chown -R "$USER:$USER" "$INSTALL_DIR"
+  $SUDO mkdir -p "$INSTALL_DIR/infra" "$INSTALL_DIR/scripts"
+  $SUDO chown -R "$USER:$USER" "$INSTALL_DIR"
   local_f=""
   for local_f in "${NEEDED_FILES[@]}"; do cp "$SCRIPT_DIR/$local_f" "$INSTALL_DIR/$local_f"; done
   [[ "$INSTALL_MODE" == "build" ]] && die "INSTALL_MODE=build needs a full source checkout, not pre-staged files. Clone the repo or use pull mode."
 else
   command -v git >/dev/null 2>&1 || die "git not found. Install it (sudo apt install -y git) — or place ${NEEDED_FILES[*]} next to this script and re-run (no git needed)."
   info "Cloning $REPO_URL@$REPO_REF → $INSTALL_DIR"
-  sudo mkdir -p "$INSTALL_DIR"
-  sudo chown -R "$USER:$USER" "$INSTALL_DIR"
+  $SUDO mkdir -p "$INSTALL_DIR"
+  $SUDO chown -R "$USER:$USER" "$INSTALL_DIR"
   git clone --depth=1 --branch "$REPO_REF" "$REPO_URL" "$INSTALL_DIR" \
     || die "Clone failed (private repo / no auth?). Alternative: place ${NEEDED_FILES[*]} next to this script and re-run."
 fi
@@ -134,8 +146,8 @@ cd "$INSTALL_DIR"
 
 # ─── 3. data dirs ───────────────────────────────────────────────────────────
 info "Creating data dirs under $DATA_DIR"
-sudo mkdir -p "$DATA_DIR/instances" "$DATA_DIR/backups" "$DATA_DIR/certs"
-sudo chown -R "$USER:$USER" "$DATA_DIR"
+$SUDO mkdir -p "$DATA_DIR/instances" "$DATA_DIR/backups" "$DATA_DIR/certs"
+$SUDO chown -R "$USER:$USER" "$DATA_DIR"
 
 # ─── 4. .env (idempotent — generate-if-absent + back-fill missing vars) ─────
 # Generates a fresh .env on first run and back-fills any required var missing
@@ -254,7 +266,18 @@ if [[ "$SUPASTACK_SKIP_UP" == "1" ]]; then
   exit 0
 fi
 
-# ─── 5. download / build all images ─────────────────────────────────────────
+# ─── 5. ports 80/443 must be free ───────────────────────────────────────────
+# Caddy binds both; a leftover nginx/apache makes `up -d` fail half-started.
+# Skipped when OUR caddy already holds them (idempotent re-run).
+if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^supastack-caddy'; then
+  for _port in 80 443; do
+    if ss -ltn 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${_port}\$"; then
+      die "Something is already listening on port ${_port}. Stop it (e.g. apache/nginx) and re-run."
+    fi
+  done
+fi
+
+# ─── 6. download / build all images ─────────────────────────────────────────
 COMPOSE=(docker compose -f "$INSTALL_DIR/infra/docker-compose.yml")
 if [[ "$INSTALL_MODE" == "pull" ]]; then
   info "Pulling platform images from Docker Hub (tag: $SUPASTACK_VERSION)…"
@@ -298,7 +321,7 @@ for img in "${INSTANCE_IMAGES[@]}"; do
 done
 ok "Per-project images ready"
 
-# ─── 6. control-plane stack up ───────────────────────────────────────────────
+# ─── 7. control-plane stack up ───────────────────────────────────────────────
 info "Starting control plane…"
 if [[ "$INSTALL_MODE" == "pull" ]]; then
   "${COMPOSE[@]}" up -d --no-build
@@ -306,7 +329,7 @@ else
   "${COMPOSE[@]}" up -d
 fi
 
-# ─── 7. wait for health ─────────────────────────────────────────────────────
+# ─── 8. wait for health ─────────────────────────────────────────────────────
 info "Waiting for control plane to become healthy…"
 TIMEOUT=180
 elapsed=0
@@ -321,7 +344,7 @@ until docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" ps --format json
 done
 ok "Control plane is healthy (${elapsed}s)"
 
-# ─── 8. point operator at /setup ────────────────────────────────────────────
+# ─── 9. point operator at /setup ────────────────────────────────────────────
 PUBLIC_HOST="${PUBLIC_HOST:-$(curl -fsSL --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')}"
 echo
 echo -e "${B}═══════════════════════════════════════════════════${X}"
