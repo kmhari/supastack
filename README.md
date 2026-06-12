@@ -13,6 +13,8 @@ Supabase's hosting story is either their Cloud or a single hand-managed
 control plane that provisions and operates **N** isolated projects on hardware
 you own — with real API keys that work on the first try, Cloud-parity URLs,
 and lifecycle management (pause, resume, upgrade, backup, restore) from a UI.
+Full comparison against vanilla self-hosting:
+[docs/supastack-vs-selfhost.md](docs/supastack-vs-selfhost.md).
 
 ## Features
 
