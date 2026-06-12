@@ -86,3 +86,8 @@ apps/web/tests/e2e/.auth/
 
 # Local Claude harness state
 .claude/scheduled_tasks.lock
+
+# Local-only dev context — removed from git history 2026-06-12, never re-track
+.claude/
+.specify/
+specs/
