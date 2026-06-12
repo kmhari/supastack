@@ -91,3 +91,4 @@ apps/web/tests/e2e/.auth/
 .claude/
 .specify/
 specs/
+specs-docs/
