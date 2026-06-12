@@ -50,7 +50,8 @@ describe('install.sh — per-project image prewarm', () => {
 
   it('pulls everything upfront — per-project images download BEFORE the stack starts', () => {
     const pullLoop = installSh.indexOf('docker pull -q "$img"');
-    const stackUp = installSh.indexOf('up -d');
+    // The literal compose invocation — a plain 'up -d' also matches comments.
+    const stackUp = installSh.indexOf('"${COMPOSE[@]}" up -d');
     expect(pullLoop, 'per-project pull loop not found').toBeGreaterThan(-1);
     expect(stackUp, 'compose up not found').toBeGreaterThan(-1);
     expect(pullLoop, 'per-project images must be pulled before compose up').toBeLessThan(stackUp);
