@@ -92,3 +92,4 @@ apps/web/tests/e2e/.auth/
 .specify/
 specs/
 specs-docs/
+develop/
