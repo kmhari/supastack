@@ -285,7 +285,44 @@ until docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" ps --format json
 done
 ok "Control plane is healthy (${elapsed}s)"
 
-# ─── 8. point operator at /setup ────────────────────────────────────────────
+# ─── 8. pre-pull per-project images (background) ────────────────────────────
+# The first project creation otherwise pulls ~4 GB of per-project Supabase
+# images on demand, stretching "provisioning" to several minutes on a fresh
+# host. Warm the cache now, in the background, while the operator works
+# through the DNS/cert wizard. Serial pulls (one at a time) so we don't
+# saturate a fresh VM's disk/network; `docker pull` is an idempotent no-op
+# for layers already present, so re-runs are free.
+#
+# KEEP IN SYNC with the image pins in
+# infra/supabase-template/docker-compose.yml (plus the STUDIO_IMAGE default
+# in infra/docker-compose.yml). Drift is caught by
+# tests/installer/instance-image-prewarm.test.ts.
+INSTANCE_IMAGES=(
+  supabase/postgres:15.8.1.085
+  supabase/gotrue:v2.186.0
+  postgrest/postgrest:v14.8
+  supabase/realtime:v2.76.5
+  supabase/storage-api:v1.60.10
+  supabase/edge-runtime:v1.74.0
+  supabase/postgres-meta:v0.96.3
+  supabase/logflare:1.36.1
+  supabase/studio:2026.04.27-sha-5f60601
+  kong/kong:3.9.1
+  darthsim/imgproxy:v3.30.1
+  timberio/vector:0.53.0-alpine
+)
+PREWARM_LOG="$INSTALL_DIR/instance-image-prewarm.log"
+info "Pre-pulling ${#INSTANCE_IMAGES[@]} per-project images in the background (log: $PREWARM_LOG)…"
+nohup bash -c '
+  for img in "$@"; do
+    echo "[prewarm] pulling $img"
+    docker pull "$img" || echo "[prewarm] FAILED $img (first project creation will retry it)"
+  done
+  echo "[prewarm] done"
+' _ "${INSTANCE_IMAGES[@]}" >"$PREWARM_LOG" 2>&1 &
+disown
+
+# ─── 9. point operator at /setup ────────────────────────────────────────────
 PUBLIC_HOST="${PUBLIC_HOST:-$(curl -fsSL --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')}"
 echo
 echo -e "${B}═══════════════════════════════════════════════════${X}"
@@ -298,6 +335,8 @@ echo "    issues the wildcard certificate, then creates the super-admin."
 echo
 echo "  Config:   $ENV_FILE  (secrets — keep safe)"
 echo "  Data:     $DATA_DIR/instances  +  $DATA_DIR/backups"
+echo "  Prewarm:  per-project images downloading in the background"
+echo "            (tail -f $PREWARM_LOG)"
 echo "  Manage:   docker compose -f $INSTALL_DIR/infra/docker-compose.yml ps"
 echo "            docker compose -f $INSTALL_DIR/infra/docker-compose.yml logs -f"
 echo "            docker compose -f $INSTALL_DIR/infra/docker-compose.yml down"
