@@ -42,9 +42,13 @@ die()     { echo -e "${R}[err]${X}  $*" >&2; exit 1; }
 # ─── config ─────────────────────────────────────────────────────────────────
 INSTALL_DIR="${INSTALL_DIR:-/opt/supastack}"
 DATA_DIR="${DATA_DIR:-/var/supastack}"
+# Piped installs (curl | bash) have NO script file: BASH_SOURCE is unset, and
+# bare ${BASH_SOURCE[0]} aborts under `set -u`. Resolve it ONCE, guarded, and
+# use SCRIPT_SOURCE everywhere below.
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
 REPO_URL_DEFAULT=""
-if [[ -d "${BASH_SOURCE[0]%/*}/.git" ]]; then
-  REPO_URL_DEFAULT="$(git -C "${BASH_SOURCE[0]%/*}" remote get-url origin 2>/dev/null || true)"
+if [[ -n "$SCRIPT_SOURCE" && -d "${SCRIPT_SOURCE%/*}/.git" ]]; then
+  REPO_URL_DEFAULT="$(git -C "${SCRIPT_SOURCE%/*}" remote get-url origin 2>/dev/null || true)"
 fi
 REPO_URL="${REPO_URL:-${REPO_URL_DEFAULT:-https://github.com/kmhari/supastack.git}}"
 REPO_REF="${REPO_REF:-main}"
@@ -121,8 +125,8 @@ have_needed_files() { # <base-dir>
   for f in "${NEEDED_FILES[@]}"; do [[ -f "$base/$f" ]] || return 1; done
 }
 SCRIPT_DIR=""
-if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -n "$SCRIPT_SOURCE" && -f "$SCRIPT_SOURCE" ]]; then
+  SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" && pwd)"
 fi
 
 if [[ -d "$INSTALL_DIR/.git" ]]; then

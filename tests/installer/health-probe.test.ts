@@ -68,4 +68,13 @@ describe('install.sh — curl|bash one-liner (public repo)', () => {
     // Non-apt systems still get the actionable manual hint instead of a bare failure.
     expect(src).toMatch(/git not found\. Install it/);
   });
+
+  it('never expands BASH_SOURCE unguarded — unset under curl|bash, fatal with set -u', () => {
+    // First live one-liner run (165.232.177.207): `${BASH_SOURCE[0]%/*}` at the
+    // REPO_URL_DEFAULT check aborted with "unbound variable" before anything ran.
+    // Exactly ONE guarded resolution; everything else goes through SCRIPT_SOURCE.
+    const codeLines = src.split('\n').filter((l) => !/^\s*#/.test(l));
+    const uses = codeLines.filter((l) => l.includes('BASH_SOURCE'));
+    expect(uses).toEqual(['SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"']);
+  });
 });
