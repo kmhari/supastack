@@ -4,9 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 /**
- * install.sh pre-pulls the per-project Supabase images in the background so
- * the FIRST project creation doesn't spend minutes downloading ~4 GB (hit on
- * the shipfan.xyz fresh install). The image list is HARDCODED in install.sh
+ * install.sh pulls the per-project Supabase images upfront (before the stack
+ * starts) so the FIRST project creation doesn't spend minutes downloading
+ * ~4 GB (hit on the shipfan.xyz fresh install). The list is HARDCODED in install.sh
  * (deliberate — pull-mode installs have no source checkout to read the
  * template from), so this test is the drift guard: it must equal exactly the
  * pins in infra/supabase-template/docker-compose.yml plus the STUDIO_IMAGE
@@ -48,12 +48,15 @@ describe('install.sh — per-project image prewarm', () => {
     }
   });
 
-  it('pulls run in the background and never block or fail the install', () => {
-    // nohup + & + disown: the installer must finish in seconds; a registry
-    // hiccup mid-prewarm must not kill a successful install (set -e is active).
-    expect(installSh).toMatch(/nohup bash -c/);
-    expect(installSh).toMatch(/"\$\{INSTANCE_IMAGES\[@\]\}" >"\$PREWARM_LOG" 2>&1 &/);
-    expect(installSh).toMatch(/^disown$/m);
-    expect(installSh).toMatch(/docker pull "\$img" \|\|/);
+  it('pulls everything upfront — per-project images download BEFORE the stack starts', () => {
+    const pullLoop = installSh.indexOf('docker pull -q "$img"');
+    const stackUp = installSh.indexOf('up -d');
+    expect(pullLoop, 'per-project pull loop not found').toBeGreaterThan(-1);
+    expect(stackUp, 'compose up not found').toBeGreaterThan(-1);
+    expect(pullLoop, 'per-project images must be pulled before compose up').toBeLessThan(stackUp);
+  });
+
+  it('a failed pull warns but never aborts the install (set -e is active)', () => {
+    expect(installSh).toMatch(/docker pull -q "\$img" \|\| warn/);
   });
 });

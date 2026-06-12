@@ -212,7 +212,7 @@ directory-derived default project name and can clobber an unrelated stack on the
 - **Studio**: bump `STUDIO_IMAGE` on the worker (compose env) for new provisions; existing
   instances need (a) or (b).
 - Keep the **control-plane GoTrue and the template GoTrue in sync** unless intentionally diverging.
-- **When bumping any template pin, update the `INSTANCE_IMAGES` prewarm list in `install.sh` too** — the installer pre-pulls these in the background so the first project creation isn't a multi-GB download. A unit test (`tests/installer/instance-image-prewarm.test.ts`) fails if the two drift.
+- **When bumping any template pin, update the `INSTANCE_IMAGES` list in `install.sh` too** — the installer pulls these upfront so the first project creation isn't a multi-GB download. A unit test (`tests/installer/instance-image-prewarm.test.ts`) fails if the two drift.
 
 ---
 

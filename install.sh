@@ -254,44 +254,22 @@ if [[ "$SUPASTACK_SKIP_UP" == "1" ]]; then
   exit 0
 fi
 
-# ─── 5. control-plane stack up ──────────────────────────────────────────────
+# ─── 5. download / build all images ─────────────────────────────────────────
 COMPOSE=(docker compose -f "$INSTALL_DIR/infra/docker-compose.yml")
 if [[ "$INSTALL_MODE" == "pull" ]]; then
   info "Pulling platform images from Docker Hub (tag: $SUPASTACK_VERSION)…"
   "${COMPOSE[@]}" pull
-  info "Starting control plane…"
-  "${COMPOSE[@]}" up -d --no-build
 else
   info "Pulling vendor images…"
   "${COMPOSE[@]}" pull --ignore-pull-failures || true
   info "Building platform images from source (api, worker, mcp, web)…"
   "${COMPOSE[@]}" build
-  info "Starting control plane…"
-  "${COMPOSE[@]}" up -d
 fi
 
-# ─── 7. wait for health ─────────────────────────────────────────────────────
-info "Waiting for control plane to become healthy…"
-TIMEOUT=180
-elapsed=0
-until docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" ps --format json \
-        | grep -q '"Health":"healthy"' && \
-      docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" exec -T api node -e "fetch('http://localhost:3001/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; do
-  if (( elapsed >= TIMEOUT )); then
-    die "Control plane did not become healthy in ${TIMEOUT}s. Check: docker compose -f $INSTALL_DIR/infra/docker-compose.yml logs"
-  fi
-  sleep 5
-  elapsed=$((elapsed + 5))
-done
-ok "Control plane is healthy (${elapsed}s)"
-
-# ─── 8. pre-pull per-project images (background) ────────────────────────────
-# The first project creation otherwise pulls ~4 GB of per-project Supabase
-# images on demand, stretching "provisioning" to several minutes on a fresh
-# host. Warm the cache now, in the background, while the operator works
-# through the DNS/cert wizard. Serial pulls (one at a time) so we don't
-# saturate a fresh VM's disk/network; `docker pull` is an idempotent no-op
-# for layers already present, so re-runs are free.
+# Per-project Supabase images. Without this, the FIRST project creation pulls
+# ~4 GB on demand, stretching "provisioning" to several minutes on a fresh
+# host. Pulled upfront so everything is on disk before the stack starts.
+# A failed pull warns instead of aborting — first project creation retries it.
 #
 # KEEP IN SYNC with the image pins in
 # infra/supabase-template/docker-compose.yml (plus the STUDIO_IMAGE default
@@ -311,18 +289,39 @@ INSTANCE_IMAGES=(
   darthsim/imgproxy:v3.30.1
   timberio/vector:0.53.0-alpine
 )
-PREWARM_LOG="$INSTALL_DIR/instance-image-prewarm.log"
-info "Pre-pulling ${#INSTANCE_IMAGES[@]} per-project images in the background (log: $PREWARM_LOG)…"
-nohup bash -c '
-  for img in "$@"; do
-    echo "[prewarm] pulling $img"
-    docker pull "$img" || echo "[prewarm] FAILED $img (first project creation will retry it)"
-  done
-  echo "[prewarm] done"
-' _ "${INSTANCE_IMAGES[@]}" >"$PREWARM_LOG" 2>&1 &
-disown
+info "Pulling ${#INSTANCE_IMAGES[@]} per-project Supabase images (needed for project creation)…"
+i=0
+for img in "${INSTANCE_IMAGES[@]}"; do
+  i=$((i + 1))
+  info "  [$i/${#INSTANCE_IMAGES[@]}] $img"
+  docker pull -q "$img" || warn "Pull failed for $img — first project creation will retry it"
+done
+ok "Per-project images ready"
 
-# ─── 9. point operator at /setup ────────────────────────────────────────────
+# ─── 6. control-plane stack up ───────────────────────────────────────────────
+info "Starting control plane…"
+if [[ "$INSTALL_MODE" == "pull" ]]; then
+  "${COMPOSE[@]}" up -d --no-build
+else
+  "${COMPOSE[@]}" up -d
+fi
+
+# ─── 7. wait for health ─────────────────────────────────────────────────────
+info "Waiting for control plane to become healthy…"
+TIMEOUT=180
+elapsed=0
+until docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" ps --format json \
+        | grep -q '"Health":"healthy"' && \
+      docker compose -f "$INSTALL_DIR/infra/docker-compose.yml" exec -T api node -e "fetch('http://localhost:3001/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; do
+  if (( elapsed >= TIMEOUT )); then
+    die "Control plane did not become healthy in ${TIMEOUT}s. Check: docker compose -f $INSTALL_DIR/infra/docker-compose.yml logs"
+  fi
+  sleep 5
+  elapsed=$((elapsed + 5))
+done
+ok "Control plane is healthy (${elapsed}s)"
+
+# ─── 8. point operator at /setup ────────────────────────────────────────────
 PUBLIC_HOST="${PUBLIC_HOST:-$(curl -fsSL --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')}"
 echo
 echo -e "${B}═══════════════════════════════════════════════════${X}"
@@ -335,8 +334,6 @@ echo "    issues the wildcard certificate, then creates the super-admin."
 echo
 echo "  Config:   $ENV_FILE  (secrets — keep safe)"
 echo "  Data:     $DATA_DIR/instances  +  $DATA_DIR/backups"
-echo "  Prewarm:  per-project images downloading in the background"
-echo "            (tail -f $PREWARM_LOG)"
 echo "  Manage:   docker compose -f $INSTALL_DIR/infra/docker-compose.yml ps"
 echo "            docker compose -f $INSTALL_DIR/infra/docker-compose.yml logs -f"
 echo "            docker compose -f $INSTALL_DIR/infra/docker-compose.yml down"
