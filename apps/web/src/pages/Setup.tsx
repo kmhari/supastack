@@ -106,9 +106,11 @@ export function SetupPage(): React.ReactElement {
             // Fresh install: apexRef was never populated (the bootstrap only
             // fills it on the setup-already-done path) — without this the
             // cert step rendered the "real domain required" block on a real
-            // apex (shipfan.xyz E2E, 2026-06-12).
+            // apex (shipfan.xyz E2E, 2026-06-12). info(), not status(): a
+            // DNS probe here runs BEFORE the operator adds the records and
+            // poisons the resolvers' negative caches.
             try {
-              const st = await apexApi.status();
+              const st = await apexApi.info();
               apexRef.current = st.apex ?? '';
             } catch {
               /* DomainCertsStep shows its own error states */
@@ -222,7 +224,13 @@ function AdminStep({
 
 // ─── Step 2: domain + certs (merged) ───────────────────────────────────────
 
-type DomainCertsSub = 'verifying-dns' | 'issuing-certs' | 'verifying-https' | 'done';
+type DomainCertsSub =
+  | 'records' // show the records to add; NO DNS queries yet (negative-cache safe)
+  | 'waiting-propagation' // operator confirmed; 10s grace before the first probe
+  | 'verifying-dns'
+  | 'issuing-certs'
+  | 'verifying-https'
+  | 'done';
 
 export function DomainCertsStep({
   initialApex,
@@ -236,7 +244,7 @@ export function DomainCertsStep({
   // certs for the established domain (and blocks on a local/default domain).
   const apex = initialApex;
   const real = isRealApex(apex);
-  const [sub, setSub] = useState<DomainCertsSub>('verifying-dns');
+  const [sub, setSub] = useState<DomainCertsSub>('records');
   const [challengeRecords, setChallengeRecords] = useState<ChallengeRecord[]>([]);
   const [dnsChecks, setDnsChecks] = useState<DnsCheck[]>([]);
   const [apexDnsOk, setApexDnsOk] = useState(false);
@@ -252,14 +260,20 @@ export function DomainCertsStep({
   const allDnsResolved = dnsGateReady(apexDnsOk, wildcardDnsOk, allTxtReady);
 
   // Ensure a DNS-01 order exists once we land here (was previously triggered by
-  // the removed apex-entry form). Idempotent on the backend.
+  // the removed apex-entry form). Idempotent on the backend. Also fetch the
+  // expected IP for the records table — via the NO-PROBE endpoint: the whole
+  // point of the 'records' state is that no DNS query happens before the
+  // operator says the records exist (a premature NXDOMAIN gets negatively
+  // cached by the public resolvers and stalls verification for minutes).
   useEffect(() => {
     if (!real) return;
     let cancelled = false;
     void (async () => {
       try {
-        const initiated = await wildcardCertApi.initiate();
-        if (!cancelled) setChallengeRecords(initiated.challengeRecords);
+        const [initiated, info] = await Promise.all([wildcardCertApi.initiate(), apexApi.info()]);
+        if (cancelled) return;
+        setChallengeRecords(initiated.challengeRecords);
+        setExpectedIp(info.expectedIp ?? '');
       } catch {
         /* the verifying-dns poll also surfaces challenge records */
       }
@@ -268,6 +282,13 @@ export function DomainCertsStep({
       cancelled = true;
     };
   }, [real]);
+
+  // 10s propagation grace after "All 4 records added", then start probing.
+  useEffect(() => {
+    if (sub !== 'waiting-propagation') return;
+    const id = setTimeout(() => setSub('verifying-dns'), 10_000);
+    return () => clearTimeout(id);
+  }, [sub]);
 
   // Poll DNS every 10s while in verifying-dns state
   useEffect(() => {
@@ -472,7 +493,14 @@ export function DomainCertsStep({
     );
   }
 
-  // verifying-dns sub-state
+  // records / waiting-propagation / verifying-dns sub-states share the table.
+  // 'records': no probing has happened — status column stays neutral.
+  // 'waiting-propagation': 10s grace, every row shows a spinner.
+  // 'verifying-dns': live per-record results from the backend.
+  const rowStatus = (ok: boolean): DnsRowStatus =>
+    sub === 'waiting-propagation' ? 'checking' : sub === 'verifying-dns' ? (ok ? 'ok' : 'pending') : 'idle';
+  const recordsReady = Boolean(expectedIp) && challengeRecords.length > 0;
+
   return (
     <div className="flex w-[32rem] max-w-full flex-col gap-4">
       <Wordmark />
@@ -511,7 +539,7 @@ export function DomainCertsStep({
               hint="dashboard"
               value={expectedIp || '…'}
               copyable
-              resolved={apexDnsOk}
+              status={rowStatus(apexDnsOk)}
             />
             <DnsRecordRow
               type="A"
@@ -519,7 +547,7 @@ export function DomainCertsStep({
               hint="instances"
               value={expectedIp || '…'}
               copyable
-              resolved={wildcardDnsOk}
+              status={rowStatus(wildcardDnsOk)}
             />
             {challengeRecords.length === 0 ? (
               <tr>
@@ -539,7 +567,7 @@ export function DomainCertsStep({
                     hint={`wildcard cert #${i + 1}`}
                     value={rec.value}
                     copyable
-                    resolved={check?.found ?? false}
+                    status={rowStatus(check?.found ?? false)}
                   />
                 );
               })
@@ -548,19 +576,42 @@ export function DomainCertsStep({
         </table>
       </div>
 
-      <div className="flex gap-2">
+      {sub === 'records' && (
         <Button
-          type="default"
-          disabled={recheckLoading}
-          onClick={() => void onRecheck()}
-          size="small"
+          disabled={!recordsReady}
+          onClick={() => setSub('waiting-propagation')}
+          className="w-full"
         >
-          {recheckLoading ? <Loader2 className="size-3.5 animate-spin" /> : 'Recheck now'}
+          All 4 records added →
         </Button>
-        <Button disabled={!allDnsResolved} onClick={() => void onCreateCerts()} className="flex-1">
-          {allDnsResolved ? 'Create Certs' : 'Waiting for DNS…'}
+      )}
+
+      {sub === 'waiting-propagation' && (
+        <Button disabled className="w-full">
+          <Loader2 className="size-4 animate-spin" />
+          Waiting for DNS propagation…
         </Button>
-      </div>
+      )}
+
+      {sub === 'verifying-dns' && (
+        <div className="flex gap-2">
+          <Button
+            type="default"
+            disabled={recheckLoading}
+            onClick={() => void onRecheck()}
+            size="small"
+          >
+            {recheckLoading ? <Loader2 className="size-3.5 animate-spin" /> : 'Recheck now'}
+          </Button>
+          <Button
+            disabled={!allDnsResolved}
+            onClick={() => void onCreateCerts()}
+            className="flex-1"
+          >
+            {allDnsResolved ? 'Create Certs' : 'Waiting for DNS…'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -661,20 +712,22 @@ function CliOnboardingStep({
 
 // ─── Shared subcomponents ───────────────────────────────────────────────────
 
+type DnsRowStatus = 'idle' | 'checking' | 'pending' | 'ok';
+
 function DnsRecordRow({
   type,
   host,
   hint,
   value,
   copyable,
-  resolved,
+  status,
 }: {
   type: string;
   host: string;
   hint: string;
   value: string;
   copyable?: boolean;
-  resolved: boolean;
+  status: DnsRowStatus;
 }): React.ReactElement {
   return (
     <tr className="border-t border-border-soft">
@@ -697,10 +750,14 @@ function DnsRecordRow({
         </span>
       </td>
       <td className="px-3.5 py-2">
-        {resolved ? (
+        {status === 'ok' ? (
           <CheckCircle2 className="size-4 text-success" />
-        ) : (
+        ) : status === 'checking' ? (
+          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+        ) : status === 'pending' ? (
           <Circle className="size-4 text-muted-foreground" />
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
         )}
       </td>
     </tr>

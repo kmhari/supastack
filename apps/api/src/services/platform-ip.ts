@@ -2,16 +2,27 @@ import { Resolver } from 'node:dns';
 import { request } from 'undici';
 
 /**
- * Use public resolvers (Cloudflare + Google + Quad9) instead of the system
- * resolver. This avoids stale-cache false negatives when the operator
- * adds the A record while we were already polling — the container's
- * resolver may have cached NXDOMAIN moments earlier. Pattern lifted from
- * /Users/lord/Code/open-frontend/apps/api/src/routes/wildcard-cert.ts.
+ * Public resolvers (Cloudflare + Google + Quad9) instead of the system
+ * resolver — the container's resolver may have cached NXDOMAIN moments
+ * before the operator added the record.
+ *
+ * Queried in PARALLEL with answers unioned, not as a node server list:
+ * node only fails over on timeout/refusal, and NXDOMAIN is a *valid* answer
+ * — so a single resolver's negatively-cached NXDOMAIN (from a poll that ran
+ * before the operator added the record) would pin "not resolved" for the
+ * zone's full negative TTL. Any one resolver seeing the record wins.
  */
-function publicResolver(): InstanceType<typeof Resolver> {
+const PUBLIC_DNS_SERVERS = ['1.1.1.1', '8.8.8.8', '9.9.9.9'];
+
+function resolve4With(server: string, host: string): Promise<string[]> {
   const r = new Resolver();
-  r.setServers(['1.1.1.1', '8.8.8.8', '9.9.9.9']);
-  return r;
+  r.setServers([server]);
+  return new Promise<string[]>((resolve) => {
+    r.resolve4(host, (err, addrs) => {
+      if (err || !addrs) resolve([]);
+      else resolve(addrs);
+    });
+  });
 }
 
 const FALLBACK_LOOKUP_URLS = [
@@ -53,16 +64,11 @@ export async function getPlatformIp(): Promise<string | null> {
 }
 
 /**
- * Look up A records for a hostname via public DNS resolvers. Returns the
- * empty array on any error (NXDOMAIN, timeout, network) — callers treat
- * that as "not resolved yet" and keep polling.
+ * Look up A records for a hostname across all public resolvers, unioned.
+ * Returns the empty array when nothing resolves anywhere (NXDOMAIN, timeout,
+ * network) — callers treat that as "not resolved yet" and keep polling.
  */
 export async function resolveA(host: string): Promise<string[]> {
-  const r = publicResolver();
-  return new Promise<string[]>((resolve) => {
-    r.resolve4(host, (err, addrs) => {
-      if (err || !addrs) resolve([]);
-      else resolve(addrs);
-    });
-  });
+  const answers = await Promise.all(PUBLIC_DNS_SERVERS.map((s) => resolve4With(s, host)));
+  return [...new Set(answers.flat())];
 }

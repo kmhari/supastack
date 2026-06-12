@@ -128,6 +128,10 @@ export interface ApexStatus {
 }
 export const apexApi = {
   status: () => unwrap<ApexStatus>(client.get('/apex')),
+  // No-probe variant: apex + expected IP for DISPLAY, zero DNS lookups.
+  // Querying DNS before the operator adds the records negatively caches
+  // NXDOMAIN at the public resolvers and stalls later verification.
+  info: () => unwrap<ApexStatus>(client.get('/apex', { params: { probe: '0' } })),
   recheck: () => unwrap<ApexStatus>(client.post('/apex/recheck')),
   // Long-poll (~45s on the server). Triggers Caddy on-demand TLS from
   // inside the docker network and returns once the cert is issued or

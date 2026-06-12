@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { errors, getApex } from '@supastack/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { reloadCaddy } from '../services/caddy-reload.js';
@@ -21,14 +22,18 @@ interface ApexStatus {
 }
 
 /**
- * Probe label used to verify a wildcard A record is in place.
- *
- * Uses an underscore-prefixed label (illegal in our instance refs, which
- * are `[a-z0-9]{20}`) so it never collides with a real instance. The
- * registrar's wildcard `*.<apex>` should match this and return the
- * platform IP; a missing wildcard returns NXDOMAIN.
+ * Probe name used to verify a wildcard A record is in place. The wildcard
+ * `*.<apex>` matches any label, so a RANDOM label per probe gives the same
+ * answer as a fixed one — except it can never be negatively cached. A fixed
+ * label queried before the operator added the record got its NXDOMAIN
+ * cached by the public resolvers for the zone's negative TTL (5–15 min),
+ * which is exactly the "records added but wizard won't confirm" stall seen
+ * on the shipfan.xyz install. Underscore-prefixed (illegal in instance
+ * refs, `[a-z0-9]{20}`) so it never collides with a real instance.
  */
-const WILDCARD_PROBE_LABEL = '_supastack-wildcard-probe';
+export function wildcardProbeName(apex: string): string {
+  return `_wcprobe-${randomBytes(4).toString('hex')}.${apex}`;
+}
 
 async function buildStatus(): Promise<ApexStatus> {
   const apex = getApex();
@@ -50,7 +55,7 @@ async function buildStatus(): Promise<ApexStatus> {
 
   const [observedIps, wildcardObservedIps] = await Promise.all([
     resolveA(apex),
-    resolveA(`${WILDCARD_PROBE_LABEL}.${apex}`),
+    resolveA(wildcardProbeName(apex)),
   ]);
   const apexOk = expectedIp !== null && observedIps.includes(expectedIp);
   const wildcardOk = expectedIp !== null && wildcardObservedIps.includes(expectedIp);
@@ -86,8 +91,25 @@ async function buildStatus(): Promise<ApexStatus> {
 }
 
 export const apexRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/apex', async (req, reply) => {
+  app.get<{ Querystring: { probe?: string } }>('/apex', async (req, reply) => {
     app.authorize(req, 'org.read');
+    // probe=0: return the apex + expected IP WITHOUT any DNS lookups. The
+    // setup wizard uses this for its initial render (it needs the values to
+    // DISPLAY the records) — querying DNS before the operator has added the
+    // records poisons the public resolvers' negative caches and stalls the
+    // later verification for the zone's negative TTL.
+    if (req.query.probe === '0') {
+      return reply.send({
+        apex: getApex(),
+        expectedIp: await getPlatformIp(),
+        observedIps: [],
+        dnsResolved: false,
+        wildcardObservedIps: [],
+        wildcardResolved: false,
+        httpsReachable: false,
+        cert: null,
+      } satisfies ApexStatus);
+    }
     // CI e2e mode: skip real DNS + cert probes (no DNS for test.local on the
     // runner, no ACME). Returning a "fully configured" status lets the
     // RequireAuth gate fall through to the actual page; otherwise every
