@@ -62,21 +62,31 @@ external Postgres access), and a **domain** you control DNS for. Run as a
 sudo-capable non-root user.
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/kmhari/supastack/main/install.sh | bash -s -- your-domain.com
+```
+
+(Omit the domain and the installer prompts for it — works even when piped.)
+
+The installer installs Docker if missing, clones the repo, generates all
+secrets into `infra/.env`, pulls the prebuilt platform images from Docker Hub,
+starts the control plane, and prints your setup URL. Open it, follow the DNS +
+certificate wizard, create your admin account, and you're at
+`https://your-domain.com/dashboard`. Works as root or as a sudo-capable user.
+
+Alternatives:
+
+```sh
+# From a checkout
 git clone https://github.com/kmhari/supastack.git /opt/supastack
 cd /opt/supastack
 ./install.sh your-domain.com
 ```
 
-The installer installs Docker if missing, generates all secrets into
-`infra/.env`, pulls the prebuilt platform images from Docker Hub, starts the
-control plane, and prints your setup URL. Open it, follow the DNS + certificate
-wizard, create your admin account, and you're at
-`https://your-domain.com/dashboard`.
-
 No git checkout is needed on the target: copying `install.sh` together with
 `infra/docker-compose.yml`, `infra/Caddyfile`, and
 `scripts/derive-gotrue-secret.mjs` (keeping their relative paths) to a fresh VM
-and running `./install.sh your-domain.com` performs the same pull-mode install.
+and running `./install.sh your-domain.com` performs the same pull-mode install
+without touching the network for source at all.
 
 To build images from source instead of pulling, use `INSTALL_MODE=build`.
 

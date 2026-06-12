@@ -92,8 +92,14 @@ else
 fi
 if ! docker info >/dev/null 2>&1; then
   if [[ -n "$SUDO" ]]; then
-    warn "Docker daemon not reachable yet. Re-running via 'sg docker'…"
-    exec sg docker "$0 $*"
+    # Fresh docker group membership isn't active in this shell. Re-exec works
+    # only when $0 is the script on disk — piped installs (curl | bash) have
+    # $0 = "bash", and exec'ing that drops into a bare shell, not the install.
+    if [[ -f "$0" ]]; then
+      warn "Docker daemon not reachable yet. Re-running via 'sg docker'…"
+      exec sg docker "$0 $*"
+    fi
+    die "Docker installed, but your docker group membership isn't active in this shell. Log out and back in (or run as root) and re-run the installer."
   fi
   die "Docker daemon not reachable. Check: systemctl status docker"
 fi
@@ -135,12 +141,19 @@ elif [[ -n "$SCRIPT_DIR" && "$SCRIPT_DIR" != "$INSTALL_DIR" ]] && have_needed_fi
   for local_f in "${NEEDED_FILES[@]}"; do cp "$SCRIPT_DIR/$local_f" "$INSTALL_DIR/$local_f"; done
   [[ "$INSTALL_MODE" == "build" ]] && die "INSTALL_MODE=build needs a full source checkout, not pre-staged files. Clone the repo or use pull mode."
 else
-  command -v git >/dev/null 2>&1 || die "git not found. Install it (sudo apt install -y git) — or place ${NEEDED_FILES[*]} next to this script and re-run (no git needed)."
+  if ! command -v git >/dev/null 2>&1; then
+    if command -v apt-get >/dev/null 2>&1; then
+      info "Installing git…"
+      $SUDO apt-get update -qq && $SUDO apt-get install -y -qq git
+    else
+      die "git not found. Install it — or place ${NEEDED_FILES[*]} next to this script and re-run (no git needed)."
+    fi
+  fi
   info "Cloning $REPO_URL@$REPO_REF → $INSTALL_DIR"
   $SUDO mkdir -p "$INSTALL_DIR"
   $SUDO chown -R "$USER:$USER" "$INSTALL_DIR"
   git clone --depth=1 --branch "$REPO_REF" "$REPO_URL" "$INSTALL_DIR" \
-    || die "Clone failed (private repo / no auth?). Alternative: place ${NEEDED_FILES[*]} next to this script and re-run."
+    || die "Clone of $REPO_URL failed (network/ref problem?). Alternative: place ${NEEDED_FILES[*]} next to this script and re-run."
 fi
 cd "$INSTALL_DIR"
 

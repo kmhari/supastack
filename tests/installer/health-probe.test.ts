@@ -54,3 +54,18 @@ describe('install.sh — preflight (root VPS reality)', () => {
     expect(src).toMatch(/already listening on port/);
   });
 });
+
+describe('install.sh — curl|bash one-liner (public repo)', () => {
+  it('sg-docker re-exec only when $0 is a real file — piped installs have $0=bash', () => {
+    // Unguarded `exec sg docker "$0 $*"` under curl|bash exec's a bare shell
+    // instead of resuming the install.
+    expect(src).toMatch(/if \[\[ -f "\$0" \]\]; then\n\s+warn .*\n\s+exec sg docker "\$0 \$\*"/);
+    expect(src).toMatch(/Log out and back in \(or run as root\)/);
+  });
+
+  it('auto-installs git for the clone path on apt systems (minimal images)', () => {
+    expect(src).toMatch(/apt-get install -y -qq git/);
+    // Non-apt systems still get the actionable manual hint instead of a bare failure.
+    expect(src).toMatch(/git not found\. Install it/);
+  });
+});
