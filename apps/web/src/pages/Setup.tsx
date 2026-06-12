@@ -598,8 +598,8 @@ function CliOnboardingStep({
             <span className="text-warn">
               {' '}
               Token not available — retrieve it from{' '}
-              <a href="/settings/tokens" className="underline">
-                Settings → API Tokens
+              <a href="/dashboard/account/tokens" className="underline">
+                Account → Access Tokens
               </a>
               .
             </span>
