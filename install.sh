@@ -45,7 +45,7 @@ REPO_URL_DEFAULT=""
 if [[ -d "${BASH_SOURCE[0]%/*}/.git" ]]; then
   REPO_URL_DEFAULT="$(git -C "${BASH_SOURCE[0]%/*}" remote get-url origin 2>/dev/null || true)"
 fi
-REPO_URL="${REPO_URL:-${REPO_URL_DEFAULT:-https://github.com/kmhari/selfbase.git}}"
+REPO_URL="${REPO_URL:-${REPO_URL_DEFAULT:-https://github.com/kmhari/supastack.git}}"
 REPO_REF="${REPO_REF:-main}"
 # pull = prebuilt images from Docker Hub (default); build = compile from source.
 INSTALL_MODE="${INSTALL_MODE:-pull}"

@@ -60,7 +60,7 @@ external Postgres access), and a **domain** you control DNS for. Run as a
 sudo-capable non-root user.
 
 ```sh
-git clone https://github.com/kmhari/selfbase.git /opt/supastack
+git clone https://github.com/kmhari/supastack.git /opt/supastack
 cd /opt/supastack
 ./install.sh your-domain.com
 ```
