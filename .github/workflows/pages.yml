@@ -1,0 +1,46 @@
+name: Deploy website to GitHub Pages
+
+# Serves the static marketing/docs SPA in website/ at
+# https://<user>.github.io/<repo>/. No build step — the SPA transpiles its
+# JSX in-browser (Babel) and loads React + Tailwind from CDN.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# Least-privilege tokens Pages needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One in-flight Pages deploy at a time; don't cancel a running publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Pages
+        # enablement:true turns Pages on with this workflow as the source the
+        # first time it runs, so no manual Settings -> Pages toggle is needed.
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: Upload website/ as the Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

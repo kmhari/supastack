@@ -22,6 +22,7 @@ export default [
       'specs/**',
       '.claude/**',
       '.github/**',
+      'website/**',
     ],
   },
   {

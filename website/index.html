@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Supastack — Run your own Supabase Cloud</title>
+  <meta name="description" content="Supastack is the open-source control plane self-hosted Supabase is missing: multi-project provisioning, the real Studio, accounts & orgs, HTTPS, backups, a working CLI and a hosted MCP server — on hardware you own." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#3ECF8E', dark: '#24b47e', dim: '#1c8f64' },
+            road: { DEFAULT: '#f5a623', dim: '#b97c14' },
+            base: { DEFAULT: '#0f1117', 800: '#151821', 700: '#1a1d27' },
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+          maxWidth: { content: '1140px' },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    :root { color-scheme: dark; }
+    html { scroll-behavior: smooth; }
+    body {
+      background-color: #0f1117;
+      color: #e7e9ee;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    /* atmospheric background: faint grid + green glow */
+    .bg-atmos {
+      background-image:
+        radial-gradient(60rem 40rem at 50% -10rem, rgba(62,207,142,0.10), transparent 60%),
+        radial-gradient(40rem 30rem at 100% 10%, rgba(62,207,142,0.05), transparent 60%),
+        linear-gradient(to bottom, rgba(255,255,255,0.02), transparent 12rem);
+    }
+    .bg-grid {
+      background-image:
+        linear-gradient(to right, rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.035) 1px, transparent 1px);
+      background-size: 56px 56px;
+      -webkit-mask-image: radial-gradient(50rem 30rem at 50% 0%, #000 30%, transparent 75%);
+              mask-image: radial-gradient(50rem 30rem at 50% 0%, #000 30%, transparent 75%);
+    }
+    ::selection { background: rgba(62,207,142,0.28); }
+
+    /* custom scrollbar for code blocks */
+    .scroll-x::-webkit-scrollbar { height: 6px; }
+    .scroll-x::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 99px; }
+
+    /* entrance */
+    @keyframes riseIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    /* base state is fully visible; the entrance is armed by JS only when the document is
+       visible, so content is never stuck at opacity:0 in a hidden/background tab */
+    .rise { opacity: 1; }
+    .rise[data-animate="1"] { animation: riseIn .6s cubic-bezier(.2,.7,.2,1) both; }
+    @media (prefers-reduced-motion: reduce) { .rise[data-animate="1"] { animation: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .rise { animation: none; }
+    }
+    .focus-ring:focus-visible { outline: 2px solid #3ECF8E; outline-offset: 2px; border-radius: 8px; }
+  </style>
+
+  <!-- React + Babel (pinned) -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body class="font-sans antialiased">
+  <div id="root"></div>
+
+  <script type="text/babel" src="components.jsx"></script>
+  <script type="text/babel" src="landing.jsx"></script>
+  <script type="text/babel" src="features.jsx"></script>
+  <script type="text/babel" src="app.jsx"></script>
+</body>
+</html>

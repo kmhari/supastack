@@ -11,6 +11,9 @@ yarn.lock
 infra/supabase-template/
 apps/web/src/theme/
 
+# Static GitHub Pages site — standalone CDN/in-browser-Babel prototype, own format
+website/
+
 # Speckit + Claude config + planning docs — don't reformat
 .specify/
 .claude/
