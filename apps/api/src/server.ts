@@ -22,6 +22,7 @@ import { cliLoginRoutes } from './routes/cli-login.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 import { healthRoutes } from './routes/health.js';
 import { probeProjectHealth, DEFAULT_HEALTH_SERVICES } from './services/project-health-service.js';
+import { getProjectServices } from './services/service-versions-service.js';
 import { instancesRoutes } from './routes/instances.js';
 import { adminRoutes } from './routes/admin.js';
 import { apiKeysRoutes } from './routes/management/api-keys.js';
@@ -353,16 +354,15 @@ export async function buildApp(): Promise<FastifyInstance> {
   );
 
   // Service versions — reflect actual image tags from the per-instance compose template.
-  app.get<RefP>('/v1/projects/:ref/services', async (_req, reply) =>
-    reply.send([
-      { name: 'db', version: 'postgres:15.8', status: 'ACTIVE_HEALTHY' },
-      { name: 'auth', version: 'supabase/gotrue:v2.186.0', status: 'ACTIVE_HEALTHY' },
-      { name: 'rest', version: 'postgrest/postgrest:v14.8', status: 'ACTIVE_HEALTHY' },
-      { name: 'realtime', version: 'supabase/realtime:v2.76.5', status: 'ACTIVE_HEALTHY' },
-      { name: 'storage', version: 'supabase/storage-api:v1.48.26', status: 'ACTIVE_HEALTHY' },
-      { name: 'functions', version: 'supabase/edge-runtime:v1.66.1', status: 'ACTIVE_HEALTHY' },
-    ]),
-  );
+  // Per-service image versions, read from the project's own compose (real tags,
+  // not hardcoded — the old stub drifted). status mirrors the instance state.
+  app.get<RefP>('/v1/projects/:ref/services', async (req, reply) => {
+    const result = await getProjectServices(req.params.ref);
+    if (result.notFound) {
+      return reply.status(404).send({ message: `Project ${req.params.ref} not found` });
+    }
+    return reply.send(result.services);
+  });
 
   // Third-party auth providers — not supported in self-hosted
   app.get<RefP>('/v1/projects/:ref/config/auth/third-party-auth', async (_req, reply) =>

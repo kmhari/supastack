@@ -36,6 +36,7 @@ import {
   PerInstanceDbUnreachableError,
 } from '../services/pg-password-reset.js';
 import { withPerInstancePg, InstanceNotRunningError } from '../services/per-instance-pg.js';
+import { getServiceVersions } from '../services/service-versions-service.js';
 import { getAuthSession, consumeAuthSession } from '../services/oauth-auth-sessions-store.js';
 import { issueCode } from '../services/oauth-codes-store.js';
 
@@ -1663,8 +1664,23 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   // Service versions — static stub (no per-service version surface in self-hosted)
   app.get<RefParams>('/platform/projects/:ref/service-versions', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({});
+    const user = app.requireAuth(req);
+    const [inst] = await db()
+      .select({ ref: schema.supabaseInstances.ref })
+      .from(schema.supabaseInstances)
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    return reply.send(await getServiceVersions(req.params.ref));
   });
 
   // Temporary API keys — return the project anon + service_role keys
