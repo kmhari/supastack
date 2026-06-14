@@ -37,11 +37,13 @@ vi.mock('@supastack/db', () => {
     },
   };
 });
-vi.mock('@supastack/crypto', () => ({ decryptJson: () => ({}), loadMasterKey: () => Buffer.alloc(32) }));
+vi.mock('@supastack/crypto', () => ({
+  decryptJson: () => ({}),
+  loadMasterKey: () => Buffer.alloc(32),
+}));
 
-const { listBackupsForPlatform, resolveBackupSeq, hashRefToInt } = await import(
-  '../../src/services/backups-mgmt-service.js'
-);
+const { listBackupsForPlatform, resolveBackupSeq, hashRefToInt } =
+  await import('../../src/services/backups-mgmt-service.js');
 
 describe('listBackupsForPlatform — Studio Cloud shape (feature 086 US6)', () => {
   beforeEach(() => {
@@ -65,7 +67,9 @@ describe('listBackupsForPlatform — Studio Cloud shape (feature 086 US6)', () =
     expect(b.status).toBe('COMPLETED');
     expect(b.inserted_at).toBe(t.toISOString());
     expect(typeof b.project_id).toBe('number');
-    expect(res.physicalBackupData.latestPhysicalBackupDateUnix).toBe(Math.floor(t.getTime() / 1000));
+    expect(res.physicalBackupData.latestPhysicalBackupDateUnix).toBe(
+      Math.floor(t.getTime() / 1000),
+    );
   });
 
   it('drift guard: exact top-level + per-row keys match the vendored Studio type', async () => {

@@ -51,7 +51,13 @@ const { AppError } = await import('@supastack/shared');
 const REF = 'bbbbbbbbbbbbbbbbbbbb';
 
 async function buildApp(
-  opts: { user?: { id: string; email: string; role: 'owner' | 'administrator' | 'developer' | 'read_only' } | null } = {},
+  opts: {
+    user?: {
+      id: string;
+      email: string;
+      role: 'owner' | 'administrator' | 'developer' | 'read_only';
+    } | null;
+  } = {},
 ): Promise<FastifyInstance> {
   const user =
     opts.user === undefined ? { id: 'u1', email: 'a@b.c', role: 'read_only' as const } : opts.user;

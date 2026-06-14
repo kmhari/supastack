@@ -8,11 +8,11 @@ If `GET /api/v1/pooler/status` says every tenant is `active` and supavisor is up
 
 A BullMQ job runs **daily at 03:00 UTC** comparing three sources of truth:
 
-| Source                               | What it knows                                                |
-| ------------------------------------ | ------------------------------------------------------------ |
-| `supabase_instances`                 | Which projects should exist (their refs + statuses)          |
-| `pooler_tenants` (supastack)          | Which projects supastack thinks are registered with supavisor |
-| `GET /api/tenants/<ref>` (supavisor) | Which projects are actually registered with supavisor        |
+| Source                               | What it knows                                                 |
+| ------------------------------------ | ------------------------------------------------------------- |
+| `supabase_instances`                 | Which projects should exist (their refs + statuses)           |
+| `pooler_tenants` (supastack)         | Which projects supastack thinks are registered with supavisor |
+| `GET /api/tenants/<ref>` (supavisor) | Which projects are actually registered with supavisor         |
 
 Per-project classification + remediation:
 
@@ -43,12 +43,12 @@ If a run is already in flight, you'll get a 409 with the in-flight `run_id` + `s
 
 `GET /api/v1/pooler/status` (admin token) returns everything in one payload:
 
-| Field | Meaning |
-| ----- | ------- |
-| supavisor health | Whether supavisor's `/api/health` responds. Down ⇒ new pooled connections fail — check `docker compose logs supavisor`. |
-| endpoint | The string apps should connect to: `pooler.<apex>:6543` |
-| per-project rows | instance status (`running`/`paused`/…), tenant status (`active`/`failed`/`pg_password_drift`/`registering`), whether supavisor actually has the tenant, last-reconciled time |
-| recent runs + events | See the next two sections |
+| Field                | Meaning                                                                                                                                                                      |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| supavisor health     | Whether supavisor's `/api/health` responds. Down ⇒ new pooled connections fail — check `docker compose logs supavisor`.                                                      |
+| endpoint             | The string apps should connect to: `pooler.<apex>:6543`                                                                                                                      |
+| per-project rows     | instance status (`running`/`paused`/…), tenant status (`active`/`failed`/`pg_password_drift`/`registering`), whether supavisor actually has the tenant, last-reconciled time |
+| recent runs + events | See the next two sections                                                                                                                                                    |
 
 Per-project remediation endpoints: `POST /api/v1/pooler/tenants/<ref>/re-register`
 (synchronously retries registration) and
@@ -131,7 +131,7 @@ Response:
 
 | Symptom                                  | Likely cause                                   | Fix                                                         |
 | ---------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------- |
-| 502 `per_instance_db_unreachable`        | Per-instance db container is down              | `docker compose -p supastack-<ref> up -d db`, then retry     |
+| 502 `per_instance_db_unreachable`        | Per-instance db container is down              | `docker compose -p supastack-<ref> up -d db`, then retry    |
 | 409 `project_not_running`                | Project is `paused` or `deleting`              | Resume the project first                                    |
 | 500 `master_key_rotation_detected`       | Master key changed since the secret was stored | Out of scope — re-mint instance secrets                     |
 | Reset succeeds but tenant still `failed` | Different root cause (supavisor down, network) | Look at the latest `register_failed` event's `detail.error` |

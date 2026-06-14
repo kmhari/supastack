@@ -6,20 +6,20 @@ personalized guides (pre-filled with your domain) at `https://<apex>/docs`.
 
 ## Start here
 
-| Doc | What it covers |
-| --- | --- |
-| [supastack-vs-selfhost.md](./supastack-vs-selfhost.md) | **What Supastack adds** over the official open-source Supabase self-hosting setup — multi-project, CLI/Management API compat, TLS, backups, MCP, RBAC. |
+| Doc                                                      | What it covers                                                                                                                                                                                                        |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [supastack-vs-selfhost.md](./supastack-vs-selfhost.md)   | **What Supastack adds** over the official open-source Supabase self-hosting setup — multi-project, CLI/Management API compat, TLS, backups, MCP, RBAC.                                                                |
 | [containers-and-updates.md](./containers-and-updates.md) | **The operations hub** — every container the platform runs (control plane, platform Studio, per-project stacks), where each version is pinned, Docker Hub image publishing, and the update runbook for each category. |
-| [supabase-cli.md](./supabase-cli.md) | Using the unmodified upstream `supabase` CLI against a supastack deployment — login, link, db push, edge functions, secrets. Setup ritual, known wrinkles, troubleshooting. |
-| [wildcard-tls.md](./wildcard-tls.md) | The wildcard `*.<apex>` certificate (DNS-01) — issuance via `/setup`, renewal, registrar-specific TXT instructions. |
+| [supabase-cli.md](./supabase-cli.md)                     | Using the unmodified upstream `supabase` CLI against a supastack deployment — login, link, db push, edge functions, secrets. Setup ritual, known wrinkles, troubleshooting.                                           |
+| [wildcard-tls.md](./wildcard-tls.md)                     | The wildcard `*.<apex>` certificate (DNS-01) — issuance via `/setup`, renewal, registrar-specific TXT instructions.                                                                                                   |
 
 ## Operations
 
-| Doc | What it covers |
-| --- | --- |
-| [pooler-resilience.md](./pooler-resilience.md) | Supavisor pooler drift classes, the daily reconciler, PG password drift recovery. |
-| [vm-reset.md](./vm-reset.md) | Wiping a VM to a clean pre-setup state and re-running setup. |
-| [host-hardening.md](./host-hardening.md) | Optional Ubuntu security/compliance tooling for the host (not installed by supastack). |
+| Doc                                            | What it covers                                                                         |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
+| [pooler-resilience.md](./pooler-resilience.md) | Supavisor pooler drift classes, the daily reconciler, PG password drift recovery.      |
+| [vm-reset.md](./vm-reset.md)                   | Wiping a VM to a clean pre-setup state and re-running setup.                           |
+| [host-hardening.md](./host-hardening.md)       | Optional Ubuntu security/compliance tooling for the host (not installed by supastack). |
 
 ## Platform Studio
 

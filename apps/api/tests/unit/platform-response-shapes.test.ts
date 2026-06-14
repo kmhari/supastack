@@ -44,7 +44,16 @@ vi.mock('@supastack/db', () => {
   return {
     db: () => ({ select: () => chain }),
     schema: {
-      supabaseInstances: { ref: {}, name: {}, status: {}, orgId: {}, updatedAt: {}, portKong: {}, encryptedSecrets: {}, createdAt: {} },
+      supabaseInstances: {
+        ref: {},
+        name: {},
+        status: {},
+        orgId: {},
+        updatedAt: {},
+        portKong: {},
+        encryptedSecrets: {},
+        createdAt: {},
+      },
       organizations: { id: {}, slug: {} },
       organizationMembers: { organizationId: {}, userId: {} },
     },
@@ -59,7 +68,8 @@ vi.mock('@supastack/crypto', () => ({
 vi.mock('@supastack/shared', () => ({
   ROLE_IDS: { owner: 1, administrator: 2, developer: 3, read_only: 4 },
   ROLE_NAMES: { 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' },
-  roleFromId: (id: number) => ({ 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' }[id]),
+  roleFromId: (id: number) =>
+    ({ 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' })[id],
 }));
 vi.mock('../../src/services/backups-mgmt-service.js', () => ({
   resolveBackupSeq: vi.fn(),
@@ -112,7 +122,9 @@ vi.mock('../../src/services/per-instance-pg.js', () => ({
     cb({ query: async () => ({ rows: lintH.pgResult }) }),
   ),
   InstanceNotRunningError: class InstanceNotRunningError extends Error {
-    constructor() { super('Project is not running'); }
+    constructor() {
+      super('Project is not running');
+    }
   },
 }));
 
@@ -136,7 +148,13 @@ async function buildApp(): Promise<FastifyInstance> {
   });
   // Stub /v1/projects/:ref/postgrest (used by platform postgrest config delegation)
   app.get('/v1/projects/:ref/postgrest', async (_req, reply) => {
-    reply.send({ db_schema: 'public,graphql_public', db_extra_search_path: 'public, extensions', max_rows: 1000, db_pool: null, jwt_secret: 'test-jwt-secret' });
+    reply.send({
+      db_schema: 'public,graphql_public',
+      db_extra_search_path: 'public, extensions',
+      max_rows: 1000,
+      db_pool: null,
+      jwt_secret: 'test-jwt-secret',
+    });
   });
   // Stub /v1/profile (used by platform profile delegation, feature 112)
   app.get('/v1/profile', async (_req, reply) => {
@@ -147,14 +165,30 @@ async function buildApp(): Promise<FastifyInstance> {
     reply.send({ max_concurrent_users: 200 });
   });
   app.patch('/v1/projects/:ref/config/realtime', async (req, reply) => {
-    reply.send({ ...(req.body as object), max_concurrent_users: (req.body as Record<string, unknown>).max_concurrent_users ?? 200 });
+    reply.send({
+      ...(req.body as object),
+      max_concurrent_users: (req.body as Record<string, unknown>).max_concurrent_users ?? 200,
+    });
   });
   // Stub /v1/projects/:ref/config/database/pgbouncer (feature 112)
   app.get('/v1/projects/:ref/config/database/pgbouncer', async (_req, reply) => {
-    reply.send({ pool_mode: 'transaction', default_pool_size: 15, ignore_startup_parameters: 'extra_float_digits', max_client_conn: 200, connection_string: '' });
+    reply.send({
+      pool_mode: 'transaction',
+      default_pool_size: 15,
+      ignore_startup_parameters: 'extra_float_digits',
+      max_client_conn: 200,
+      connection_string: '',
+    });
   });
   app.patch('/v1/projects/:ref/config/database/pooler', async (req, reply) => {
-    reply.send({ pool_mode: 'transaction', default_pool_size: 15, ignore_startup_parameters: 'extra_float_digits', max_client_conn: 200, connection_string: '', ...(req.body as object) });
+    reply.send({
+      pool_mode: 'transaction',
+      default_pool_size: 15,
+      ignore_startup_parameters: 'extra_float_digits',
+      max_client_conn: 200,
+      connection_string: '',
+      ...(req.body as object),
+    });
   });
   await app.register(platformMiscRoutes);
   return app;
@@ -171,10 +205,22 @@ beforeEach(() => {
 describe('GET /platform/projects — response shape', () => {
   it('each project includes organization_slug and preview_branch_refs', async () => {
     h.dbQueue.push([
-      { ref: REF, name: 'P1', status: 'running', portKong: 5400, insertedAt: new Date(), updatedAt: new Date(), orgId: ORG_ID },
+      {
+        ref: REF,
+        name: 'P1',
+        status: 'running',
+        portKong: 5400,
+        insertedAt: new Date(),
+        updatedAt: new Date(),
+        orgId: ORG_ID,
+      },
     ]);
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: '/platform/projects', headers: { authorization: 'Bearer tok' } });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/platform/projects',
+      headers: { authorization: 'Bearer tok' },
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { projects: Record<string, unknown>[] };
     expect(body.projects).toHaveLength(1);
@@ -188,9 +234,17 @@ describe('GET /platform/projects — response shape', () => {
   it('pagination envelope is present', async () => {
     h.dbQueue.push([]);
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: '/platform/projects', headers: { authorization: 'Bearer tok' } });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/platform/projects',
+      headers: { authorization: 'Bearer tok' },
+    });
     const body = res.json() as { pagination: Record<string, unknown> };
-    expect(body.pagination).toMatchObject({ count: 0, limit: expect.any(Number), offset: expect.any(Number) });
+    expect(body.pagination).toMatchObject({
+      count: 0,
+      limit: expect.any(Number),
+      offset: expect.any(Number),
+    });
     await app.close();
   });
 });

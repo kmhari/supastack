@@ -58,7 +58,8 @@ afterAll(() => new Promise<void>((resolve) => fakeServer.close(() => resolve()))
 // ─── Mock resolveInstance ─────────────────────────────────────────────────────
 
 vi.mock('../../src/services/platform-proxy-helpers.js', async (importOriginal) => {
-  const real = await importOriginal<typeof import('../../src/services/platform-proxy-helpers.js')>();
+  const real =
+    await importOriginal<typeof import('../../src/services/platform-proxy-helpers.js')>();
   return {
     ...real,
     resolveInstance: vi.fn().mockResolvedValue({
@@ -126,7 +127,10 @@ describe('Fake-upstream proxy contract tests', () => {
         method: 'POST',
         url: '/platform/storage/testref/buckets/my-bucket/objects/list',
         headers: { authorization: 'Bearer user-token', 'content-type': 'application/json' },
-        payload: { path: 'images/', options: { limit: 20, offset: 0, search: '', sortBy: { column: 'name', order: 'asc' } } },
+        payload: {
+          path: 'images/',
+          options: { limit: 20, offset: 0, search: '', sortBy: { column: 'name', order: 'asc' } },
+        },
       });
 
       expect(res.statusCode).toBe(200);

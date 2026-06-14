@@ -7,7 +7,10 @@ import { PageHeader, Empty, Th, Td } from '@/components/admin/Bits';
 
 /** /admin/resources — host totals + per-project usage (scroll+filter) + disk + avg footprint. Feature 116 (US3). */
 export function AdminResources(): React.ReactElement {
-  const { data, isLoading } = useQuery({ queryKey: ['admin', 'resources'], queryFn: () => adminApi.resources() });
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'resources'],
+    queryFn: () => adminApi.resources(),
+  });
   const [q, setQ] = useState('');
 
   if (isLoading) return <Empty>Loading…</Empty>;
@@ -27,13 +30,22 @@ export function AdminResources(): React.ReactElement {
 
   return (
     <div>
-      <PageHeader title="Resources" sub="Host totals + per-project usage. Capacity = used vs free + average footprint." />
+      <PageHeader
+        title="Resources"
+        sub="Host totals + per-project usage. Capacity = used vs free + average footprint."
+      />
 
       <div className="mb-5 grid gap-3 sm:grid-cols-4">
         <Stat label="Host CPU" value={pct(data.host.cpuPct)} />
-        <Stat label="Host memory" value={`${formatBytes(data.host.memUsedBytes)} / ${formatBytes(data.host.memLimitBytes)}`} />
+        <Stat
+          label="Host memory"
+          value={`${formatBytes(data.host.memUsedBytes)} / ${formatBytes(data.host.memLimitBytes)}`}
+        />
         <Stat label="Disk free" value={formatBytes(d?.free)} />
-        <Stat label="Avg / project" value={`${formatBytes(data.avgProjectFootprint?.memUsedBytes)} mem`} />
+        <Stat
+          label="Avg / project"
+          value={`${formatBytes(data.avgProjectFootprint?.memUsedBytes)} mem`}
+        />
       </div>
 
       {d && (
@@ -48,7 +60,12 @@ export function AdminResources(): React.ReactElement {
         </div>
       )}
 
-      <Input placeholder="Filter projects…" value={q} onChange={(e) => setQ(e.target.value)} className="mb-3 max-w-xs" />
+      <Input
+        placeholder="Filter projects…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        className="mb-3 max-w-xs"
+      />
       <div className="max-h-[55vh] overflow-auto rounded-md border border-default">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-surface-200">

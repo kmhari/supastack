@@ -19,7 +19,10 @@ export const organizationsRoutes: FastifyPluginAsync = async (app) => {
     const rows = await db()
       .select({ id: schema.organizations.id, name: schema.organizations.name })
       .from(schema.organizations)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.organizations.id))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.organizations.id),
+      )
       .where(eq(schema.organizationMembers.userId, user.id));
     return rows.map(orgToOrganization);
   });

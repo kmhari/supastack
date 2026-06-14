@@ -37,13 +37,15 @@ export const authConfigRoutes: FastifyPluginAsync = async (app) => {
         ref: req.params.ref,
       });
     }
-    await db().insert(schema.auditLog).values({
-      actorUserId: user.id,
-      action: 'secret.reveal',
-      targetKind: 'instance',
-      targetId: req.params.ref,
-      payload: { surface: 'auth' },
-    });
+    await db()
+      .insert(schema.auditLog)
+      .values({
+        actorUserId: user.id,
+        action: 'secret.reveal',
+        targetKind: 'instance',
+        targetId: req.params.ref,
+        payload: { surface: 'auth' },
+      });
     return getPlaintextConfig(req.params.ref, 'auth');
   });
 

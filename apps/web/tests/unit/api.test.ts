@@ -150,7 +150,9 @@ describe('wildcardCertApi', () => {
 describe('getDashboardToken (localStorage session reuse)', () => {
   const setLs = (raw: string | null) => {
     (globalThis as { window?: unknown }).window = {
-      localStorage: { getItem: (k: string) => (k === 'supabase.dashboard.auth.token' ? raw : null) },
+      localStorage: {
+        getItem: (k: string) => (k === 'supabase.dashboard.auth.token' ? raw : null),
+      },
     };
   };
   afterEach(() => {

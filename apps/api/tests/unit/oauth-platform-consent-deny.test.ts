@@ -85,7 +85,9 @@ const SESSION = {
 
 const URL_PATH = `/platform/organizations/org_abc/oauth/authorizations/${SESSION.auth_id}`;
 
-async function buildApp(opts: { authed?: boolean; orgAllowed?: boolean } = {}): Promise<FastifyInstance> {
+async function buildApp(
+  opts: { authed?: boolean; orgAllowed?: boolean } = {},
+): Promise<FastifyInstance> {
   const { authed = true, orgAllowed = true } = opts;
   const app = Fastify();
   const { AppError } = await import('@supastack/shared');

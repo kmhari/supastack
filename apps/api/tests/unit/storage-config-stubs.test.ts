@@ -134,7 +134,11 @@ describe('US3 — S3 connection (no-op)', () => {
   });
   it('POST → 200', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'POST', url: `${base}/config/s3-connection`, payload: {} });
+    const res = await app.inject({
+      method: 'POST',
+      url: `${base}/config/s3-connection`,
+      payload: {},
+    });
     expect(res.statusCode).toBe(200);
     await app.close();
   });

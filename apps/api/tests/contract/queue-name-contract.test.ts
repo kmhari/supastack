@@ -64,7 +64,9 @@ describe('BullMQ queue-name contract (feature 086 — producer/consumer drift)',
       while ((m = re.exec(src))) consumed.add(m[1]!);
     }
     const orphans = Object.keys(QUEUES).filter((k) => !consumed.has(k));
-    expect(orphans, `QUEUES keys with no consuming new Worker(): ${orphans.join(', ')}`).toEqual([]);
+    expect(orphans, `QUEUES keys with no consuming new Worker(): ${orphans.join(', ')}`).toEqual(
+      [],
+    );
   });
 
   it('regression: restore + the 5 once-broken producers enqueue via QUEUES, not selfbase.*', () => {

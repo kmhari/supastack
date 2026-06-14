@@ -34,7 +34,8 @@ vi.mock('@supastack/db', () => {
     from: () => selectObj,
     where: () => selectObj,
     limit: () => (h.backupReject ? Promise.reject(h.backupReject) : Promise.resolve(h.backupRows)),
-    orderBy: () => (h.backupReject ? Promise.reject(h.backupReject) : Promise.resolve(h.backupRows)),
+    orderBy: () =>
+      h.backupReject ? Promise.reject(h.backupReject) : Promise.resolve(h.backupRows),
     then: (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) =>
       h.backupReject
         ? Promise.reject(h.backupReject).then(resolve, reject)
@@ -47,7 +48,14 @@ vi.mock('@supastack/db', () => {
         h.executeReject ? Promise.reject(h.executeReject) : Promise.resolve(h.executeRows),
     }),
     schema: {
-      backups: { seq: {}, startedAt: {}, completedAt: {}, sizeBytes: {}, instanceRef: {}, status: {} },
+      backups: {
+        seq: {},
+        startedAt: {},
+        completedAt: {},
+        sizeBytes: {},
+        instanceRef: {},
+        status: {},
+      },
       supabaseInstances: { ref: {}, status: {}, orgId: {} },
       organizations: { id: {}, slug: {} },
       organizationMembers: { organizationId: {}, userId: {} },
@@ -62,7 +70,8 @@ vi.mock('@supastack/crypto', () => ({
 vi.mock('@supastack/shared', () => ({
   ROLE_IDS: { owner: 1, administrator: 2, developer: 3, read_only: 4 },
   ROLE_NAMES: { 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' },
-  roleFromId: (id: number) => ({ 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' }[id]),
+  roleFromId: (id: number) =>
+    ({ 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' })[id],
 }));
 vi.mock('../../src/services/backups-mgmt-service.js', () => ({
   resolveBackupSeq: vi.fn(),
@@ -135,7 +144,10 @@ describe('GET /platform/projects/:ref/restore/versions', () => {
   // happy paths
   it('returns empty array when no completed backups exist', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/restore/versions` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/restore/versions`,
+    });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual([]);
     await app.close();
@@ -146,7 +158,10 @@ describe('GET /platform/projects/:ref/restore/versions', () => {
     const done = new Date('2026-06-06T14:00:00.155Z');
     h.backupRows = [{ seq: 6, startedAt: now, completedAt: done, sizeBytes: 1024 }];
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/restore/versions` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/restore/versions`,
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json() as unknown[];
     expect(body).toHaveLength(1);
@@ -164,7 +179,10 @@ describe('GET /platform/projects/:ref/restore/versions', () => {
   it('coerces null seq → id 0 and null completedAt/sizeBytes → null', async () => {
     h.backupRows = [{ seq: null, startedAt: new Date(), completedAt: null, sizeBytes: null }];
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/restore/versions` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/restore/versions`,
+    });
     const body = res.json() as Array<{ id: number; completed_at: unknown; size_bytes: unknown }>;
     expect(body[0]!.id).toBe(0);
     expect(body[0]!.completed_at).toBeNull();
@@ -175,7 +193,10 @@ describe('GET /platform/projects/:ref/restore/versions', () => {
   // sad paths
   it('unauthenticated request → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/restore/versions` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/restore/versions`,
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -183,7 +204,10 @@ describe('GET /platform/projects/:ref/restore/versions', () => {
   it('DB error → 500', async () => {
     h.backupReject = new Error('connection pool exhausted');
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/restore/versions` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/restore/versions`,
+    });
     expect(res.statusCode).toBe(500);
     await app.close();
   });
@@ -213,7 +237,9 @@ describe('GET /platform/projects/:ref/daily-stats', () => {
     ];
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/daily-stats` });
-    const body = res.json() as { data: Array<{ period_start: string; total_requests: number; errors: number }> };
+    const body = res.json() as {
+      data: Array<{ period_start: string; total_requests: number; errors: number }>;
+    };
     expect(body.data).toHaveLength(2);
     expect(body.data[0]).toMatchObject({ total_requests: 42, errors: 0 });
     expect(body.data[1]).toMatchObject({ total_requests: 17, errors: 0 });
@@ -221,7 +247,9 @@ describe('GET /platform/projects/:ref/daily-stats', () => {
   });
 
   it('handles QueryResult {rows:[...]} shape from Drizzle execute()', async () => {
-    h.executeRows = { rows: [{ day: '2026-06-06T00:00:00.000Z', total_requests: '5' }] } as unknown as unknown[];
+    h.executeRows = {
+      rows: [{ day: '2026-06-06T00:00:00.000Z', total_requests: '5' }],
+    } as unknown as unknown[];
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/daily-stats` });
     const body = res.json() as { data: Array<{ total_requests: number }> };
@@ -252,9 +280,16 @@ describe('GET /platform/organizations/:slug/available-versions', () => {
   // happy paths
   it('returns the Postgres 15 entry (was returning empty array)', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/organizations/${SLUG}/available-versions` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/organizations/${SLUG}/available-versions`,
+    });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as Array<{ postgres_engine: string; displayName: string; postgresVersion: string }>;
+    const body = res.json() as Array<{
+      postgres_engine: string;
+      displayName: string;
+      postgresVersion: string;
+    }>;
     expect(body).toHaveLength(1);
     expect(body[0]).toMatchObject({ postgres_engine: 'postgres', displayName: 'PostgreSQL 15' });
     await app.close();
@@ -262,8 +297,14 @@ describe('GET /platform/organizations/:slug/available-versions', () => {
 
   it('GET and POST return identical list (both entry points consistent)', async () => {
     const app = await buildApp();
-    const getRes = await app.inject({ method: 'GET', url: `/platform/organizations/${SLUG}/available-versions` });
-    const postRes = await app.inject({ method: 'POST', url: `/platform/organizations/${SLUG}/available-versions` });
+    const getRes = await app.inject({
+      method: 'GET',
+      url: `/platform/organizations/${SLUG}/available-versions`,
+    });
+    const postRes = await app.inject({
+      method: 'POST',
+      url: `/platform/organizations/${SLUG}/available-versions`,
+    });
     expect(getRes.json()).toEqual(postRes.json());
     await app.close();
   });
@@ -271,7 +312,10 @@ describe('GET /platform/organizations/:slug/available-versions', () => {
   // sad paths
   it('unauthenticated request → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'GET', url: `/platform/organizations/${SLUG}/available-versions` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/organizations/${SLUG}/available-versions`,
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });

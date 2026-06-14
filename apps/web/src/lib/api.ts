@@ -102,8 +102,7 @@ export const authApi = {
     }
     return Promise.resolve();
   },
-  me: () =>
-    unwrap<{ userId: string; email: string; role: DashboardRole }>(client.get('/auth/me')),
+  me: () => unwrap<{ userId: string; email: string; role: DashboardRole }>(client.get('/auth/me')),
 };
 
 // ─── apex domain + TLS status (setup wizard step 2) ─────────────────────────

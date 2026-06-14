@@ -18,8 +18,7 @@ const fixtures = {
 vi.mock('@supastack/db', () => {
   let callIndex = 0;
   const chain = (rows: unknown[], throwIt = false) => {
-    const settle = () =>
-      throwIt ? Promise.reject(new Error('db down')) : Promise.resolve(rows);
+    const settle = () => (throwIt ? Promise.reject(new Error('db down')) : Promise.resolve(rows));
     const obj: Record<string, unknown> = {
       from: () => obj,
       where: () => obj,

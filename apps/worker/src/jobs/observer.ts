@@ -91,10 +91,10 @@ export function aggregateProjects(stats: ContainerStat[]): ProjectSample[] {
 
 /** Host CPU/mem ≈ sum across all containers. */
 export function hostCpuMem(stats: ContainerStat[]): { cpuPct: number; memUsed: number } {
-  return stats.reduce(
-    (a, s) => ({ cpuPct: a.cpuPct + s.cpuPct, memUsed: a.memUsed + s.memUsed }),
-    { cpuPct: 0, memUsed: 0 },
-  );
+  return stats.reduce((a, s) => ({ cpuPct: a.cpuPct + s.cpuPct, memUsed: a.memUsed + s.memUsed }), {
+    cpuPct: 0,
+    memUsed: 0,
+  });
 }
 
 // ─── orchestration (unit-tested with fake deps) ─────────────────────────────
@@ -201,10 +201,9 @@ export function makeRealDeps(): ObserverDeps {
       await Promise.all(
         list.map(async (c) => {
           try {
-            const s = (await (await docker()).getContainer(c.Id).stats({ stream: false })) as Record<
-              string,
-              never
-            >;
+            const s = (await (await docker())
+              .getContainer(c.Id)
+              .stats({ stream: false })) as Record<string, never>;
             out.push({
               name: (c.Names?.[0] ?? c.Id).replace(/^\//, ''),
               cpuPct: computeCpu(s),

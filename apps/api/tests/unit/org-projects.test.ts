@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 
-vi.mock('drizzle-orm', () => ({ and: () => ({}), desc: () => ({}), eq: () => ({}), isNull: () => ({}), sql: () => ({}) }));
+vi.mock('drizzle-orm', () => ({
+  and: () => ({}),
+  desc: () => ({}),
+  eq: () => ({}),
+  isNull: () => ({}),
+  sql: () => ({}),
+}));
 
 let instances: unknown[] = [];
 let countRows: { count: number }[] = [{ count: 0 }];
@@ -18,7 +24,13 @@ vi.mock('@supastack/db', () => ({
       }),
     }),
   }),
-  schema: { supabaseInstances: {}, organizationMembers: {}, organizations: {}, organizationInvitations: {}, users: {} },
+  schema: {
+    supabaseInstances: {},
+    organizationMembers: {},
+    organizations: {},
+    organizationInvitations: {},
+    users: {},
+  },
 }));
 
 vi.mock('@supastack/crypto', () => ({
@@ -60,7 +72,10 @@ describe('GET /platform/organizations/:slug/projects (feature 084 US5)', () => {
     ];
     countRows = [{ count: 1 }];
     const app = await buildApp(true);
-    const res = await app.inject({ method: 'GET', url: `/platform/organizations/${SLUG}/projects?limit=10&offset=0` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/organizations/${SLUG}/projects?limit=10&offset=0`,
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.pagination.count).toBe(1);
@@ -72,7 +87,10 @@ describe('GET /platform/organizations/:slug/projects (feature 084 US5)', () => {
 
   it('sad: a non-member of the org → 403', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'GET', url: `/platform/organizations/${SLUG}/projects` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/organizations/${SLUG}/projects`,
+    });
     expect(res.statusCode).toBe(403);
     await app.close();
   });

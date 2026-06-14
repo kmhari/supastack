@@ -407,14 +407,15 @@ export function DomainCertsStep({
             This deployment is running on a local/default domain
             {apex ? (
               <>
-                {' '}(<code>{apex}</code>)
+                {' '}
+                (<code>{apex}</code>)
               </>
             ) : (
               ''
             )}
             . Public HTTPS certificates can&apos;t be issued for it. Re-run the installer with a
-            real apex domain (e.g. <code>./install.sh supastack.example.com</code>) to enable
-            HTTPS, then return here.
+            real apex domain (e.g. <code>./install.sh supastack.example.com</code>) to enable HTTPS,
+            then return here.
           </AlertDescription>
         </Alert>
       </div>
@@ -498,7 +499,13 @@ export function DomainCertsStep({
   // 'waiting-propagation': 10s grace, every row shows a spinner.
   // 'verifying-dns': live per-record results from the backend.
   const rowStatus = (ok: boolean): DnsRowStatus =>
-    sub === 'waiting-propagation' ? 'checking' : sub === 'verifying-dns' ? (ok ? 'ok' : 'pending') : 'idle';
+    sub === 'waiting-propagation'
+      ? 'checking'
+      : sub === 'verifying-dns'
+        ? ok
+          ? 'ok'
+          : 'pending'
+        : 'idle';
   const recordsReady = Boolean(expectedIp) && challengeRecords.length > 0;
 
   return (
@@ -678,8 +685,8 @@ function CliOnboardingStep({
           2. Add the shell wrapper to <code>~/.zshrc</code> or <code>~/.bashrc</code>
         </h2>
         <p className="m-0 text-sm text-muted-foreground">
-          This wrapper automatically routes <code>supabase</code> CLI commands to the right Supastack
-          install based on the <code>.supastack</code> file in your project.
+          This wrapper automatically routes <code>supabase</code> CLI commands to the right
+          Supastack install based on the <code>.supastack</code> file in your project.
         </p>
         <div className="relative">
           <pre className="m-0 max-h-48 overflow-y-auto overflow-x-auto rounded-md border border-border bg-secondary/40 p-3 pr-12 font-mono text-xs leading-relaxed text-foreground">

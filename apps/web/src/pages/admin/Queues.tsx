@@ -7,7 +7,10 @@ import { cn } from '@/lib/utils';
 
 /** /admin/queues — background-job health (read-only; redacted failures). Feature 116 (US4). */
 export function AdminQueues(): React.ReactElement {
-  const { data, isLoading } = useQuery({ queryKey: ['admin', 'queues'], queryFn: () => adminApi.queues() });
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'queues'],
+    queryFn: () => adminApi.queues(),
+  });
 
   return (
     <div>

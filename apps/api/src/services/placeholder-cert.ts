@@ -47,11 +47,23 @@ export async function ensurePlaceholderCert(
   await mkdir(dir, { recursive: true });
   // Short-lived on purpose: this must never masquerade as a real cert.
   await execFileP('openssl', [
-    'req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256',
-    '-keyout', keyPath, '-out', certPath,
-    '-days', '30', '-nodes',
-    '-subj', `/CN=${apex}/O=supastack placeholder (pre-setup)`,
-    '-addext', `subjectAltName=DNS:${apex},DNS:*.${apex}`,
+    'req',
+    '-x509',
+    '-newkey',
+    'ec',
+    '-pkeyopt',
+    'ec_paramgen_curve:P-256',
+    '-keyout',
+    keyPath,
+    '-out',
+    certPath,
+    '-days',
+    '30',
+    '-nodes',
+    '-subj',
+    `/CN=${apex}/O=supastack placeholder (pre-setup)`,
+    '-addext',
+    `subjectAltName=DNS:${apex},DNS:*.${apex}`,
   ]);
   await chmod(certPath, 0o644);
   await chmod(keyPath, 0o600);
@@ -69,6 +81,9 @@ export async function ensurePlaceholderCertAtBoot(): Promise<void> {
       logger.info({ apex }, 'placeholder wildcard cert written (pre-setup; supavisor can boot)');
     }
   } catch (err) {
-    logger.warn({ err: (err as Error).message }, 'placeholder cert generation failed; supavisor may crash-loop until the real cert is issued');
+    logger.warn(
+      { err: (err as Error).message },
+      'placeholder cert generation failed; supavisor may crash-loop until the real cert is issued',
+    );
   }
 }

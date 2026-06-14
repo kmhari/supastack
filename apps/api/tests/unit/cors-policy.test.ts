@@ -32,7 +32,11 @@ afterAll(async () => {
 
 describe('CORS — dashboard origin (US1: happy + preflight)', () => {
   it('GET from the dashboard apex origin → exact-origin echo (never *)', async () => {
-    const res = await app.inject({ method: 'GET', url: '/platform/profile', headers: { origin: DASH } });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/platform/profile',
+      headers: { origin: DASH },
+    });
     expect(res.statusCode).toBe(200);
     expect(res.headers['access-control-allow-origin']).toBe(DASH);
     expect(res.headers['access-control-allow-origin']).not.toBe('*');
@@ -45,15 +49,22 @@ describe('CORS — dashboard origin (US1: happy + preflight)', () => {
       headers: {
         origin: DASH,
         'access-control-request-method': 'POST',
-        'access-control-request-headers': 'authorization,content-type,x-connection-encrypted,x-pg-application-name,x-request-id',
+        'access-control-request-headers':
+          'authorization,content-type,x-connection-encrypted,x-pg-application-name,x-request-id',
       },
     });
     expect(res.statusCode).toBeLessThan(300);
     expect(res.headers['access-control-allow-origin']).toBe(DASH);
     const methods = String(res.headers['access-control-allow-methods'] ?? '');
-    for (const m of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']) expect(methods).toContain(m);
+    for (const m of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
+      expect(methods).toContain(m);
     const headers = String(res.headers['access-control-allow-headers'] ?? '').toLowerCase();
-    for (const h of ['authorization', 'x-connection-encrypted', 'x-pg-application-name', 'x-request-id']) {
+    for (const h of [
+      'authorization',
+      'x-connection-encrypted',
+      'x-pg-application-name',
+      'x-request-id',
+    ]) {
       expect(headers).toContain(h);
     }
     // Studio fetcher uses credentials:'include' → Allow-Credentials MUST be true (with exact origin).
@@ -89,7 +100,11 @@ describe('CORS — origin lock (US2: foreign reject, never *)', () => {
 
   it('never echoes a wildcard for any origin', async () => {
     for (const o of [DASH, 'https://evil.example']) {
-      const res = await app.inject({ method: 'GET', url: '/platform/profile', headers: { origin: o } });
+      const res = await app.inject({
+        method: 'GET',
+        url: '/platform/profile',
+        headers: { origin: o },
+      });
       expect(res.headers['access-control-allow-origin']).not.toBe('*');
     }
   });

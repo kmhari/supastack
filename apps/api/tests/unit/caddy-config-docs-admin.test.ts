@@ -18,7 +18,8 @@ vi.mock('@supastack/db', () => {
       from: () => obj,
       where: () => obj,
       limit: () => settle(),
-      then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) => settle().then(res, rej),
+      then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
+        settle().then(res, rej),
     };
     return obj;
   };
@@ -98,7 +99,9 @@ describe('buildCaddyConfig — /docs* + /admin* routing (feature 116)', () => {
 
   it('the web route precedes the setup-gate catch-all (so /docs + /admin are never redirected)', async () => {
     const routes = findDashboardSubroutes(await buildCaddyConfig());
-    const webIdx = routes.findIndex((r: any) => r.match?.some((m: any) => m.path?.includes('/docs*')));
+    const webIdx = routes.findIndex((r: any) =>
+      r.match?.some((m: any) => m.path?.includes('/docs*')),
+    );
     const catchAllIdx = routes.findIndex((r: any) => !r.match);
     expect(webIdx).toBeGreaterThanOrEqual(0);
     expect(catchAllIdx).toBeGreaterThan(webIdx);

@@ -94,7 +94,11 @@ export function suppressAnalyticsErrorToEmpty(upstreamSuffix: string): boolean {
  * Studio IS_PLATFORM sends list-objects as { path, options: { limit, offset, search, sortBy } }
  * but storage-api expects { prefix, limit, offset, search, sortBy } (flat, prefix not path).
  */
-export function normalizeObjectListBody(req: { method: string; params: Record<string, unknown>; body?: unknown }): void {
+export function normalizeObjectListBody(req: {
+  method: string;
+  params: Record<string, unknown>;
+  body?: unknown;
+}): void {
   if (req.method !== 'POST') return;
   const suffix = req.params['*'] as string | undefined;
   if (!suffix?.match(/^buckets\/[^/]+\/objects\/list$/)) return;
@@ -117,7 +121,11 @@ export function normalizeObjectListBody(req: { method: string; params: Record<st
  * storage-api DELETE /object/:bucket expects { prefixes: string[] }.
  * Translate in place.
  */
-export function normalizeDeleteObjectsBody(req: { method: string; params: Record<string, unknown>; body?: unknown }): void {
+export function normalizeDeleteObjectsBody(req: {
+  method: string;
+  params: Record<string, unknown>;
+  body?: unknown;
+}): void {
   if (req.method !== 'DELETE') return;
   const suffix = req.params['*'] as string | undefined;
   if (!suffix?.match(/^buckets\/[^/]+\/objects$/)) return;
@@ -146,7 +154,11 @@ export function rewriteBucketUpdateMethod(suffix: string, method: string): strin
  * both) so the bucket is created. Mutates `req.body` in place. Scoped to
  * `POST .../buckets` — the only shape we've confirmed the upstream schema accepts.
  */
-export function backfillBucketName(req: { method: string; params: Record<string, unknown>; body?: unknown }): void {
+export function backfillBucketName(req: {
+  method: string;
+  params: Record<string, unknown>;
+  body?: unknown;
+}): void {
   if (req.method !== 'POST') return;
   if ((req.params['*'] as string | undefined) !== 'buckets') return;
   const b = req.body as Record<string, unknown> | null | undefined;
@@ -241,7 +253,14 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
     method: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     url: '/platform/pg-meta/:ref/*',
     handler: (req, reply) =>
-      handleProxy(app, req as FastifyRequest<{ Params: { ref: string } }>, reply, '/pg/', (req.params as { ref: string; '*': string })['*'], 'apikey'),
+      handleProxy(
+        app,
+        req as FastifyRequest<{ Params: { ref: string } }>,
+        reply,
+        '/pg/',
+        (req.params as { ref: string; '*': string })['*'],
+        'apikey',
+      ),
   });
 
   // ── storage / public-url ───────────────────────────────────────────────────
@@ -258,8 +277,12 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
       if (!inst) return reply.status(404).send({ error: 'Project not found' });
 
       const body = req.body as Record<string, unknown> | null | undefined;
-      const objectPath = (body && typeof body === 'object' && typeof body.path === 'string') ? body.path : '';
-      const opts = (body && typeof body === 'object' && body.options && typeof body.options === 'object') ? body.options as Record<string, unknown> : {};
+      const objectPath =
+        body && typeof body === 'object' && typeof body.path === 'string' ? body.path : '';
+      const opts =
+        body && typeof body === 'object' && body.options && typeof body.options === 'object'
+          ? (body.options as Record<string, unknown>)
+          : {};
 
       const apex = process.env.SUPASTACK_APEX ?? '';
       const base = apex ? `https://${ref}.${apex}` : `http://localhost:${inst.portKong}`;
@@ -267,7 +290,10 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
 
       // Build optional query params from transform/download options
       const params: string[] = [];
-      if (opts.download !== undefined) params.push(`download=${opts.download === true ? '' : encodeURIComponent(String(opts.downloadName ?? ''))}`);
+      if (opts.download !== undefined)
+        params.push(
+          `download=${opts.download === true ? '' : encodeURIComponent(String(opts.downloadName ?? ''))}`,
+        );
       if (opts.transform && typeof opts.transform === 'object') {
         const t = opts.transform as Record<string, unknown>;
         if (t.width !== undefined) params.push(`width=${t.width}`);
@@ -308,14 +334,24 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
       // storage-api registers updateBucket as PUT /:bucketId; Studio sends PATCH — rewrite.
       const upstreamMethod = rewriteBucketUpdateMethod(suffix, req.method);
       // Inject service role JWT as Authorization — storage validates via GoTrue
-      const forwardHeaders = { ...req.headers, authorization: `Bearer ${inst.serviceRoleKey}` } as Record<string, string | string[] | undefined>;
+      const forwardHeaders = {
+        ...req.headers,
+        authorization: `Bearer ${inst.serviceRoleKey}`,
+      } as Record<string, string | string[] | undefined>;
       for (const k of STRIP_REQUEST_HEADERS) delete forwardHeaders[k];
 
       let result: Awaited<ReturnType<typeof proxyToKong>>;
       try {
-        result = await proxyToKong(inst.portKong, upstreamPath, upstreamMethod, forwardHeaders, body);
+        result = await proxyToKong(
+          inst.portKong,
+          upstreamPath,
+          upstreamMethod,
+          forwardHeaders,
+          body,
+        );
       } catch (err) {
-        if (err instanceof ProxyUpstreamError) return reply.status(err.status).send({ error: err.message });
+        if (err instanceof ProxyUpstreamError)
+          return reply.status(err.status).send({ error: err.message });
         throw err;
       }
       for (const [k, v] of Object.entries(result.headers)) {
@@ -332,21 +368,26 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
     url: '/platform/auth/:ref/users*',
     handler: (req, reply) => {
       const suffix = (req.params as { ref: string; '*': string })['*'] ?? '';
-      return handleProxy(app, req as FastifyRequest<{ Params: { ref: string } }>, reply, '/auth/v1/admin/users', suffix, 'apikey');
+      return handleProxy(
+        app,
+        req as FastifyRequest<{ Params: { ref: string } }>,
+        reply,
+        '/auth/v1/admin/users',
+        suffix,
+        'apikey',
+      );
     },
   });
 
   // Invite → POST /auth/v1/admin/users
-  app.post<{ Params: { ref: string } }>(
-    '/platform/auth/:ref/invite',
-    (req, reply) => handleProxy(app, req, reply, '/auth/v1/admin/users', '', 'apikey'),
+  app.post<{ Params: { ref: string } }>('/platform/auth/:ref/invite', (req, reply) =>
+    handleProxy(app, req, reply, '/auth/v1/admin/users', '', 'apikey'),
   );
 
   // Magic link / OTP / recover → generate_link
   for (const endpoint of ['magiclink', 'otp', 'recover'] as const) {
-    app.post<{ Params: { ref: string } }>(
-      `/platform/auth/:ref/${endpoint}`,
-      (req, reply) => handleProxy(app, req, reply, '/auth/v1/admin/generate_link', '', 'apikey'),
+    app.post<{ Params: { ref: string } }>(`/platform/auth/:ref/${endpoint}`, (req, reply) =>
+      handleProxy(app, req, reply, '/auth/v1/admin/generate_link', '', 'apikey'),
     );
   }
 
@@ -384,11 +425,20 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
 
       let result: Awaited<ReturnType<typeof proxyToKong>>;
       try {
-        result = await proxyToKong(inst.portKong, `/analytics/v1/api/${upstreamSuffix}${qs}`, req.method, forwardHeaders, bodyOf(req));
+        result = await proxyToKong(
+          inst.portKong,
+          `/analytics/v1/api/${upstreamSuffix}${qs}`,
+          req.method,
+          forwardHeaders,
+          bodyOf(req),
+        );
       } catch (err) {
         if (err instanceof ProxyUpstreamError) {
           if (suppressErr) {
-            app.log.warn({ ref: req.params.ref, endpoint: upstreamSuffix, status: err.status }, 'analytics endpoint unreachable — returning empty (Cloud-only metric)');
+            app.log.warn(
+              { ref: req.params.ref, endpoint: upstreamSuffix, status: err.status },
+              'analytics endpoint unreachable — returning empty (Cloud-only metric)',
+            );
             return reply.status(200).send({ result: [] });
           }
           return reply.status(err.status).send({ error: err.message });
@@ -399,7 +449,10 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
       // BigQuery-dialect → 500). Degrade their errors to empty so IS_PLATFORM panels
       // stay benign; real log queries (logs.all) surface their errors unchanged.
       if (suppressErr && result.status >= 400) {
-        app.log.warn({ ref: req.params.ref, endpoint: upstreamSuffix, status: result.status }, 'analytics endpoint unavailable self-hosted — returning empty (Cloud-only metric)');
+        app.log.warn(
+          { ref: req.params.ref, endpoint: upstreamSuffix, status: result.status },
+          'analytics endpoint unavailable self-hosted — returning empty (Cloud-only metric)',
+        );
         return reply.status(200).send({ result: [] });
       }
       for (const [k, v] of Object.entries(result.headers)) {

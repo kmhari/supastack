@@ -78,11 +78,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
     {
       match: [
         {
-          path: [
-            '/api/get-deployment-commit',
-            '/api/incident-banner',
-            '/api/incident-status',
-          ],
+          path: ['/api/get-deployment-commit', '/api/incident-banner', '/api/incident-status'],
         },
       ],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'api:3001' }] }],
@@ -152,9 +148,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
       // The pages (/setup, /docs, /admin) AND the SPA's static assets
       // (/assets, /fonts, /favicon) must reach the web container — otherwise the
       // JS/CSS bundle falls to the studio catch-all and 404s (blank page).
-      match: [
-        { path: ['/setup*', '/docs*', '/admin*', '/assets/*', '/fonts/*', '/favicon.ico'] },
-      ],
+      match: [{ path: ['/setup*', '/docs*', '/admin*', '/assets/*', '/fonts/*', '/favicon.ico'] }],
       handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: 'web:80' }] }],
     },
     {

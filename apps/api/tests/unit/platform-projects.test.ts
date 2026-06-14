@@ -211,7 +211,10 @@ describe('GET /platform/projects/:ref/databases', () => {
 
   it('200 (empty array) — project not found returns empty array', async () => {
     instRows = [];
-    const res = await app.inject({ method: 'GET', url: '/platform/projects/doesnotexist/databases' });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/platform/projects/doesnotexist/databases',
+    });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual([]);
     await app.close();
@@ -219,7 +222,10 @@ describe('GET /platform/projects/:ref/databases', () => {
 
   it('401 — unauthenticated', async () => {
     const unauthApp = await buildApp(false);
-    const res = await unauthApp.inject({ method: 'GET', url: `/platform/projects/${REF}/databases` });
+    const res = await unauthApp.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/databases`,
+    });
     expect(res.statusCode).toBe(401);
     await unauthApp.close();
   });

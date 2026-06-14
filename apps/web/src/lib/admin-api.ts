@@ -89,12 +89,22 @@ export interface QueueHealth {
 
 // US5 — certs / dns / backups
 export interface CertsResult {
-  wildcard: { apex: string; notAfter: string | null; daysLeft: number | null; renewalWarning: boolean } | null;
+  wildcard: {
+    apex: string;
+    notAfter: string | null;
+    daysLeft: number | null;
+    renewalWarning: boolean;
+  } | null;
   perProject: { ref: string; notAfter: string | null; daysLeft: number | null; status: string }[];
   dns: { apexReady: boolean; wildcardReady: boolean };
   backups: {
     totalStorageBytes: number | null;
-    perProject: { ref: string; lastBackupAt: string | null; sizeBytes: number | null; outcome: string }[];
+    perProject: {
+      ref: string;
+      lastBackupAt: string | null;
+      sizeBytes: number | null;
+      outcome: string;
+    }[];
   };
 }
 

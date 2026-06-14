@@ -4,7 +4,7 @@ What you get from Supastack that the official open-source self-hosting setup
 ([supabase/supabase `docker/`](https://github.com/supabase/supabase/tree/master/docker))
 does not give you.
 
-**Framing:** vanilla self-hosting is *one* Supabase project as a hand-managed
+**Framing:** vanilla self-hosting is _one_ Supabase project as a hand-managed
 `docker compose` stack. Supastack is a **platform** on top of the same upstream
 images — a control plane that provisions and operates N projects on one host,
 the way Supabase Cloud does, but on your own VM. Your projects still run the
@@ -12,22 +12,22 @@ exact stock `supabase/*` containers; Supastack adds everything around them.
 
 ## At a glance
 
-| Capability | Vanilla self-host | Supastack |
-|---|---|---|
-| Projects per host | 1 per compose stack, manual port juggling | N isolated projects, provisioned from the dashboard in ~60–90 s |
-| Project creation | Clone repo, copy `.env.example`, hand-generate JWT secret + anon/service keys, `docker compose up` | Click "New project" — keys generated and verified automatically |
-| Dashboard | One Studio per project, no project switcher | Single shared Studio (`IS_PLATFORM=true`) for all projects at `/dashboard`, Cloud-parity URLs |
-| Dashboard auth | HTTP basic auth (one shared username/password) | Real accounts (GoTrue), organizations, 4-tier RBAC, email invites |
-| HTTPS / domains | Bring your own reverse proxy + certs | Guided wildcard `*.<apex>` Let's Encrypt cert (DNS-01), every project at `https://<ref>.<apex>` automatically |
-| Public Postgres | Expose 5432 yourself, one project per port | `db.<ref>.<apex>:5432` for every project via SNI routing on one port, plus Supavisor pooling at `pooler.<apex>:6543` |
-| `supabase` CLI | Not supported (no Management API) — CLI only works against Cloud or local `supabase start` | Unmodified upstream CLI works: `login`, `link`, `db push`, `functions deploy`, `secrets set`, `gen types`, `migration *` |
-| MCP / AI tooling | None | Hosted MCP server at `mcp.<apex>/mcp` with OAuth 2.1 browser authorization |
-| Backups | DIY `pg_dump` + cron | On-demand + daily automatic, per-project retention, local or S3-compatible store, restore from the dashboard |
-| Lifecycle | `docker compose` by hand | Pause / resume / restart / upgrade / delete from the dashboard, with health gating and audit logging |
-| Edge function secrets | Edit `.env`, restart the functions container | Vault-backed secrets with live propagation (~5 s, no restart), manageable via dashboard and CLI |
-| Auth (GoTrue) configuration | Hand-edit env vars, restart, repeat | 169 GoTrue settings honored through the dashboard / Management API with validation |
-| Install | Manual: clone, configure, generate secrets, wire a proxy | One command (`./install.sh your-domain.com`): Docker, secrets, images, DNS wizard |
-| Operations | Nothing | Admin console (fleet, resources, queues, certs, logs), pooler drift reconciler, cert renewal alerts, audit log |
+| Capability                  | Vanilla self-host                                                                                  | Supastack                                                                                                                |
+| --------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Projects per host           | 1 per compose stack, manual port juggling                                                          | N isolated projects, provisioned from the dashboard in ~60–90 s                                                          |
+| Project creation            | Clone repo, copy `.env.example`, hand-generate JWT secret + anon/service keys, `docker compose up` | Click "New project" — keys generated and verified automatically                                                          |
+| Dashboard                   | One Studio per project, no project switcher                                                        | Single shared Studio (`IS_PLATFORM=true`) for all projects at `/dashboard`, Cloud-parity URLs                            |
+| Dashboard auth              | HTTP basic auth (one shared username/password)                                                     | Real accounts (GoTrue), organizations, 4-tier RBAC, email invites                                                        |
+| HTTPS / domains             | Bring your own reverse proxy + certs                                                               | Guided wildcard `*.<apex>` Let's Encrypt cert (DNS-01), every project at `https://<ref>.<apex>` automatically            |
+| Public Postgres             | Expose 5432 yourself, one project per port                                                         | `db.<ref>.<apex>:5432` for every project via SNI routing on one port, plus Supavisor pooling at `pooler.<apex>:6543`     |
+| `supabase` CLI              | Not supported (no Management API) — CLI only works against Cloud or local `supabase start`         | Unmodified upstream CLI works: `login`, `link`, `db push`, `functions deploy`, `secrets set`, `gen types`, `migration *` |
+| MCP / AI tooling            | None                                                                                               | Hosted MCP server at `mcp.<apex>/mcp` with OAuth 2.1 browser authorization                                               |
+| Backups                     | DIY `pg_dump` + cron                                                                               | On-demand + daily automatic, per-project retention, local or S3-compatible store, restore from the dashboard             |
+| Lifecycle                   | `docker compose` by hand                                                                           | Pause / resume / restart / upgrade / delete from the dashboard, with health gating and audit logging                     |
+| Edge function secrets       | Edit `.env`, restart the functions container                                                       | Vault-backed secrets with live propagation (~5 s, no restart), manageable via dashboard and CLI                          |
+| Auth (GoTrue) configuration | Hand-edit env vars, restart, repeat                                                                | 169 GoTrue settings honored through the dashboard / Management API with validation                                       |
+| Install                     | Manual: clone, configure, generate secrets, wire a proxy                                           | One command (`./install.sh your-domain.com`): Docker, secrets, images, DNS wizard                                        |
+| Operations                  | Nothing                                                                                            | Admin console (fleet, resources, queues, certs, logs), pooler drift reconciler, cert renewal alerts, audit log           |
 
 ## The details
 

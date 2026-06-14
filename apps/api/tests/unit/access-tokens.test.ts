@@ -31,7 +31,13 @@ vi.mock('@supastack/db', () => ({
     }),
     update: () => ({ set: () => ({ where: async () => undefined }) }),
   }),
-  schema: { apiTokens: {}, organizationMembers: {}, organizations: {}, supabaseInstances: {}, users: {} },
+  schema: {
+    apiTokens: {},
+    organizationMembers: {},
+    organizations: {},
+    supabaseInstances: {},
+    users: {},
+  },
 }));
 
 vi.mock('@supastack/crypto', () => ({
@@ -40,7 +46,11 @@ vi.mock('@supastack/crypto', () => ({
 }));
 
 vi.mock('../../src/services/api-tokens.js', () => ({
-  mintApiToken: async () => ({ raw: `sbp_${'a'.repeat(40)}`, id: 'tok-new', prefix: 'sbp_aaaaaaaa' }),
+  mintApiToken: async () => ({
+    raw: `sbp_${'a'.repeat(40)}`,
+    id: 'tok-new',
+    prefix: 'sbp_aaaaaaaa',
+  }),
 }));
 
 const { platformMiscRoutes } = await import('../../src/routes/platform-misc.js');

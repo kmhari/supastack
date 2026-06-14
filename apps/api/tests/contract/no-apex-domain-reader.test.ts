@@ -51,7 +51,10 @@ describe('single-source apex contract (feature 117 — #110 cannot recur)', () =
         if (re.test(text)) offenders.push(`${rel(file)} → ${label}`);
       }
     }
-    expect(offenders, `apex is single-sourced from SUPASTACK_APEX; offenders:\n${offenders.join('\n')}`).toEqual([]);
+    expect(
+      offenders,
+      `apex is single-sourced from SUPASTACK_APEX; offenders:\n${offenders.join('\n')}`,
+    ).toEqual([]);
   });
 
   it('the deleted apex-resolver service no longer exists', () => {

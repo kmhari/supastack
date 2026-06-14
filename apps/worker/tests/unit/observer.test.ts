@@ -14,7 +14,11 @@ const upserted: { values: Record<string, unknown>; set: Record<string, unknown> 
 let deleteCalls = 0;
 
 vi.mock('@supastack/db', () => {
-  const table = (name: string) => ({ __table: name, capturedAt: 'captured_at', container: 'container' });
+  const table = (name: string) => ({
+    __table: name,
+    capturedAt: 'captured_at',
+    container: 'container',
+  });
   return {
     schema: {
       resourceSamples: table('resource_samples'),
@@ -69,7 +73,13 @@ function fakeDeps(over: Partial<ObserverDeps> = {}): ObserverDeps {
   return {
     containerStats,
     hostMemTotal: async () => 8_000_000_000,
-    diskBreakdown: async () => ({ projectData: 300, backups: 100, other: 50, free: 900, used: 450 }),
+    diskBreakdown: async () => ({
+      projectData: 300,
+      backups: 100,
+      other: 50,
+      free: 900,
+      used: 450,
+    }),
     controlPlane: async () => [
       {
         container: 'supastack-api-1',
@@ -94,10 +104,12 @@ describe('aggregateProjects / hostCpuMem (pure)', () => {
     expect(projects).toEqual([{ ref: 'aaaaaaaaaaaaaaaaaaaa', cpuPct: 3, memUsed: 300 }]);
   });
   it('host totals sum across all containers', () => {
-    expect(hostCpuMem([
-      { name: 'x', cpuPct: 1.5, memUsed: 10, memLimit: 0 },
-      { name: 'y', cpuPct: 2.5, memUsed: 20, memLimit: 0 },
-    ])).toEqual({ cpuPct: 4, memUsed: 30 });
+    expect(
+      hostCpuMem([
+        { name: 'x', cpuPct: 1.5, memUsed: 10, memLimit: 0 },
+        { name: 'y', cpuPct: 2.5, memUsed: 20, memLimit: 0 },
+      ]),
+    ).toEqual({ cpuPct: 4, memUsed: 30 });
   });
 });
 

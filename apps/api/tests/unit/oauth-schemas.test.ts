@@ -111,8 +111,10 @@ describe('OAuthTokenRequestSchema (discriminated union)', () => {
   });
   it('accepts a repeated resource (array)', () => {
     expect(
-      OAuthTokenRequestSchema.safeParse({ ...codeReq, resource: ['https://a/mcp', 'https://b/mcp'] })
-        .success,
+      OAuthTokenRequestSchema.safeParse({
+        ...codeReq,
+        resource: ['https://a/mcp', 'https://b/mcp'],
+      }).success,
     ).toBe(true);
   });
   it('accepts refresh_token grant WITH resource', () => {

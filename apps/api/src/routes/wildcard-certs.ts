@@ -128,15 +128,13 @@ export const wildcardCertRoutes: FastifyPluginAsync = async (app) => {
       .set({ status: 'disabled', updatedAt: new Date(), updatedBy: user.id })
       .where(eq(schema.wildcardCerts.apex, apex));
 
-    await db()
-      .insert(schema.auditLog)
-      .values({
-        actorUserId: user.id,
-        action: 'tls.disabled',
-        targetKind: 'wildcard_cert',
-        targetId: row.id,
-        payload: { apex },
-      });
+    await db().insert(schema.auditLog).values({
+      actorUserId: user.id,
+      action: 'tls.disabled',
+      targetKind: 'wildcard_cert',
+      targetId: row.id,
+      payload: { apex },
+    });
 
     try {
       await reloadCaddy();

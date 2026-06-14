@@ -131,7 +131,10 @@ export async function createBucket(ref: string, body: CreateBucketBody): Promise
   const upstream = { ...body };
   if (!upstream.name && upstream.id) upstream.name = upstream.id as string;
   const r = await storageFetch(ref, '/storage/v1/bucket', 'POST', upstream);
-  if (r.status >= 400) throw new StorageUnreachableError(`storage bucket create ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`);
+  if (r.status >= 400)
+    throw new StorageUnreachableError(
+      `storage bucket create ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`,
+    );
   return r.data;
 }
 
@@ -142,15 +145,25 @@ export async function getBucket(ref: string, id: string): Promise<BucketRow> {
   return r.data as BucketRow;
 }
 
-export async function updateBucket(ref: string, id: string, body: Partial<CreateBucketBody>): Promise<unknown> {
+export async function updateBucket(
+  ref: string,
+  id: string,
+  body: Partial<CreateBucketBody>,
+): Promise<unknown> {
   const r = await storageFetch(ref, `/storage/v1/bucket/${id}`, 'PUT', body);
-  if (r.status >= 400) throw new StorageUnreachableError(`storage bucket update ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`);
+  if (r.status >= 400)
+    throw new StorageUnreachableError(
+      `storage bucket update ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`,
+    );
   return r.data;
 }
 
 export async function deleteBucket(ref: string, id: string): Promise<unknown> {
   const r = await storageFetch(ref, `/storage/v1/bucket/${id}`, 'DELETE');
-  if (r.status >= 400) throw new StorageUnreachableError(`storage bucket delete ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`);
+  if (r.status >= 400)
+    throw new StorageUnreachableError(
+      `storage bucket delete ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`,
+    );
   return r.data;
 }
 

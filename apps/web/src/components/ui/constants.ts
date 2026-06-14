@@ -20,7 +20,7 @@ export const SIZE = {
     large: 'h-[42px]',
     xlarge: 'h-[50px]',
   },
-}
+};
 
 export const SIZE_VARIANTS = {
   tiny: `${SIZE.text['tiny']} ${SIZE.padding['tiny']} ${SIZE.height['tiny']}`,
@@ -28,6 +28,6 @@ export const SIZE_VARIANTS = {
   medium: `${SIZE.text['medium']} ${SIZE.padding['medium']} ${SIZE.height['medium']}`,
   large: `${SIZE.text['large']} ${SIZE.padding['large']} ${SIZE.height['large']}`,
   xlarge: `${SIZE.text['xlarge']} ${SIZE.padding['xlarge']} ${SIZE.height['xlarge']}`,
-}
+};
 
-export const SIZE_VARIANTS_DEFAULT = 'small'
+export const SIZE_VARIANTS_DEFAULT = 'small';

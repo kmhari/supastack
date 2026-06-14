@@ -44,11 +44,7 @@ export function buildSnippets(apex: string | null | undefined): DocsSnippets {
   const host = apex || PLACEHOLDER;
   const mcpUrl = `https://mcp.${host}/mcp`;
 
-  const claudeShape = JSON.stringify(
-    { mcpServers: { supastack: { url: mcpUrl } } },
-    null,
-    2,
-  );
+  const claudeShape = JSON.stringify({ mcpServers: { supastack: { url: mcpUrl } } }, null, 2);
   const windsurfShape = JSON.stringify(
     { mcpServers: { supastack: { serverUrl: mcpUrl } } },
     null,
@@ -64,10 +60,18 @@ export function buildSnippets(apex: string | null | undefined): DocsSnippets {
     wrapper: getWrapperSnippet(host),
     supastackFile: getSupastackFileContent('sbp_your_pat_here', host),
     mcpConfigs: [
-      { label: 'Claude Code', file: '~/.claude/mcp.json (or project .mcp.json)', json: claudeShape },
+      {
+        label: 'Claude Code',
+        file: '~/.claude/mcp.json (or project .mcp.json)',
+        json: claudeShape,
+      },
       { label: 'Cursor', file: '~/.cursor/mcp.json', json: claudeShape },
       { label: 'Windsurf', file: '~/.codeium/windsurf/mcp_config.json', json: windsurfShape },
-      { label: 'Claude Desktop', file: 'claude_desktop_config.json (Settings → Developer)', json: claudeShape },
+      {
+        label: 'Claude Desktop',
+        file: 'claude_desktop_config.json (Settings → Developer)',
+        json: claudeShape,
+      },
     ],
   };
 }

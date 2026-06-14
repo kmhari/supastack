@@ -501,33 +501,78 @@ const RATE_LIMIT_HONORED: Record<string, FieldStatus> = {
 // constraints are validated at write time, not classified out of the status map.
 
 const HOOKS_HONORED: Record<string, FieldStatus> = {
-  hook_custom_access_token_enabled: { kind: 'honored', envName: 'GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED' },
-  hook_custom_access_token_uri:     { kind: 'honored', envName: 'GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI' },
-  hook_custom_access_token_secrets: { kind: 'honored', envName: 'GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_SECRETS', secret: true },
+  hook_custom_access_token_enabled: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED',
+  },
+  hook_custom_access_token_uri: { kind: 'honored', envName: 'GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI' },
+  hook_custom_access_token_secrets: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_SECRETS',
+    secret: true,
+  },
 
-  hook_mfa_verification_attempt_enabled: { kind: 'honored', envName: 'GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_ENABLED' },
-  hook_mfa_verification_attempt_uri:     { kind: 'honored', envName: 'GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_URI' },
-  hook_mfa_verification_attempt_secrets: { kind: 'honored', envName: 'GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_SECRETS', secret: true },
+  hook_mfa_verification_attempt_enabled: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_ENABLED',
+  },
+  hook_mfa_verification_attempt_uri: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_URI',
+  },
+  hook_mfa_verification_attempt_secrets: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_SECRETS',
+    secret: true,
+  },
 
-  hook_password_verification_attempt_enabled: { kind: 'honored', envName: 'GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_ENABLED' },
-  hook_password_verification_attempt_uri:     { kind: 'honored', envName: 'GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_URI' },
-  hook_password_verification_attempt_secrets: { kind: 'honored', envName: 'GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_SECRETS', secret: true },
+  hook_password_verification_attempt_enabled: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_ENABLED',
+  },
+  hook_password_verification_attempt_uri: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_URI',
+  },
+  hook_password_verification_attempt_secrets: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_SECRETS',
+    secret: true,
+  },
 
-  hook_send_sms_enabled:   { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_SMS_ENABLED' },
-  hook_send_sms_uri:       { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_SMS_URI' },
-  hook_send_sms_secrets:   { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_SMS_SECRETS', secret: true },
+  hook_send_sms_enabled: { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_SMS_ENABLED' },
+  hook_send_sms_uri: { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_SMS_URI' },
+  hook_send_sms_secrets: { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_SMS_SECRETS', secret: true },
 
   hook_send_email_enabled: { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_EMAIL_ENABLED' },
-  hook_send_email_uri:     { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_EMAIL_URI' },
-  hook_send_email_secrets: { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_EMAIL_SECRETS', secret: true },
+  hook_send_email_uri: { kind: 'honored', envName: 'GOTRUE_HOOK_SEND_EMAIL_URI' },
+  hook_send_email_secrets: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_SEND_EMAIL_SECRETS',
+    secret: true,
+  },
 
-  hook_before_user_created_enabled: { kind: 'honored', envName: 'GOTRUE_HOOK_BEFORE_USER_CREATED_ENABLED' },
-  hook_before_user_created_uri:     { kind: 'honored', envName: 'GOTRUE_HOOK_BEFORE_USER_CREATED_URI' },
-  hook_before_user_created_secrets: { kind: 'honored', envName: 'GOTRUE_HOOK_BEFORE_USER_CREATED_SECRETS', secret: true },
+  hook_before_user_created_enabled: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_BEFORE_USER_CREATED_ENABLED',
+  },
+  hook_before_user_created_uri: { kind: 'honored', envName: 'GOTRUE_HOOK_BEFORE_USER_CREATED_URI' },
+  hook_before_user_created_secrets: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_BEFORE_USER_CREATED_SECRETS',
+    secret: true,
+  },
 
-  hook_after_user_created_enabled:  { kind: 'honored', envName: 'GOTRUE_HOOK_AFTER_USER_CREATED_ENABLED' },
-  hook_after_user_created_uri:      { kind: 'honored', envName: 'GOTRUE_HOOK_AFTER_USER_CREATED_URI' },
-  hook_after_user_created_secrets:  { kind: 'honored', envName: 'GOTRUE_HOOK_AFTER_USER_CREATED_SECRETS', secret: true },
+  hook_after_user_created_enabled: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_AFTER_USER_CREATED_ENABLED',
+  },
+  hook_after_user_created_uri: { kind: 'honored', envName: 'GOTRUE_HOOK_AFTER_USER_CREATED_URI' },
+  hook_after_user_created_secrets: {
+    kind: 'honored',
+    envName: 'GOTRUE_HOOK_AFTER_USER_CREATED_SECRETS',
+    secret: true,
+  },
 };
 
 // ─── Stored-only clusters (T027) — per-cluster reasons linking follow-up issues ─
@@ -546,7 +591,6 @@ ADD_STORED('saml_', 'SAML SSO infrastructure — tracked in #61');
 ADD_STORED('external_web3_', 'Web3 wallet sign-in — tracked in #72');
 // sms_autoconfirm is actually honored — remove it from the stored_only set.
 delete STORED_ONLY_REASONS['sms_autoconfirm'];
-
 
 // ─── Unsupported (T028) — Cloud-only OAuth server / Nimbus ─────────────────
 

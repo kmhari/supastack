@@ -143,7 +143,12 @@ describe('normalizeObjectListBody', () => {
       params: { '*': listSuffix },
       body: {
         path: 'my-folder/',
-        options: { limit: 50, offset: 10, search: 'img', sortBy: { column: 'size', order: 'desc' } },
+        options: {
+          limit: 50,
+          offset: 10,
+          search: 'img',
+          sortBy: { column: 'size', order: 'desc' },
+        },
       },
     };
     normalizeObjectListBody(req);

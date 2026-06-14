@@ -5,11 +5,11 @@ An automated upgrade pipeline is planned but not yet built — this documents th
 
 ## The three categories
 
-| # | Category | Compose file | Where it runs | Update granularity |
-|---|----------|-------------|---------------|--------------------|
-| 1 | **Control plane** — the Supastack platform itself | `infra/docker-compose.yml` | `/opt/supastack` on the VM, one stack | Whole-VM, operator-driven |
-| 2 | **Platform Studio** — shared Supabase Studio, `IS_PLATFORM=true` | `studio` service inside the control-plane compose | Same stack — prebuilt `kmhariharasudhan/supastack-studio-platform` image with runtime apex substitution | Fork sync → image rebuild → `up -d studio` |
-| 3 | **Per-project Supabase stacks** — stock upstream images | `infra/supabase-template/docker-compose.yml`, **copied per instance** at provision | `/var/supastack/instances/<ref>` (compose project `supastack-<ref>`) | Per-instance, via API |
+| #   | Category                                                         | Compose file                                                                       | Where it runs                                                                                           | Update granularity                         |
+| --- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 1   | **Control plane** — the Supastack platform itself                | `infra/docker-compose.yml`                                                         | `/opt/supastack` on the VM, one stack                                                                   | Whole-VM, operator-driven                  |
+| 2   | **Platform Studio** — shared Supabase Studio, `IS_PLATFORM=true` | `studio` service inside the control-plane compose                                  | Same stack — prebuilt `kmhariharasudhan/supastack-studio-platform` image with runtime apex substitution | Fork sync → image rebuild → `up -d studio` |
+| 3   | **Per-project Supabase stacks** — stock upstream images          | `infra/supabase-template/docker-compose.yml`, **copied per instance** at provision | `/var/supastack/instances/<ref>` (compose project `supastack-<ref>`)                                    | Per-instance, via API                      |
 
 ---
 
@@ -17,19 +17,19 @@ An automated upgrade pipeline is planned but not yet built — this documents th
 
 ### 1a. Custom Supastack images (built from this repo)
 
-| Service | Image | Build context | Purpose |
-|---------|-------|--------------|---------|
-| `api` | `kmhariharasudhan/supastack-api:${SUPASTACK_VERSION:-latest}` | `apps/api/Dockerfile` | Fastify — `/api/v1/*` dashboard + `/v1/*` Management API + platform proxy + pg-edge-proxy (:5432) |
-| `worker` | `kmhariharasudhan/supastack-worker:${SUPASTACK_VERSION:-latest}` | `apps/worker/Dockerfile` | BullMQ — provision, lifecycle, backups, cert renewal, pooler reconciler, observer |
-| `mcp` | `kmhariharasudhan/supastack-mcp:${SUPASTACK_VERSION:-latest}` | `apps/mcp/Dockerfile` | Hosted MCP at `mcp.<apex>/mcp` |
-| `web` | `kmhariharasudhan/supastack-web:${SUPASTACK_VERSION:-latest}` | `apps/web/Dockerfile` | Legacy SPA — `/setup` wizard only |
-| `studio` | `kmhariharasudhan/supastack-studio-platform:${STUDIO_PLATFORM_VERSION:-latest}` | `infra/studio-platform/Dockerfile` (context = the [kmhari/supabase](https://github.com/kmhari/supabase) `supastack-studio` checkout) | Shared platform Studio, `IS_PLATFORM=true` — domain-agnostic via runtime apex substitution (§2) |
+| Service  | Image                                                                           | Build context                                                                                                                        | Purpose                                                                                           |
+| -------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `api`    | `kmhariharasudhan/supastack-api:${SUPASTACK_VERSION:-latest}`                   | `apps/api/Dockerfile`                                                                                                                | Fastify — `/api/v1/*` dashboard + `/v1/*` Management API + platform proxy + pg-edge-proxy (:5432) |
+| `worker` | `kmhariharasudhan/supastack-worker:${SUPASTACK_VERSION:-latest}`                | `apps/worker/Dockerfile`                                                                                                             | BullMQ — provision, lifecycle, backups, cert renewal, pooler reconciler, observer                 |
+| `mcp`    | `kmhariharasudhan/supastack-mcp:${SUPASTACK_VERSION:-latest}`                   | `apps/mcp/Dockerfile`                                                                                                                | Hosted MCP at `mcp.<apex>/mcp`                                                                    |
+| `web`    | `kmhariharasudhan/supastack-web:${SUPASTACK_VERSION:-latest}`                   | `apps/web/Dockerfile`                                                                                                                | Legacy SPA — `/setup` wizard only                                                                 |
+| `studio` | `kmhariharasudhan/supastack-studio-platform:${STUDIO_PLATFORM_VERSION:-latest}` | `infra/studio-platform/Dockerfile` (context = the [kmhari/supabase](https://github.com/kmhari/supabase) `supastack-studio` checkout) | Shared platform Studio, `IS_PLATFORM=true` — domain-agnostic via runtime apex substitution (§2)   |
 
 **Key facts**
 
 - **Published on Docker Hub** (public): `kmhariharasudhan/supastack-{api,worker,mcp,web,studio-platform}`, dual-tagged `<git-sha>` + `latest`. **Pin by sha in production** (`SUPASTACK_VERSION=<sha>` in `infra/.env`): `latest` is a moving pointer — a stray `pull && up -d` would silently upgrade, api/worker could skew apart (shared queue contracts), and api auto-runs migrations on boot. `latest` is for quickstarts only.
 - Building your own: build from a **clean clone** of this repo (a lived-in checkout risks baking stray local files); pushing to a registry needs `docker login` with publish rights.
-- The repo has **no GitHub releases yet** — "upgrade to release vX.Y" is still aspirational (see *Gaps*, below).
+- The repo has **no GitHub releases yet** — "upgrade to release vX.Y" is still aspirational (see _Gaps_, below).
 - Control-plane DB migrations (`packages/db/migrations/*.sql`) **auto-apply at api boot** (`server.ts` → `migrate()`). A broken migration crash-loops the api container — migrations must stay idempotent.
 
 **Update procedure (pull mode — the default install)**
@@ -63,25 +63,25 @@ sudo -E docker compose up -d api worker
 
 Per-service guidance:
 
-| Changed | Rebuild | Notes |
-|---------|---------|-------|
-| `apps/api` | `api` | Migrations apply on boot; watch `docker compose logs -f api` for migrate errors |
-| `apps/worker` | `worker` | Env additions need **recreate** (`up -d`), not `restart` — `docker restart` does not reload env |
-| `apps/mcp`, `packages/oauth` | `mcp` | |
-| `apps/web` | `web` | |
-| `infra/Caddyfile` | nothing (bind-mount) | `docker compose restart caddy`; runtime routes also come from api's `caddy-config.ts` (admin :2019) — after a caddy recreate, re-push them via `POST api:3001/internal/caddy/reload` |
-| `packages/*` (shared, db, crypto, docker-control) | every consumer | `shared`/`db` → api **and** worker; `oauth` → api + mcp |
-| `infra/supabase-template/*` | nothing | Affects **new provisions only** — see §3 |
+| Changed                                           | Rebuild              | Notes                                                                                                                                                                                |
+| ------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/api`                                        | `api`                | Migrations apply on boot; watch `docker compose logs -f api` for migrate errors                                                                                                      |
+| `apps/worker`                                     | `worker`             | Env additions need **recreate** (`up -d`), not `restart` — `docker restart` does not reload env                                                                                      |
+| `apps/mcp`, `packages/oauth`                      | `mcp`                |                                                                                                                                                                                      |
+| `apps/web`                                        | `web`                |                                                                                                                                                                                      |
+| `infra/Caddyfile`                                 | nothing (bind-mount) | `docker compose restart caddy`; runtime routes also come from api's `caddy-config.ts` (admin :2019) — after a caddy recreate, re-push them via `POST api:3001/internal/caddy/reload` |
+| `packages/*` (shared, db, crypto, docker-control) | every consumer       | `shared`/`db` → api **and** worker; `oauth` → api + mcp                                                                                                                              |
+| `infra/supabase-template/*`                       | nothing              | Affects **new provisions only** — see §3                                                                                                                                             |
 
 ### 1b. Vendor images (pulled, pinned in `infra/docker-compose.yml`)
 
-| Service | Image | Purpose | Update caution |
-|---------|-------|---------|----------------|
-| `db` | `postgres:16-alpine` | Control-plane Postgres (Drizzle schema) | Minor-tag bumps fine; **major version = pg_upgrade/dump-restore — do not just bump** |
-| `redis` | `redis:7-alpine` | BullMQ queues + revocation lists | Queue jobs in flight are durable; safe to bounce |
-| `auth` | `supabase/gotrue:v2.186.0` | Control-plane dashboard auth | Same image is pinned in the per-project template — keep both in sync intentionally |
-| `supavisor` | `supabase/supavisor:2.7.4` | Top-level multi-tenant pooler (`pooler.<apex>:6543`) | Tenants re-reconciled by the daily pooler reconciler; verify with the active probe after bump |
-| `caddy` | `caddy:2.11-alpine` | Edge TLS :80/:443 + on-demand TLS gate; boot config = bind-mounted `infra/Caddyfile`, runtime routes pushed by api | Stock image (:5432 SNI lives in the api's pg-edge-proxy, not Caddy); after recreate, re-push runtime routes via `/internal/caddy/reload` |
+| Service     | Image                      | Purpose                                                                                                            | Update caution                                                                                                                           |
+| ----------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `db`        | `postgres:16-alpine`       | Control-plane Postgres (Drizzle schema)                                                                            | Minor-tag bumps fine; **major version = pg_upgrade/dump-restore — do not just bump**                                                     |
+| `redis`     | `redis:7-alpine`           | BullMQ queues + revocation lists                                                                                   | Queue jobs in flight are durable; safe to bounce                                                                                         |
+| `auth`      | `supabase/gotrue:v2.186.0` | Control-plane dashboard auth                                                                                       | Same image is pinned in the per-project template — keep both in sync intentionally                                                       |
+| `supavisor` | `supabase/supavisor:2.7.4` | Top-level multi-tenant pooler (`pooler.<apex>:6543`)                                                               | Tenants re-reconciled by the daily pooler reconciler; verify with the active probe after bump                                            |
+| `caddy`     | `caddy:2.11-alpine`        | Edge TLS :80/:443 + on-demand TLS gate; boot config = bind-mounted `infra/Caddyfile`, runtime routes pushed by api | Stock image (:5432 SNI lives in the api's pg-edge-proxy, not Caddy); after recreate, re-push runtime routes via `/internal/caddy/reload` |
 
 **Update procedure**
 
@@ -153,20 +153,20 @@ Template: `infra/supabase-template/docker-compose.yml`. At provision, `writeInst
 
 ### Image pins (as of this writing)
 
-| Service | Image |
-|---------|-------|
-| `studio` | `${STUDIO_IMAGE}` → worker env, default `supabase/studio:2026.04.27-sha-5f60601` |
-| `kong` | `kong/kong:3.9.1` |
-| `auth` | `supabase/gotrue:v2.186.0` |
-| `rest` | `postgrest/postgrest:v14.8` |
-| `realtime` | `supabase/realtime:v2.76.5` |
-| `storage` | `supabase/storage-api:v1.60.10` |
-| `imgproxy` | `darthsim/imgproxy:v3.30.1` |
-| `meta` | `supabase/postgres-meta:v0.96.3` |
-| `functions` | `supabase/edge-runtime:v1.74.0` |
-| `analytics` | `supabase/logflare:1.36.1` |
-| `db` | `supabase/postgres:15.8.1.085` |
-| `vector` | `timberio/vector:0.53.0-alpine` |
+| Service     | Image                                                                            |
+| ----------- | -------------------------------------------------------------------------------- |
+| `studio`    | `${STUDIO_IMAGE}` → worker env, default `supabase/studio:2026.04.27-sha-5f60601` |
+| `kong`      | `kong/kong:3.9.1`                                                                |
+| `auth`      | `supabase/gotrue:v2.186.0`                                                       |
+| `rest`      | `postgrest/postgrest:v14.8`                                                      |
+| `realtime`  | `supabase/realtime:v2.76.5`                                                      |
+| `storage`   | `supabase/storage-api:v1.60.10`                                                  |
+| `imgproxy`  | `darthsim/imgproxy:v3.30.1`                                                      |
+| `meta`      | `supabase/postgres-meta:v0.96.3`                                                 |
+| `functions` | `supabase/edge-runtime:v1.74.0`                                                  |
+| `analytics` | `supabase/logflare:1.36.1`                                                       |
+| `db`        | `supabase/postgres:15.8.1.085`                                                   |
+| `vector`    | `timberio/vector:0.53.0-alpine`                                                  |
 
 ### How versions actually work (important)
 
@@ -218,23 +218,23 @@ directory-derived default project name and can clobber an unrelated stack on the
 
 ## 4. Version source-of-truth summary
 
-| What | Pinned where | Applies to |
-|------|--------------|------------|
-| Custom platform images | Docker Hub `kmhariharasudhan/supastack-*`; `SUPASTACK_VERSION` (git sha) pinned in `infra/.env` | Control plane |
-| Vendor control-plane tags | `infra/docker-compose.yml` literal tags | Control plane |
-| Platform Studio | fork sha in the `kmhariharasudhan/supastack-studio-platform` image tag (`STUDIO_PLATFORM_VERSION` in `infra/.env`); source = `kmhari/supabase#supastack-studio`, synced via `scripts/sync-studio-fork.sh` | Control plane |
-| Per-project stock tags | `infra/supabase-template/docker-compose.yml` literal tags | New provisions |
-| Per-project running tags | `/var/supastack/instances/<ref>/docker-compose.yml` (frozen copy) | That instance |
-| Per-project studio | worker `STUDIO_IMAGE` env | New provisions |
-| `supabaseVersion` | DB column on `supabase_instances` | **Label only** — display/audit |
+| What                      | Pinned where                                                                                                                                                                                              | Applies to                     |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Custom platform images    | Docker Hub `kmhariharasudhan/supastack-*`; `SUPASTACK_VERSION` (git sha) pinned in `infra/.env`                                                                                                           | Control plane                  |
+| Vendor control-plane tags | `infra/docker-compose.yml` literal tags                                                                                                                                                                   | Control plane                  |
+| Platform Studio           | fork sha in the `kmhariharasudhan/supastack-studio-platform` image tag (`STUDIO_PLATFORM_VERSION` in `infra/.env`); source = `kmhari/supabase#supastack-studio`, synced via `scripts/sync-studio-fork.sh` | Control plane                  |
+| Per-project stock tags    | `infra/supabase-template/docker-compose.yml` literal tags                                                                                                                                                 | New provisions                 |
+| Per-project running tags  | `/var/supastack/instances/<ref>/docker-compose.yml` (frozen copy)                                                                                                                                         | That instance                  |
+| Per-project studio        | worker `STUDIO_IMAGE` env                                                                                                                                                                                 | New provisions                 |
+| `supabaseVersion`         | DB column on `supabase_instances`                                                                                                                                                                         | **Label only** — display/audit |
 
 ## 5. Gaps (automation roadmap, not yet built)
 
-| Gap | Today | Proposal |
-|-----|-------|----------|
-| Template changes never reach existing instances | Hand-edit per instance | Call `writeInstanceStack()` in the upgrade path |
-| Per-instance side-effects of new platform features (GUCs, extensions) | Only new provisions get them | Versioned instance-migration runner + `instance_migration_log` |
-| Fleet-wide upgrade | N API calls for N instances | `POST /api/v1/admin/instances/upgrade` with concurrency cap |
-| Version visibility | `supabaseVersion` label only | Dashboard panel: running version + feature level + last upgrade |
-| Platform releases | Images published to Docker Hub (sha-tagged); upgrade = bump `SUPASTACK_VERSION` + `pull` + `up -d`; installer pull-mode is the default | GitHub releases tying a version to image shas |
-| Whole-stack bounce on upgrade | ~30 s downtime per instance | Rolling per-service restart (stretch) |
+| Gap                                                                   | Today                                                                                                                                  | Proposal                                                        |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Template changes never reach existing instances                       | Hand-edit per instance                                                                                                                 | Call `writeInstanceStack()` in the upgrade path                 |
+| Per-instance side-effects of new platform features (GUCs, extensions) | Only new provisions get them                                                                                                           | Versioned instance-migration runner + `instance_migration_log`  |
+| Fleet-wide upgrade                                                    | N API calls for N instances                                                                                                            | `POST /api/v1/admin/instances/upgrade` with concurrency cap     |
+| Version visibility                                                    | `supabaseVersion` label only                                                                                                           | Dashboard panel: running version + feature level + last upgrade |
+| Platform releases                                                     | Images published to Docker Hub (sha-tagged); upgrade = bump `SUPASTACK_VERSION` + `pull` + `up -d`; installer pull-mode is the default | GitHub releases tying a version to image shas                   |
+| Whole-stack bounce on upgrade                                         | ~30 s downtime per instance                                                                                                            | Rolling per-service restart (stretch)                           |

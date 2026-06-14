@@ -269,7 +269,7 @@ supabase <whatever> --project-ref <ref>
 
 For the curious or for debugging, here's what the CLI is actually talking to:
 
-| CLI command                               | HTTP request                                                                                                        | Supastack handler                                          |
+| CLI command                               | HTTP request                                                                                                        | Supastack handler                                         |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | `supabase login --token <PAT>`            | none (writes PAT to keyring)                                                                                        | —                                                         |
 | `supabase projects list`                  | `GET /v1/projects`                                                                                                  | `apps/api/src/routes/management/projects.ts`              |

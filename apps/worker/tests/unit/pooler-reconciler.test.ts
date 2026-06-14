@@ -307,7 +307,8 @@ describe('classification via runSingleInstanceReconcile', () => {
 
     expect(result.classification).toBe('instance_gone');
     expect(result.remediated).toBe(true);
-    const deleteCall = (fetchMock.mock.calls as Array<[string, RequestInit?]>).find(([, opts]) => opts?.method === 'DELETE',
+    const deleteCall = (fetchMock.mock.calls as Array<[string, RequestInit?]>).find(
+      ([, opts]) => opts?.method === 'DELETE',
     );
     expect(deleteCall).toBeDefined();
   });
@@ -433,7 +434,8 @@ describe('orphan_in_supavisor — sv tenant with no matching instance', () => {
 
     await runFullReconcile(RUN);
 
-    const deleteCall = (fetchMock.mock.calls as Array<[string, RequestInit?]>).find(([, opts]) => opts?.method === 'DELETE',
+    const deleteCall = (fetchMock.mock.calls as Array<[string, RequestInit?]>).find(
+      ([, opts]) => opts?.method === 'DELETE',
     );
     expect(deleteCall).toBeDefined();
     expect(deleteCall![0] as string).toContain('orphan-ref');
@@ -722,6 +724,8 @@ describe('startRun — preflight and concurrency', () => {
     const thrown = await startRun('cron').catch((e) => e);
     expect(thrown).toBeInstanceOf(ReconcilerInFlightError);
     expect((thrown as InstanceType<typeof ReconcilerInFlightError>).inFlightRunId).toBe(existingId);
-    expect((thrown as InstanceType<typeof ReconcilerInFlightError>).inFlightStartedAt).toEqual(existingStartedAt);
+    expect((thrown as InstanceType<typeof ReconcilerInFlightError>).inFlightStartedAt).toEqual(
+      existingStartedAt,
+    );
   });
 });

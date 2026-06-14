@@ -16,7 +16,8 @@ import fp from 'fastify-plugin';
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 const projectStoreMock = vi.hoisted(() => ({
-  getProjectByRef: vi.fn<(userId: string, ref: string) => Promise<Record<string, unknown> | null>>(),
+  getProjectByRef:
+    vi.fn<(userId: string, ref: string) => Promise<Record<string, unknown> | null>>(),
   // getPlaintextConfig may be imported by some paths
   getPlaintextConfig: vi.fn(),
 }));
@@ -24,8 +25,24 @@ const projectStoreMock = vi.hoisted(() => ({
 const configStoreMock = vi.hoisted(() => ({
   getConfig: vi.fn<(ref: string, surface: string) => Promise<Record<string, unknown>>>(),
   getPlaintextConfig: vi.fn(),
-  saveConfigOnly: vi.fn<(ref: string, surface: string, data: unknown, userId: string) => Promise<Record<string, unknown>>>(),
-  patchConfig: vi.fn<(ref: string, surface: string, body: unknown, opts: unknown) => Promise<Record<string, unknown>>>(),
+  saveConfigOnly:
+    vi.fn<
+      (
+        ref: string,
+        surface: string,
+        data: unknown,
+        userId: string,
+      ) => Promise<Record<string, unknown>>
+    >(),
+  patchConfig:
+    vi.fn<
+      (
+        ref: string,
+        surface: string,
+        body: unknown,
+        opts: unknown,
+      ) => Promise<Record<string, unknown>>
+    >(),
 }));
 
 vi.mock('../../src/services/project-store.js', () => projectStoreMock);
@@ -115,10 +132,13 @@ async function buildHooksApp(authed = true): Promise<FastifyInstance> {
 
   // authConfigRoutes registered at /v1 so internal app.inject resolves correctly
   const { authConfigRoutes } = await import('../../src/routes/management/auth-config.js');
-  await app.register(async (scope) => {
-    await scope.register(mgmtApiErrorsPlugin);
-    await scope.register(authConfigRoutes);
-  }, { prefix: '/v1' });
+  await app.register(
+    async (scope) => {
+      await scope.register(mgmtApiErrorsPlugin);
+      await scope.register(authConfigRoutes);
+    },
+    { prefix: '/v1' },
+  );
 
   return app;
 }
@@ -212,7 +232,9 @@ describe('GET /platform/auth/:ref/config/hooks', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json() as Record<string, unknown>;
     // Response should contain hook fields (translated to UPPERCASE by auth-config-case.ts)
-    expect(Object.keys(body).some((k) => k.startsWith('HOOK_') || k.startsWith('hook_'))).toBe(true);
+    expect(Object.keys(body).some((k) => k.startsWith('HOOK_') || k.startsWith('hook_'))).toBe(
+      true,
+    );
     await app.close();
   });
 

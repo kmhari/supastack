@@ -14,7 +14,11 @@ import { MemoryRouter } from 'react-router-dom';
 const login = vi.fn(async () => {});
 const run = vi.fn(async () => ({ apiToken: 'sbp_test', userId: 'u', orgId: 1, email: 'a@b.co' }));
 const apexStatus = vi.fn(async () => ({ apex: 'shipfan.test', cert: null }));
-const apexInfo = vi.fn(async () => ({ apex: 'shipfan.test', expectedIp: '203.0.113.7', cert: null }));
+const apexInfo = vi.fn(async () => ({
+  apex: 'shipfan.test',
+  expectedIp: '203.0.113.7',
+  cert: null,
+}));
 const wcStatus = vi.fn(async () => ({ cert: null }));
 
 vi.mock('@/lib/api', () => ({

@@ -6,14 +6,20 @@ import { cn } from '@/lib/utils';
 
 /** /admin/certs — TLS / DNS / backup status (read-only). Feature 116 (US5). */
 export function AdminCerts(): React.ReactElement {
-  const { data, isLoading } = useQuery({ queryKey: ['admin', 'certs'], queryFn: () => adminApi.certs() });
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'certs'],
+    queryFn: () => adminApi.certs(),
+  });
 
   if (isLoading) return <Empty>Loading…</Empty>;
   if (!data) return <Empty>Unavailable.</Empty>;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Cert / DNS / Backups" sub="TLS, DNS readiness, and backup status. Read-only." />
+      <PageHeader
+        title="Cert / DNS / Backups"
+        sub="TLS, DNS readiness, and backup status. Read-only."
+      />
 
       <section>
         <h2 className="mb-2 text-sm font-medium">Wildcard certificate</h2>
@@ -23,8 +29,13 @@ export function AdminCerts(): React.ReactElement {
           <div className="flex flex-wrap items-center gap-6 rounded-md border border-default bg-surface-200 p-3 text-sm">
             <span className="font-medium">*.{data.wildcard.apex}</span>
             <span className="text-foreground-light">expires {timeAgo(data.wildcard.notAfter)}</span>
-            <span className={cn(data.wildcard.renewalWarning ? 'text-destructive-600' : 'text-foreground-light')}>
-              {data.wildcard.daysLeft ?? '—'} days left{data.wildcard.renewalWarning ? ' · renew soon' : ''}
+            <span
+              className={cn(
+                data.wildcard.renewalWarning ? 'text-destructive-600' : 'text-foreground-light',
+              )}
+            >
+              {data.wildcard.daysLeft ?? '—'} days left
+              {data.wildcard.renewalWarning ? ' · renew soon' : ''}
             </span>
           </div>
         )}

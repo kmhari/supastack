@@ -107,7 +107,10 @@ function pgDumpStream(containerName: string): Readable {
 }
 
 async function getStoreKind(): Promise<'local' | 's3'> {
-  const [row] = await db().select({ kind: schema.installation.backupStoreKind }).from(schema.installation).limit(1);
+  const [row] = await db()
+    .select({ kind: schema.installation.backupStoreKind })
+    .from(schema.installation)
+    .limit(1);
   return (row?.kind as 'local' | 's3') ?? 'local';
 }
 

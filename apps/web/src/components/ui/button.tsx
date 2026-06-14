@@ -1,12 +1,12 @@
-import { cva, VariantProps } from 'class-variance-authority'
-import { Loader2 } from 'lucide-react'
-import { Slot } from 'radix-ui'
-import { cloneElement, forwardRef, isValidElement, ReactNode } from 'react'
+import { cva, VariantProps } from 'class-variance-authority';
+import { Loader2 } from 'lucide-react';
+import { Slot } from 'radix-ui';
+import { cloneElement, forwardRef, isValidElement, ReactNode } from 'react';
 
-import { SIZE_VARIANTS, SIZE_VARIANTS_DEFAULT } from './constants'
-import { cn } from '@/lib/utils'
+import { SIZE_VARIANTS, SIZE_VARIANTS_DEFAULT } from './constants';
+import { cn } from '@/lib/utils';
 
-export type ButtonVariantProps = VariantProps<typeof buttonVariants>
+export type ButtonVariantProps = VariantProps<typeof buttonVariants>;
 const buttonVariants = cva(
   `relative
   flex items-center justify-center
@@ -147,8 +147,8 @@ const buttonVariants = cva(
         },
       },
     },
-  }
-)
+  },
+);
 
 const IconContainerVariants = cva('inline-flex items-center justify-center shrink-0', {
   variants: {
@@ -174,9 +174,9 @@ const IconContainerVariants = cva('inline-flex items-center justify-center shrin
       warning: 'text-warning',
     },
   },
-})
+});
 
-export type LoadingVariantProps = VariantProps<typeof loadingVariants>
+export type LoadingVariantProps = VariantProps<typeof loadingVariants>;
 const loadingVariants = cva('', {
   variants: {
     type: {
@@ -196,20 +196,20 @@ const loadingVariants = cva('', {
       true: `animate-spin`,
     },
   },
-})
+});
 
 export interface ButtonProps
   extends
     Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'type'>,
     Omit<ButtonVariantProps, 'disabled'>,
     Omit<LoadingVariantProps, 'type'> {
-  asChild?: boolean
-  type?: ButtonVariantProps['type']
-  htmlType?: React.ButtonHTMLAttributes<HTMLButtonElement>['type']
-  icon?: React.ReactNode
-  iconLeft?: React.ReactNode
-  iconRight?: React.ReactNode
-  rounded?: boolean
+  asChild?: boolean;
+  type?: ButtonVariantProps['type'];
+  htmlType?: React.ButtonHTMLAttributes<HTMLButtonElement>['type'];
+  icon?: React.ReactNode;
+  iconLeft?: React.ReactNode;
+  iconRight?: React.ReactNode;
+  rounded?: boolean;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -228,14 +228,14 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       rounded,
       ...props
     },
-    ref
+    ref,
   ) => {
-    const Comp = asChild ? Slot.Slot : 'button'
-    const { className, tabIndex } = props
-    const showIcon = loading || icon
-    const _iconLeft: React.ReactNode = icon ?? iconLeft
-    const disabled = loading === true || props.disabled
-    const computedTabIndex = tabIndex !== undefined ? tabIndex : disabled ? -1 : 0
+    const Comp = asChild ? Slot.Slot : 'button';
+    const { className, tabIndex } = props;
+    const showIcon = loading || icon;
+    const _iconLeft: React.ReactNode = icon ?? iconLeft;
+    const disabled = loading === true || props.disabled;
+    const computedTabIndex = tabIndex !== undefined ? tabIndex : disabled ? -1 : 0;
 
     return (
       <Comp
@@ -247,8 +247,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         tabIndex={computedTabIndex}
         className={cn(buttonVariants({ type, size, disabled, block, rounded }), className)}
         onClick={(e) => {
-          if (disabled) return e.preventDefault()
-          else props?.onClick?.(e)
+          if (disabled) return e.preventDefault();
+          else props?.onClick?.(e);
         }}
       >
         {asChild ? (
@@ -265,11 +265,17 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                   <div className={cn(IconContainerVariants({ size, type }))}>{_iconLeft}</div>
                 ) : null),
               children.props.children && (
-                <span className={'inline-flex items-center gap-1.5 truncate [&_svg]:inline-block [&_svg]:align-middle'}>{children.props.children}</span>
+                <span
+                  className={
+                    'inline-flex items-center gap-1.5 truncate [&_svg]:inline-block [&_svg]:align-middle'
+                  }
+                >
+                  {children.props.children}
+                </span>
               ),
               iconRight && !loading && (
                 <div className={cn(IconContainerVariants({ size, type }))}>{iconRight}</div>
-              )
+              ),
             )
           ) : null
         ) : (
@@ -282,17 +288,25 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
               ) : _iconLeft ? (
                 <div className={cn(IconContainerVariants({ size, type }))}>{_iconLeft}</div>
               ) : null)}{' '}
-            {children && <span className={'inline-flex items-center gap-1.5 truncate [&_svg]:inline-block [&_svg]:align-middle'}>{children}</span>}{' '}
+            {children && (
+              <span
+                className={
+                  'inline-flex items-center gap-1.5 truncate [&_svg]:inline-block [&_svg]:align-middle'
+                }
+              >
+                {children}
+              </span>
+            )}{' '}
             {iconRight && !loading && (
               <div className={cn(IconContainerVariants({ size, type }))}>{iconRight}</div>
             )}
           </>
         )}
       </Comp>
-    )
-  }
-)
+    );
+  },
+);
 
-Button.displayName = 'Button'
+Button.displayName = 'Button';
 
-export { Button, buttonVariants }
+export { Button, buttonVariants };

@@ -276,7 +276,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     reply.status(204).send(),
   );
   app.get<RefP>('/v1/projects/:ref/network-restrictions', async (_req, reply) =>
-    reply.send({ entitlement: 'disallowed', config: { dbAllowedCidrs: [], dbAllowedCidrsReadReplicas: [] } }),
+    reply.send({
+      entitlement: 'disallowed',
+      config: { dbAllowedCidrs: [], dbAllowedCidrsReadReplicas: [] },
+    }),
   );
   app.post<RefP>('/v1/projects/:ref/network-restrictions/apply', async (req, reply) =>
     reply.send(req.body ?? {}),
@@ -325,9 +328,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     if (!row) return reply.status(404).send({ error: 'Project not found' });
     const secrets = decryptJson(row.encryptedSecrets, loadMasterKey()) as { jwtSecret: string };
     return reply.send({
-      signing_keys: [
-        { algorithm: 'HS256', status: 'active', secret: secrets.jwtSecret },
-      ],
+      signing_keys: [{ algorithm: 'HS256', status: 'active', secret: secrets.jwtSecret }],
     });
   });
   app.get<RefP>('/v1/projects/:ref/upgrade/status', async (_req, reply) =>
@@ -336,7 +337,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.get<RefP & { Querystring: { services?: string } }>(
     '/v1/projects/:ref/health',
     async (req, reply) => {
-      const services = req.query.services ? req.query.services.split(',') : ['auth', 'rest', 'realtime', 'storage', 'db'];
+      const services = req.query.services
+        ? req.query.services.split(',')
+        : ['auth', 'rest', 'realtime', 'storage', 'db'];
       return reply.send(services.map((name) => ({ name, status: 'ACTIVE_HEALTHY', error: null })));
     },
   );

@@ -40,7 +40,9 @@ export function AdminLogs(): React.ReactElement {
               onClick={() => setSource(src)}
               className={cn(
                 'rounded px-2 py-1 text-xs transition-colors',
-                source === src ? 'bg-surface-300 text-foreground' : 'text-foreground-light hover:text-foreground',
+                source === src
+                  ? 'bg-surface-300 text-foreground'
+                  : 'text-foreground-light hover:text-foreground',
               )}
             >
               {c.replace('supastack-', '').replace('-1', '')}

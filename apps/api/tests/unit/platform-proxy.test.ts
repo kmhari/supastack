@@ -5,15 +5,16 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 
 const proxyHelpersMock = vi.hoisted(() => ({
   resolveInstance: vi.fn<(ref: string) => Promise<{ portKong: number }>>(),
-  proxyToKong: vi.fn<
-    (
-      port: number,
-      path: string,
-      method: string,
-      headers: Record<string, string | string[] | undefined>,
-      body: Buffer | null,
-    ) => Promise<{ status: number; headers: Record<string, string>; body: Buffer }>
-  >(),
+  proxyToKong:
+    vi.fn<
+      (
+        port: number,
+        path: string,
+        method: string,
+        headers: Record<string, string | string[] | undefined>,
+        body: Buffer | null,
+      ) => Promise<{ status: number; headers: Record<string, string>; body: Buffer }>
+    >(),
   ProxyProjectNotFoundError: class ProxyProjectNotFoundError extends Error {
     code = 'proxy_project_not_found' as const;
     constructor(ref: string) {
@@ -187,7 +188,12 @@ describe('platform-proxy routes', () => {
         headers: { authorization: 'Bearer token', 'content-type': 'application/json' },
         payload: {
           path: 'my-folder/',
-          options: { limit: 20, offset: 5, search: 'img', sortBy: { column: 'size', order: 'desc' } },
+          options: {
+            limit: 20,
+            offset: 5,
+            search: 'img',
+            sortBy: { column: 'size', order: 'desc' },
+          },
         },
       });
 

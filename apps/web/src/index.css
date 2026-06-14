@@ -88,8 +88,8 @@
   --colors-gray-dark-1200: 0deg 0% 92.9%;
 
   /* Spacing / layout tokens used by Card, CardContent, CardHeader, CardFooter */
-  --padding-x-sm: 1rem;     /* px-4 */
-  --padding-x-md: 1.5rem;   /* px-6 */
+  --padding-x-sm: 1rem; /* px-4 */
+  --padding-x-md: 1.5rem; /* px-6 */
   --card-padding-x: var(--padding-x-sm);
   --card-padding-x-md: var(--padding-x-md);
 
@@ -157,7 +157,7 @@
   --foreground-default: 0deg 0% 98%;
 
   /* Supastack-local tokens (no Supabase equivalent) */
-  --info-default: 207deg 89% 72%;     /* #7ab8f5 */
+  --info-default: 207deg 89% 72%; /* #7ab8f5 */
   --info-foreground: 0deg 0% 4%;
   --ring-default: 153.1deg 60.2% 52.7%; /* brand green focus ring */
 }
@@ -307,26 +307,26 @@
    * placeholder) — mapping by name made every step description, table header
    * and hint near-invisible on the dark background (shipfan.xyz install,
    * 2026-06-12). `foreground-light` (70.6%) is Studio's secondary-text tier. */
-  --color-muted-foreground: hsl(var(--foreground-light));       /* → text-foreground-light */
+  --color-muted-foreground: hsl(var(--foreground-light)); /* → text-foreground-light */
   --color-foreground-light-compat: hsl(var(--foreground-light)); /* via --color-foreground-light */
-  --color-primary: hsl(var(--brand-default));                    /* → bg-brand / text-brand */
+  --color-primary: hsl(var(--brand-default)); /* → bg-brand / text-brand */
   --color-primary-foreground: hsl(var(--foreground-default));
-  --color-secondary: hsl(var(--background-surface-200));         /* → bg-background-surface-200 */
+  --color-secondary: hsl(var(--background-surface-200)); /* → bg-background-surface-200 */
   --color-secondary-foreground: hsl(var(--foreground-default));
-  --color-muted: hsl(var(--background-muted));                   /* → bg-background-muted */
-  --color-accent: hsl(var(--background-selection));              /* → bg-background-selection */
+  --color-muted: hsl(var(--background-muted)); /* → bg-background-muted */
+  --color-accent: hsl(var(--background-selection)); /* → bg-background-selection */
   --color-accent-foreground: hsl(var(--foreground-default));
-  --color-card: hsl(var(--background-surface-100));              /* → bg-background-surface-100 */
+  --color-card: hsl(var(--background-surface-100)); /* → bg-background-surface-100 */
   --color-card-foreground: hsl(var(--foreground-default));
-  --color-popover: hsl(var(--background-overlay-default));       /* → bg-background-overlay */
+  --color-popover: hsl(var(--background-overlay-default)); /* → bg-background-overlay */
   --color-popover-foreground: hsl(var(--foreground-default));
-  --color-input: hsl(var(--background-control));                 /* → border-input → border-control */
-  --color-border-soft: hsl(var(--border-alternative));           /* supastack-specific alias */
-  --color-success: hsl(var(--brand-default));                    /* brand green = success */
+  --color-input: hsl(var(--background-control)); /* → border-input → border-control */
+  --color-border-soft: hsl(var(--border-alternative)); /* supastack-specific alias */
+  --color-success: hsl(var(--brand-default)); /* brand green = success */
   --color-success-foreground: 0deg 0% 4%;
-  --color-warn: hsl(var(--warning-default));                     /* → bg-warning */
+  --color-warn: hsl(var(--warning-default)); /* → bg-warning */
   --color-warn-foreground: 0deg 0% 4%;
-  --color-destructive-bg: hsl(var(--destructive-200));           /* supastack destructive bg tint */
+  --color-destructive-bg: hsl(var(--destructive-200)); /* supastack destructive bg tint */
   --color-destructive-foreground: hsl(var(--foreground-default));
 }
 

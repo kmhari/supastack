@@ -17,7 +17,8 @@ import fp from 'fastify-plugin';
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 const projectStoreMock = vi.hoisted(() => ({
-  getProjectByRef: vi.fn<(userId: string, ref: string) => Promise<Record<string, unknown> | null>>(),
+  getProjectByRef:
+    vi.fn<(userId: string, ref: string) => Promise<Record<string, unknown> | null>>(),
 }));
 
 const migrationsMock = vi.hoisted(() => ({
@@ -30,15 +31,21 @@ const migrationsMock = vi.hoisted(() => ({
 const perInstancePgMock = vi.hoisted(() => {
   class InstanceNotFoundError extends Error {
     code = 'instance_not_found' as const;
-    constructor() { super('Instance not found'); }
+    constructor() {
+      super('Instance not found');
+    }
   }
   class InstanceNotRunningError extends Error {
     code = 'instance_not_running' as const;
-    constructor(public readonly status: string) { super(`Project is in state '${status}'`); }
+    constructor(public readonly status: string) {
+      super(`Project is in state '${status}'`);
+    }
   }
   class PerInstancePgConnectError extends Error {
     code = 'per_instance_pg_connect_error' as const;
-    constructor(message: string) { super(message); }
+    constructor(message: string) {
+      super(message);
+    }
   }
   return { InstanceNotFoundError, InstanceNotRunningError, PerInstancePgConnectError };
 });
@@ -62,7 +69,11 @@ async function buildApp(authenticated = true): Promise<FastifyInstance> {
   });
   app.decorate('authorize', () => {});
   const { migrationsRoutes } = await import('../../src/routes/management/migrations.js');
-  await app.register(fp(async (scope) => { await scope.register(migrationsRoutes); }));
+  await app.register(
+    fp(async (scope) => {
+      await scope.register(migrationsRoutes);
+    }),
+  );
   return app;
 }
 
@@ -78,9 +89,7 @@ describe('GET /projects/:ref/database/migrations', () => {
 
   it('200 — returns migration list', async () => {
     projectStoreMock.getProjectByRef.mockResolvedValue(FAKE_INST);
-    migrationsMock.listMigrations.mockResolvedValue([
-      { version: '20240101000000', name: 'init' },
-    ]);
+    migrationsMock.listMigrations.mockResolvedValue([{ version: '20240101000000', name: 'init' }]);
 
     const res = await app.inject({
       method: 'GET',

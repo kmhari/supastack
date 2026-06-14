@@ -22,7 +22,12 @@ export const ROLE_NAMES = {
   read_only: 'Read-only',
 } as const satisfies Record<Role, string>;
 
-const ROLE_BY_ID: Record<number, Role> = { 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' };
+const ROLE_BY_ID: Record<number, Role> = {
+  1: 'owner',
+  2: 'administrator',
+  3: 'developer',
+  4: 'read_only',
+};
 
 export function roleToId(role: Role): number {
   return ROLE_IDS[role];

@@ -104,7 +104,10 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
       .from(schema.controlPlaneSnapshots)
       .orderBy(schema.controlPlaneSnapshots.container);
     const capturedAt = snaps.reduce<string | null>(
-      (max, s) => (s.capturedAt && (!max || s.capturedAt.toISOString() > max) ? s.capturedAt.toISOString() : max),
+      (max, s) =>
+        s.capturedAt && (!max || s.capturedAt.toISOString() > max)
+          ? s.capturedAt.toISOString()
+          : max,
       null,
     );
     return reply.send({
@@ -120,46 +123,51 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ── US2: logs (project via proxy / control-plane via snapshot) ─────────────
-  app.get<{ Querystring: { source?: string; tail?: string } }>('/admin/logs', async (req, reply) => {
-    app.authorize(req, 'admin.console.read');
-    const source = req.query.source ?? '';
-    const tail = Math.min(500, Number(req.query.tail ?? 200) || 200);
+  app.get<{ Querystring: { source?: string; tail?: string } }>(
+    '/admin/logs',
+    async (req, reply) => {
+      app.authorize(req, 'admin.console.read');
+      const source = req.query.source ?? '';
+      const tail = Math.min(500, Number(req.query.tail ?? 200) || 200);
 
-    if (source.startsWith('control-plane:')) {
-      const container = source.slice('control-plane:'.length);
-      const [snap] = await db()
-        .select()
-        .from(schema.controlPlaneSnapshots)
-        .where(eq(schema.controlPlaneSnapshots.container, container))
-        .limit(1);
-      const lines = (snap?.logTail ?? '').split('\n').filter(Boolean).slice(-tail);
-      return reply.send({
-        source,
-        capturedAt: snap?.capturedAt?.toISOString() ?? null,
-        fresh: false,
-        lines,
-      });
-    }
-
-    // project:<ref>:<service>
-    const m = source.match(/^project:([a-z0-9]{20}):([a-z-]+)$/);
-    if (m) {
-      const [, ref, service] = m;
-      try {
-        const rows = await queryLogs(ref!, { service: service as LogService });
+      if (source.startsWith('control-plane:')) {
+        const container = source.slice('control-plane:'.length);
+        const [snap] = await db()
+          .select()
+          .from(schema.controlPlaneSnapshots)
+          .where(eq(schema.controlPlaneSnapshots.container, container))
+          .limit(1);
+        const lines = (snap?.logTail ?? '').split('\n').filter(Boolean).slice(-tail);
         return reply.send({
           source,
-          capturedAt: new Date().toISOString(),
-          fresh: true,
-          lines: rows.map((r) => `${r.timestamp ?? ''} ${r.event_message ?? ''}`.trim()).slice(-tail),
+          capturedAt: snap?.capturedAt?.toISOString() ?? null,
+          fresh: false,
+          lines,
         });
-      } catch {
-        return reply.send({ source, capturedAt: null, fresh: true, lines: [] });
       }
-    }
 
-    return reply.send({ source, capturedAt: null, fresh: true, lines: [] });
-  });
+      // project:<ref>:<service>
+      const m = source.match(/^project:([a-z0-9]{20}):([a-z-]+)$/);
+      if (m) {
+        const [, ref, service] = m;
+        try {
+          const rows = await queryLogs(ref!, { service: service as LogService });
+          return reply.send({
+            source,
+            capturedAt: new Date().toISOString(),
+            fresh: true,
+            lines: rows
+              .map((r) => `${r.timestamp ?? ''} ${r.event_message ?? ''}`.trim())
+              .slice(-tail),
+          });
+        } catch {
+          return reply.send({ source, capturedAt: null, fresh: true, lines: [] });
+        }
+      }
+
+      return reply.send({ source, capturedAt: null, fresh: true, lines: [] });
+    },
+  );
 
   // ── US3: resources ─────────────────────────────────────────────────────────
   app.get('/admin/resources', async (req, reply) => {
@@ -293,4 +301,3 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 };
-

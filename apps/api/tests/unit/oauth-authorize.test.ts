@@ -63,7 +63,11 @@ beforeEach(() => {
 describe('GET /v1/oauth/authorize', () => {
   it('valid params → 303 redirect to <apex>/dashboard/authorize?auth_id=...; session created (happy)', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: '/v1/oauth/authorize', query: VALID_PARAMS });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/oauth/authorize',
+      query: VALID_PARAMS,
+    });
     expect(res.statusCode).toBe(303);
     expect(res.headers['location']).toBe(
       'https://example.test/dashboard/authorize?auth_id=11111111-2222-4333-8444-555555555555',
@@ -85,7 +89,11 @@ describe('GET /v1/oauth/authorize', () => {
 
   it('clean URL — Location carries only auth_id, no raw OAuth params (US2 / SC-002)', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: '/v1/oauth/authorize', query: VALID_PARAMS });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/oauth/authorize',
+      query: VALID_PARAMS,
+    });
     const loc = res.headers['location'] as string;
     expect(loc).toContain('auth_id=');
     expect(loc).not.toContain('code_challenge');

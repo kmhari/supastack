@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 
-vi.mock('drizzle-orm', () => ({ and: () => ({}), desc: () => ({}), eq: () => ({}), isNull: () => ({}) }));
+vi.mock('drizzle-orm', () => ({
+  and: () => ({}),
+  desc: () => ({}),
+  eq: () => ({}),
+  isNull: () => ({}),
+}));
 
 let queryRows: unknown[] = [];
 vi.mock('@supastack/db', () => ({
@@ -36,7 +41,11 @@ let mockOwnerCount = 1;
 vi.mock('../../src/services/org-membership.js', () => ({
   memberRole: async () => mockMemberRole,
   ownerCount: async () => mockOwnerCount,
-  newInviteToken: () => ({ raw: 'tok', sha256: Buffer.alloc(32), expiresAt: new Date(Date.now() + 3.6e6) }),
+  newInviteToken: () => ({
+    raw: 'tok',
+    sha256: Buffer.alloc(32),
+    expiresAt: new Date(Date.now() + 3.6e6),
+  }),
   hashInviteToken: () => Buffer.alloc(32),
 }));
 
@@ -132,7 +141,10 @@ describe('Org roles + members + invitations (feature 084 US4)', () => {
     mockMemberRole = 'owner';
     mockOwnerCount = 1;
     const app = await buildApp();
-    const res = await app.inject({ method: 'DELETE', url: `/platform/organizations/${SLUG}/members/m1` });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/platform/organizations/${SLUG}/members/m1`,
+    });
     expect(res.statusCode).toBe(409);
     await app.close();
   });
@@ -141,7 +153,10 @@ describe('Org roles + members + invitations (feature 084 US4)', () => {
     mockMemberRole = 'developer';
     mockOwnerCount = 1;
     const app = await buildApp();
-    const res = await app.inject({ method: 'DELETE', url: `/platform/organizations/${SLUG}/members/m1` });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/platform/organizations/${SLUG}/members/m1`,
+    });
     expect(res.statusCode).toBe(204);
     await app.close();
   });

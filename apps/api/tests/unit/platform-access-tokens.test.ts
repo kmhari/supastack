@@ -80,7 +80,9 @@ async function buildApp(authed = true): Promise<FastifyInstance> {
 }
 
 describe('/platform/profile/access-tokens — auth guards', () => {
-  beforeEach(() => { selectResult = []; });
+  beforeEach(() => {
+    selectResult = [];
+  });
 
   it('GET list 401 — unauthenticated', async () => {
     const app = await buildApp(false);
@@ -138,7 +140,10 @@ describe('GET /platform/profile/access-tokens/:id', () => {
 
   it('401 — unauthenticated', async () => {
     const unauthApp = await buildApp(false);
-    const res = await unauthApp.inject({ method: 'GET', url: '/platform/profile/access-tokens/tok1' });
+    const res = await unauthApp.inject({
+      method: 'GET',
+      url: '/platform/profile/access-tokens/tok1',
+    });
     expect(res.statusCode).toBe(401);
     await unauthApp.close();
   });

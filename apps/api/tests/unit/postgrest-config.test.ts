@@ -14,12 +14,21 @@ import fp from 'fastify-plugin';
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 const projectStoreMock = vi.hoisted(() => ({
-  getProjectByRef: vi.fn<(userId: string, ref: string) => Promise<Record<string, unknown> | null>>(),
+  getProjectByRef:
+    vi.fn<(userId: string, ref: string) => Promise<Record<string, unknown> | null>>(),
 }));
 
 const configStoreMock = vi.hoisted(() => ({
   getConfig: vi.fn<(ref: string, surface: string) => Promise<Record<string, unknown>>>(),
-  patchConfig: vi.fn<(ref: string, surface: string, body: unknown, opts: unknown) => Promise<Record<string, unknown>>>(),
+  patchConfig:
+    vi.fn<
+      (
+        ref: string,
+        surface: string,
+        body: unknown,
+        opts: unknown,
+      ) => Promise<Record<string, unknown>>
+    >(),
 }));
 
 vi.mock('../../src/services/project-store.js', () => projectStoreMock);
@@ -59,7 +68,11 @@ async function buildApp(authenticated = true): Promise<FastifyInstance> {
   });
   app.decorate('authorize', () => {});
   const { postgrestConfigRoutes } = await import('../../src/routes/management/postgrest-config.js');
-  await app.register(fp(async (scope) => { await scope.register(postgrestConfigRoutes); }));
+  await app.register(
+    fp(async (scope) => {
+      await scope.register(postgrestConfigRoutes);
+    }),
+  );
   return app;
 }
 

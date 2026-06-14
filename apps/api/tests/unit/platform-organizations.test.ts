@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 
-vi.mock('drizzle-orm', () => ({ and: () => ({}), desc: () => ({}), eq: () => ({}), isNull: () => ({}) }));
+vi.mock('drizzle-orm', () => ({
+  and: () => ({}),
+  desc: () => ({}),
+  eq: () => ({}),
+  isNull: () => ({}),
+}));
 
 // Configurable result for `select().from().where().limit()` (org reselect / project check).
 let limitResult: unknown[] = [];
@@ -82,7 +87,10 @@ describe('Organizations CRUD (feature 084 US3)', () => {
   it('happy: delete an empty org → 204', async () => {
     limitResult = []; // no projects
     const app = await buildApp();
-    const res = await app.inject({ method: 'DELETE', url: '/platform/organizations/abcdefghijklmnopqrst' });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/platform/organizations/abcdefghijklmnopqrst',
+    });
     expect(res.statusCode).toBe(204);
     await app.close();
   });
@@ -90,7 +98,10 @@ describe('Organizations CRUD (feature 084 US3)', () => {
   it('sad: delete an org that still owns projects → 409', async () => {
     limitResult = [{ ref: 'projaaaaaaaaaaaaaaaa' }];
     const app = await buildApp();
-    const res = await app.inject({ method: 'DELETE', url: '/platform/organizations/abcdefghijklmnopqrst' });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/platform/organizations/abcdefghijklmnopqrst',
+    });
     expect(res.statusCode).toBe(409);
     await app.close();
   });

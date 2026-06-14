@@ -5,7 +5,13 @@ import Fastify, { type FastifyInstance } from 'fastify';
 // Wire-compatible with Cloud: jwt_secret + service_api_keys (anon + service_role)
 // + db connection details. Org-membership scoped via the join (non-member → 404).
 
-vi.mock('drizzle-orm', () => ({ and: () => ({}), desc: () => ({}), eq: () => ({}), isNull: () => ({}), sql: () => ({}) }));
+vi.mock('drizzle-orm', () => ({
+  and: () => ({}),
+  desc: () => ({}),
+  eq: () => ({}),
+  isNull: () => ({}),
+  sql: () => ({}),
+}));
 
 let instRows: unknown[] = [];
 let secretsObj: Record<string, unknown> = {};
@@ -87,13 +93,29 @@ describe('GET /platform/projects/:ref/settings', () => {
     // secrets
     expect(b.jwt_secret).toBe('JWTSECRET');
     expect(b.service_api_keys).toHaveLength(2);
-    expect(b.service_api_keys[0]).toMatchObject({ api_key: 'ANONKEY', name: 'anon key', tags: 'anon' });
-    expect(b.service_api_keys[1]).toMatchObject({ api_key: 'SERVICEKEY', name: 'service_role key', tags: 'service_role' });
+    expect(b.service_api_keys[0]).toMatchObject({
+      api_key: 'ANONKEY',
+      name: 'anon key',
+      tags: 'anon',
+    });
+    expect(b.service_api_keys[1]).toMatchObject({
+      api_key: 'SERVICEKEY',
+      name: 'service_role key',
+      tags: 'service_role',
+    });
     await app.close();
   });
 
   it('happy: a non-running status is upper-cased (paused → PAUSED)', async () => {
-    instRows = [{ ref: REF, name: 'p', status: 'paused', encryptedSecrets: Buffer.from('x'), insertedAt: new Date() }];
+    instRows = [
+      {
+        ref: REF,
+        name: 'p',
+        status: 'paused',
+        encryptedSecrets: Buffer.from('x'),
+        insertedAt: new Date(),
+      },
+    ];
     secretsObj = { jwtSecret: 'j', anonKey: 'a', serviceRoleKey: 's' };
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/settings` });
@@ -104,7 +126,15 @@ describe('GET /platform/projects/:ref/settings', () => {
 
   it('happy: no apex configured → falls back to localhost host (no crash)', async () => {
     process.env.SUPASTACK_APEX = '';
-    instRows = [{ ref: REF, name: 'p', status: 'running', encryptedSecrets: Buffer.from('x'), insertedAt: new Date() }];
+    instRows = [
+      {
+        ref: REF,
+        name: 'p',
+        status: 'running',
+        encryptedSecrets: Buffer.from('x'),
+        insertedAt: new Date(),
+      },
+    ];
     secretsObj = { jwtSecret: 'j', anonKey: 'a', serviceRoleKey: 's' };
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/settings` });
@@ -115,7 +145,9 @@ describe('GET /platform/projects/:ref/settings', () => {
   });
 
   it('edge: missing/empty encrypted secrets → jwt_secret + keys are empty strings, not undefined', async () => {
-    instRows = [{ ref: REF, name: 'p', status: 'running', encryptedSecrets: null, insertedAt: new Date() }];
+    instRows = [
+      { ref: REF, name: 'p', status: 'running', encryptedSecrets: null, insertedAt: new Date() },
+    ];
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/settings` });
     expect(res.statusCode).toBe(200);
@@ -135,7 +167,15 @@ describe('GET /platform/projects/:ref/settings', () => {
   });
 
   it('sad: unauthenticated → 401 (requireAuth throws before any db read)', async () => {
-    instRows = [{ ref: REF, name: 'p', status: 'running', encryptedSecrets: Buffer.from('x'), insertedAt: new Date() }];
+    instRows = [
+      {
+        ref: REF,
+        name: 'p',
+        status: 'running',
+        encryptedSecrets: Buffer.from('x'),
+        insertedAt: new Date(),
+      },
+    ];
     const app = await buildApp(false);
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/settings` });
     expect(res.statusCode).toBe(401);

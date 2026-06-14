@@ -76,7 +76,12 @@ export function DocsMcp(): React.ReactElement {
         <h2 className="text-lg font-medium">Revoke access</h2>
         <p className="mt-2 text-sm text-foreground-light">
           Manage or revoke connected clients from your{' '}
-          <a href={s.dashboardUrl} className="text-brand-600 underline" target="_blank" rel="noreferrer">
+          <a
+            href={s.dashboardUrl}
+            className="text-brand-600 underline"
+            target="_blank"
+            rel="noreferrer"
+          >
             dashboard
           </a>{' '}
           (Organization → OAuth Apps / MCP clients). Revocation takes effect within a few seconds.

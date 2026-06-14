@@ -10,12 +10,14 @@ export const PgbouncerConfigSchema = z.object({
   connection_string: z.string(),
 });
 
-export const PgbouncerConfigPatchSchema = z.object({
-  pool_mode: z.enum(POOL_MODES).optional(),
-  default_pool_size: z.number().int().positive().optional(),
-  ignore_startup_parameters: z.string().optional(),
-  max_client_conn: z.number().int().positive().optional(),
-}).strict();
+export const PgbouncerConfigPatchSchema = z
+  .object({
+    pool_mode: z.enum(POOL_MODES).optional(),
+    default_pool_size: z.number().int().positive().optional(),
+    ignore_startup_parameters: z.string().optional(),
+    max_client_conn: z.number().int().positive().optional(),
+  })
+  .strict();
 
 export type PgbouncerConfig = z.infer<typeof PgbouncerConfigSchema>;
 export type PgbouncerConfigPatch = z.infer<typeof PgbouncerConfigPatchSchema>;

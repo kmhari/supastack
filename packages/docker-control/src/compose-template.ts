@@ -245,7 +245,10 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
 export function renderVectorConfig(content: string, ref: string): string {
   const p = `supastack-${ref}`;
   const routeSubs: [string, string][] = [
-    [`'.appname == "supabase-kong" || .appname == "supabase-envoy"'`, `'.appname == "${p}-kong-1"'`],
+    [
+      `'.appname == "supabase-kong" || .appname == "supabase-envoy"'`,
+      `'.appname == "${p}-kong-1"'`,
+    ],
     [`'.appname == "supabase-auth"'`, `'.appname == "${p}-auth-1"'`],
     [`'.appname == "supabase-rest"'`, `'.appname == "${p}-rest-1"'`],
     [`'.appname == "realtime-dev.supabase-realtime"'`, `'.appname == "${p}-realtime-1"'`],
@@ -272,7 +275,9 @@ export function renderVectorConfig(content: string, ref: string): string {
   out = out.replace(srcFrom, srcTo);
 
   if (/\.appname == "(supabase-|realtime-dev)/.test(out)) {
-    throw new Error('renderVectorConfig: a vanilla supabase-* appname condition survived substitution');
+    throw new Error(
+      'renderVectorConfig: a vanilla supabase-* appname condition survived substitution',
+    );
   }
   return out;
 }

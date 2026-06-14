@@ -7,7 +7,10 @@ import { PageHeader, StatusBadge, Empty, Th, Td } from '@/components/admin/Bits'
 
 /** /admin — installation-wide project list (scrollable + text filter for ≥50). Feature 116 (US2). */
 export function AdminFleet(): React.ReactElement {
-  const { data, isLoading } = useQuery({ queryKey: ['admin', 'fleet'], queryFn: () => adminApi.fleet() });
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'fleet'],
+    queryFn: () => adminApi.fleet(),
+  });
   const [q, setQ] = useState('');
   const projects = (data?.projects ?? []).filter((p) =>
     `${p.ref} ${p.name} ${p.org} ${p.status}`.toLowerCase().includes(q.toLowerCase()),

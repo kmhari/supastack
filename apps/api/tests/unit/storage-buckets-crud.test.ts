@@ -35,8 +35,7 @@ vi.mock('@supastack/db', () => ({
     select: () => ({
       from: () => ({
         where: () => ({
-          limit: async () =>
-            dbStatus.value ? [{ status: dbStatus.value, portKong: 30006 }] : [],
+          limit: async () => (dbStatus.value ? [{ status: dbStatus.value, portKong: 30006 }] : []),
         }),
       }),
     }),

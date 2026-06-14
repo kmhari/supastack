@@ -37,7 +37,14 @@ vi.mock('@supastack/db', () => {
   return {
     db: () => ({ select: () => chain }),
     schema: {
-      supabaseInstances: { ref: {}, status: {}, orgId: {}, updatedAt: {}, portKong: {}, encryptedSecrets: {} },
+      supabaseInstances: {
+        ref: {},
+        status: {},
+        orgId: {},
+        updatedAt: {},
+        portKong: {},
+        encryptedSecrets: {},
+      },
       organizations: { id: {}, slug: {} },
       organizationMembers: { organizationId: {}, userId: {} },
     },
@@ -52,7 +59,8 @@ vi.mock('@supastack/crypto', () => ({
 vi.mock('@supastack/shared', () => ({
   ROLE_IDS: { owner: 1, administrator: 2, developer: 3, read_only: 4 },
   ROLE_NAMES: { 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' },
-  roleFromId: (id: number) => ({ 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' }[id]),
+  roleFromId: (id: number) =>
+    ({ 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' })[id],
 }));
 vi.mock('../../src/services/backups-mgmt-service.js', () => ({
   resolveBackupSeq: vi.fn(),
@@ -100,7 +108,9 @@ vi.mock('../../src/services/pg-password-reset.js', () => ({
 vi.mock('../../src/services/per-instance-pg.js', () => ({
   withPerInstancePg: vi.fn(),
   InstanceNotRunningError: class InstanceNotRunningError extends Error {
-    constructor() { super('Project is not running'); }
+    constructor() {
+      super('Project is not running');
+    }
   },
 }));
 
@@ -142,10 +152,21 @@ async function buildApp(authed = true): Promise<FastifyInstance> {
 
   // Stub v1 delegation targets
   app.get('/v1/projects/:ref/postgrest', async (_req, reply) => {
-    reply.send({ db_schema: 'public', db_extra_search_path: 'public,extensions', max_rows: 1000, db_pool: 15 });
+    reply.send({
+      db_schema: 'public',
+      db_extra_search_path: 'public,extensions',
+      max_rows: 1000,
+      db_pool: 15,
+    });
   });
   app.get('/v1/projects/:ref/config/database/postgres', async (_req, reply) => {
-    reply.send({ effective_cache_size: '4096MB', maintenance_work_mem: '64MB', max_connections: 100, shared_buffers: '1024MB', work_mem: '16MB' });
+    reply.send({
+      effective_cache_size: '4096MB',
+      maintenance_work_mem: '64MB',
+      max_connections: 100,
+      shared_buffers: '1024MB',
+      work_mem: '16MB',
+    });
   });
   app.patch('/v1/projects/:ref/config/database/postgres', async (req, reply) => {
     reply.send(req.body);
@@ -154,15 +175,33 @@ async function buildApp(authed = true): Promise<FastifyInstance> {
     reply.status(200).send({ message: 'Secrets deleted' });
   });
   // Other stubs used by platform-misc at startup
-  app.post('/v1/projects/:ref/restore', async (_req, reply) => { reply.send({}); });
-  app.get('/v1/projects/:ref/network-bans', async (_req, reply) => { reply.send({ banned_ipv4_addresses: [] }); });
-  app.delete('/v1/projects/:ref/network-bans', async (_req, reply) => { reply.status(204).send(); });
-  app.get('/v1/projects/:ref/network-restrictions', async (_req, reply) => { reply.send({}); });
-  app.post('/v1/projects/:ref/network-restrictions/apply', async (_req, reply) => { reply.send({}); });
-  app.get('/v1/projects/:ref/ssl-enforcement', async (_req, reply) => { reply.send({}); });
-  app.put('/v1/projects/:ref/ssl-enforcement', async (_req, reply) => { reply.send({}); });
-  app.get('/v1/projects/:ref/secrets', async (_req, reply) => { reply.send([]); });
-  app.post('/v1/projects/:ref/secrets', async (_req, reply) => { reply.status(201).send({}); });
+  app.post('/v1/projects/:ref/restore', async (_req, reply) => {
+    reply.send({});
+  });
+  app.get('/v1/projects/:ref/network-bans', async (_req, reply) => {
+    reply.send({ banned_ipv4_addresses: [] });
+  });
+  app.delete('/v1/projects/:ref/network-bans', async (_req, reply) => {
+    reply.status(204).send();
+  });
+  app.get('/v1/projects/:ref/network-restrictions', async (_req, reply) => {
+    reply.send({});
+  });
+  app.post('/v1/projects/:ref/network-restrictions/apply', async (_req, reply) => {
+    reply.send({});
+  });
+  app.get('/v1/projects/:ref/ssl-enforcement', async (_req, reply) => {
+    reply.send({});
+  });
+  app.put('/v1/projects/:ref/ssl-enforcement', async (_req, reply) => {
+    reply.send({});
+  });
+  app.get('/v1/projects/:ref/secrets', async (_req, reply) => {
+    reply.send([]);
+  });
+  app.post('/v1/projects/:ref/secrets', async (_req, reply) => {
+    reply.status(201).send({});
+  });
 
   await app.register(platformMiscRoutes);
   return app;
@@ -197,7 +236,12 @@ beforeEach(() => {
 describe('DELETE /platform/projects/:ref/functions/secrets', () => {
   it('delegates to DELETE /v1/projects/:ref/secrets → 200', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'DELETE', url: `/platform/projects/${REF}/functions/secrets`, payload: JSON.stringify({ secrets: ['MY_KEY'] }), headers: { 'content-type': 'application/json', authorization: 'Bearer tok' } });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/platform/projects/${REF}/functions/secrets`,
+      payload: JSON.stringify({ secrets: ['MY_KEY'] }),
+      headers: { 'content-type': 'application/json', authorization: 'Bearer tok' },
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { message: string };
     expect(body.message).toBe('Secrets deleted');
@@ -206,7 +250,10 @@ describe('DELETE /platform/projects/:ref/functions/secrets', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'DELETE', url: `/platform/projects/${REF}/functions/secrets` });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/platform/projects/${REF}/functions/secrets`,
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -218,9 +265,18 @@ describe('GET /platform/projects/:ref/api/rest', () => {
   it('delegates to GET /v1/projects/:ref/postgrest → platform shape', async () => {
     h.dbQueue.push([{ ref: REF, portKong: 5400 }]);
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/api/rest`, headers: { authorization: 'Bearer tok' } });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/api/rest`,
+      headers: { authorization: 'Bearer tok' },
+    });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as { schema: string; extraSearchPath: string[]; maxRows: number; endpoint: string };
+    const body = res.json() as {
+      schema: string;
+      extraSearchPath: string[];
+      maxRows: number;
+      endpoint: string;
+    };
     expect(body.schema).toBe('public');
     expect(body.extraSearchPath).toEqual(['public', 'extensions']);
     expect(body.maxRows).toBe(1000);
@@ -238,7 +294,11 @@ describe('GET /platform/projects/:ref/api/rest', () => {
   it('unknown project ref → 404', async () => {
     h.dbQueue.push([]); // no instance row
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/api/rest`, headers: { authorization: 'Bearer tok' } });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/api/rest`,
+      headers: { authorization: 'Bearer tok' },
+    });
     expect(res.statusCode).toBe(404);
     await app.close();
   });
@@ -249,7 +309,11 @@ describe('GET /platform/projects/:ref/api/rest', () => {
 describe('GET /platform/projects/:ref/postgres-config', () => {
   it('delegates to GET /v1/projects/:ref/config/database/postgres → real config', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/postgres-config`, headers: { authorization: 'Bearer tok' } });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/postgres-config`,
+      headers: { authorization: 'Bearer tok' },
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { max_connections: number; shared_buffers: string };
     expect(body.max_connections).toBe(100);
@@ -259,7 +323,10 @@ describe('GET /platform/projects/:ref/postgres-config', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/postgres-config` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/postgres-config`,
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -269,7 +336,12 @@ describe('PATCH /platform/projects/:ref/postgres-config', () => {
   it('delegates to PATCH /v1/projects/:ref/config/database/postgres → updated config', async () => {
     const app = await buildApp();
     const patch = { max_connections: 200, work_mem: '32MB' };
-    const res = await app.inject({ method: 'PATCH', url: `/platform/projects/${REF}/postgres-config`, payload: JSON.stringify(patch), headers: { 'content-type': 'application/json', authorization: 'Bearer tok' } });
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/platform/projects/${REF}/postgres-config`,
+      payload: JSON.stringify(patch),
+      headers: { 'content-type': 'application/json', authorization: 'Bearer tok' },
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json() as typeof patch;
     expect(body.max_connections).toBe(200);
@@ -279,7 +351,12 @@ describe('PATCH /platform/projects/:ref/postgres-config', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'PATCH', url: `/platform/projects/${REF}/postgres-config`, payload: '{}', headers: { 'content-type': 'application/json' } });
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/platform/projects/${REF}/postgres-config`,
+      payload: '{}',
+      headers: { 'content-type': 'application/json' },
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -291,7 +368,11 @@ describe('DELETE /v1/projects/:ref/api-keys/:id', () => {
   it('valid project + any id → 404 not_found (no custom keys in self-hosted)', async () => {
     projH.row = { ref: REF, encryptedSecrets: Buffer.alloc(0) };
     const app = await buildApiKeysApp();
-    const res = await app.inject({ method: 'DELETE', url: `/projects/${REF}/api-keys/some-id`, headers: { authorization: 'Bearer tok' } });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/projects/${REF}/api-keys/some-id`,
+      headers: { authorization: 'Bearer tok' },
+    });
     expect(res.statusCode).toBe(404);
     const body = res.json() as { code: string };
     expect(body.code).toBe('not_found');
@@ -308,7 +389,11 @@ describe('DELETE /v1/projects/:ref/api-keys/:id', () => {
   it('unknown project ref → 404 project not_found', async () => {
     projH.row = null;
     const app = await buildApiKeysApp();
-    const res = await app.inject({ method: 'DELETE', url: `/projects/${REF}/api-keys/some-id`, headers: { authorization: 'Bearer tok' } });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/projects/${REF}/api-keys/some-id`,
+      headers: { authorization: 'Bearer tok' },
+    });
     expect(res.statusCode).toBe(404);
     const body = res.json() as { message: string };
     expect(body.message).toMatch(/Project not found/i);
@@ -320,7 +405,12 @@ describe('PATCH /v1/projects/:ref/api-keys/:id', () => {
   it('valid project + any id → 404 not_found (no custom keys in self-hosted)', async () => {
     projH.row = { ref: REF, encryptedSecrets: Buffer.alloc(0) };
     const app = await buildApiKeysApp();
-    const res = await app.inject({ method: 'PATCH', url: `/projects/${REF}/api-keys/some-id`, payload: JSON.stringify({ name: 'New name' }), headers: { 'content-type': 'application/json', authorization: 'Bearer tok' } });
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/projects/${REF}/api-keys/some-id`,
+      payload: JSON.stringify({ name: 'New name' }),
+      headers: { 'content-type': 'application/json', authorization: 'Bearer tok' },
+    });
     expect(res.statusCode).toBe(404);
     const body = res.json() as { code: string };
     expect(body.code).toBe('not_found');
@@ -329,7 +419,12 @@ describe('PATCH /v1/projects/:ref/api-keys/:id', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApiKeysApp(false);
-    const res = await app.inject({ method: 'PATCH', url: `/projects/${REF}/api-keys/some-id`, payload: '{}', headers: { 'content-type': 'application/json' } });
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/projects/${REF}/api-keys/some-id`,
+      payload: '{}',
+      headers: { 'content-type': 'application/json' },
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });

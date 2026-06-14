@@ -27,9 +27,8 @@ vi.mock('ioredis', () => {
   return { Redis: FakeRedis, default: FakeRedis };
 });
 
-const { createAuthSession, getAuthSession, consumeAuthSession, AUTH_SESSION_TTL_SEC } = await import(
-  '../../src/services/oauth-auth-sessions-store.js'
-);
+const { createAuthSession, getAuthSession, consumeAuthSession, AUTH_SESSION_TTL_SEC } =
+  await import('../../src/services/oauth-auth-sessions-store.js');
 
 const BASE = {
   client_id: '00000000-0000-0000-0000-000000000001',

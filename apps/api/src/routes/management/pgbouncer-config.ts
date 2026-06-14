@@ -30,29 +30,32 @@ export const pgbouncerConfigRoutes: FastifyPluginAsync = async (app) => {
     return getConfig(req.params.ref, 'pgbouncer');
   });
 
-  app.patch<{ Params: { ref: string }; Body: unknown }>('/projects/:ref/config/database/pooler', async (req) => {
-    const user = app.requireAuth(req);
-    app.authorize(req, 'data_api_config.write');
-    const inst = await getProjectByRef(user.id, req.params.ref);
-    if (!inst) {
-      throw new ManagementApiError(404, 'Project not found', 'not_found', {
-        ref: req.params.ref,
-      });
-    }
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = PgbouncerConfigPatchSchema.parse(req.body ?? {}) as Record<string, unknown>;
-    } catch (err) {
-      if (err instanceof ZodError) {
-        const details: Record<string, string> = {};
-        for (const issue of err.issues) {
-          const key = issue.path.join('.') || '_root';
-          details[key] = issue.message;
-        }
-        throw new ManagementApiError(400, 'Validation failed', 'validation_failed', details);
+  app.patch<{ Params: { ref: string }; Body: unknown }>(
+    '/projects/:ref/config/database/pooler',
+    async (req) => {
+      const user = app.requireAuth(req);
+      app.authorize(req, 'data_api_config.write');
+      const inst = await getProjectByRef(user.id, req.params.ref);
+      if (!inst) {
+        throw new ManagementApiError(404, 'Project not found', 'not_found', {
+          ref: req.params.ref,
+        });
       }
-      throw err;
-    }
-    return saveConfigOnly(req.params.ref, 'pgbouncer', parsed, user.id);
-  });
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = PgbouncerConfigPatchSchema.parse(req.body ?? {}) as Record<string, unknown>;
+      } catch (err) {
+        if (err instanceof ZodError) {
+          const details: Record<string, string> = {};
+          for (const issue of err.issues) {
+            const key = issue.path.join('.') || '_root';
+            details[key] = issue.message;
+          }
+          throw new ManagementApiError(400, 'Validation failed', 'validation_failed', details);
+        }
+        throw err;
+      }
+      return saveConfigOnly(req.params.ref, 'pgbouncer', parsed, user.id);
+    },
+  );
 };

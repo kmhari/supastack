@@ -39,12 +39,26 @@ export function StatusBadge({ status }: { status: string | null | undefined }): 
 }
 
 export function Empty({ children }: { children: React.ReactNode }): React.ReactElement {
-  return <div className="rounded-md border border-default bg-surface-100 p-6 text-sm text-foreground-light">{children}</div>;
+  return (
+    <div className="rounded-md border border-default bg-surface-100 p-6 text-sm text-foreground-light">
+      {children}
+    </div>
+  );
 }
 
 export function Th({ children }: { children: React.ReactNode }): React.ReactElement {
-  return <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-foreground-lighter">{children}</th>;
+  return (
+    <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-foreground-lighter">
+      {children}
+    </th>
+  );
 }
-export function Td({ children, className }: { children: React.ReactNode; className?: string }): React.ReactElement {
+export function Td({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}): React.ReactElement {
   return <td className={cn('px-3 py-2 align-middle', className)}>{children}</td>;
 }

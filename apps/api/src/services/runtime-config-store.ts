@@ -56,7 +56,13 @@ import { removeEnvEntry, upsertEnvEntry } from './secret-store.js';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type ConfigSurface = 'postgrest' | 'auth' | 'postgres' | 'storage' | 'realtime' | 'pgbouncer';
+export type ConfigSurface =
+  | 'postgrest'
+  | 'auth'
+  | 'postgres'
+  | 'storage'
+  | 'realtime'
+  | 'pgbouncer';
 
 export type ConfigJson = Record<string, unknown>;
 

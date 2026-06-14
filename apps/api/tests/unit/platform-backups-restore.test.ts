@@ -54,7 +54,10 @@ vi.mock('@supastack/db', () => {
     },
   };
 });
-vi.mock('@supastack/crypto', () => ({ decryptJson: () => ({}), loadMasterKey: () => Buffer.alloc(32) }));
+vi.mock('@supastack/crypto', () => ({
+  decryptJson: () => ({}),
+  loadMasterKey: () => Buffer.alloc(32),
+}));
 vi.mock('../../src/services/backups-mgmt-service.js', () => ({
   resolveBackupSeq: h.svc.resolveBackupSeq,
   initiateRestore: h.svc.initiateRestore,
@@ -87,7 +90,11 @@ const REF = 'abcdefghijklmnopqrst';
 describe('POST /platform/database/:ref/backups/restore-physical (US6)', () => {
   it('happy: ref-scoped seq resolves → 201 + enqueues', async () => {
     h.svc.resolveBackupSeq.mockResolvedValue('uuid-42');
-    h.svc.initiateRestore.mockResolvedValue({ restore_job_id: 'rj1', status: 'pending', backup_id: 'uuid-42' });
+    h.svc.initiateRestore.mockResolvedValue({
+      restore_job_id: 'rj1',
+      status: 'pending',
+      backup_id: 'uuid-42',
+    });
     const app = await buildApp();
     const res = await app.inject({
       method: 'POST',
@@ -126,7 +133,9 @@ describe('POST /platform/database/:ref/backups/restore-physical (US6)', () => {
 
   it('sad: restore already in progress → 409', async () => {
     h.svc.resolveBackupSeq.mockResolvedValue('uuid-42');
-    h.svc.initiateRestore.mockRejectedValue(new h.MockRestoreError('restore_in_progress', 'in progress'));
+    h.svc.initiateRestore.mockRejectedValue(
+      new h.MockRestoreError('restore_in_progress', 'in progress'),
+    );
     const app = await buildApp();
     const res = await app.inject({
       method: 'POST',

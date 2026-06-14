@@ -92,11 +92,11 @@ To build images from source instead of pulling, use `INSTALL_MODE=build`.
 
 ## Architecture
 
-| Layer | What runs there |
-|---|---|
+| Layer             | What runs there                                                                                                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Control plane** | Postgres, Redis, GoTrue (operator auth), API (Fastify), worker (BullMQ jobs: provisioning, backups, certs, reconcilers), shared Studio, MCP server, Caddy (HTTPS + routing), Supavisor (multi-tenant pooler) |
-| **Per project** | A full isolated Supabase stack (`supastack-<ref>-*` containers), provisioned from a baked-in compose template |
-| **Edge / TLS** | Wildcard `*.<apex>` cert for everything; per-project `db.<ref>.<apex>` certs for strict-TLS Postgres clients |
+| **Per project**   | A full isolated Supabase stack (`supastack-<ref>-*` containers), provisioned from a baked-in compose template                                                                                                |
+| **Edge / TLS**    | Wildcard `*.<apex>` cert for everything; per-project `db.<ref>.<apex>` certs for strict-TLS Postgres clients                                                                                                 |
 
 All platform images are published on Docker Hub as
 [`kmhariharasudhan/supastack-*`](https://hub.docker.com/u/kmhariharasudhan),

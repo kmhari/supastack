@@ -17,7 +17,8 @@ vi.mock('@supastack/db', () => {
       from: () => obj,
       where: () => obj,
       limit: () => settle(),
-      then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) => settle().then(res, rej),
+      then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
+        settle().then(res, rej),
     };
     return obj;
   };
@@ -83,7 +84,9 @@ describe('buildCaddyConfig — api.<apex> host route (feature 107)', () => {
   it('is matched before the dashboard fallback (so api.<apex>/ never hits the studio catch-all)', async () => {
     const cfg = await buildCaddyConfig();
     const routes = httpsRoutes(cfg);
-    const apiIdx = routes.findIndex((r: any) => r.match?.some((m: any) => m.host?.includes(`api.${APEX}`)));
+    const apiIdx = routes.findIndex((r: any) =>
+      r.match?.some((m: any) => m.host?.includes(`api.${APEX}`)),
+    );
     const fallbackIdx = routes.length - 1; // dashboardFallback is last
     expect(apiIdx).toBeGreaterThanOrEqual(0);
     expect(apiIdx).toBeLessThan(fallbackIdx);

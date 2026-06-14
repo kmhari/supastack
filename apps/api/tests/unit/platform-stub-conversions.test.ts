@@ -37,11 +37,26 @@ vi.mock('@supastack/db', () => {
   return {
     db: () => ({ select: () => chain }),
     schema: {
-      backups: { seq: {}, startedAt: {}, completedAt: {}, sizeBytes: {}, instanceRef: {}, status: {} },
+      backups: {
+        seq: {},
+        startedAt: {},
+        completedAt: {},
+        sizeBytes: {},
+        instanceRef: {},
+        status: {},
+      },
       supabaseInstances: { ref: {}, status: {}, orgId: {}, updatedAt: {} },
       organizations: { id: {}, slug: {} },
       organizationMembers: { organizationId: {}, userId: {} },
-      auditLog: { id: {}, action: {}, actorUserId: {}, targetKind: {}, targetId: {}, payload: {}, createdAt: {} },
+      auditLog: {
+        id: {},
+        action: {},
+        actorUserId: {},
+        targetKind: {},
+        targetId: {},
+        payload: {},
+        createdAt: {},
+      },
       users: { id: {}, email: {} },
     },
   };
@@ -55,7 +70,8 @@ vi.mock('@supastack/crypto', () => ({
 vi.mock('@supastack/shared', () => ({
   ROLE_IDS: { owner: 1, administrator: 2, developer: 3, read_only: 4 },
   ROLE_NAMES: { 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' },
-  roleFromId: (id: number) => ({ 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' }[id]),
+  roleFromId: (id: number) =>
+    ({ 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' })[id],
 }));
 vi.mock('../../src/services/backups-mgmt-service.js', () => ({
   resolveBackupSeq: vi.fn(),
@@ -109,12 +125,17 @@ const pgH = vi.hoisted(() => ({
 
 const { InstanceNotRunningError: MockInstanceNotRunningError } = vi.hoisted(() => ({
   InstanceNotRunningError: class InstanceNotRunningError extends Error {
-    constructor() { super('Project is not running'); }
+    constructor() {
+      super('Project is not running');
+    }
   },
 }));
 
 vi.mock('../../src/services/per-instance-pg.js', () => ({
-  withPerInstancePg: async (_ref: string, fn: (pg: { query: (sql: string) => Promise<{ rows: unknown[] }> }) => Promise<unknown>) => {
+  withPerInstancePg: async (
+    _ref: string,
+    fn: (pg: { query: (sql: string) => Promise<{ rows: unknown[] }> }) => Promise<unknown>,
+  ) => {
     if (pgH.reject) throw pgH.reject;
     return fn({ query: async (_sql: string) => ({ rows: pgH.queryRows }) });
   },
@@ -257,7 +278,11 @@ describe('GET /platform/projects/:ref/readonly', () => {
 describe('DELETE /platform/projects/:ref/readonly', () => {
   it('delegates to POST /v1/projects/:ref/restore → returns upstream 200 + body', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'DELETE', url: `/platform/projects/${REF}/readonly`, headers: { authorization: 'Bearer test-pat' } });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/platform/projects/${REF}/readonly`,
+      headers: { authorization: 'Bearer test-pat' },
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { id: string; status: string };
     expect(body.status).toBe('COMING_UP');
@@ -266,7 +291,11 @@ describe('DELETE /platform/projects/:ref/readonly', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'DELETE', url: `/platform/projects/${REF}/readonly`, headers: { authorization: 'Bearer test-pat' } });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/platform/projects/${REF}/readonly`,
+      headers: { authorization: 'Bearer test-pat' },
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -276,7 +305,10 @@ describe('GET /platform/projects/:ref/upgrade/status', () => {
   it('restoring project → {status: "upgrading"}', async () => {
     h.dbQueue = [[{ status: 'restoring' }]];
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/upgrade/status` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/upgrade/status`,
+    });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ status: 'upgrading' });
     await app.close();
@@ -285,7 +317,10 @@ describe('GET /platform/projects/:ref/upgrade/status', () => {
   it('running project → {status: "not_upgrading"}', async () => {
     h.dbQueue = [[{ status: 'running' }]];
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/upgrade/status` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/upgrade/status`,
+    });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ status: 'not_upgrading' });
     await app.close();
@@ -293,7 +328,10 @@ describe('GET /platform/projects/:ref/upgrade/status', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/upgrade/status` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/upgrade/status`,
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -301,7 +339,10 @@ describe('GET /platform/projects/:ref/upgrade/status', () => {
   it('unknown ref → 404', async () => {
     h.dbQueue = [[]];
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/upgrade/status` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/upgrade/status`,
+    });
     expect(res.statusCode).toBe(404);
     await app.close();
   });
@@ -413,7 +454,10 @@ describe('GET /platform/database/:ref/backups/downloadable-backups', () => {
     const completedAt = new Date('2026-06-07T02:05:00.000Z');
     h.dbQueue = [[{ seq: 1n, startedAt, completedAt, sizeBytes: 1048576n }]];
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/database/${REF}/backups/downloadable-backups` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/database/${REF}/backups/downloadable-backups`,
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { backups: unknown[] };
     expect(body.backups).toHaveLength(1);
@@ -430,7 +474,10 @@ describe('GET /platform/database/:ref/backups/downloadable-backups', () => {
   it('no completed backups → {backups:[]}', async () => {
     h.dbQueue = [[]];
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/database/${REF}/backups/downloadable-backups` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/database/${REF}/backups/downloadable-backups`,
+    });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ backups: [] });
     await app.close();
@@ -438,7 +485,10 @@ describe('GET /platform/database/:ref/backups/downloadable-backups', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'GET', url: `/platform/database/${REF}/backups/downloadable-backups` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/database/${REF}/backups/downloadable-backups`,
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -466,14 +516,20 @@ describe('GET /platform/projects/:ref/network-bans', () => {
 describe('DELETE /platform/projects/:ref/network-bans', () => {
   it('delegates to /v1 → returns upstream 204', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'DELETE', url: `/platform/projects/${REF}/network-bans` });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/platform/projects/${REF}/network-bans`,
+    });
     expect(res.statusCode).toBe(204);
     await app.close();
   });
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'DELETE', url: `/platform/projects/${REF}/network-bans` });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/platform/projects/${REF}/network-bans`,
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -482,7 +538,10 @@ describe('DELETE /platform/projects/:ref/network-bans', () => {
 describe('GET /platform/projects/:ref/network-restrictions', () => {
   it('delegates to /v1 → returns upstream body', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/network-restrictions` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/network-restrictions`,
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { entitlement: string };
     expect(body.entitlement).toBe('disallowed');
@@ -491,7 +550,10 @@ describe('GET /platform/projects/:ref/network-restrictions', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/network-restrictions` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/network-restrictions`,
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -500,7 +562,11 @@ describe('GET /platform/projects/:ref/network-restrictions', () => {
 describe('POST /platform/projects/:ref/network-restrictions/apply', () => {
   it('delegates to /v1 → returns upstream body', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'POST', url: `/platform/projects/${REF}/network-restrictions/apply`, body: {} });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/platform/projects/${REF}/network-restrictions/apply`,
+      body: {},
+    });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ ok: true });
     await app.close();
@@ -508,7 +574,11 @@ describe('POST /platform/projects/:ref/network-restrictions/apply', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'POST', url: `/platform/projects/${REF}/network-restrictions/apply`, body: {} });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/platform/projects/${REF}/network-restrictions/apply`,
+      body: {},
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -517,7 +587,10 @@ describe('POST /platform/projects/:ref/network-restrictions/apply', () => {
 describe('GET /platform/projects/:ref/ssl-enforcement', () => {
   it('delegates to /v1 → returns upstream body', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/ssl-enforcement` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/ssl-enforcement`,
+    });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ currentConfig: { database: false }, appliedSuccessfully: true });
     await app.close();
@@ -525,7 +598,10 @@ describe('GET /platform/projects/:ref/ssl-enforcement', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/ssl-enforcement` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/ssl-enforcement`,
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -534,7 +610,11 @@ describe('GET /platform/projects/:ref/ssl-enforcement', () => {
 describe('PUT /platform/projects/:ref/ssl-enforcement', () => {
   it('delegates to /v1 → returns updated config', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'PUT', url: `/platform/projects/${REF}/ssl-enforcement`, body: { requestedConfig: { database: true } } });
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/platform/projects/${REF}/ssl-enforcement`,
+      body: { requestedConfig: { database: true } },
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { currentConfig: { database: boolean } };
     expect(body.currentConfig.database).toBe(true);
@@ -543,7 +623,11 @@ describe('PUT /platform/projects/:ref/ssl-enforcement', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'PUT', url: `/platform/projects/${REF}/ssl-enforcement`, body: {} });
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/platform/projects/${REF}/ssl-enforcement`,
+      body: {},
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -552,7 +636,10 @@ describe('PUT /platform/projects/:ref/ssl-enforcement', () => {
 describe('GET /platform/projects/:ref/functions/secrets', () => {
   it('delegates to /v1 → returns []', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/functions/secrets` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/functions/secrets`,
+    });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual([]);
     await app.close();
@@ -560,7 +647,10 @@ describe('GET /platform/projects/:ref/functions/secrets', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/functions/secrets` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/functions/secrets`,
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -569,7 +659,11 @@ describe('GET /platform/projects/:ref/functions/secrets', () => {
 describe('POST /platform/projects/:ref/functions/secrets', () => {
   it('delegates to /v1 → returns 201', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'POST', url: `/platform/projects/${REF}/functions/secrets`, body: [{ name: 'MY_SECRET', value: 's3cr3t' }] });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/platform/projects/${REF}/functions/secrets`,
+      body: [{ name: 'MY_SECRET', value: 's3cr3t' }],
+    });
     expect(res.statusCode).toBe(201);
     expect(res.json()).toEqual({ message: 'All secrets stored' });
     await app.close();
@@ -577,7 +671,11 @@ describe('POST /platform/projects/:ref/functions/secrets', () => {
 
   it('unauthenticated → 401', async () => {
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'POST', url: `/platform/projects/${REF}/functions/secrets`, body: [] });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/platform/projects/${REF}/functions/secrets`,
+      body: [],
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -591,7 +689,11 @@ describe('GET /platform/projects/:ref/run-lints', () => {
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/run-lints` });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as Array<{ name: string; level: string; metadata: Record<string, unknown> }>;
+    const body = res.json() as Array<{
+      name: string;
+      level: string;
+      metadata: Record<string, unknown>;
+    }>;
     expect(Array.isArray(body)).toBe(true);
     const noRls = body.find((r) => r.name === 'no_rls');
     expect(noRls).toBeDefined();
@@ -632,7 +734,10 @@ describe('GET /platform/projects/:ref/run-lints/:name', () => {
   it('happy path → filtered results for named check', async () => {
     pgH.queryRows = [{ schemaname: 'public', tablename: 'items' }];
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/run-lints/no_rls` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/run-lints/no_rls`,
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json() as Array<{ name: string }>;
     expect(Array.isArray(body)).toBe(true);
@@ -643,7 +748,10 @@ describe('GET /platform/projects/:ref/run-lints/:name', () => {
 
   it('unknown check name → []', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/run-lints/nonexistent_check` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/run-lints/nonexistent_check`,
+    });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual([]);
     await app.close();

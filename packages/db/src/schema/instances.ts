@@ -1,13 +1,5 @@
 import { sql } from 'drizzle-orm';
-import {
-  pgTable,
-  text,
-  timestamp,
-  integer,
-  boolean,
-  customType,
-  check,
-} from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, integer, boolean, customType, check } from 'drizzle-orm/pg-core';
 import { organizations } from './identity.js';
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });

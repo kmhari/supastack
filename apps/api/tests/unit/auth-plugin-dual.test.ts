@@ -20,7 +20,10 @@ const ISSUER = `https://api.${APEX}`;
 const AUDIENCE = `https://mcp.${APEX}/mcp`;
 
 // User store: map user_id → { exists, email, role }
-const userStore = new Map<string, { email: string; role: 'owner' | 'administrator' | 'developer' | 'read_only' }>();
+const userStore = new Map<
+  string,
+  { email: string; role: 'owner' | 'administrator' | 'developer' | 'read_only' }
+>();
 userStore.set('user-active', { email: 'a@b.c', role: 'owner' });
 // user-inactive: NOT in userStore → org_members join fails → reject
 
@@ -42,7 +45,9 @@ vi.mock('@supastack/db', () => {
         const sha = createHash('sha256').update(token, 'utf8').digest();
         if (Buffer.compare(sha, _lastPatSha) === 0) {
           const u = userStore.get(val.userId);
-          return u ? { tokenId: val.tokenId, userId: val.userId, email: u.email, role: u.role } : null;
+          return u
+            ? { tokenId: val.tokenId, userId: val.userId, email: u.email, role: u.role }
+            : null;
         }
       }
       return null;

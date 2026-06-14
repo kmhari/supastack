@@ -10,9 +10,15 @@ const projectStoreMock = vi.hoisted(() => ({
 
 const configStoreMock = vi.hoisted(() => ({
   getConfig: vi.fn<(ref: string, surface: string) => Promise<Record<string, unknown>>>(),
-  saveConfigOnly: vi.fn<
-    (ref: string, surface: string, data: Record<string, unknown>, userId: string) => Promise<Record<string, unknown>>
-  >(),
+  saveConfigOnly:
+    vi.fn<
+      (
+        ref: string,
+        surface: string,
+        data: Record<string, unknown>,
+        userId: string,
+      ) => Promise<Record<string, unknown>>
+    >(),
 }));
 
 vi.mock('../../src/services/project-store.js', () => projectStoreMock);
@@ -44,9 +50,7 @@ async function buildApp(role: 'owner' | 'developer' | null = 'owner'): Promise<F
     }
   });
 
-  const { realtimeConfigRoutes } = await import(
-    '../../src/routes/management/realtime-config.js'
-  );
+  const { realtimeConfigRoutes } = await import('../../src/routes/management/realtime-config.js');
   // Register inside a scoped plugin so encapsulation mirrors how server.ts
   // registers management routes inside the /v1 scope with mgmtApiErrorsPlugin.
   await app.register(
@@ -58,7 +62,9 @@ async function buildApp(role: 'owner' | 'developer' | null = 'owner'): Promise<F
   return app;
 }
 
-const FAKE_INSTANCE = { ref: 'ref123' } as unknown as Parameters<typeof projectStoreMock.getProjectByRef>[0];
+const FAKE_INSTANCE = { ref: 'ref123' } as unknown as Parameters<
+  typeof projectStoreMock.getProjectByRef
+>[0];
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 

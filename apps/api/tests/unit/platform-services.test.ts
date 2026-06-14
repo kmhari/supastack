@@ -28,7 +28,14 @@ vi.mock('@supastack/db', () => {
   return {
     db: () => ({ select: () => chain, execute: () => Promise.resolve([]) }),
     schema: {
-      backups: { seq: {}, startedAt: {}, completedAt: {}, sizeBytes: {}, instanceRef: {}, status: {} },
+      backups: {
+        seq: {},
+        startedAt: {},
+        completedAt: {},
+        sizeBytes: {},
+        instanceRef: {},
+        status: {},
+      },
       supabaseInstances: { ref: {}, status: {}, orgId: {} },
       organizations: { id: {}, slug: {} },
       organizationMembers: { organizationId: {}, userId: {} },
@@ -43,7 +50,8 @@ vi.mock('@supastack/crypto', () => ({
 vi.mock('@supastack/shared', () => ({
   ROLE_IDS: { owner: 1, administrator: 2, developer: 3, read_only: 4 },
   ROLE_NAMES: { 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' },
-  roleFromId: (id: number) => ({ 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' }[id]),
+  roleFromId: (id: number) =>
+    ({ 1: 'owner', 2: 'administrator', 3: 'developer', 4: 'read_only' })[id],
 }));
 vi.mock('../../src/services/backups-mgmt-service.js', () => ({
   resolveBackupSeq: vi.fn(),

@@ -74,7 +74,10 @@ export const instanceInternalRoutes: FastifyPluginAsync = async (app) => {
       let envContent = await fs.readFile(envPath, 'utf8');
       envContent = envContent.replace(/^JWT_SECRET=.*/m, `JWT_SECRET=${jwtSecret}`);
       envContent = envContent.replace(/^ANON_KEY=.*/m, `ANON_KEY=${anonKey}`);
-      envContent = envContent.replace(/^SERVICE_ROLE_KEY=.*/m, `SERVICE_ROLE_KEY=${serviceRoleKey}`);
+      envContent = envContent.replace(
+        /^SERVICE_ROLE_KEY=.*/m,
+        `SERVICE_ROLE_KEY=${serviceRoleKey}`,
+      );
       await fs.writeFile(envPath, envContent, 'utf8');
 
       // 3. Re-create (not just restart) the containers that validate JWTs so

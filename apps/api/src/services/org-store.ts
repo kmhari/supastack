@@ -22,8 +22,6 @@ export async function createOrganizationWithOwner(
 ): Promise<{ id: string; name: string }> {
   const id = generateRef();
   await tx.insert(schema.organizations).values({ id, name });
-  await tx
-    .insert(schema.organizationMembers)
-    .values({ organizationId: id, userId, role: 'owner' });
+  await tx.insert(schema.organizationMembers).values({ organizationId: id, userId, role: 'owner' });
   return { id, name };
 }

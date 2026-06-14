@@ -31,7 +31,11 @@ const REF = 'aaaaaaaaaaaaaaaaaaaa';
 
 async function buildApp(
   opts: {
-    user?: { id: string; email: string; role: 'owner' | 'administrator' | 'developer' | 'read_only' } | null;
+    user?: {
+      id: string;
+      email: string;
+      role: 'owner' | 'administrator' | 'developer' | 'read_only';
+    } | null;
     authorizeThrows?: boolean;
   } = {},
 ): Promise<FastifyInstance> {

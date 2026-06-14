@@ -10,9 +10,15 @@ const projectStoreMock = vi.hoisted(() => ({
 
 const configStoreMock = vi.hoisted(() => ({
   getConfig: vi.fn<(ref: string, surface: string) => Promise<Record<string, unknown>>>(),
-  saveConfigOnly: vi.fn<
-    (ref: string, surface: string, data: Record<string, unknown>, userId: string) => Promise<Record<string, unknown>>
-  >(),
+  saveConfigOnly:
+    vi.fn<
+      (
+        ref: string,
+        surface: string,
+        data: Record<string, unknown>,
+        userId: string,
+      ) => Promise<Record<string, unknown>>
+    >(),
 }));
 
 vi.mock('../../src/services/project-store.js', () => projectStoreMock);
@@ -35,10 +41,12 @@ async function buildApp(authenticated = true): Promise<FastifyInstance> {
   });
   app.decorate('authorize', function authorize() {});
 
-  const { pgbouncerConfigRoutes } = await import(
-    '../../src/routes/management/pgbouncer-config.js'
+  const { pgbouncerConfigRoutes } = await import('../../src/routes/management/pgbouncer-config.js');
+  await app.register(
+    fp(async (scope) => {
+      await scope.register(pgbouncerConfigRoutes);
+    }),
   );
-  await app.register(fp(async (scope) => { await scope.register(pgbouncerConfigRoutes); }));
 
   return app;
 }

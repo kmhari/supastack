@@ -74,7 +74,11 @@ export const orgRoutes: FastifyPluginAsync = async (app) => {
       const encrypted = encryptJson(body, loadMasterKey());
       await db()
         .update(schema.installation)
-        .set({ backupStoreKind: 's3', backupStoreConfigEncrypted: encrypted, updatedAt: new Date() })
+        .set({
+          backupStoreKind: 's3',
+          backupStoreConfigEncrypted: encrypted,
+          updatedAt: new Date(),
+        })
         .where(eq(schema.installation.id, INSTALLATION_ID));
     }
 

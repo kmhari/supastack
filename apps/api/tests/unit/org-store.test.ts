@@ -40,7 +40,11 @@ describe('createOrganizationWithOwner (feature 086 — shared org primitive)', (
     expect(inserts[0]!.table).toBe(schema.organizations);
     expect(inserts[0]!.values).toEqual({ id: out.id, name: 'Acme' });
     expect(inserts[1]!.table).toBe(schema.organizationMembers);
-    expect(inserts[1]!.values).toEqual({ organizationId: out.id, userId: 'user-123', role: 'owner' });
+    expect(inserts[1]!.values).toEqual({
+      organizationId: out.id,
+      userId: 'user-123',
+      role: 'owner',
+    });
   });
 
   it('contract: forwards `name` verbatim — the primitive does not trim/validate (caller does)', async () => {

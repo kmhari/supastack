@@ -72,10 +72,9 @@ export function DocsCli(): React.ReactElement {
             code={`export SUPABASE_ACCESS_TOKEN=sbp_your_pat_here\nsupabase projects list --profile ${s.apex}`}
           />
           <p>
-            On first use the wrapper auto-generates{' '}
-            <code>~/.config/supastack/{s.apex}.toml</code> (the CLI profile pointing at{' '}
-            <code>api.{s.apex}</code>). You can write that file yourself and pass{' '}
-            <code>--profile</code> on every command instead of using the wrapper.
+            On first use the wrapper auto-generates <code>~/.config/supastack/{s.apex}.toml</code>{' '}
+            (the CLI profile pointing at <code>api.{s.apex}</code>). You can write that file
+            yourself and pass <code>--profile</code> on every command instead of using the wrapper.
           </p>
         </div>
       </details>

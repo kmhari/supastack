@@ -66,10 +66,10 @@ describe.skipIf(!ENABLED)('Platform proxy smoke tests (live VM)', () => {
     const bucketRes = await get(`/platform/storage/${REF}/buckets`);
     const buckets = (await bucketRes.json()) as Array<{ id: string }>;
     const bucketId = buckets[0]?.id ?? 'default';
-    const res = await post(
-      `/platform/storage/${REF}/buckets/${bucketId}/objects/list`,
-      { path: '', options: { limit: 10, offset: 0, search: '', sortBy: { column: 'name', order: 'asc' } } },
-    );
+    const res = await post(`/platform/storage/${REF}/buckets/${bucketId}/objects/list`, {
+      path: '',
+      options: { limit: 10, offset: 0, search: '', sortBy: { column: 'name', order: 'asc' } },
+    });
     expect(res.status).not.toBe(400);
     expect(res.status).toBeLessThan(300);
     const body = await res.json();

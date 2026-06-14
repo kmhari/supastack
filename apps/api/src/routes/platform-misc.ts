@@ -40,14 +40,17 @@ import { getAuthSession, consumeAuthSession } from '../services/oauth-auth-sessi
 import { issueCode } from '../services/oauth-codes-store.js';
 
 // ── Lint check definitions (Tier 4, T017) ─────────────────────────────────────
-const LINT_CHECKS: Record<string, {
-  title: string;
-  level: 'INFO' | 'WARN' | 'ERROR';
-  categories: string[];
-  description: string;
-  sql: string;
-  mapRow: (row: Record<string, unknown>) => Record<string, unknown>;
-}> = {
+const LINT_CHECKS: Record<
+  string,
+  {
+    title: string;
+    level: 'INFO' | 'WARN' | 'ERROR';
+    categories: string[];
+    description: string;
+    sql: string;
+    mapRow: (row: Record<string, unknown>) => Record<string, unknown>;
+  }
+> = {
   no_rls: {
     title: 'Tables Without Row Level Security',
     level: 'WARN',
@@ -308,35 +311,32 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.get<{ Params: { id: string } }>(
-    '/platform/profile/access-tokens/:id',
-    async (req, reply) => {
-      const user = app.requireAuth(req);
-      try {
-        const [row] = await db()
-          .select({
-            id: schema.apiTokens.id,
-            name: schema.apiTokens.label,
-            tokenAlias: schema.apiTokens.prefix,
-            createdAt: schema.apiTokens.createdAt,
-            lastUsedAt: schema.apiTokens.lastUsedAt,
-          })
-          .from(schema.apiTokens)
-          .where(
-            and(
-              eq(schema.apiTokens.id, req.params.id),
-              eq(schema.apiTokens.userId, user.id),
-              isNull(schema.apiTokens.revokedAt),
-            ),
-          )
-          .limit(1);
-        if (!row) return reply.status(404).send({ error: 'not_found' });
-        return reply.send(toAccessToken(row));
-      } catch {
-        return reply.status(404).send({ error: 'not_found' });
-      }
-    },
-  );
+  app.get<{ Params: { id: string } }>('/platform/profile/access-tokens/:id', async (req, reply) => {
+    const user = app.requireAuth(req);
+    try {
+      const [row] = await db()
+        .select({
+          id: schema.apiTokens.id,
+          name: schema.apiTokens.label,
+          tokenAlias: schema.apiTokens.prefix,
+          createdAt: schema.apiTokens.createdAt,
+          lastUsedAt: schema.apiTokens.lastUsedAt,
+        })
+        .from(schema.apiTokens)
+        .where(
+          and(
+            eq(schema.apiTokens.id, req.params.id),
+            eq(schema.apiTokens.userId, user.id),
+            isNull(schema.apiTokens.revokedAt),
+          ),
+        )
+        .limit(1);
+      if (!row) return reply.status(404).send({ error: 'not_found' });
+      return reply.send(toAccessToken(row));
+    } catch {
+      return reply.status(404).send({ error: 'not_found' });
+    }
+  });
 
   app.get('/platform/profile/scoped-access-tokens', async (req, reply) => {
     const user = app.requireAuth(req);
@@ -416,9 +416,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         const [row] = await db()
           .select({ userId: schema.apiTokens.userId })
           .from(schema.apiTokens)
-          .where(
-            and(eq(schema.apiTokens.id, req.params.id), isNull(schema.apiTokens.revokedAt)),
-          )
+          .where(and(eq(schema.apiTokens.id, req.params.id), isNull(schema.apiTokens.revokedAt)))
           .limit(1);
         if (!row || row.userId !== user.id) return reply.status(404).send({ error: 'not_found' });
         await db()
@@ -611,65 +609,66 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const { id } = await db().transaction((tx) =>
       createOrganizationWithOwner(tx, { userId: user.id, name }),
     );
-    return reply.status(201).send({ pending_payment_intent_secret: null, ...buildOrg(id, name, true) });
+    return reply
+      .status(201)
+      .send({ pending_payment_intent_secret: null, ...buildOrg(id, name, true) });
   });
 
   // ── Create project ─────────────────────────────────────────────────────────
   // Studio POSTs to /platform/projects to create a new project.
   // We delegate to the existing Supastack instance creation endpoint.
-  app.post<{ Body: { name: string; organization_slug?: string; db_pass?: string; db_region?: string } }>(
-    '/platform/projects',
-    async (req, reply) => {
-      const user = app.requireAuth(req);
-      const body = req.body as Record<string, unknown>;
-      const name = (body?.name as string) || 'New Project';
-      const dbPass = (body?.db_pass as string) || '';
+  app.post<{
+    Body: { name: string; organization_slug?: string; db_pass?: string; db_region?: string };
+  }>('/platform/projects', async (req, reply) => {
+    const user = app.requireAuth(req);
+    const body = req.body as Record<string, unknown>;
+    const name = (body?.name as string) || 'New Project';
+    const dbPass = (body?.db_pass as string) || '';
 
-      // Delegate to the Supastack provisioning endpoint
-      // Map Studio's db_pass → Supastack's dbPassword
-      const instanceBody: Record<string, unknown> = { name };
-      if (dbPass) instanceBody.dbPassword = dbPass;
-      const payload = JSON.stringify(instanceBody);
-      const resp = await app.inject({
-        method: 'POST',
-        url: '/api/v1/instances',
-        // Use fresh headers — don't pass original Content-Length (payload size differs)
-        headers: {
-          authorization: req.headers['authorization'] as string,
-          'content-type': 'application/json',
-          'content-length': Buffer.byteLength(payload).toString(),
-        },
-        payload,
-      });
+    // Delegate to the Supastack provisioning endpoint
+    // Map Studio's db_pass → Supastack's dbPassword
+    const instanceBody: Record<string, unknown> = { name };
+    if (dbPass) instanceBody.dbPassword = dbPass;
+    const payload = JSON.stringify(instanceBody);
+    const resp = await app.inject({
+      method: 'POST',
+      url: '/api/v1/instances',
+      // Use fresh headers — don't pass original Content-Length (payload size differs)
+      headers: {
+        authorization: req.headers['authorization'] as string,
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(payload).toString(),
+      },
+      payload,
+    });
 
-      if (resp.statusCode >= 400) {
-        return reply.status(resp.statusCode).send(resp.json<unknown>());
-      }
+    if (resp.statusCode >= 400) {
+      return reply.status(resp.statusCode).send(resp.json<unknown>());
+    }
 
-      const created = resp.json<{ ref: string; name: string; status: string; orgId?: string }>();
-      const apex = process.env.SUPASTACK_APEX ?? '';
-      const orgSlug = (body?.organization_slug as string) || user.id;
-      const endpoint = apex ? `https://${created.ref}.${apex}` : '';
-      return reply.status(201).send({
-        id: hashRefToInt(created.ref),
-        ref: created.ref,
-        name: created.name,
-        status: 'COMING_UP',
-        cloud_provider: 'SUPASTACK',
-        region: 'local',
-        organization_id: orgSlug,
-        organization_slug: orgSlug,
-        inserted_at: new Date().toISOString(),
-        is_branch_enabled: false,
-        is_physical_backups_enabled: false,
-        preview_branch_refs: [],
-        subscription_id: null,
-        anon_key: '',
-        service_key: '',
-        endpoint,
-      });
-    },
-  );
+    const created = resp.json<{ ref: string; name: string; status: string; orgId?: string }>();
+    const apex = process.env.SUPASTACK_APEX ?? '';
+    const orgSlug = (body?.organization_slug as string) || user.id;
+    const endpoint = apex ? `https://${created.ref}.${apex}` : '';
+    return reply.status(201).send({
+      id: hashRefToInt(created.ref),
+      ref: created.ref,
+      name: created.name,
+      status: 'COMING_UP',
+      cloud_provider: 'SUPASTACK',
+      region: 'local',
+      organization_id: orgSlug,
+      organization_slug: orgSlug,
+      inserted_at: new Date().toISOString(),
+      is_branch_enabled: false,
+      is_physical_backups_enabled: false,
+      preview_branch_refs: [],
+      subscription_id: null,
+      anon_key: '',
+      service_key: '',
+      endpoint,
+    });
+  });
 
   // ── Top-level project listing ──────────────────────────────────────────────
   // Studio also calls /platform/projects directly (not org-scoped) for some views.
@@ -691,7 +690,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
           orgId: schema.supabaseInstances.orgId,
         })
         .from(schema.supabaseInstances)
-        .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+        .innerJoin(
+          schema.organizationMembers,
+          eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+        )
         .where(eq(schema.organizationMembers.userId, user.id))
         .limit(limit)
         .offset(offset);
@@ -718,8 +720,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         orgId: schema.supabaseInstances.orgId,
       })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     return reply.send(buildProject(inst, apex));
@@ -755,13 +765,24 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref, name: schema.supabaseInstances.name })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const newName = typeof body.name === 'string' ? body.name.trim() : inst.name;
     if (newName !== inst.name) {
-      await db().update(schema.supabaseInstances).set({ name: newName }).where(eq(schema.supabaseInstances.ref, inst.ref));
+      await db()
+        .update(schema.supabaseInstances)
+        .set({ name: newName })
+        .where(eq(schema.supabaseInstances.ref, inst.ref));
     }
     return reply.send({ id: hashRefToInt(inst.ref), name: newName, ref: inst.ref });
   });
@@ -779,8 +800,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         insertedAt: schema.supabaseInstances.createdAt,
       })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.send([]);
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
@@ -788,28 +817,34 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     let connectionString = '';
     if (inst.encryptedSecrets) {
       try {
-        const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as { postgresPassword?: string };
+        const secrets = decryptJson(inst.encryptedSecrets, loadMasterKey()) as {
+          postgresPassword?: string;
+        };
         if (secrets.postgresPassword) {
           const pwd = encodeURIComponent(secrets.postgresPassword);
           connectionString = `postgresql://postgres:${pwd}@${dbHost}:5432/postgres`;
         }
-      } catch { /* leave empty on decrypt failure */ }
+      } catch {
+        /* leave empty on decrypt failure */
+      }
     }
-    return reply.send([{
-      cloud_provider: 'SUPASTACK',
-      connectionString,
-      connection_string_read_only: null,
-      db_host: dbHost,
-      db_name: 'postgres',
-      db_port: 5432,
-      db_user: 'postgres',
-      identifier: inst.ref,
-      inserted_at: inst.insertedAt?.toISOString() ?? new Date().toISOString(),
-      region: 'local',
-      restUrl: `${kongUrl}`,
-      size: 'micro',
-      status: 'ACTIVE_HEALTHY',
-    }]);
+    return reply.send([
+      {
+        cloud_provider: 'SUPASTACK',
+        connectionString,
+        connection_string_read_only: null,
+        db_host: dbHost,
+        db_name: 'postgres',
+        db_port: 5432,
+        db_user: 'postgres',
+        identifier: inst.ref,
+        inserted_at: inst.insertedAt?.toISOString() ?? new Date().toISOString(),
+        region: 'local',
+        restUrl: `${kongUrl}`,
+        size: 'micro',
+        status: 'ACTIVE_HEALTHY',
+      },
+    ]);
   });
 
   // Auth config — proxy to the auth-config management route internally
@@ -837,7 +872,11 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   app.get<RefParams>('/platform/auth/:ref/config', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/config/auth`, headers: fwdHeaders(req) });
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/config/auth`,
+      headers: fwdHeaders(req),
+    });
     const body = resp.json<Record<string, unknown>>();
     return reply.status(resp.statusCode).send(resp.statusCode < 300 ? toStudioKeys(body) : body);
   });
@@ -851,7 +890,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       payload: JSON.stringify(toApiKeys((req.body ?? {}) as Record<string, unknown>)),
     });
     const body = resp.json<Record<string, unknown>>();
-    return reply.status(resp.statusCode).send(resp.statusCode >= 400 ? studioErr(body) : toStudioKeys(body));
+    return reply
+      .status(resp.statusCode)
+      .send(resp.statusCode >= 400 ? studioErr(body) : toStudioKeys(body));
   });
 
   // Auth Hooks (feature 085 + 082): a scoped view/write over the `hook_*` subset
@@ -859,9 +900,15 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // pg-functions:// cross-field validation + the /v1 RBAC auth_config.read/write).
   app.get<RefParams>('/platform/auth/:ref/config/hooks', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/config/auth`, headers: fwdHeaders(req) });
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/config/auth`,
+      headers: fwdHeaders(req),
+    });
     const body = resp.json<Record<string, unknown>>();
-    return reply.status(resp.statusCode).send(resp.statusCode < 300 ? toStudioKeys(pickHooks(body)) : body);
+    return reply
+      .status(resp.statusCode)
+      .send(resp.statusCode < 300 ? toStudioKeys(pickHooks(body)) : body);
   });
 
   app.patch<RefParams>('/platform/auth/:ref/config/hooks', async (req, reply) => {
@@ -873,7 +920,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       payload: JSON.stringify(toApiKeys((req.body ?? {}) as Record<string, unknown>)),
     });
     const body = resp.json<Record<string, unknown>>();
-    return reply.status(resp.statusCode).send(resp.statusCode >= 400 ? studioErr(body) : toStudioKeys(pickHooks(body)));
+    return reply
+      .status(resp.statusCode)
+      .send(resp.statusCode >= 400 ? studioErr(body) : toStudioKeys(pickHooks(body)));
   });
 
   // Billing addons
@@ -1002,10 +1051,13 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     app.requireAuth(req);
     return reply.send({});
   });
-  app.post<RefParams>('/platform/projects/:ref/storage/config/s3-connection', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(200).send({});
-  });
+  app.post<RefParams>(
+    '/platform/projects/:ref/storage/config/s3-connection',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(200).send({});
+    },
+  );
   app.delete<RefParams>(
     '/platform/projects/:ref/storage/config/s3-connection',
     async (req, reply) => {
@@ -1049,9 +1101,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       url: `/v1/projects/${req.params.ref}/postgrest`,
       headers: req.headers as Record<string, string>,
     });
-    const base = resp.statusCode === 200
-      ? resp.json<Record<string, unknown>>()
-      : { db_schema: 'public,graphql_public', db_extra_search_path: 'public, extensions', max_rows: 1000, db_pool: null, jwt_secret: '' };
+    const base =
+      resp.statusCode === 200
+        ? resp.json<Record<string, unknown>>()
+        : {
+            db_schema: 'public,graphql_public',
+            db_extra_search_path: 'public, extensions',
+            max_rows: 1000,
+            db_pool: null,
+            jwt_secret: '',
+          };
     return reply.send({ ...base, db_anon_role: 'anon', role_claim_key: '.role' });
   });
 
@@ -1113,13 +1172,22 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   app.get<RefParams>('/platform/projects/:ref/postgres-config', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/config/database/postgres`, headers: fwdHeaders(req) });
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/config/database/postgres`,
+      headers: fwdHeaders(req),
+    });
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.patch<RefParams>('/platform/projects/:ref/postgres-config', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'PATCH', url: `/v1/projects/${req.params.ref}/config/database/postgres`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) });
+    const resp = await app.inject({
+      method: 'PATCH',
+      url: `/v1/projects/${req.params.ref}/config/database/postgres`,
+      headers: fwdHeaders(req),
+      payload: JSON.stringify(req.body),
+    });
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
@@ -1159,7 +1227,8 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       headers: req.headers as Record<string, string>,
       payload: JSON.stringify(req.body),
     });
-    if (resp.statusCode === 200 || resp.statusCode === 201) return reply.status(200).send(resp.json<unknown>());
+    if (resp.statusCode === 200 || resp.statusCode === 201)
+      return reply.status(200).send(resp.json<unknown>());
     return reply.send(req.body ?? {});
   });
 
@@ -1168,15 +1237,30 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const user = app.requireAuth(req);
     const apex = process.env.SUPASTACK_APEX ?? '';
     const [inst] = await db()
-      .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong, encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
+      .select({
+        ref: schema.supabaseInstances.ref,
+        portKong: schema.supabaseInstances.portKong,
+        encryptedSecrets: schema.supabaseInstances.encryptedSecrets,
+      })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
     const secrets = inst.encryptedSecrets
-      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as { anonKey?: string; serviceRoleKey?: string })
+      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as {
+          anonKey?: string;
+          serviceRoleKey?: string;
+        })
       : {};
     return reply.send({
       autoApiService: {
@@ -1193,18 +1277,36 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref, portKong: schema.supabaseInstances.portKong })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;
-    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/postgrest`, headers: fwdHeaders(req) });
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/postgrest`,
+      headers: fwdHeaders(req),
+    });
     if (resp.statusCode !== 200) return reply.status(resp.statusCode).send(resp.json<unknown>());
-    const v1 = resp.json<{ db_schema?: string; db_extra_search_path?: string; max_rows?: number }>();
+    const v1 = resp.json<{
+      db_schema?: string;
+      db_extra_search_path?: string;
+      max_rows?: number;
+    }>();
     return reply.send({
       endpoint: `${kongUrl}/rest/v1`,
       schema: v1.db_schema ?? 'public',
-      extraSearchPath: (v1.db_extra_search_path ?? 'public,extensions').split(',').map((s) => s.trim()),
+      extraSearchPath: (v1.db_extra_search_path ?? 'public,extensions')
+        .split(',')
+        .map((s) => s.trim()),
       maxRows: v1.max_rows ?? 1000,
     });
   });
@@ -1222,8 +1324,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     return reply.send({
@@ -1242,8 +1352,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     return reply.send({
@@ -1260,8 +1378,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     return reply.send({
@@ -1278,12 +1404,34 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref, status: schema.supabaseInstances.status })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
-    const svcStatus = inst.status === 'running' ? 'ACTIVE_HEALTHY' : toStudioProjectStatus(inst.status);
-    return reply.send(['kong', 'auth', 'rest', 'storage', 'realtime', 'meta', 'functions', 'analytics', 'imgproxy', 'studio'].map((name) => ({ name, status: svcStatus })));
+    const svcStatus =
+      inst.status === 'running' ? 'ACTIVE_HEALTHY' : toStudioProjectStatus(inst.status);
+    return reply.send(
+      [
+        'kong',
+        'auth',
+        'rest',
+        'storage',
+        'realtime',
+        'meta',
+        'functions',
+        'analytics',
+        'imgproxy',
+        'studio',
+      ].map((name) => ({ name, status: svcStatus })),
+    );
   });
 
   // Integrations (GitHub, etc.)
@@ -1347,10 +1495,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       })
       .from(schema.backups)
       .where(
-        and(
-          eq(schema.backups.instanceRef, req.params.ref),
-          eq(schema.backups.status, 'completed'),
-        ),
+        and(eq(schema.backups.instanceRef, req.params.ref), eq(schema.backups.status, 'completed')),
       )
       .orderBy(desc(schema.backups.startedAt));
     return reply.send({
@@ -1397,8 +1542,33 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // Content endpoints — shapes validated against Studio data fetchers
   // /content/folders: getSQLSnippetFolders expects data.data.{folders,contents} + data.cursor
   // SQL Snippets — real persistent store via sql_snippets + sql_snippet_folders tables
-  function snippetRow(s: { id: string; name: string; description: string | null; content: string; visibility: string; folderId: string | null; ownerId: string | null; createdAt: Date; updatedAt: Date; instanceRef: string }) {
-    return { id: s.id, name: s.name, description: s.description ?? '', sql: s.content, content: { sql: s.content, content_id: s.id, schema_version: '1.0' }, visibility: s.visibility, folder_id: s.folderId, owner_id: s.ownerId, project_id: s.instanceRef, favorite: false, inserted_at: s.createdAt?.toISOString(), updated_at: s.updatedAt?.toISOString(), type: 'sql' };
+  function snippetRow(s: {
+    id: string;
+    name: string;
+    description: string | null;
+    content: string;
+    visibility: string;
+    folderId: string | null;
+    ownerId: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    instanceRef: string;
+  }) {
+    return {
+      id: s.id,
+      name: s.name,
+      description: s.description ?? '',
+      sql: s.content,
+      content: { sql: s.content, content_id: s.id, schema_version: '1.0' },
+      visibility: s.visibility,
+      folder_id: s.folderId,
+      owner_id: s.ownerId,
+      project_id: s.instanceRef,
+      favorite: false,
+      inserted_at: s.createdAt?.toISOString(),
+      updated_at: s.updatedAt?.toISOString(),
+      type: 'sql',
+    };
   }
 
   app.get<RefParams>('/platform/projects/:ref/content/folders', async (req, reply) => {
@@ -1407,7 +1577,12 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const folders = await db()
       .select()
       .from(schema.sqlSnippetFolders)
-      .where(and(eq(schema.sqlSnippetFolders.instanceRef, ref), eq(schema.sqlSnippetFolders.ownerId, user.id)));
+      .where(
+        and(
+          eq(schema.sqlSnippetFolders.instanceRef, ref),
+          eq(schema.sqlSnippetFolders.ownerId, user.id),
+        ),
+      );
     const snippets = await db()
       .select()
       .from(schema.sqlSnippets)
@@ -1459,7 +1634,12 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         ownerId: user.id,
         name: typeof body.name === 'string' ? body.name : 'Untitled Query',
         description: typeof body.description === 'string' ? body.description : null,
-        content: typeof body.sql === 'string' ? body.sql : (typeof (body.content as Record<string, unknown>)?.sql === 'string' ? String((body.content as Record<string, unknown>).sql) : ''),
+        content:
+          typeof body.sql === 'string'
+            ? body.sql
+            : typeof (body.content as Record<string, unknown>)?.sql === 'string'
+              ? String((body.content as Record<string, unknown>).sql)
+              : '',
         visibility: typeof body.visibility === 'string' ? body.visibility : 'user',
         folderId: typeof body.folder_id === 'string' ? body.folder_id : null,
       })
@@ -1493,9 +1673,15 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
       .where(
-        and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)),
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
       )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
@@ -1533,7 +1719,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
       )
       .where(
-        and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)),
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
       )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
@@ -1583,14 +1772,29 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref, name: schema.supabaseInstances.name })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     if (typeof body.name === 'string' && body.name.trim() && body.name.trim() !== inst.name) {
-      await db().update(schema.supabaseInstances).set({ name: body.name.trim() }).where(eq(schema.supabaseInstances.ref, inst.ref));
+      await db()
+        .update(schema.supabaseInstances)
+        .set({ name: body.name.trim() })
+        .where(eq(schema.supabaseInstances.ref, inst.ref));
     }
-    return reply.send({ id: hashRefToInt(inst.ref), ref: inst.ref, name: typeof body.name === 'string' ? body.name.trim() : inst.name });
+    return reply.send({
+      id: hashRefToInt(inst.ref),
+      ref: inst.ref,
+      name: typeof body.name === 'string' ? body.name.trim() : inst.name,
+    });
   });
 
   // Members — real: org members who have access to this project
@@ -1603,18 +1807,24 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const rows = await db()
-      .select({ gotrueId: schema.organizationMembers.userId, role: schema.organizationMembers.role, email: schema.users.email })
+      .select({
+        gotrueId: schema.organizationMembers.userId,
+        role: schema.organizationMembers.role,
+        email: schema.users.email,
+      })
       .from(schema.organizationMembers)
       .innerJoin(schema.users, eq(schema.users.id, schema.organizationMembers.userId))
       .where(eq(schema.organizationMembers.organizationId, inst.orgId!));
-    return reply.send(rows.map((r) => ({
-      gotrue_id: r.gotrueId,
-      primary_email: r.email,
-      username: r.email.split('@')[0],
-      role_ids: [ROLE_IDS[r.role as Role]],
-      mfa_enabled: false,
-      is_sso_user: false,
-    })));
+    return reply.send(
+      rows.map((r) => ({
+        gotrue_id: r.gotrueId,
+        primary_email: r.email,
+        username: r.email.split('@')[0],
+        role_ids: [ROLE_IDS[r.role as Role]],
+        mfa_enabled: false,
+        is_sso_user: false,
+      })),
+    );
   });
 
   // Misc project stubs — key is always path.split('/').pop()
@@ -1633,7 +1843,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         'config/secrets/update-status': { updating: false },
         'notifications/advisor/exceptions': { result: [] },
         'load-balancers': [],
-        'settings': {},
+        settings: {},
       };
       const key = path.split('/').pop()!;
       return reply.send(stub[key] ?? {});
@@ -1644,10 +1854,21 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   app.get<RefParams>('/platform/projects/:ref/pause/status', async (req, reply) => {
     const user = app.requireAuth(req);
     const [inst] = await db()
-      .select({ status: schema.supabaseInstances.status, updatedAt: schema.supabaseInstances.updatedAt })
+      .select({
+        status: schema.supabaseInstances.status,
+        updatedAt: schema.supabaseInstances.updatedAt,
+      })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     return reply.send({
@@ -1661,12 +1882,34 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     app.requireAuth(req);
     try {
       const results = await withPerInstancePg(req.params.ref, async (pg) => {
-        const out: Array<{ name: string; title: string; level: string; categories: string[]; description: string; detail: string; remediation: string; metadata: Record<string, unknown>; cache_key: string; facing: string }> = [];
+        const out: Array<{
+          name: string;
+          title: string;
+          level: string;
+          categories: string[];
+          description: string;
+          detail: string;
+          remediation: string;
+          metadata: Record<string, unknown>;
+          cache_key: string;
+          facing: string;
+        }> = [];
         for (const [name, check] of Object.entries(LINT_CHECKS)) {
           const res = await pg.query(check.sql);
           for (const row of res.rows as Record<string, unknown>[]) {
             const metadata = check.mapRow(row);
-            out.push({ name, title: check.title, level: check.level, categories: check.categories, description: check.description, detail: '', remediation: '', metadata, cache_key: `${name}-${JSON.stringify(metadata)}`, facing: 'EXTERNAL' });
+            out.push({
+              name,
+              title: check.title,
+              level: check.level,
+              categories: check.categories,
+              description: check.description,
+              detail: '',
+              remediation: '',
+              metadata,
+              cache_key: `${name}-${JSON.stringify(metadata)}`,
+              facing: 'EXTERNAL',
+            });
           }
         }
         return out;
@@ -1674,7 +1917,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       return reply.send(results);
     } catch (err) {
       if (err instanceof InstanceNotRunningError) {
-        return reply.status(503).send({ error: 'Project is not running', code: 'project_not_running' });
+        return reply
+          .status(503)
+          .send({ error: 'Project is not running', code: 'project_not_running' });
       }
       throw err;
     }
@@ -1692,10 +1937,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       })
       .from(schema.backups)
       .where(
-        and(
-          eq(schema.backups.instanceRef, req.params.ref),
-          eq(schema.backups.status, 'completed'),
-        ),
+        and(eq(schema.backups.instanceRef, req.params.ref), eq(schema.backups.status, 'completed')),
       )
       .orderBy(desc(schema.backups.startedAt));
     return reply.send(
@@ -1856,7 +2098,14 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   app.get<SlugParams>('/platform/organizations/:slug/billing/subscription', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ plan: { id: 'pro', name: 'Pro' }, tier: 'tier_payg', billing_via_partner: false, usage_billing_enabled: true, project_addons: [], addons: [] });
+    return reply.send({
+      plan: { id: 'pro', name: 'Pro' },
+      tier: 'tier_payg',
+      billing_via_partner: false,
+      usage_billing_enabled: true,
+      project_addons: [],
+      addons: [],
+    });
   });
 
   app.get<SlugParams>('/platform/organizations/:slug/billing/plans', async (req, reply) => {
@@ -1864,10 +2113,13 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send([{ id: 'pro', name: 'Pro' }]);
   });
 
-  app.get<SlugParams>('/platform/organizations/:slug/billing/credits/balance', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ balance: 0 });
-  });
+  app.get<SlugParams>(
+    '/platform/organizations/:slug/billing/credits/balance',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ balance: 0 });
+    },
+  );
 
   app.head<SlugParams>('/platform/organizations/:slug/billing/invoices', async (req, reply) => {
     app.requireAuth(req);
@@ -1983,21 +2235,25 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     app.get(path, async (req, reply) => {
       app.requireAuth(req);
       // Studio expects an array of MemberWithFreeProjectLimit, not an object
-      return path.includes('free-project-limit')
-        ? reply.send([])
-        : reply.send([]);
+      return path.includes('free-project-limit') ? reply.send([]) : reply.send([]);
     });
   }
 
-  app.get<SlugParams>('/platform/organizations/:slug/members/mfa/enforcement', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ required: false });
-  });
+  app.get<SlugParams>(
+    '/platform/organizations/:slug/members/mfa/enforcement',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ required: false });
+    },
+  );
 
-  app.patch<SlugParams>('/platform/organizations/:slug/members/mfa/enforcement', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? { required: false });
-  });
+  app.patch<SlugParams>(
+    '/platform/organizations/:slug/members/mfa/enforcement',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? { required: false });
+    },
+  );
 
   // Feature 084 (US4) — invitee checks an invite's validity before accepting.
   app.get<{ Params: { slug: string; token: string } }>(
@@ -2094,16 +2350,14 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     for (const email of emails) {
       try {
         const { sha256, expiresAt } = newInviteToken();
-        await db()
-          .insert(schema.organizationInvitations)
-          .values({
-            organizationId: req.params.slug,
-            email,
-            tokenSha256: sha256,
-            role,
-            invitedByUserId: inviter.id,
-            expiresAt,
-          });
+        await db().insert(schema.organizationInvitations).values({
+          organizationId: req.params.slug,
+          email,
+          tokenSha256: sha256,
+          role,
+          invitedByUserId: inviter.id,
+          expiresAt,
+        });
         succeeded.push(email);
       } catch (e) {
         failed.push({ email, error: (e as Error).message });
@@ -2216,29 +2470,20 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.get<SlugAppParams>(
-    '/platform/organizations/:slug/apps/:app_id',
-    async (req, reply) => {
-      app.requireAuth(req);
-      return reply.send({});
-    },
-  );
+  app.get<SlugAppParams>('/platform/organizations/:slug/apps/:app_id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({});
+  });
 
-  app.patch<SlugAppParams>(
-    '/platform/organizations/:slug/apps/:app_id',
-    async (req, reply) => {
-      app.requireAuth(req);
-      return reply.send(req.body ?? {});
-    },
-  );
+  app.patch<SlugAppParams>('/platform/organizations/:slug/apps/:app_id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send(req.body ?? {});
+  });
 
-  app.delete<SlugAppParams>(
-    '/platform/organizations/:slug/apps/:app_id',
-    async (req, reply) => {
-      app.requireAuth(req);
-      return reply.status(204).send();
-    },
-  );
+  app.delete<SlugAppParams>('/platform/organizations/:slug/apps/:app_id', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.status(204).send();
+  });
 
   app.post<SlugAppParams>(
     '/platform/organizations/:slug/apps/:app_id/signing-keys',
@@ -2321,28 +2566,25 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // details here. The auth_id is a capability token, so any authenticated member
   // may read it (`oauth.consent.read`); the session is consumed only on
   // approve/deny via the org-scoped POST/DELETE below.
-  app.get<{ Params: { id: string } }>(
-    '/platform/oauth/authorizations/:id',
-    async (req, reply) => {
-      app.authorize(req, 'oauth.consent.read');
-      const s = await getAuthSession(req.params.id);
-      if (!s) {
-        return reply
-          .status(404)
-          .send({ error: 'not_found', message: 'Authorization session not found or expired' });
-      }
-      return reply.send({
-        name: s.client_name,
-        website: s.client_website,
-        icon: s.client_icon,
-        domain: s.client_domain,
-        scopes: s.scopes,
-        expires_at: s.expires_at,
-        approved_at: null,
-        approved_organization_slug: null,
-      });
-    },
-  );
+  app.get<{ Params: { id: string } }>('/platform/oauth/authorizations/:id', async (req, reply) => {
+    app.authorize(req, 'oauth.consent.read');
+    const s = await getAuthSession(req.params.id);
+    if (!s) {
+      return reply
+        .status(404)
+        .send({ error: 'not_found', message: 'Authorization session not found or expired' });
+    }
+    return reply.send({
+      name: s.client_name,
+      website: s.client_website,
+      icon: s.client_icon,
+      domain: s.client_domain,
+      scopes: s.scopes,
+      expires_at: s.expires_at,
+      approved_at: null,
+      approved_organization_slug: null,
+    });
+  });
 
   // ── Project Infrastructure ─────────────────────────────────────────────────
   // Disk info / config (no real disk management — static stubs)
@@ -2366,9 +2608,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     // Query real database size from the per-instance postgres
     try {
       const rows = await withPerInstancePg(req.params.ref, async (pgClient) => {
-        const res = await pgClient.query(
-          `SELECT pg_database_size(current_database()) AS db_size`,
-        );
+        const res = await pgClient.query(`SELECT pg_database_size(current_database()) AS db_size`);
         return res.rows as Array<{ db_size: string }>;
       });
       const usageBytes = Number(rows[0]?.db_size ?? 0);
@@ -2439,15 +2679,21 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   );
 
   // ── Advisor exceptions (lint suppression; no-op for self-hosted) ──────────
-  app.post<RefParams>('/platform/projects/:ref/notifications/advisor/exceptions', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(201).send(req.body ?? {});
-  });
+  app.post<RefParams>(
+    '/platform/projects/:ref/notifications/advisor/exceptions',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(201).send(req.body ?? {});
+    },
+  );
 
-  app.delete<RefParams>('/platform/projects/:ref/notifications/advisor/exceptions', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(204).send();
-  });
+  app.delete<RefParams>(
+    '/platform/projects/:ref/notifications/advisor/exceptions',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
 
   app.patch<{ Params: { ref: string; id: string } }>(
     '/platform/projects/:ref/notifications/advisor/exceptions/:id',
@@ -2496,10 +2742,13 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(201).send({ id: 'stub' });
   });
 
-  app.delete<StorageRefIdParams>('/platform/storage/:ref/vector-buckets/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(204).send();
-  });
+  app.delete<StorageRefIdParams>(
+    '/platform/storage/:ref/vector-buckets/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
 
   app.post<StorageRefIdParams>(
     '/platform/storage/:ref/vector-buckets/:id/indexes',
@@ -2643,9 +2892,12 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     try {
       await resetPgPasswordForInstance(ref);
     } catch (err) {
-      if (err instanceof InstanceNotFoundForResetError) return reply.status(404).send({ error: 'Project not found' });
-      if (err instanceof InstanceNotResettableError) return reply.status(409).send({ error: err.message });
-      if (err instanceof PerInstanceDbUnreachableError) return reply.status(502).send({ error: err.message });
+      if (err instanceof InstanceNotFoundForResetError)
+        return reply.status(404).send({ error: 'Project not found' });
+      if (err instanceof InstanceNotResettableError)
+        return reply.status(409).send({ error: err.message });
+      if (err instanceof PerInstanceDbUnreachableError)
+        return reply.status(502).send({ error: err.message });
       throw err;
     }
     return reply.status(200).send({ ref, message: 'Password reset successfully.' });
@@ -2715,13 +2967,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send([]);
   });
 
-  app.post<RefParams>(
-    '/platform/replication/:ref/destinations/validate',
-    async (req, reply) => {
-      app.requireAuth(req);
-      return reply.send({ valid: true });
-    },
-  );
+  app.post<RefParams>('/platform/replication/:ref/destinations/validate', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ valid: true });
+  });
 
   app.post<RefParams>('/platform/replication/:ref/destinations', async (req, reply) => {
     app.requireAuth(req);
@@ -2750,13 +2999,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send([]);
   });
 
-  app.post<RefParams>(
-    '/platform/replication/:ref/pipelines/validate',
-    async (req, reply) => {
-      app.requireAuth(req);
-      return reply.send({ valid: true });
-    },
-  );
+  app.post<RefParams>('/platform/replication/:ref/pipelines/validate', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({ valid: true });
+  });
 
   app.post<RefParams>('/platform/replication/:ref/pipelines', async (req, reply) => {
     app.requireAuth(req);
@@ -2825,13 +3071,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send([]);
   });
 
-  app.post<RefParams>(
-    '/platform/replication/:ref/destinations-pipelines',
-    async (req, reply) => {
-      app.requireAuth(req);
-      return reply.send({});
-    },
-  );
+  app.post<RefParams>('/platform/replication/:ref/destinations-pipelines', async (req, reply) => {
+    app.requireAuth(req);
+    return reply.send({});
+  });
 
   app.delete<ReplicationDestPipelineParams>(
     '/platform/replication/:ref/destinations-pipelines/:did/:pid',
@@ -2871,7 +3114,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     try {
       const user = await signupGotrueUser({ email: body.email, password: body.password });
       await db().transaction((tx) =>
-        createOrganizationWithOwner(tx, { userId: user.id, name: `${body.email!.split('@')[0]}'s org` }),
+        createOrganizationWithOwner(tx, {
+          userId: user.id,
+          name: `${body.email!.split('@')[0]}'s org`,
+        }),
       );
       return reply.status(200).send({ id: user.id, email: user.email });
     } catch (err: unknown) {
@@ -2905,7 +3151,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     if (!body.new_email) return reply.status(400).send({ error: 'new_email is required' });
     try {
       const updated = await updateGotrueUser(user.id, { email: body.new_email });
-      await db().update(schema.users).set({ email: updated.email }).where(eq(schema.users.id, user.id));
+      await db()
+        .update(schema.users)
+        .set({ email: updated.email })
+        .where(eq(schema.users.id, user.id));
       return reply.send({ email: updated.email });
     } catch (err: unknown) {
       const e = err as { message?: string };
@@ -2920,7 +3169,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     if (!body.new_email) return reply.status(400).send({ error: 'new_email is required' });
     try {
       const updated = await updateGotrueUser(user.id, { email: body.new_email });
-      await db().update(schema.users).set({ email: updated.email }).where(eq(schema.users.id, user.id));
+      await db()
+        .update(schema.users)
+        .set({ email: updated.email })
+        .where(eq(schema.users.id, user.id));
       return reply.send({ email: updated.email });
     } catch (err: unknown) {
       const e = err as { message?: string };
@@ -2947,7 +3199,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     '/platform/vercel/redirect/:installation_id',
     async (req, reply) => {
       app.requireAuth(req);
-      return reply.status(400).send({ error: 'Vercel integration is not supported on self-hosted' });
+      return reply
+        .status(400)
+        .send({ error: 'Vercel integration is not supported on self-hosted' });
     },
   );
 
@@ -2971,7 +3225,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // Dynamic OAuth client registration (RFC-7591) — not supported on self-hosted.
   app.post('/platform/oauth/apps/register', async (req, reply) => {
     app.requireAuth(req);
-    return reply.status(501).send({ error: 'Dynamic OAuth client registration is not supported on self-hosted' });
+    return reply
+      .status(501)
+      .send({ error: 'Dynamic OAuth client registration is not supported on self-hosted' });
   });
 
   // CLI login session creation — Studio (IS_PLATFORM) calls /platform/cli/login;
@@ -2981,7 +3237,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/v1/cli/login',
-      headers: { ...(req.headers as Record<string, string>), 'content-length': undefined as unknown as string },
+      headers: {
+        ...(req.headers as Record<string, string>),
+        'content-length': undefined as unknown as string,
+      },
       payload: req.body as Record<string, unknown>,
     });
     return reply.status(res.statusCode).send(res.json());
@@ -3065,11 +3324,18 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/platform/plans', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send([{ id: 'free', name: 'Free', is_free_tier: true, price: 0, price_description: '$0/month' }]);
+    return reply.send([
+      { id: 'free', name: 'Free', is_free_tier: true, price: 0, price_description: '$0/month' },
+    ]);
   });
 
   app.get('/platform/status', async (req, reply) => {
-    return reply.send({ title: 'Supastack', status: 'operational', indicator: 'none', incidents: [] });
+    return reply.send({
+      title: 'Supastack',
+      status: 'operational',
+      indicator: 'none',
+      incidents: [],
+    });
   });
 
   // Marketplace / confirm-subscription stubs (cloud-only)
@@ -3176,60 +3442,97 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   type OrgDrainParams = { Params: { slug: string; token: string } };
 
-  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/analytics/audit-log-drains', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send([]);
-  });
+  app.get<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/analytics/audit-log-drains',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send([]);
+    },
+  );
 
-  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/analytics/audit-log-drains', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(201).send({ token: 'stub', ...((req.body as Record<string, unknown>) ?? {}) });
-  });
+  app.post<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/analytics/audit-log-drains',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply
+        .status(201)
+        .send({ token: 'stub', ...((req.body as Record<string, unknown>) ?? {}) });
+    },
+  );
 
-  app.delete<OrgDrainParams>('/platform/organizations/:slug/analytics/audit-log-drains/:token', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(204).send();
-  });
+  app.delete<OrgDrainParams>(
+    '/platform/organizations/:slug/analytics/audit-log-drains/:token',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
 
-  app.patch<OrgDrainParams>('/platform/organizations/:slug/analytics/audit-log-drains/:token', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
-  });
+  app.patch<OrgDrainParams>(
+    '/platform/organizations/:slug/analytics/audit-log-drains/:token',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
 
-  app.put<OrgDrainParams>('/platform/organizations/:slug/analytics/audit-log-drains/:token', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
-  });
+  app.put<OrgDrainParams>(
+    '/platform/organizations/:slug/analytics/audit-log-drains/:token',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
 
-  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/apps', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(201).send({ id: 'mock-app', ...((req.body as Record<string, unknown>) ?? {}) });
-  });
+  app.post<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/apps',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply
+        .status(201)
+        .send({ id: 'mock-app', ...((req.body as Record<string, unknown>) ?? {}) });
+    },
+  );
 
-  app.get<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/apps/installations/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ id: req.params.id });
-  });
+  app.get<{ Params: { slug: string; id: string } }>(
+    '/platform/organizations/:slug/apps/installations/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ id: req.params.id });
+    },
+  );
 
-  app.patch<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/apps/installations/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
-  });
+  app.patch<{ Params: { slug: string; id: string } }>(
+    '/platform/organizations/:slug/apps/installations/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
 
-  app.get<{ Params: { slug: string; app_id: string } }>('/platform/organizations/:slug/apps/:app_id/signing-keys', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send([]);
-  });
+  app.get<{ Params: { slug: string; app_id: string } }>(
+    '/platform/organizations/:slug/apps/:app_id/signing-keys',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send([]);
+    },
+  );
 
-  app.put<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/oauth/apps/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
-  });
+  app.put<{ Params: { slug: string; id: string } }>(
+    '/platform/organizations/:slug/oauth/apps/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
 
-  app.get<{ Params: { slug: string; app_id: string } }>('/platform/organizations/:slug/oauth/apps/:app_id/client-secrets', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send([]);
-  });
+  app.get<{ Params: { slug: string; app_id: string } }>(
+    '/platform/organizations/:slug/oauth/apps/:app_id/client-secrets',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send([]);
+    },
+  );
 
   // feature 115 — approve an OAuth authorization (org-scoped, owner/admin only).
   // With ?skip_browser_redirect=true (the Studio path) returns { url } for the
@@ -3313,90 +3616,141 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/billing/invoices/upcoming', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ total: 0, lines: [] });
-  });
+  app.get<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/billing/invoices/upcoming',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ total: 0, lines: [] });
+    },
+  );
 
-  app.get<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/billing/invoices/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(404).send({ error: 'Invoice not found' });
-  });
+  app.get<{ Params: { slug: string; id: string } }>(
+    '/platform/organizations/:slug/billing/invoices/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(404).send({ error: 'Invoice not found' });
+    },
+  );
 
-  app.get<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/billing/invoices/:id/payment-link', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ url: null });
-  });
+  app.get<{ Params: { slug: string; id: string } }>(
+    '/platform/organizations/:slug/billing/invoices/:id/payment-link',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ url: null });
+    },
+  );
 
-  app.get<{ Params: { slug: string; id: string } }>('/platform/organizations/:slug/billing/invoices/:id/receipt', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ url: null });
-  });
+  app.get<{ Params: { slug: string; id: string } }>(
+    '/platform/organizations/:slug/billing/invoices/:id/receipt',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ url: null });
+    },
+  );
 
-  app.put<{ Params: { slug: string } }>('/platform/organizations/:slug/billing/subscription', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ plan: { id: 'pro', name: 'Pro' } });
-  });
+  app.put<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/billing/subscription',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ plan: { id: 'pro', name: 'Pro' } });
+    },
+  );
 
-  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/billing/subscription/preview', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ breakdown: [], plan: { id: 'pro', name: 'Pro' } });
-  });
+  app.post<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/billing/subscription/preview',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ breakdown: [], plan: { id: 'pro', name: 'Pro' } });
+    },
+  );
 
-  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/billing/credits/preview', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ preview_amount: 0 });
-  });
+  app.post<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/billing/credits/preview',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ preview_amount: 0 });
+    },
+  );
 
-  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/billing/credits/redeem', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(400).send({ error: 'Not available on self-hosted' });
-  });
+  app.post<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/billing/credits/redeem',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(400).send({ error: 'Not available on self-hosted' });
+    },
+  );
 
-  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/billing/credits/top-up', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(400).send({ error: 'Not available on self-hosted' });
-  });
+  app.post<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/billing/credits/top-up',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(400).send({ error: 'Not available on self-hosted' });
+    },
+  );
 
-  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/customer', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ billing_email: null, address: null });
-  });
+  app.get<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/customer',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ billing_email: null, address: null });
+    },
+  );
 
-  app.put<{ Params: { slug: string } }>('/platform/organizations/:slug/customer', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
-  });
+  app.put<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/customer',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
 
-  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/payments', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ data: [] });
-  });
+  app.get<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/payments',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ data: [] });
+    },
+  );
 
-  app.delete<{ Params: { slug: string } }>('/platform/organizations/:slug/payments', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(204).send();
-  });
+  app.delete<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/payments',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
 
-  app.put<{ Params: { slug: string } }>('/platform/organizations/:slug/payments/default', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({});
-  });
+  app.put<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/payments/default',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({});
+    },
+  );
 
-  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/tax-ids', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send([]);
-  });
+  app.get<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/tax-ids',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send([]);
+    },
+  );
 
-  app.put<{ Params: { slug: string } }>('/platform/organizations/:slug/tax-ids', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
-  });
+  app.put<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/tax-ids',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
 
-  app.delete<{ Params: { slug: string } }>('/platform/organizations/:slug/tax-ids', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(204).send();
-  });
+  app.delete<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/tax-ids',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
 
   for (const docPath of [
     '/platform/organizations/:slug/documents/dpa-signed',
@@ -3410,20 +3764,29 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     });
   }
 
-  app.post<{ Params: { slug: string } }>('/platform/organizations/:slug/documents/dpa', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(400).send({ error: 'Not available on self-hosted' });
-  });
+  app.post<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/documents/dpa',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(400).send({ error: 'Not available on self-hosted' });
+    },
+  );
 
-  app.put<{ Params: { slug: string } }>('/platform/organizations/:slug/cloud-marketplace/link', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(400).send({ error: 'Not available on self-hosted' });
-  });
+  app.put<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/cloud-marketplace/link',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(400).send({ error: 'Not available on self-hosted' });
+    },
+  );
 
-  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/cloud-marketplace/redirect', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ url: null });
-  });
+  app.get<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/cloud-marketplace/redirect',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ url: null });
+    },
+  );
 
   // ── Missing project endpoints ─────────────────────────────────────────────
   app.patch<RefParams>('/platform/projects/:ref/config/storage', async (req, reply) => {
@@ -3436,9 +3799,13 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // DELETE /content — delete a snippet by id (passed as ?id= query or body.id)
   app.delete<RefParams>('/platform/projects/:ref/content', async (req, reply) => {
     const user = app.requireAuth(req);
-    const id = (req.query as Record<string, string>).id ?? (req.body as Record<string, unknown> | undefined)?.id;
+    const id =
+      (req.query as Record<string, string>).id ??
+      (req.body as Record<string, unknown> | undefined)?.id;
     if (typeof id === 'string') {
-      await db().delete(schema.sqlSnippets).where(and(eq(schema.sqlSnippets.id, id), eq(schema.sqlSnippets.ownerId, user.id)));
+      await db()
+        .delete(schema.sqlSnippets)
+        .where(and(eq(schema.sqlSnippets.id, id), eq(schema.sqlSnippets.ownerId, user.id)));
     }
     return reply.status(200).send({});
   });
@@ -3448,7 +3815,12 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const user = app.requireAuth(req);
     const body = (req.body ?? {}) as Record<string, unknown>;
     if (typeof body.id === 'string') {
-      const sqlVal = typeof body.sql === 'string' ? body.sql : (typeof (body.content as Record<string, unknown>)?.sql === 'string' ? String((body.content as Record<string, unknown>).sql) : '');
+      const sqlVal =
+        typeof body.sql === 'string'
+          ? body.sql
+          : typeof (body.content as Record<string, unknown>)?.sql === 'string'
+            ? String((body.content as Record<string, unknown>).sql)
+            : '';
       const [upserted] = await db()
         .insert(schema.sqlSnippets)
         .values({
@@ -3499,45 +3871,65 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const user = app.requireAuth(req);
     const id = (req.query as Record<string, string>).id;
     if (typeof id === 'string') {
-      await db().delete(schema.sqlSnippetFolders).where(and(eq(schema.sqlSnippetFolders.id, id), eq(schema.sqlSnippetFolders.ownerId, user.id)));
+      await db()
+        .delete(schema.sqlSnippetFolders)
+        .where(
+          and(eq(schema.sqlSnippetFolders.id, id), eq(schema.sqlSnippetFolders.ownerId, user.id)),
+        );
     }
     return reply.status(200).send({});
   });
 
   // PATCH /content/folders/:id — rename a folder
-  app.patch<{ Params: { ref: string; id: string } }>('/platform/projects/:ref/content/folders/:id', async (req, reply) => {
-    const user = app.requireAuth(req);
-    const body = (req.body ?? {}) as Record<string, unknown>;
-    if (typeof body.name === 'string') {
-      await db().update(schema.sqlSnippetFolders).set({ name: body.name, updatedAt: new Date() }).where(and(eq(schema.sqlSnippetFolders.id, req.params.id), eq(schema.sqlSnippetFolders.ownerId, user.id)));
-    }
-    return reply.send({ id: req.params.id, ...body });
-  });
+  app.patch<{ Params: { ref: string; id: string } }>(
+    '/platform/projects/:ref/content/folders/:id',
+    async (req, reply) => {
+      const user = app.requireAuth(req);
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      if (typeof body.name === 'string') {
+        await db()
+          .update(schema.sqlSnippetFolders)
+          .set({ name: body.name, updatedAt: new Date() })
+          .where(
+            and(
+              eq(schema.sqlSnippetFolders.id, req.params.id),
+              eq(schema.sqlSnippetFolders.ownerId, user.id),
+            ),
+          );
+      }
+      return reply.send({ id: req.params.id, ...body });
+    },
+  );
 
   // run-lints/:name — filter to single named check (T019)
-  app.get<{ Params: { ref: string; name: string } }>('/platform/projects/:ref/run-lints/:name', async (req, reply) => {
-    app.requireAuth(req);
-    const check = LINT_CHECKS[req.params.name];
-    if (!check) return reply.send([]);
-    try {
-      const results = await withPerInstancePg(req.params.ref, async (pg) => {
-        const res = await pg.query(check.sql);
-        return (res.rows as Record<string, unknown>[]).map((row) => ({
-          name: req.params.name,
-          title: check.title,
-          level: check.level,
-          description: check.description,
-          metadata: check.mapRow(row),
-        }));
-      });
-      return reply.send(results);
-    } catch (err) {
-      if (err instanceof InstanceNotRunningError) {
-        return reply.status(503).send({ error: 'Project is not running', code: 'project_not_running' });
+  app.get<{ Params: { ref: string; name: string } }>(
+    '/platform/projects/:ref/run-lints/:name',
+    async (req, reply) => {
+      app.requireAuth(req);
+      const check = LINT_CHECKS[req.params.name];
+      if (!check) return reply.send([]);
+      try {
+        const results = await withPerInstancePg(req.params.ref, async (pg) => {
+          const res = await pg.query(check.sql);
+          return (res.rows as Record<string, unknown>[]).map((row) => ({
+            name: req.params.name,
+            title: check.title,
+            level: check.level,
+            description: check.description,
+            metadata: check.mapRow(row),
+          }));
+        });
+        return reply.send(results);
+      } catch (err) {
+        if (err instanceof InstanceNotRunningError) {
+          return reply
+            .status(503)
+            .send({ error: 'Project is not running', code: 'project_not_running' });
+        }
+        throw err;
       }
-      throw err;
-    }
-  });
+    },
+  );
 
   app.post<{
     Params: { ref: string };
@@ -3547,12 +3939,23 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const secrets = inst.encryptedSecrets
-      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as { jwtSecret?: string; serviceRoleKey?: string })
+      ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as {
+          jwtSecret?: string;
+          serviceRoleKey?: string;
+        })
       : {};
     const jwtSecret = secrets.jwtSecret ?? '';
     const expSec = parseInt(req.query.authorization_exp ?? '3600', 10);
@@ -3560,7 +3963,9 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     try {
       const parsed = JSON.parse(req.query.claims ?? '{}');
       if (parsed.role) role = parsed.role;
-    } catch { /* use default */ }
+    } catch {
+      /* use default */
+    }
     const safeRole = role === 'anon' ? 'anon' : 'service_role';
     const api_key = signSupabaseJwt(jwtSecret, { role: safeRole, expSec });
     return reply.status(201).send({ api_key });
@@ -3571,8 +3976,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const secrets = inst.encryptedSecrets
@@ -3589,7 +4002,13 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         'content-type': 'application/json',
       };
       delete headers['content-length'];
-      const result = await proxyToKong(instance.portKong, '/graphql/v1', req.method, headers, bodyBuf);
+      const result = await proxyToKong(
+        instance.portKong,
+        '/graphql/v1',
+        req.method,
+        headers,
+        bodyBuf,
+      );
       for (const [k, v] of Object.entries(result.headers)) reply.header(k, v);
       return reply.status(result.status).send(result.body);
     } catch {
@@ -3619,22 +4038,25 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  app.get<{ Params: { ref: string; template: string } }>('/platform/auth/:ref/templates/:template', async (req, reply) => {
-    app.requireAuth(req);
-    const resp = await app.inject({
-      method: 'GET',
-      url: `/v1/projects/${req.params.ref}/config/auth`,
-      headers: req.headers as Record<string, string>,
-    });
-    if (resp.statusCode !== 200) return reply.status(resp.statusCode).send(resp.json<unknown>());
-    const config = resp.json<Record<string, unknown>>();
-    const t = req.params.template;
-    return reply.send({
-      subject: config[`mailer_subjects_${t}`] ?? '',
-      content_path: '',
-      template: config[`mailer_templates_${t}_content`] ?? '',
-    });
-  });
+  app.get<{ Params: { ref: string; template: string } }>(
+    '/platform/auth/:ref/templates/:template',
+    async (req, reply) => {
+      app.requireAuth(req);
+      const resp = await app.inject({
+        method: 'GET',
+        url: `/v1/projects/${req.params.ref}/config/auth`,
+        headers: req.headers as Record<string, string>,
+      });
+      if (resp.statusCode !== 200) return reply.status(resp.statusCode).send(resp.json<unknown>());
+      const config = resp.json<Record<string, unknown>>();
+      const t = req.params.template;
+      return reply.send({
+        subject: config[`mailer_subjects_${t}`] ?? '',
+        content_path: '',
+        template: config[`mailer_templates_${t}_content`] ?? '',
+      });
+    },
+  );
 
   app.post<RefParams>('/platform/projects/:ref/transfer/preview', async (req, reply) => {
     app.requireAuth(req);
@@ -3651,34 +4073,51 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ status: 'idle' });
   });
 
-  app.get<ReplicationDestParams>('/platform/replication/:ref/destinations/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ id: req.params.id });
-  });
+  app.get<ReplicationDestParams>(
+    '/platform/replication/:ref/destinations/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ id: req.params.id });
+    },
+  );
 
-  app.post<ReplicationDestParams>('/platform/replication/:ref/destinations/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
-  });
+  app.post<ReplicationDestParams>(
+    '/platform/replication/:ref/destinations/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
 
-  app.get<ReplicationPipelineParams>('/platform/replication/:ref/pipelines/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ id: req.params.id });
-  });
+  app.get<ReplicationPipelineParams>(
+    '/platform/replication/:ref/pipelines/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ id: req.params.id });
+    },
+  );
 
-  app.post<ReplicationPipelineParams>('/platform/replication/:ref/pipelines/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
-  });
+  app.post<ReplicationPipelineParams>(
+    '/platform/replication/:ref/pipelines/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
 
-  app.post<ReplicationPipelineParams>('/platform/replication/:ref/pipelines/:id/version', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ version: '1.0.0' });
-  });
+  app.post<ReplicationPipelineParams>(
+    '/platform/replication/:ref/pipelines/:id/version',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ version: '1.0.0' });
+    },
+  );
 
   app.post<RefParams>('/platform/replication/:ref/sources', async (req, reply) => {
     app.requireAuth(req);
-    return reply.status(201).send({ id: 'mock-source', ...((req.body as Record<string, unknown>) ?? {}) });
+    return reply
+      .status(201)
+      .send({ id: 'mock-source', ...((req.body as Record<string, unknown>) ?? {}) });
   });
 
   app.post<ReplicationSourcePubParams>(
@@ -3712,20 +4151,29 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(400).send({ error: 'GitHub integration not available on self-hosted' });
   });
 
-  app.delete<{ Params: { id: string } }>('/platform/integrations/github/connections/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(204).send();
-  });
+  app.delete<{ Params: { id: string } }>(
+    '/platform/integrations/github/connections/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(204).send();
+    },
+  );
 
-  app.patch<{ Params: { id: string } }>('/platform/integrations/github/connections/:id', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
-  });
+  app.patch<{ Params: { id: string } }>(
+    '/platform/integrations/github/connections/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
 
-  app.patch<LogDrainParams>('/platform/projects/:ref/analytics/log-drains/:token', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send(req.body ?? {});
-  });
+  app.patch<LogDrainParams>(
+    '/platform/projects/:ref/analytics/log-drains/:token',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send(req.body ?? {});
+    },
+  );
 
   // ── Missing org billing/addons, customer, payments ─────────────────────────
   app.get<SlugParams>('/platform/organizations/:slug/billing/addons', async (req, reply) => {
@@ -3743,10 +4191,13 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.send([]);
   });
 
-  app.post<SlugParams>('/platform/organizations/:slug/billing/payments/setup-intent', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ client_secret: null });
-  });
+  app.post<SlugParams>(
+    '/platform/organizations/:slug/billing/payments/setup-intent',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ client_secret: null });
+    },
+  );
 
   // ── Missing org/projects/usage ──────────────────────────────────────────────
   app.get<SlugParams>('/platform/organizations/:slug/projects/usage', async (req, reply) => {
@@ -3763,13 +4214,22 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── Network restrictions — delegate to /v1 (T013) ────────────────────────
   app.get<RefParams>('/platform/projects/:ref/network-restrictions', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/network-restrictions`, headers: fwdHeaders(req) });
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/network-restrictions`,
+      headers: fwdHeaders(req),
+    });
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.post<RefParams>('/platform/projects/:ref/network-restrictions/apply', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'POST', url: `/v1/projects/${req.params.ref}/network-restrictions/apply`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) });
+    const resp = await app.inject({
+      method: 'POST',
+      url: `/v1/projects/${req.params.ref}/network-restrictions/apply`,
+      headers: fwdHeaders(req),
+      payload: JSON.stringify(req.body),
+    });
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
@@ -3791,13 +4251,22 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── SSL enforcement — delegate to /v1 (T014) ─────────────────────────────
   app.get<RefParams>('/platform/projects/:ref/ssl-enforcement', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/ssl-enforcement`, headers: fwdHeaders(req) });
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/ssl-enforcement`,
+      headers: fwdHeaders(req),
+    });
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.put<RefParams>('/platform/projects/:ref/ssl-enforcement', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'PUT', url: `/v1/projects/${req.params.ref}/ssl-enforcement`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) });
+    const resp = await app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${req.params.ref}/ssl-enforcement`,
+      headers: fwdHeaders(req),
+      payload: JSON.stringify(req.body),
+    });
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
@@ -3824,15 +4293,18 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
-  app.delete<{ Params: { ref: string; id: string } }>('/platform/projects/:ref/database/extensions/:id', async (req, reply) => {
-    app.requireAuth(req);
-    const resp = await app.inject({
-      method: 'DELETE',
-      url: `/platform/pg-meta/${req.params.ref}/extensions?id=${req.params.id}`,
-      headers: req.headers as Record<string, string>,
-    });
-    return reply.status(resp.statusCode).send(resp.json<unknown>());
-  });
+  app.delete<{ Params: { ref: string; id: string } }>(
+    '/platform/projects/:ref/database/extensions/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      const resp = await app.inject({
+        method: 'DELETE',
+        url: `/platform/pg-meta/${req.params.ref}/extensions?id=${req.params.id}`,
+        headers: req.headers as Record<string, string>,
+      });
+      return reply.status(resp.statusCode).send(resp.json<unknown>());
+    },
+  );
 
   // ── Project health / live status ─────────────────────────────────────────
   app.get<RefParams>('/platform/projects/:ref/health', async (req, reply) => {
@@ -3844,7 +4316,11 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const healthy = inst.status === 'running';
-    const svc = (name: string) => ({ name, healthy, status: healthy ? 'ACTIVE_HEALTHY' : 'UNHEALTHY' });
+    const svc = (name: string) => ({
+      name,
+      healthy,
+      status: healthy ? 'ACTIVE_HEALTHY' : 'UNHEALTHY',
+    });
     return reply.send([
       svc('db'),
       svc('gotrue'),
@@ -3875,7 +4351,13 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       headers: req.headers as Record<string, string>,
     });
     if (resp.statusCode === 200) return reply.status(200).send(resp.json<unknown>());
-    return reply.send({ db_schema: 'public,graphql_public', db_extra_search_path: 'public,extensions', max_rows: 1000, db_pool: null, jwt_secret: '' });
+    return reply.send({
+      db_schema: 'public,graphql_public',
+      db_extra_search_path: 'public,extensions',
+      max_rows: 1000,
+      db_pool: null,
+      jwt_secret: '',
+    });
   });
 
   // ── Pooling/tenant config (Studio Database → Connection Pooling) ──────────
@@ -3910,8 +4392,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ status: schema.supabaseInstances.status })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     return reply.send({ enabled: inst.status === 'paused' });
@@ -3996,10 +4486,13 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(400).send({ error: 'Billing not available on self-hosted' });
   });
 
-  app.post<RefParams>('/platform/projects/:ref/billing/subscription/preview', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ breakdown: [], plan: { id: 'free', name: 'Free' } });
-  });
+  app.post<RefParams>(
+    '/platform/projects/:ref/billing/subscription/preview',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ breakdown: [], plan: { id: 'free', name: 'Free' } });
+    },
+  );
 
   app.get<RefParams>('/platform/projects/:ref/billing/project-add-ons', async (req, reply) => {
     app.requireAuth(req);
@@ -4055,19 +4548,33 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // Edge function secrets — delegate to vault-backed /v1 secrets (T015)
   app.get<RefParams>('/platform/projects/:ref/functions/secrets', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/secrets`, headers: fwdHeaders(req) });
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/secrets`,
+      headers: fwdHeaders(req),
+    });
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.post<RefParams>('/platform/projects/:ref/functions/secrets', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'POST', url: `/v1/projects/${req.params.ref}/secrets`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) });
+    const resp = await app.inject({
+      method: 'POST',
+      url: `/v1/projects/${req.params.ref}/secrets`,
+      headers: fwdHeaders(req),
+      payload: JSON.stringify(req.body),
+    });
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.delete<RefParams>('/platform/projects/:ref/functions/secrets', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'DELETE', url: `/v1/projects/${req.params.ref}/secrets`, headers: fwdHeaders(req), payload: JSON.stringify(req.body) });
+    const resp = await app.inject({
+      method: 'DELETE',
+      url: `/v1/projects/${req.params.ref}/secrets`,
+      headers: fwdHeaders(req),
+      payload: JSON.stringify(req.body),
+    });
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
@@ -4104,14 +4611,24 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   // ── Network bans — delegate to /v1 (T012) ────────────────────────────────
   app.get<RefParams>('/platform/projects/:ref/network-bans', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'GET', url: `/v1/projects/${req.params.ref}/network-bans`, headers: fwdHeaders(req) });
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/v1/projects/${req.params.ref}/network-bans`,
+      headers: fwdHeaders(req),
+    });
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
   app.delete<RefParams>('/platform/projects/:ref/network-bans', async (req, reply) => {
     app.requireAuth(req);
-    const resp = await app.inject({ method: 'DELETE', url: `/v1/projects/${req.params.ref}/network-bans`, headers: fwdHeaders(req) });
-    return reply.status(resp.statusCode).send(resp.statusCode === 204 ? undefined : resp.json<unknown>());
+    const resp = await app.inject({
+      method: 'DELETE',
+      url: `/v1/projects/${req.params.ref}/network-bans`,
+      headers: fwdHeaders(req),
+    });
+    return reply
+      .status(resp.statusCode)
+      .send(resp.statusCode === 204 ? undefined : resp.json<unknown>());
   });
 
   // ── Edge config (cloud-only feature) ─────────────────────────────────────
@@ -4131,8 +4648,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ status: schema.supabaseInstances.status })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     return reply.send({ status: inst.status === 'restoring' ? 'upgrading' : 'not_upgrading' });
@@ -4177,15 +4702,21 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ── Org slug validation ───────────────────────────────────────────────────
-  app.get<{ Params: { slug: string } }>('/platform/organizations/:slug/slugs/exists', async (req, reply) => {
-    app.requireAuth(req);
-    const exists = (await db()
-      .select({ id: schema.organizations.id })
-      .from(schema.organizations)
-      .where(eq(schema.organizations.id, req.params.slug))
-      .limit(1)).length > 0;
-    return reply.send({ exists });
-  });
+  app.get<{ Params: { slug: string } }>(
+    '/platform/organizations/:slug/slugs/exists',
+    async (req, reply) => {
+      app.requireAuth(req);
+      const exists =
+        (
+          await db()
+            .select({ id: schema.organizations.id })
+            .from(schema.organizations)
+            .where(eq(schema.organizations.id, req.params.slug))
+            .limit(1)
+        ).length > 0;
+      return reply.send({ exists });
+    },
+  );
 
   // ── Profile MFA / security / notifications ────────────────────────────────
   app.get('/platform/profile/mfa', async (req, reply) => {
@@ -4246,7 +4777,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       headers: req.headers as Record<string, string>,
     });
     if (resp.statusCode === 200) {
-      const all = resp.json<Array<{ id: number; name: string; schema: string; table: string; function_args?: string[] }>>() ?? [];
+      const all =
+        resp.json<
+          Array<{
+            id: number;
+            name: string;
+            schema: string;
+            table: string;
+            function_args?: string[];
+          }>
+        >() ?? [];
       return reply.send(all.filter((t) => t.function_args && t.function_args.length > 0));
     }
     return reply.send([]);
@@ -4257,8 +4797,18 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     app.requireAuth(req);
     try {
       const rows = await withPerInstancePg(req.params.ref, async (pg) => {
-        const res = await pg.query<{ jobid: number; schedule: string; command: string; nodename: string; nodeport: number; database: string; username: string; active: boolean; jobname: string | null }>(
-          `SELECT jobid, schedule, command, nodename, nodeport, database, username, active, jobname FROM cron.job ORDER BY jobid`
+        const res = await pg.query<{
+          jobid: number;
+          schedule: string;
+          command: string;
+          nodename: string;
+          nodeport: number;
+          database: string;
+          username: string;
+          active: boolean;
+          jobname: string | null;
+        }>(
+          `SELECT jobid, schedule, command, nodename, nodeport, database, username, active, jobname FROM cron.job ORDER BY jobid`,
         );
         return res.rows;
       });
@@ -4272,9 +4822,13 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     app.requireAuth(req);
     try {
       const rows = await withPerInstancePg(req.params.ref, async (pg) => {
-        const res = await pg.query<{ jobid: number; schedule: string; command: string; active: boolean; jobname: string | null }>(
-          `SELECT jobid, schedule, command, active, jobname FROM cron.job ORDER BY jobid`
-        );
+        const res = await pg.query<{
+          jobid: number;
+          schedule: string;
+          command: string;
+          active: boolean;
+          jobname: string | null;
+        }>(`SELECT jobid, schedule, command, active, jobname FROM cron.job ORDER BY jobid`);
         return res.rows;
       });
       return reply.send(rows);
@@ -4347,53 +4901,70 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ── Project audit log — real events from audit_log (T007) ────────────────
-  app.get<RefParams & { Querystring: { rows?: string; page?: string } }>('/platform/projects/:ref/audit', async (req, reply) => {
-    const user = app.requireAuth(req);
-    const [inst] = await db()
-      .select({ ref: schema.supabaseInstances.ref })
-      .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
-      .limit(1);
-    if (!inst) return reply.status(404).send({ error: 'Project not found' });
-    const limit = Math.min(parseInt((req.query as Record<string, string>).rows ?? '50', 10) || 50, 200);
-    const page = Math.max(parseInt((req.query as Record<string, string>).page ?? '1', 10) || 1, 1);
-    const offset = (page - 1) * limit;
-    const rows = await db()
-      .select({
-        id: schema.auditLog.id,
-        action: schema.auditLog.action,
-        actorUserId: schema.auditLog.actorUserId,
-        actorEmail: schema.users.email,
-        targetKind: schema.auditLog.targetKind,
-        targetId: schema.auditLog.targetId,
-        payload: schema.auditLog.payload,
-        createdAt: schema.auditLog.createdAt,
-      })
-      .from(schema.auditLog)
-      .leftJoin(schema.users, eq(schema.users.id, schema.auditLog.actorUserId))
-      .where(eq(schema.auditLog.targetId, req.params.ref))
-      .orderBy(desc(schema.auditLog.id))
-      .limit(limit)
-      .offset(offset);
-    const [countRow] = await db()
-      .select({ count: sql<number>`count(*)::int` })
-      .from(schema.auditLog)
-      .where(eq(schema.auditLog.targetId, req.params.ref));
-    return reply.send({
-      result: rows.map((r) => ({
-        id: String(r.id),
-        action: r.action,
-        actor_id: r.actorUserId,
-        actor_email: r.actorEmail,
-        target_kind: r.targetKind,
-        target_id: r.targetId,
-        metadata: r.payload,
-        created_at: r.createdAt.toISOString(),
-      })),
-      count: countRow?.count ?? 0,
-    });
-  });
+  app.get<RefParams & { Querystring: { rows?: string; page?: string } }>(
+    '/platform/projects/:ref/audit',
+    async (req, reply) => {
+      const user = app.requireAuth(req);
+      const [inst] = await db()
+        .select({ ref: schema.supabaseInstances.ref })
+        .from(schema.supabaseInstances)
+        .innerJoin(
+          schema.organizationMembers,
+          eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+        )
+        .where(
+          and(
+            eq(schema.supabaseInstances.ref, req.params.ref),
+            eq(schema.organizationMembers.userId, user.id),
+          ),
+        )
+        .limit(1);
+      if (!inst) return reply.status(404).send({ error: 'Project not found' });
+      const limit = Math.min(
+        parseInt((req.query as Record<string, string>).rows ?? '50', 10) || 50,
+        200,
+      );
+      const page = Math.max(
+        parseInt((req.query as Record<string, string>).page ?? '1', 10) || 1,
+        1,
+      );
+      const offset = (page - 1) * limit;
+      const rows = await db()
+        .select({
+          id: schema.auditLog.id,
+          action: schema.auditLog.action,
+          actorUserId: schema.auditLog.actorUserId,
+          actorEmail: schema.users.email,
+          targetKind: schema.auditLog.targetKind,
+          targetId: schema.auditLog.targetId,
+          payload: schema.auditLog.payload,
+          createdAt: schema.auditLog.createdAt,
+        })
+        .from(schema.auditLog)
+        .leftJoin(schema.users, eq(schema.users.id, schema.auditLog.actorUserId))
+        .where(eq(schema.auditLog.targetId, req.params.ref))
+        .orderBy(desc(schema.auditLog.id))
+        .limit(limit)
+        .offset(offset);
+      const [countRow] = await db()
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.targetId, req.params.ref));
+      return reply.send({
+        result: rows.map((r) => ({
+          id: String(r.id),
+          action: r.action,
+          actor_id: r.actorUserId,
+          actor_email: r.actorEmail,
+          target_kind: r.targetKind,
+          target_id: r.targetId,
+          metadata: r.payload,
+          created_at: r.createdAt.toISOString(),
+        })),
+        count: countRow?.count ?? 0,
+      });
+    },
+  );
 
   // ── Project activity — chronological audit events (T008) ─────────────────
   app.get<RefParams>('/platform/projects/:ref/activity', async (req, reply) => {
@@ -4401,8 +4972,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const [inst] = await db()
       .select({ ref: schema.supabaseInstances.ref })
       .from(schema.supabaseInstances)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId))
-      .where(and(eq(schema.supabaseInstances.ref, req.params.ref), eq(schema.organizationMembers.userId, user.id)))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+      )
+      .where(
+        and(
+          eq(schema.supabaseInstances.ref, req.params.ref),
+          eq(schema.organizationMembers.userId, user.id),
+        ),
+      )
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
     const rows = await db()
@@ -4505,20 +5084,29 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ── Org project-transfer eligibility ─────────────────────────────────────
-  app.get<SlugParams>('/platform/organizations/:slug/project-transfer-eligibility', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ eligible: false });
-  });
+  app.get<SlugParams>(
+    '/platform/organizations/:slug/project-transfer-eligibility',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ eligible: false });
+    },
+  );
 
   // ── Database report (summary stats for Studio's Database Report page) ─────
   app.get<RefParams>('/platform/projects/:ref/database/report', async (req, reply) => {
     app.requireAuth(req);
     try {
       const rows = await withPerInstancePg(req.params.ref, async (pg) => {
-        const res = await pg.query<{ schemaname: string; tablename: string; n_live_tup: string; n_dead_tup: string; pg_total_relation_size: string }>(
+        const res = await pg.query<{
+          schemaname: string;
+          tablename: string;
+          n_live_tup: string;
+          n_dead_tup: string;
+          pg_total_relation_size: string;
+        }>(
           `SELECT schemaname, tablename, n_live_tup, n_dead_tup,
             pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) AS pg_total_relation_size
-           FROM pg_stat_user_tables ORDER BY pg_total_relation_size DESC LIMIT 50`
+           FROM pg_stat_user_tables ORDER BY pg_total_relation_size DESC LIMIT 50`,
         );
         return res.rows;
       });
@@ -4587,15 +5175,18 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(resp.statusCode).send(resp.json<unknown>());
   });
 
-  app.delete<{ Params: { ref: string; id: string } }>('/platform/projects/:ref/secrets/:id', async (req, reply) => {
-    app.requireAuth(req);
-    const resp = await app.inject({
-      method: 'DELETE',
-      url: `/v1/projects/${req.params.ref}/secrets/${req.params.id}`,
-      headers: req.headers as Record<string, string>,
-    });
-    return reply.status(resp.statusCode).send(resp.json<unknown>() ?? {});
-  });
+  app.delete<{ Params: { ref: string; id: string } }>(
+    '/platform/projects/:ref/secrets/:id',
+    async (req, reply) => {
+      app.requireAuth(req);
+      const resp = await app.inject({
+        method: 'DELETE',
+        url: `/v1/projects/${req.params.ref}/secrets/${req.params.id}`,
+        headers: req.headers as Record<string, string>,
+      });
+      return reply.status(resp.statusCode).send(resp.json<unknown>() ?? {});
+    },
+  );
 
   // ── Project deployment info (not applicable to self-hosted) ──────────────
   app.get<RefParams>('/platform/projects/:ref/deployment', async (req, reply) => {
@@ -4647,7 +5238,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     });
     if (resp.statusCode === 200) {
       const c = resp.json<Record<string, unknown>>();
-      return reply.send({ smtp_host: c.smtp_host, smtp_port: c.smtp_port, smtp_user: c.smtp_user, smtp_pass: c.smtp_pass, smtp_sender_name: c.smtp_sender_name, smtp_admin_email: c.smtp_admin_email, smtp_max_frequency: c.smtp_max_frequency, mailer_secure_email_change_enabled: c.mailer_secure_email_change_enabled });
+      return reply.send({
+        smtp_host: c.smtp_host,
+        smtp_port: c.smtp_port,
+        smtp_user: c.smtp_user,
+        smtp_pass: c.smtp_pass,
+        smtp_sender_name: c.smtp_sender_name,
+        smtp_admin_email: c.smtp_admin_email,
+        smtp_max_frequency: c.smtp_max_frequency,
+        mailer_secure_email_change_enabled: c.mailer_secure_email_change_enabled,
+      });
     }
     return reply.send({});
   });
@@ -4665,7 +5265,12 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
 
   app.get<RefParams>('/platform/projects/:ref/config/sms', async (req, reply) => {
     app.requireAuth(req);
-    return reply.send({ sms_provider: null, sms_twilio_account_sid: null, sms_twilio_auth_token: null, sms_twilio_message_service_sid: null });
+    return reply.send({
+      sms_provider: null,
+      sms_twilio_account_sid: null,
+      sms_twilio_auth_token: null,
+      sms_twilio_message_service_sid: null,
+    });
   });
 
   app.patch<RefParams>('/platform/projects/:ref/config/sms', async (req, reply) => {
@@ -4696,15 +5301,20 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         createdAt: schema.organizations.createdAt,
       })
       .from(schema.organizations)
-      .innerJoin(schema.organizationMembers, eq(schema.organizationMembers.organizationId, schema.organizations.id))
+      .innerJoin(
+        schema.organizationMembers,
+        eq(schema.organizationMembers.organizationId, schema.organizations.id),
+      )
       .where(eq(schema.organizationMembers.userId, user.id));
-    return reply.send(rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      slug: r.id,
-      role: r.role,
-      created_at: r.createdAt?.toISOString() ?? new Date().toISOString(),
-    })));
+    return reply.send(
+      rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        slug: r.id,
+        role: r.role,
+        created_at: r.createdAt?.toISOString() ?? new Date().toISOString(),
+      })),
+    );
   });
 
   // ── Org slug update / transfer ────────────────────────────────────────────
@@ -4724,49 +5334,74 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ── Single edge function (GET/PATCH/DELETE by slug) ──────────────────────
-  app.get<{ Params: { ref: string; slug: string } }>('/platform/projects/:ref/functions/:slug', async (req, reply) => {
-    app.requireAuth(req);
-    const resp = await app.inject({
-      method: 'GET',
-      url: `/v1/projects/${req.params.ref}/functions/${req.params.slug}`,
-      headers: req.headers as Record<string, string>,
-    });
-    if (resp.statusCode === 200) return reply.send(resp.json<unknown>());
-    return reply.status(404).send({ error: 'Function not found' });
-  });
+  app.get<{ Params: { ref: string; slug: string } }>(
+    '/platform/projects/:ref/functions/:slug',
+    async (req, reply) => {
+      app.requireAuth(req);
+      const resp = await app.inject({
+        method: 'GET',
+        url: `/v1/projects/${req.params.ref}/functions/${req.params.slug}`,
+        headers: req.headers as Record<string, string>,
+      });
+      if (resp.statusCode === 200) return reply.send(resp.json<unknown>());
+      return reply.status(404).send({ error: 'Function not found' });
+    },
+  );
 
-  app.patch<{ Params: { ref: string; slug: string } }>('/platform/projects/:ref/functions/:slug', async (req, reply) => {
-    app.requireAuth(req);
-    const resp = await app.inject({
-      method: 'PATCH',
-      url: `/v1/projects/${req.params.ref}/functions/${req.params.slug}`,
-      headers: req.headers as Record<string, string>,
-      payload: JSON.stringify(req.body),
-    });
-    return reply.status(resp.statusCode).send(resp.json<unknown>());
-  });
+  app.patch<{ Params: { ref: string; slug: string } }>(
+    '/platform/projects/:ref/functions/:slug',
+    async (req, reply) => {
+      app.requireAuth(req);
+      const resp = await app.inject({
+        method: 'PATCH',
+        url: `/v1/projects/${req.params.ref}/functions/${req.params.slug}`,
+        headers: req.headers as Record<string, string>,
+        payload: JSON.stringify(req.body),
+      });
+      return reply.status(resp.statusCode).send(resp.json<unknown>());
+    },
+  );
 
-  app.delete<{ Params: { ref: string; slug: string } }>('/platform/projects/:ref/functions/:slug', async (req, reply) => {
-    app.requireAuth(req);
-    const resp = await app.inject({
-      method: 'DELETE',
-      url: `/v1/projects/${req.params.ref}/functions/${req.params.slug}`,
-      headers: req.headers as Record<string, string>,
-    });
-    return reply.status(resp.statusCode).send(resp.json<unknown>() ?? {});
-  });
+  app.delete<{ Params: { ref: string; slug: string } }>(
+    '/platform/projects/:ref/functions/:slug',
+    async (req, reply) => {
+      app.requireAuth(req);
+      const resp = await app.inject({
+        method: 'DELETE',
+        url: `/v1/projects/${req.params.ref}/functions/${req.params.slug}`,
+        headers: req.headers as Record<string, string>,
+      });
+      return reply.status(resp.statusCode).send(resp.json<unknown>() ?? {});
+    },
+  );
 
   // ── Database resource proxies → pg-meta (CRUD for tables, views, functions, etc.) ──
   // Studio's "Database" section calls /platform/projects/:ref/database/<resource>
   // which are NOT served by the /platform/pg-meta/:ref/* wildcard because the path prefix differs.
   // These proxy to the pg-meta service so Studio's schema editor / policy editor / etc. work.
   const DB_PGMETA_RESOURCES = [
-    'roles', 'schemas', 'tables', 'views', 'functions', 'triggers',
-    'indexes', 'policies', 'publications', 'foreign-tables',
-    'materialized-views', 'sequences', 'types',
+    'roles',
+    'schemas',
+    'tables',
+    'views',
+    'functions',
+    'triggers',
+    'indexes',
+    'policies',
+    'publications',
+    'foreign-tables',
+    'materialized-views',
+    'sequences',
+    'types',
   ] as const;
 
-  function pgMetaProxy(ref: string, pgMetaPath: string, method: string, headers: Record<string, string>, body?: unknown) {
+  function pgMetaProxy(
+    ref: string,
+    pgMetaPath: string,
+    method: string,
+    headers: Record<string, string>,
+    body?: unknown,
+  ) {
     return app.inject({
       method: method as 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT',
       url: `/platform/pg-meta/${ref}/${pgMetaPath}`,
@@ -4779,28 +5414,56 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     app.get<RefParams>(`/platform/projects/:ref/database/${resource}`, async (req, reply) => {
       app.requireAuth(req);
       const qs = new URLSearchParams(req.query as Record<string, string>).toString();
-      const resp = await pgMetaProxy(req.params.ref, `${resource}${qs ? '?' + qs : ''}`, 'GET', req.headers as Record<string, string>);
+      const resp = await pgMetaProxy(
+        req.params.ref,
+        `${resource}${qs ? '?' + qs : ''}`,
+        'GET',
+        req.headers as Record<string, string>,
+      );
       return reply.status(resp.statusCode).send(resp.json<unknown>());
     });
 
     app.post<RefParams>(`/platform/projects/:ref/database/${resource}`, async (req, reply) => {
       app.requireAuth(req);
-      const resp = await pgMetaProxy(req.params.ref, resource, 'POST', req.headers as Record<string, string>, req.body);
+      const resp = await pgMetaProxy(
+        req.params.ref,
+        resource,
+        'POST',
+        req.headers as Record<string, string>,
+        req.body,
+      );
       return reply.status(resp.statusCode).send(resp.json<unknown>());
     });
 
-    app.patch<{ Params: { ref: string; id: string } }>(`/platform/projects/:ref/database/${resource}/:id`, async (req, reply) => {
-      app.requireAuth(req);
-      const resp = await pgMetaProxy(req.params.ref, `${resource}/${req.params.id}`, 'PATCH', req.headers as Record<string, string>, req.body);
-      return reply.status(resp.statusCode).send(resp.json<unknown>());
-    });
+    app.patch<{ Params: { ref: string; id: string } }>(
+      `/platform/projects/:ref/database/${resource}/:id`,
+      async (req, reply) => {
+        app.requireAuth(req);
+        const resp = await pgMetaProxy(
+          req.params.ref,
+          `${resource}/${req.params.id}`,
+          'PATCH',
+          req.headers as Record<string, string>,
+          req.body,
+        );
+        return reply.status(resp.statusCode).send(resp.json<unknown>());
+      },
+    );
 
-    app.delete<{ Params: { ref: string; id: string } }>(`/platform/projects/:ref/database/${resource}/:id`, async (req, reply) => {
-      app.requireAuth(req);
-      const qs = new URLSearchParams(req.query as Record<string, string>).toString();
-      const resp = await pgMetaProxy(req.params.ref, `${resource}/${req.params.id}${qs ? '?' + qs : ''}`, 'DELETE', req.headers as Record<string, string>);
-      return reply.status(resp.statusCode).send(resp.json<unknown>());
-    });
+    app.delete<{ Params: { ref: string; id: string } }>(
+      `/platform/projects/:ref/database/${resource}/:id`,
+      async (req, reply) => {
+        app.requireAuth(req);
+        const qs = new URLSearchParams(req.query as Record<string, string>).toString();
+        const resp = await pgMetaProxy(
+          req.params.ref,
+          `${resource}/${req.params.id}${qs ? '?' + qs : ''}`,
+          'DELETE',
+          req.headers as Record<string, string>,
+        );
+        return reply.status(resp.statusCode).send(resp.json<unknown>());
+      },
+    );
   }
 
   // ── SSO write stubs (cloud-only; self-hosted SAML out of scope) ─────────────
@@ -4901,22 +5564,30 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
   );
 
   // ── PrivateLink (cloud VPC networking — not applicable self-hosted) ────────
-  app.get<{ Params: { slug: string } }>('/platform/integrations/private-link/:slug', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.send({ enabled: false, endpoints: [] });
-  });
+  app.get<{ Params: { slug: string } }>(
+    '/platform/integrations/private-link/:slug',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.send({ enabled: false, endpoints: [] });
+    },
+  );
 
-  app.put<{ Params: { slug: string } }>('/platform/integrations/private-link/:slug', async (req, reply) => {
-    app.requireAuth(req);
-    return reply.status(400).send({ message: 'PrivateLink not supported on self-hosted' });
-  });
+  app.put<{ Params: { slug: string } }>(
+    '/platform/integrations/private-link/:slug',
+    async (req, reply) => {
+      app.requireAuth(req);
+      return reply.status(400).send({ message: 'PrivateLink not supported on self-hosted' });
+    },
+  );
 
   // ── Partners integration (marketplace — not applicable self-hosted) ────────
   app.post<{ Params: { ref: string; listing_slug: string } }>(
     '/platform/integrations/partners/:ref/:listing_slug',
     async (req, reply) => {
       app.requireAuth(req);
-      return reply.status(400).send({ message: 'Partner integrations not supported on self-hosted' });
+      return reply
+        .status(400)
+        .send({ message: 'Partner integrations not supported on self-hosted' });
     },
   );
 
@@ -4969,7 +5640,15 @@ export function toStudioProjectStatus(status: string): string {
 }
 
 function buildProject(
-  inst: { ref: string; name: string; status: string; portKong: number; insertedAt: Date | null; updatedAt: Date | null; orgId: string },
+  inst: {
+    ref: string;
+    name: string;
+    status: string;
+    portKong: number;
+    insertedAt: Date | null;
+    updatedAt: Date | null;
+    orgId: string;
+  },
   apex: string,
 ) {
   const kongUrl = apex ? `https://${inst.ref}.${apex}` : `http://localhost:${inst.portKong}`;

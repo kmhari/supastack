@@ -33,7 +33,10 @@ vi.mock('@supastack/db', () => {
     },
   };
 });
-vi.mock('@supastack/crypto', () => ({ decryptJson: () => ({}), loadMasterKey: () => Buffer.alloc(32) }));
+vi.mock('@supastack/crypto', () => ({
+  decryptJson: () => ({}),
+  loadMasterKey: () => Buffer.alloc(32),
+}));
 vi.mock('../../src/services/backups-mgmt-service.js', () => ({
   resolveBackupSeq: vi.fn(),
   initiateRestore: vi.fn(),
@@ -42,7 +45,8 @@ vi.mock('../../src/services/backups-mgmt-service.js', () => ({
   RestoreError: class RestoreError extends Error {},
 }));
 
-const { platformMiscRoutes, toStudioProjectStatus } = await import('../../src/routes/platform-misc.js');
+const { platformMiscRoutes, toStudioProjectStatus } =
+  await import('../../src/routes/platform-misc.js');
 
 type Role = 'owner' | 'administrator' | 'developer' | 'read_only';
 async function buildApp(role: Role = 'owner'): Promise<FastifyInstance> {
@@ -57,7 +61,8 @@ async function buildApp(role: Role = 'owner'): Promise<FastifyInstance> {
 const REF = 'abcdefghijklmnopqrst';
 
 describe('toStudioProjectStatus (#106 — single source of the status mapping)', () => {
-  it('running → ACTIVE_HEALTHY', () => expect(toStudioProjectStatus('running')).toBe('ACTIVE_HEALTHY'));
+  it('running → ACTIVE_HEALTHY', () =>
+    expect(toStudioProjectStatus('running')).toBe('ACTIVE_HEALTHY'));
   it('restoring → RESTORING', () => expect(toStudioProjectStatus('restoring')).toBe('RESTORING'));
   it('paused → PAUSED', () => expect(toStudioProjectStatus('paused')).toBe('PAUSED'));
 });
@@ -70,7 +75,10 @@ describe('GET /platform/projects/:ref/databases-statuses (#106)', () => {
   it('reflects real status — restoring → RESTORING (was a hardcoded ACTIVE_HEALTHY stub)', async () => {
     h.dbRows = [{ status: 'restoring' }];
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/databases-statuses` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/databases-statuses`,
+    });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual([{ identifier: REF, status: 'RESTORING' }]);
     await app.close();
@@ -79,7 +87,10 @@ describe('GET /platform/projects/:ref/databases-statuses (#106)', () => {
   it('running → ACTIVE_HEALTHY', async () => {
     h.dbRows = [{ status: 'running' }];
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/databases-statuses` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/databases-statuses`,
+    });
     expect(res.json()).toEqual([{ identifier: REF, status: 'ACTIVE_HEALTHY' }]);
     await app.close();
   });
@@ -87,7 +98,10 @@ describe('GET /platform/projects/:ref/databases-statuses (#106)', () => {
   it('non-member project → 404 (org-scoped, which the old stub lacked)', async () => {
     h.dbRows = [];
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/projects/${REF}/databases-statuses` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/projects/${REF}/databases-statuses`,
+    });
     expect(res.statusCode).toBe(404);
     await app.close();
   });

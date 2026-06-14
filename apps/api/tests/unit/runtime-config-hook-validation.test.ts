@@ -20,7 +20,9 @@ function expectHookError(merged: Record<string, unknown>, code: string): void {
   } catch (e) {
     thrown = e;
   }
-  expect(thrown, `expected ManagementApiError(${code}) to be thrown`).toBeInstanceOf(ManagementApiError);
+  expect(thrown, `expected ManagementApiError(${code}) to be thrown`).toBeInstanceOf(
+    ManagementApiError,
+  );
   if (thrown instanceof ManagementApiError) {
     expect(thrown.code).toBe(code);
     expect(thrown.statusCode).toBe(400);
@@ -130,10 +132,7 @@ describe('validateHookConfig — enabled-requires-URI guard', () => {
   });
 
   it('rejects enabled=true with undefined URI with hook_uri_required', () => {
-    expectHookError(
-      { hook_password_verification_attempt_enabled: true },
-      'hook_uri_required',
-    );
+    expectHookError({ hook_password_verification_attempt_enabled: true }, 'hook_uri_required');
   });
 
   it('rejects enabled=true with empty string URI with hook_uri_required', () => {
@@ -174,10 +173,7 @@ describe('validateHookConfig — all 7 hook types are validated', () => {
     });
 
     it(`rejects enabled=true without URI for hook_${hookType}`, () => {
-      expectHookError(
-        { [`hook_${hookType}_enabled`]: true },
-        'hook_uri_required',
-      );
+      expectHookError({ [`hook_${hookType}_enabled`]: true }, 'hook_uri_required');
     });
   }
 });

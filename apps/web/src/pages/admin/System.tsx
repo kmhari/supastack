@@ -5,7 +5,10 @@ import { PageHeader, StatusBadge, Empty, Th, Td } from '@/components/admin/Bits'
 
 /** /admin/system — control-plane component health + version. Feature 116 (US2). */
 export function AdminSystem(): React.ReactElement {
-  const { data, isLoading } = useQuery({ queryKey: ['admin', 'system'], queryFn: () => adminApi.system() });
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'system'],
+    queryFn: () => adminApi.system(),
+  });
 
   return (
     <div>

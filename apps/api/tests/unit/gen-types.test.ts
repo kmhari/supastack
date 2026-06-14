@@ -12,7 +12,8 @@ import fp from 'fastify-plugin';
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 const projectStoreMock = vi.hoisted(() => ({
-  getProjectByRef: vi.fn<(userId: string, ref: string) => Promise<Record<string, unknown> | null>>(),
+  getProjectByRef:
+    vi.fn<(userId: string, ref: string) => Promise<Record<string, unknown> | null>>(),
 }));
 
 const genTypesMock = vi.hoisted(() => ({
@@ -51,7 +52,11 @@ async function buildApp(authenticated = true): Promise<FastifyInstance> {
   });
   app.decorate('authorize', () => {});
   const { genTypesRoutes } = await import('../../src/routes/management/gen-types.js');
-  await app.register(fp(async (scope) => { await scope.register(genTypesRoutes); }));
+  await app.register(
+    fp(async (scope) => {
+      await scope.register(genTypesRoutes);
+    }),
+  );
   return app;
 }
 

@@ -127,7 +127,10 @@ describe('GET /platform/oauth/authorizations/:id', () => {
   it('200 — returns the Studio-shaped details (happy)', async () => {
     sessionStoreMock.getAuthSession.mockResolvedValue(SESSION);
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/platform/oauth/authorizations/${SESSION.auth_id}` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/oauth/authorizations/${SESSION.auth_id}`,
+    });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
       name: 'Test MCP',
@@ -154,7 +157,10 @@ describe('GET /platform/oauth/authorizations/:id', () => {
   it('401 — unauthenticated (sad)', async () => {
     sessionStoreMock.getAuthSession.mockResolvedValue(SESSION);
     const app = await buildApp(false);
-    const res = await app.inject({ method: 'GET', url: `/platform/oauth/authorizations/${SESSION.auth_id}` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/platform/oauth/authorizations/${SESSION.auth_id}`,
+    });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -205,9 +211,7 @@ describe('POST /platform/organizations/:slug/oauth/authorizations/:id (approve)'
 
   // ── US2 (T012) — replay protection: approving the same auth_id twice ──────────
   it('replay — first approve 201, second 404 (US2, sad)', async () => {
-    sessionStoreMock.consumeAuthSession
-      .mockResolvedValueOnce(SESSION)
-      .mockResolvedValueOnce(null);
+    sessionStoreMock.consumeAuthSession.mockResolvedValueOnce(SESSION).mockResolvedValueOnce(null);
     const app = await buildApp();
     const first = await app.inject({ method: 'POST', url: `${url}?skip_browser_redirect=true` });
     const second = await app.inject({ method: 'POST', url: `${url}?skip_browser_redirect=true` });

@@ -16,7 +16,9 @@ const INSTALL = join(here, '../../install.sh'); // tests/installer → repo root
 
 function resolveApex(arg: string, env: string, dotenv: string, tty: string): string {
   const script = `eval "$(sed -n '/^resolve_apex() {/,/^}/p' "${INSTALL}")"; resolve_apex "$1" "$2" "$3" "$4"`;
-  return execFileSync('bash', ['-c', script, '_', arg, env, dotenv, tty], { encoding: 'utf8' }).trim();
+  return execFileSync('bash', ['-c', script, '_', arg, env, dotenv, tty], {
+    encoding: 'utf8',
+  }).trim();
 }
 
 describe('resolve_apex — priority order', () => {
