@@ -7,7 +7,7 @@
  * Contract: specs/009-runtime-config-tunables/contracts/postgrest-config.md
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
 import { decryptJson, loadMasterKey } from '@supastack/crypto';
 import { ManagementApiError } from '../../plugins/mgmt-api-errors.js';

@@ -11,7 +11,6 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
-import fp from 'fastify-plugin';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
