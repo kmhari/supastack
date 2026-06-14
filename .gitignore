@@ -93,3 +93,6 @@ apps/web/tests/e2e/.auth/
 specs/
 specs-docs/
 develop/
+
+# Generated docs mirror for GitHub Pages (source of truth is /docs)
+website/docs/

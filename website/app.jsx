@@ -41,6 +41,7 @@ function Footer({ go }) {
               <ul className="mt-3 space-y-2 text-sm">
                 <li><button onClick={() => go('home')} className="focus-ring rounded text-zinc-400 hover:text-white">Home</button></li>
                 <li><button onClick={() => go('features')} className="focus-ring rounded text-zinc-400 hover:text-white">Feature map</button></li>
+                <li><button onClick={() => go('docs')} className="focus-ring rounded text-zinc-400 hover:text-white">Docs</button></li>
               </ul>
             </div>
             <div>
@@ -69,20 +70,22 @@ function Footer({ go }) {
 }
 
 /* ---------- Routing (hash-based, GitHub-Pages safe) ---------- */
-const ROUTES = { '': 'home', '#/': 'home', '#/features': 'features', '#features': 'features' };
-
-function routeFromHash() {
-  const h = window.location.hash;
-  if (ROUTES[h]) return ROUTES[h];
-  if (h.indexOf('features') !== -1) return 'features';
-  return 'home';
+// Returns { name, slug }. Docs carry an optional slug: #/docs/<slug>.
+function parseHash() {
+  const raw = window.location.hash.replace(/^#\/?/, '');
+  if (raw === 'features') return { name: 'features' };
+  if (raw === 'docs') return { name: 'docs' };
+  if (raw.indexOf('docs/') === 0) return { name: 'docs', slug: raw.slice(5) || undefined };
+  return { name: 'home' };
 }
 
 function App() {
-  const [route, setRoute] = useState(routeFromHash());
+  const init = parseHash();
+  const [route, setRoute] = useState(init.name);
+  const [docSlug, setDocSlug] = useState(init.slug);
 
   useEffect(() => {
-    const onHash = () => { setRoute(routeFromHash()); };
+    const onHash = () => { const p = parseHash(); setRoute(p.name); setDocSlug(p.slug); };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -99,10 +102,12 @@ function App() {
     return () => document.removeEventListener('visibilitychange', arm);
   });
 
+  // target: 'home' | 'features' | 'docs' | 'docs/<slug>'
   const go = useCallback((target) => {
-    const hash = target === 'features' ? '#/features' : '#/';
+    const hash = target === 'home' ? '#/' : `#/${target}`;
     if (window.location.hash !== hash) window.location.hash = hash;
-    setRoute(target);
+    setRoute(target.split('/')[0] || 'home');
+    setDocSlug(target.indexOf('docs/') === 0 ? target.slice(5) : undefined);
     // jump to top on route change (not scrollIntoView)
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, []);
@@ -110,7 +115,13 @@ function App() {
   return (
     <div className="min-h-screen">
       <Nav route={route} go={go} />
-      {route === 'features' ? <FeaturesPage go={go} /> : <Landing go={go} />}
+      {route === 'docs' ? (
+        <DocsPage go={go} slug={docSlug} />
+      ) : route === 'features' ? (
+        <FeaturesPage go={go} />
+      ) : (
+        <Landing go={go} />
+      )}
       <Footer go={go} />
     </div>
   );

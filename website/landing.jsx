@@ -63,6 +63,7 @@ function Nav({ route, go }) {
         <nav className="hidden items-center gap-1.5 md:flex">
           {link('Home', 'home')}
           {link('Feature map', 'features')}
+          {link('Docs', 'docs')}
           <a href={REPO} target="_blank" rel="noopener noreferrer"
             className="focus-ring rounded-md px-2 py-1 text-sm text-zinc-400 transition-colors hover:text-white">GitHub</a>
           <Button href={REPO} target="_blank" rel="noopener noreferrer" size="sm" variant="primary" className="ml-2">
@@ -80,6 +81,7 @@ function Nav({ route, go }) {
           <div className="flex flex-col gap-1">
             {link('Home', 'home')}
             {link('Feature map', 'features')}
+            {link('Docs', 'docs')}
             <a href={REPO} target="_blank" rel="noopener noreferrer" className="rounded-md px-2 py-1 text-sm text-zinc-400">GitHub repo</a>
           </div>
         </div>

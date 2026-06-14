@@ -31,6 +31,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Stage docs into the site (copies docs/*.md → website/docs/ + index.json)
+        run: node website/sync-docs.mjs
       - name: Configure Pages
         # enablement:true turns Pages on with this workflow as the source the
         # first time it runs, so no manual Settings -> Pages toggle is needed.
