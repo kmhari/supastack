@@ -1,7 +1,7 @@
 /* Supastack — landing page */
 const REPO = 'https://github.com/kmhari/supastack';
 const ISSUES = 'https://github.com/kmhari/supastack/issues';
-const INSTALL = 'curl -fsSL https://raw.githubusercontent.com/kmhari/supastack/main/install.sh | bash -s -- your-domain.com';
+const INSTALL = 'curl -fsSL https://raw.githubusercontent.com/kmhari/supastack/main/install.sh | bash';
 
 /* ---- The gap: spectrum columns ---- */
 const SPECTRUM = [

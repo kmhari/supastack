@@ -62,10 +62,11 @@ external Postgres access), and a **domain** you control DNS for. Run as a
 sudo-capable non-root user.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/kmhari/supastack/main/install.sh | bash -s -- your-domain.com
+curl -fsSL https://raw.githubusercontent.com/kmhari/supastack/main/install.sh | bash
 ```
 
-(Omit the domain and the installer prompts for it — works even when piped.)
+The installer prompts for your domain (works even when piped). To skip the
+prompt, pass it explicitly: `… | bash -s -- your-domain.com`.
 
 The installer installs Docker if missing, clones the repo, generates all
 secrets into `infra/.env`, pulls the prebuilt platform images from Docker Hub,
