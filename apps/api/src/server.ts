@@ -21,6 +21,7 @@ import { instanceInternalRoutes } from './routes/instance-internal.js';
 import { cliLoginRoutes } from './routes/cli-login.js';
 import { connectCliRoutes } from './routes/connect-cli.js';
 import { healthRoutes } from './routes/health.js';
+import { probeProjectHealth, DEFAULT_HEALTH_SERVICES } from './services/project-health-service.js';
 import { instancesRoutes } from './routes/instances.js';
 import { adminRoutes } from './routes/admin.js';
 import { apiKeysRoutes } from './routes/management/api-keys.js';
@@ -338,9 +339,16 @@ export async function buildApp(): Promise<FastifyInstance> {
     '/v1/projects/:ref/health',
     async (req, reply) => {
       const services = req.query.services
-        ? req.query.services.split(',')
-        : ['auth', 'rest', 'realtime', 'storage', 'db'];
-      return reply.send(services.map((name) => ({ name, status: 'ACTIVE_HEALTHY', error: null })));
+        ? req.query.services
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [...DEFAULT_HEALTH_SERVICES];
+      const result = await probeProjectHealth(req.params.ref, services);
+      if (result.notFound) {
+        return reply.status(404).send({ message: `Project ${req.params.ref} not found` });
+      }
+      return reply.send(result.services);
     },
   );
 
