@@ -1,0 +1,107 @@
+name: Release — build & push images
+
+# Cut a release by pushing a semver tag:
+#   git tag v0.1.0 && git push origin v0.1.0
+# or run manually via the Actions tab (workflow_dispatch) with a version input.
+#
+# Builds the four repo images (api, worker, mcp, web) on native linux/amd64,
+# pushes kmhariharasudhan/supastack-<svc>:<version> + :latest to Docker Hub, then
+# creates the GitHub Release.
+#
+# The push is gated behind the `release` Environment: only DOCKERHUB_TOKEN stored
+# as an *environment* secret there is exposed, and (if you add required reviewers
+# to the environment) the run pauses for approval before any image is pushed.
+#
+# NOTE: studio-platform is NOT built here — its build context is the
+# kmhari/supabase#supastack-studio fork, not this repo. Release it separately.
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build & release (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  NAMESPACE: kmhariharasudhan
+  DOCKERHUB_USERNAME: kmhariharasudhan
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        run: echo "version=${{ github.event.inputs.version || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    runs-on: ubuntu-latest
+    # Gate: secrets live in this Environment; add required reviewers in repo
+    # Settings → Environments → release to pause the run for approval.
+    environment: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { service: api, dockerfile: apps/api/Dockerfile }
+          - { service: worker, dockerfile: apps/worker/Dockerfile }
+          - { service: mcp, dockerfile: apps/mcp/Dockerfile }
+          - { service: web, dockerfile: apps/web/Dockerfile }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build & push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.NAMESPACE }}/supastack-${{ matrix.service }}:${{ needs.version.outputs.version }}
+            ${{ env.NAMESPACE }}/supastack-${{ matrix.service }}:latest
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.version }}
+          name: ${{ needs.version.outputs.version }}
+          generate_release_notes: true
+          body: |
+            ## Images
+
+            Pinned to this release (`SUPASTACK_VERSION=${{ needs.version.outputs.version }}` in `infra/.env`):
+
+            - `kmhariharasudhan/supastack-api:${{ needs.version.outputs.version }}`
+            - `kmhariharasudhan/supastack-worker:${{ needs.version.outputs.version }}`
+            - `kmhariharasudhan/supastack-mcp:${{ needs.version.outputs.version }}`
+            - `kmhariharasudhan/supastack-web:${{ needs.version.outputs.version }}`
+
+            `studio-platform` is released separately from the `kmhari/supabase#supastack-studio` fork.
+
+            ### Deploy
+            ```sh
+            sed -i 's/^SUPASTACK_VERSION=.*/SUPASTACK_VERSION=${{ needs.version.outputs.version }}/' infra/.env
+            docker compose pull api worker mcp web && docker compose up -d
+            ```
