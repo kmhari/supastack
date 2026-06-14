@@ -60,4 +60,13 @@ describe('install.sh — per-project image prewarm', () => {
   it('a failed pull warns but never aborts the install (set -e is active)', () => {
     expect(installSh).toMatch(/docker pull -q "\$img" \|\| warn/);
   });
+
+  it('pulls run in parallel — backgrounded jobs joined by wait, not one-by-one', () => {
+    // The original serial loop spent minutes pulling ~4 GB sequentially on a
+    // fresh VM. Each pull must be backgrounded (`… ; } &`) and the loop joined
+    // with `wait` over the collected PIDs.
+    expect(installSh).toMatch(/docker pull -q "\$img" \|\| warn[^\n]*; \} &/);
+    expect(installSh).toMatch(/pull_pids\+=\("\$!"\)/);
+    expect(installSh).toMatch(/wait "\$\{pull_pids\[@\]\}"/);
+  });
 });

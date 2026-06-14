@@ -329,13 +329,19 @@ INSTANCE_IMAGES=(
   darthsim/imgproxy:v3.30.1
   timberio/vector:0.53.0-alpine
 )
-info "Pulling ${#INSTANCE_IMAGES[@]} per-project Supabase images (needed for project creation)…"
+info "Pulling ${#INSTANCE_IMAGES[@]} per-project Supabase images in parallel (needed for project creation)…"
+pull_pids=()
 i=0
 for img in "${INSTANCE_IMAGES[@]}"; do
   i=$((i + 1))
   info "  [$i/${#INSTANCE_IMAGES[@]}] $img"
-  docker pull -q "$img" || warn "Pull failed for $img — first project creation will retry it"
+  # Each pull runs in the background (like `docker compose pull`). A failed pull
+  # warns but never aborts: set -e doesn't apply to backgrounded jobs, and the
+  # `|| warn` makes every subshell exit 0, so the wait below can't trip errexit.
+  { docker pull -q "$img" || warn "Pull failed for $img — first project creation will retry it"; } &
+  pull_pids+=("$!")
 done
+wait "${pull_pids[@]}" 2>/dev/null || true
 ok "Per-project images ready"
 
 # ─── 7. control-plane stack up ───────────────────────────────────────────────
