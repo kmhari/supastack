@@ -34,13 +34,9 @@ const SNAPSHOT_PATH = path.resolve(
   __dirname,
   '..',
   '..',
-  '..',
-  '..',
-  '..',
-  'specs',
-  '012-cli-login-role',
-  'contracts',
-  'upstream-openapi-snapshot.json',
+  'fixtures',
+  'upstream',
+  'openapi-snapshot-012-cli-login-role.json',
 );
 
 interface OpenApiSnapshot {

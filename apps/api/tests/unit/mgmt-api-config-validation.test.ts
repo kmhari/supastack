@@ -13,7 +13,7 @@ import type { ZodObject, ZodTypeAny } from 'zod';
 
 const snapshotPath = path.resolve(
   __dirname,
-  '../../../../specs/009-runtime-config-tunables/upstream-openapi-snapshot.json',
+  '../fixtures/upstream/openapi-snapshot-009-runtime-config.json',
 );
 const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8'));
 

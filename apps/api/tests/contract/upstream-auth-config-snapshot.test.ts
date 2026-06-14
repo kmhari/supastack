@@ -19,7 +19,7 @@ import { AUTH_CONFIG_FIELD_STATUS } from '../../src/services/env-field-mapper.js
 
 const SNAPSHOT_PATH = resolve(
   __dirname,
-  '../../../../specs/009-runtime-config-tunables/upstream-openapi-snapshot.json',
+  '../fixtures/upstream/openapi-snapshot-009-runtime-config.json',
 );
 
 describe('upstream UpdateAuthConfigBody snapshot ↔ AUTH_CONFIG_FIELD_STATUS', () => {
