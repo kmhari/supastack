@@ -38,12 +38,26 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ['redis-server', '--save', '60', '1', '--loglevel', 'warning']
+    command:
+      [
+        'redis-server',
+        '--requirepass',
+        '${REDIS_PASSWORD}',
+        '--save',
+        '60',
+        '1',
+        '--loglevel',
+        'warning',
+      ]
+    # REDISCLI_AUTH lets the healthcheck authenticate without a -a flag, so the
+    # password never lands in the probe argv or in redis-cli warnings/logs.
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
     volumes:
       - redis-data:/data
     networks: [internal]
     healthcheck:
-      test: ['CMD', 'redis-cli', 'PING']
+      test: ['CMD-SHELL', 'redis-cli PING | grep -q PONG']
       interval: 5s
       timeout: 3s
       retries: 12
@@ -153,7 +167,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SUPASTACK_SERVICE: api
       DATABASE_URL: postgres://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
       MASTER_KEY: ${MASTER_KEY:?MASTER_KEY required}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET required}
       CADDY_ADMIN_URL: http://caddy:2019
@@ -223,7 +237,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SUPASTACK_SERVICE: worker
       DATABASE_URL: postgres://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
       MASTER_KEY: ${MASTER_KEY:?MASTER_KEY required}
       # Feature 117 — single-source apex: the worker reads SUPASTACK_APEX (via
       # getApex) in provision + pooler-reconciler now that installation.apex_domain
@@ -274,7 +288,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SUPASTACK_SERVICE: mcp
       DATABASE_URL: postgres://supastack:${CONTROL_DB_PASSWORD}@db:5432/supastack
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
       MASTER_KEY: ${MASTER_KEY:?MASTER_KEY required}
       SUPASTACK_API_URL: http://api:3001
       SUPASTACK_APEX: ${SUPASTACK_APEX:?SUPASTACK_APEX required}

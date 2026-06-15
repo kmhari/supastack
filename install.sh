@@ -250,6 +250,7 @@ ensure_env SUPASTACK_APEX            "$SUPASTACK_APEX"
 ensure_env SUPAVISOR_API_JWT_SECRET  "$(openssl rand -hex 32)"
 ensure_env SUPAVISOR_SECRET_KEY_BASE "$(openssl rand -hex 32)"
 ensure_env SUPAVISOR_VAULT_ENC_KEY   "$(openssl rand -hex 32)"
+ensure_env REDIS_PASSWORD            "$(openssl rand -hex 32)"
 
 # GOTRUE_JWT_SECRET — derived from the MASTER_KEY now in .env.
 if ! grep -q '^GOTRUE_JWT_SECRET=' "$ENV_FILE" 2>/dev/null; then
