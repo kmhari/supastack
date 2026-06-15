@@ -60,14 +60,18 @@ afterAll(() => new Promise<void>((resolve) => fakeServer.close(() => resolve()))
 vi.mock('../../src/services/platform-proxy-helpers.js', async (importOriginal) => {
   const real =
     await importOriginal<typeof import('../../src/services/platform-proxy-helpers.js')>();
+  const inst = {
+    portKong: 0,
+    serviceRoleKey: 'test-srk',
+    dashboardPassword: 'test-dp',
+    logflarePrivateAccessToken: 'test-lpat',
+  };
   return {
     ...real,
-    resolveInstance: vi.fn().mockResolvedValue({
-      portKong: 0,
-      serviceRoleKey: 'test-srk',
-      dashboardPassword: 'test-dp',
-      logflarePrivateAccessToken: 'test-lpat',
-    }),
+    resolveInstance: vi.fn().mockResolvedValue(inst),
+    // SEC-001: the proxy now resolves via the org-scoped chokepoint. This test
+    // isn't exercising authz, so return the same instance.
+    authorizeAndResolveInstance: vi.fn().mockResolvedValue(inst),
   };
 });
 

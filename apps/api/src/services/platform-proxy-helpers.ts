@@ -1,6 +1,8 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
 import { decryptJson, loadMasterKey } from '@supastack/crypto';
+import { can, errors, type Action, type Role } from '@supastack/shared';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { InstanceSecrets } from './instance-secrets.js';
 
 export class ProxyProjectNotFoundError extends Error {
@@ -38,6 +40,57 @@ export interface InstanceProxy {
 export async function resolveKongPort(ref: string): Promise<number> {
   const info = await resolveInstance(ref);
   return info.portKong;
+}
+
+/**
+ * Org-scoped resolve for the platform proxy (closes SEC-001 — cross-tenant IDOR).
+ *
+ * Resolves the project JOINED to the caller's org membership, so:
+ *   - an unknown ref OR a ref in an org the caller doesn't belong to →
+ *     ProxyProjectNotFoundError (handlers map to 404 — no existence leak);
+ *   - a member whose role lacks `action` → forbidden (→ 403);
+ *   - only then is the service-role key decrypted and returned.
+ *
+ * Every proxy handler MUST go through this, never the unauthenticated
+ * `resolveInstance`, so an arbitrary ref can't reach another org's data plane.
+ */
+export async function authorizeAndResolveInstance(
+  app: FastifyInstance,
+  req: FastifyRequest,
+  action: Action,
+  ref: string,
+): Promise<InstanceProxy> {
+  const user = app.requireAuth(req);
+  const [row] = await db()
+    .select({
+      portKong: schema.supabaseInstances.portKong,
+      status: schema.supabaseInstances.status,
+      encryptedSecrets: schema.supabaseInstances.encryptedSecrets,
+      role: schema.organizationMembers.role,
+    })
+    .from(schema.supabaseInstances)
+    .innerJoin(
+      schema.organizationMembers,
+      eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
+    )
+    .where(
+      and(eq(schema.supabaseInstances.ref, ref), eq(schema.organizationMembers.userId, user.id)),
+    )
+    .limit(1);
+
+  if (!row) throw new ProxyProjectNotFoundError(ref); // unknown ref OR not a member
+  if (!can(row.role as Role, action)) {
+    throw errors.forbidden(`role '${row.role}' is not allowed to '${action}'`);
+  }
+  if (UNAVAILABLE_STATUSES.has(row.status)) throw new ProxyProjectPausedError(ref);
+
+  const secrets = decryptJson(row.encryptedSecrets, loadMasterKey()) as InstanceSecrets;
+  return {
+    portKong: row.portKong,
+    dashboardPassword: secrets.dashboardPassword,
+    serviceRoleKey: secrets.serviceRoleKey,
+    logflarePrivateAccessToken: secrets.logflarePrivateAccessToken,
+  };
 }
 
 export async function resolveInstance(ref: string): Promise<InstanceProxy> {

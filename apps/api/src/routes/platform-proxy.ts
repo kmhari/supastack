@@ -1,11 +1,41 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
+import type { Action } from '@supastack/shared';
 import {
-  resolveInstance,
+  authorizeAndResolveInstance,
   proxyToKong,
+  type InstanceProxy,
   ProxyProjectNotFoundError,
   ProxyProjectPausedError,
   ProxyUpstreamError,
 } from '../services/platform-proxy-helpers.js';
+
+// Org-scoped resolve for the inline proxy handlers (SEC-001). Returns the
+// instance, or sends the right error reply and returns null. Reads use
+// `instance.read`; mutations use the passed `writeAction`. A non-member gets 404
+// (no existence leak); an under-privileged member gets 403 (thrown → global).
+async function resolveOrReply(
+  app: Parameters<FastifyPluginAsync>[0],
+  req: FastifyRequest,
+  reply: FastifyReply,
+  writeAction: Action,
+  ref: string,
+): Promise<InstanceProxy | null> {
+  const action: Action =
+    req.method === 'GET' || req.method === 'HEAD' ? 'instance.read' : writeAction;
+  try {
+    return await authorizeAndResolveInstance(app, req, action, ref);
+  } catch (err) {
+    if (err instanceof ProxyProjectNotFoundError) {
+      reply.status(404).send({ error: 'Project not found' });
+      return null;
+    }
+    if (err instanceof ProxyProjectPausedError) {
+      reply.status(503).send({ error: 'Project is paused' });
+      return null;
+    }
+    throw err; // forbidden (403) + unexpected → global error formatter
+  }
+}
 
 // Forward the request body to Kong. By the time the handler runs, Fastify has
 // already parsed the body (default JSON parser → object; server.ts buffer
@@ -189,24 +219,13 @@ async function handleProxy(
   reply: FastifyReply,
   upstreamPrefix: string,
   pathSuffix: string,
-  kongAuth?: 'apikey' | 'bearer',
+  kongAuth: 'apikey' | 'bearer' | undefined,
+  writeAction: Action,
 ): Promise<void> {
-  app.requireAuth(req);
-
   const { ref } = req.params;
 
-  let instance: Awaited<ReturnType<typeof resolveInstance>>;
-  try {
-    instance = await resolveInstance(ref);
-  } catch (err) {
-    if (err instanceof ProxyProjectNotFoundError) {
-      return reply.status(404).send({ error: 'Project not found' });
-    }
-    if (err instanceof ProxyProjectPausedError) {
-      return reply.status(503).send({ error: 'Project is paused' });
-    }
-    throw err;
-  }
+  const instance = await resolveOrReply(app, req, reply, writeAction, ref);
+  if (!instance) return; // 404/503 already sent
 
   const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
   const upstreamPath = `${upstreamPrefix}${pathSuffix}${qs}`;
@@ -260,6 +279,7 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
         '/pg/',
         (req.params as { ref: string; '*': string })['*'],
         'apikey',
+        'database.write', // pg-meta = SQL/DDL on writes; reads downgrade to instance.read
       ),
   });
 
@@ -271,10 +291,9 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Params: { ref: string; bucket: string } }>(
     '/platform/storage/:ref/buckets/:bucket/objects/public-url',
     async (req, reply) => {
-      app.requireAuth(req);
       const { ref, bucket } = req.params;
-      const inst = await resolveInstance(ref).catch(() => null);
-      if (!inst) return reply.status(404).send({ error: 'Project not found' });
+      const inst = await resolveOrReply(app, req, reply, 'instance.read', ref);
+      if (!inst) return;
 
       const body = req.body as Record<string, unknown> | null | undefined;
       const objectPath =
@@ -315,10 +334,9 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
     method: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     url: '/platform/storage/:ref/*',
     handler: async (req, reply) => {
-      app.requireAuth(req);
       const ref = req.params.ref;
-      const inst = await resolveInstance(ref).catch(() => null);
-      if (!inst) return reply.status(404).send({ error: 'Project not found' });
+      const inst = await resolveOrReply(app, req, reply, 'instance.update', ref);
+      if (!inst) return;
 
       const suffix = (req.params as { ref: string; '*': string })['*'];
       const upstreamSuffix = rewriteStoragePath(suffix);
@@ -375,19 +393,20 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
         '/auth/v1/admin/users',
         suffix,
         'apikey',
+        'instance.update', // GoTrue admin user CRUD = developer+; reads downgrade to instance.read
       );
     },
   });
 
   // Invite → POST /auth/v1/admin/users
   app.post<{ Params: { ref: string } }>('/platform/auth/:ref/invite', (req, reply) =>
-    handleProxy(app, req, reply, '/auth/v1/admin/users', '', 'apikey'),
+    handleProxy(app, req, reply, '/auth/v1/admin/users', '', 'apikey', 'instance.update'),
   );
 
   // Magic link / OTP / recover → generate_link
   for (const endpoint of ['magiclink', 'otp', 'recover'] as const) {
     app.post<{ Params: { ref: string } }>(`/platform/auth/:ref/${endpoint}`, (req, reply) =>
-      handleProxy(app, req, reply, '/auth/v1/admin/generate_link', '', 'apikey'),
+      handleProxy(app, req, reply, '/auth/v1/admin/generate_link', '', 'apikey', 'instance.update'),
     );
   }
 
@@ -403,9 +422,8 @@ export const platformProxyRoutes: FastifyPluginAsync = async (app) => {
     method: ['GET', 'POST'],
     url: '/platform/projects/:ref/analytics/*',
     handler: async (req, reply) => {
-      app.requireAuth(req);
-      const inst = await resolveInstance(req.params.ref).catch(() => null);
-      if (!inst) return reply.status(404).send({ error: 'Project not found' });
+      const inst = await resolveOrReply(app, req, reply, 'instance.read', req.params.ref);
+      if (!inst) return;
 
       const suffix = (req.params as { ref: string; '*': string })['*'];
       const upstreamSuffix = rewriteAnalyticsPath(suffix);

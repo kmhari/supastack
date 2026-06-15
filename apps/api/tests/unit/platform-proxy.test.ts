@@ -3,39 +3,63 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
-const proxyHelpersMock = vi.hoisted(() => ({
-  resolveInstance: vi.fn<(ref: string) => Promise<{ portKong: number }>>(),
-  proxyToKong:
-    vi.fn<
+const proxyHelpersMock = vi.hoisted(() => {
+  const resolveInstance = vi.fn<
+    (ref: string) => Promise<{
+      portKong: number;
+      serviceRoleKey?: string;
+      dashboardPassword?: string;
+      logflarePrivateAccessToken?: string;
+    }>
+  >();
+  return {
+    resolveInstance,
+    // The proxy now goes through the org-scoped chokepoint (SEC-001). Delegate to
+    // the resolveInstance mock so existing setups drive it, but keep the auth gate
+    // so the "401 when not authenticated" test still exercises requireAuth.
+    authorizeAndResolveInstance: vi.fn(
       (
-        port: number,
-        path: string,
-        method: string,
-        headers: Record<string, string | string[] | undefined>,
-        body: Buffer | null,
-      ) => Promise<{ status: number; headers: Record<string, string>; body: Buffer }>
-    >(),
-  ProxyProjectNotFoundError: class ProxyProjectNotFoundError extends Error {
-    code = 'proxy_project_not_found' as const;
-    constructor(ref: string) {
-      super(`Project ${ref} not found`);
-    }
-  },
-  ProxyProjectPausedError: class ProxyProjectPausedError extends Error {
-    code = 'proxy_project_paused' as const;
-    constructor(ref: string) {
-      super(`Project ${ref} is paused`);
-    }
-  },
-  ProxyUpstreamError: class ProxyUpstreamError extends Error {
-    code = 'proxy_upstream_error' as const;
-    status: number;
-    constructor(message: string, status = 502) {
-      super(message);
-      this.status = status;
-    }
-  },
-}));
+        app: { requireAuth: (r: unknown) => unknown },
+        req: unknown,
+        _action: unknown,
+        ref: string,
+      ) => {
+        app.requireAuth(req);
+        return resolveInstance(ref);
+      },
+    ),
+    proxyToKong:
+      vi.fn<
+        (
+          port: number,
+          path: string,
+          method: string,
+          headers: Record<string, string | string[] | undefined>,
+          body: Buffer | null,
+        ) => Promise<{ status: number; headers: Record<string, string>; body: Buffer }>
+      >(),
+    ProxyProjectNotFoundError: class ProxyProjectNotFoundError extends Error {
+      code = 'proxy_project_not_found' as const;
+      constructor(ref: string) {
+        super(`Project ${ref} not found`);
+      }
+    },
+    ProxyProjectPausedError: class ProxyProjectPausedError extends Error {
+      code = 'proxy_project_paused' as const;
+      constructor(ref: string) {
+        super(`Project ${ref} is paused`);
+      }
+    },
+    ProxyUpstreamError: class ProxyUpstreamError extends Error {
+      code = 'proxy_upstream_error' as const;
+      status: number;
+      constructor(message: string, status = 502) {
+        super(message);
+        this.status = status;
+      }
+    },
+  };
+});
 
 vi.mock('../../src/services/platform-proxy-helpers.js', () => proxyHelpersMock);
 
