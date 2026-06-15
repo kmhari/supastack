@@ -51,6 +51,7 @@ export const migrationsRoutes: FastifyPluginAsync = async (app) => {
     const proj = await getProjectByRef(user.id, req.params.ref);
     if (!proj)
       throw new ManagementApiError(404, 'Project not found', 'not_found', { ref: req.params.ref });
+    await app.authorizeOrg(req, 'instance.read', proj.orgId); // SEC-003
     try {
       const migrations = await listMigrations(req.params.ref);
       return { migrations };
@@ -68,6 +69,7 @@ export const migrationsRoutes: FastifyPluginAsync = async (app) => {
         throw new ManagementApiError(404, 'Project not found', 'not_found', {
           ref: req.params.ref,
         });
+      await app.authorizeOrg(req, 'database.write', proj.orgId); // SEC-003
       const parsed = UpsertBody.safeParse(req.body);
       if (!parsed.success) {
         const versionIssue = parsed.error.issues.find((i) => i.path[0] === 'version');
@@ -96,6 +98,7 @@ export const migrationsRoutes: FastifyPluginAsync = async (app) => {
         throw new ManagementApiError(404, 'Project not found', 'not_found', {
           ref: req.params.ref,
         });
+      await app.authorizeOrg(req, 'database.write', proj.orgId); // SEC-003
       const versionParse = VersionSchema.safeParse(req.params.version);
       if (!versionParse.success) {
         throw new ManagementApiError(

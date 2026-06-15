@@ -68,6 +68,7 @@ async function buildApp(authenticated = true): Promise<FastifyInstance> {
     return { id: 'user-1', email: 'test@example.com', role: 'owner' as const };
   });
   app.decorate('authorize', () => {});
+  app.decorate('authorizeOrg', async () => 'owner' as const); // SEC-003: org-scoped gate
   const { migrationsRoutes } = await import('../../src/routes/management/migrations.js');
   await app.register(
     fp(async (scope) => {
