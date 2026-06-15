@@ -55,8 +55,17 @@ REPO_REF="${REPO_REF:-main}"
 # pull = prebuilt images from Docker Hub (default); build = compile from source.
 INSTALL_MODE="${INSTALL_MODE:-pull}"
 case "$INSTALL_MODE" in pull|build) ;; *) die "INSTALL_MODE must be 'pull' or 'build' (got '$INSTALL_MODE')" ;; esac
+# Pinned default image tag (SEC-010). Bump this to the new release tag (vX.Y.Z)
+# when cutting a release, so a fresh `curl | bash` install pulls an immutable
+# release rather than the moving `latest` pointer — a mutable tag with no digest
+# is a silent-RCE supply-chain vector. Until the first security-fixed release is
+# cut this stays `latest` with the loud warning below.
+SUPASTACK_DEFAULT_VERSION="latest"
 if [[ "$INSTALL_MODE" == "pull" ]]; then
-  SUPASTACK_VERSION="${SUPASTACK_VERSION:-latest}"
+  SUPASTACK_VERSION="${SUPASTACK_VERSION:-$SUPASTACK_DEFAULT_VERSION}"
+  if [[ "$SUPASTACK_VERSION" == "latest" ]]; then
+    warn "Pulling the mutable 'latest' tag (no digest pin). For production, pin a release: SUPASTACK_VERSION=vX.Y.Z (see github.com/kmhari/supastack/releases)."
+  fi
 else
   SUPASTACK_VERSION="${SUPASTACK_VERSION:-dev}"
 fi

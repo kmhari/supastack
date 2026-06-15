@@ -51,6 +51,12 @@ export class S3Store implements BackupStore {
         Key: key,
         Body: stream,
         ContentType: 'application/octet-stream',
+        // SEC-004: encrypt backups at rest (SSE-S3, AWS-managed keys). pg_dump
+        // output contains every project's table + auth data; without this a
+        // bucket read (leaked/over-broad policy) yields it all in cleartext.
+        // SSE-S3 (AES256) is supported by S3, MinIO, R2 and B2 alike and is
+        // transparent on GET, so restore is unchanged.
+        ServerSideEncryption: 'AES256',
       },
     });
     await upload.done();
