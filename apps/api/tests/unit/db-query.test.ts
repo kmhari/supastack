@@ -74,6 +74,10 @@ async function buildApp(
       throw new AppError(403, 'forbidden', 'admin role required');
     }
   });
+  app.decorate('authorizeOrg', async () => {
+    if (opts.authorizeThrows) throw new AppError(403, 'forbidden', 'admin role required');
+    return 'owner' as const;
+  });
 
   await app.register(
     async (mgmt) => {

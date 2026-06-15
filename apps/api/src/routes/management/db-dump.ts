@@ -32,12 +32,12 @@ export const dbDumpRoutes: FastifyPluginAsync = async (app) => {
       const ref = req.params.ref;
       const startedAt = Date.now();
       const user = app.requireAuth(req);
-      app.authorize(req, 'database.write');
 
       const proj = await getProjectByRef(user.id, ref);
       if (!proj) {
         throw new ManagementApiError(404, 'Project not found', 'not_found', { ref });
       }
+      await app.authorizeOrg(req, 'database.write', proj.orgId); // SEC-002
 
       const parsed = DbDumpBodySchema.safeParse(req.body ?? {});
       if (!parsed.success) {

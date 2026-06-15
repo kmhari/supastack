@@ -49,6 +49,15 @@ async function buildApp(role: 'owner' | 'developer' | null = 'owner'): Promise<F
       throw err;
     }
   });
+  app.decorate('authorizeOrg', async function authorizeOrg(_req: FastifyRequest, action: string) {
+    if (role === 'developer' && action === 'data_api_config.write') {
+      const err = new Error('Forbidden') as Error & { statusCode: number; code: string };
+      err.statusCode = 403;
+      err.code = 'forbidden';
+      throw err;
+    }
+    return role;
+  });
 
   const { realtimeConfigRoutes } = await import('../../src/routes/management/realtime-config.js');
   // Register inside a scoped plugin so encapsulation mirrors how server.ts

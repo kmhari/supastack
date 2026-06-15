@@ -40,6 +40,7 @@ async function buildApp(authenticated = true): Promise<FastifyInstance> {
     return { id: 'user-1', email: 'test@example.com', role: 'owner' as const };
   });
   app.decorate('authorize', function authorize() {});
+  app.decorate('authorizeOrg', async () => 'owner' as const);
 
   const { pgbouncerConfigRoutes } = await import('../../src/routes/management/pgbouncer-config.js');
   await app.register(

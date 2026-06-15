@@ -64,20 +64,7 @@ export const dbQueryRoutes: FastifyPluginAsync = async (app) => {
         }).catch((err) => req.log.warn({ err, ref }, 'db-query audit emit failed'));
       };
 
-      // ─── RBAC ───────────────────────────────────────────────────────────
-      try {
-        app.authorize(req, 'database.write');
-      } catch (err) {
-        emit({
-          kind: 'failure',
-          errorCode: 'forbidden',
-          errorMessage: 'admin role required',
-          durationMs: Date.now() - startedAt,
-        });
-        throw err;
-      }
-
-      // ─── Project visibility ─────────────────────────────────────────────
+      // ─── Project visibility (resolve org before RBAC — SEC-002) ──────────
       const proj = await getProjectByRef(user.id, ref);
       if (!proj) {
         emit({
@@ -87,6 +74,19 @@ export const dbQueryRoutes: FastifyPluginAsync = async (app) => {
           durationMs: Date.now() - startedAt,
         });
         throw new ManagementApiError(404, 'Project not found', 'not_found', { ref });
+      }
+
+      // ─── RBAC (org-scoped) ───────────────────────────────────────────────
+      try {
+        await app.authorizeOrg(req, 'database.write', proj.orgId);
+      } catch (err) {
+        emit({
+          kind: 'failure',
+          errorCode: 'forbidden',
+          errorMessage: 'admin role required',
+          durationMs: Date.now() - startedAt,
+        });
+        throw err;
       }
 
       // ─── Body validation ────────────────────────────────────────────────

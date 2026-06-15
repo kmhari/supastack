@@ -53,13 +53,13 @@ export const authConfigRoutes: FastifyPluginAsync = async (app) => {
     '/projects/:ref/config/auth',
     async (req) => {
       const user = app.requireAuth(req);
-      app.authorize(req, 'auth_config.write');
       const inst = await getProjectByRef(user.id, req.params.ref);
       if (!inst) {
         throw new ManagementApiError(404, 'Project not found', 'not_found', {
           ref: req.params.ref,
         });
       }
+      await app.authorizeOrg(req, 'auth_config.write', inst.orgId); // SEC-002
       if (inst.status !== 'running') {
         throw new ManagementApiError(
           409,

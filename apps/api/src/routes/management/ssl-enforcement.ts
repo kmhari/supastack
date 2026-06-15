@@ -28,9 +28,9 @@ export const sslEnforcementRoutes: FastifyPluginAsync = async (app) => {
     '/projects/:ref/ssl-enforcement',
     async (req) => {
       const user = app.requireAuth(req);
-      app.authorize(req, 'database_config.write');
       const inst = await getProjectByRef(user.id, req.params.ref);
       if (!inst) throw new ManagementApiError(404, 'Project not found', 'not_found', {});
+      await app.authorizeOrg(req, 'database_config.write', inst.orgId); // SEC-002
 
       const parsed = SslEnforcementRequestSchema.safeParse(req.body);
       if (!parsed.success) {

@@ -67,6 +67,7 @@ async function buildApp(authenticated = true): Promise<FastifyInstance> {
     return { id: 'user-1', email: 'test@example.com', role: 'owner' as const };
   });
   app.decorate('authorize', () => {});
+  app.decorate('authorizeOrg', async () => 'owner' as const);
   const { postgrestConfigRoutes } = await import('../../src/routes/management/postgrest-config.js');
   await app.register(
     fp(async (scope) => {

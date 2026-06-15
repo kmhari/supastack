@@ -61,7 +61,6 @@ export const cliLoginRoleRoutes: FastifyPluginAsync = async (app) => {
     '/projects/:ref/cli/login-role',
     async (req, reply) => {
       const user = app.requireAuth(req);
-      app.authorize(req, 'database.create-login-role');
 
       // Project visibility check FIRST (mirrors migrations.ts and the
       // existing convention). A PAT that can't see this project gets a
@@ -71,6 +70,7 @@ export const cliLoginRoleRoutes: FastifyPluginAsync = async (app) => {
       if (!proj) {
         throw new ManagementApiError(404, 'Project not found', 'not_found', { ref });
       }
+      await app.authorizeOrg(req, 'database.create-login-role', proj.orgId); // SEC-002
 
       // Body validation.
       const parsed = CreateLoginRoleBody.safeParse(req.body);
@@ -148,13 +148,13 @@ export const cliLoginRoleRoutes: FastifyPluginAsync = async (app) => {
   // ─── DELETE: invalidate active passwords on both CLI roles ────────────────
   app.delete<{ Params: { ref: string } }>('/projects/:ref/cli/login-role', async (req, reply) => {
     const user = app.requireAuth(req);
-    app.authorize(req, 'database.create-login-role');
 
     const ref = req.params.ref;
     const proj = await getProjectByRef(user.id, ref);
     if (!proj) {
       throw new ManagementApiError(404, 'Project not found', 'not_found', { ref });
     }
+    await app.authorizeOrg(req, 'database.create-login-role', proj.orgId); // SEC-002
 
     // DELETE does NOT consume the rate-limit bucket (spec Q3, FR-010 —
     // the bucket gates the create endpoint only, so lockdown is always

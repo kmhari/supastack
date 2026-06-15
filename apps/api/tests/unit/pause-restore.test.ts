@@ -87,6 +87,10 @@ async function buildApp(opts: { authorizeThrows?: boolean } = {}): Promise<Fasti
   app.decorate('authorize', () => {
     if (opts.authorizeThrows) throw new AppError(403, 'forbidden', 'admin required');
   });
+  app.decorate('authorizeOrg', async () => {
+    if (opts.authorizeThrows) throw new AppError(403, 'forbidden', 'admin required');
+    return 'owner' as const;
+  });
   await app.register(
     async (mgmt) => {
       await mgmt.register(mgmtApiErrorsPlugin);

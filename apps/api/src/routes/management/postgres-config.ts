@@ -24,9 +24,9 @@ export const postgresConfigRoutes: FastifyPluginAsync = async (app) => {
     req: import('fastify').FastifyRequest<{ Params: { ref: string }; Body: unknown }>,
   ) => {
     const user = app.requireAuth(req);
-    app.authorize(req, 'database_config.write');
     const inst = await getProjectByRef(user.id, req.params.ref);
     if (!inst) throw new ManagementApiError(404, 'Project not found', 'not_found', {});
+    await app.authorizeOrg(req, 'database_config.write', inst.orgId); // SEC-002: org-scoped role
     return putPostgresConfig(req.params.ref, req.body, { userId: user.id });
   };
 

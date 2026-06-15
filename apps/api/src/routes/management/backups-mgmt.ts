@@ -59,11 +59,11 @@ export const backupsMgmtRoutes: FastifyPluginAsync = async (app) => {
     '/projects/:ref/database/backups/restore-pitr',
     async (req, reply) => {
       const user = app.requireAuth(req);
-      app.authorize(req, 'backup.restore');
 
       const ref = req.params.ref;
       const proj = await getProjectByRef(user.id, ref);
       if (!proj) throw new ManagementApiError(404, 'Project not found', 'not_found', { ref });
+      await app.authorizeOrg(req, 'backup.restore', proj.orgId); // SEC-002
       if (proj.status === 'paused') {
         throw new ManagementApiError(
           409,

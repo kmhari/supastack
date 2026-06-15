@@ -39,13 +39,13 @@ export const pauseRestoreRoutes: FastifyPluginAsync = async (app) => {
   // POST /v1/projects/:ref/pause
   app.post<{ Params: { ref: string } }>('/projects/:ref/pause', async (req, reply) => {
     const user = app.requireAuth(req);
-    app.authorize(req, 'instance.pause');
 
     const ref = req.params.ref;
     const proj = await getProjectByRef(user.id, ref);
     if (!proj) {
       throw new ManagementApiError(404, 'Project not found', 'not_found', { ref });
     }
+    await app.authorizeOrg(req, 'instance.pause', proj.orgId); // SEC-002
 
     // Refuse if a backup is currently running for this project (per spec edge case)
     const runningBackup = await db()
@@ -107,13 +107,13 @@ export const pauseRestoreRoutes: FastifyPluginAsync = async (app) => {
   // POST /v1/projects/:ref/restore
   app.post<{ Params: { ref: string } }>('/projects/:ref/restore', async (req, reply) => {
     const user = app.requireAuth(req);
-    app.authorize(req, 'instance.resume');
 
     const ref = req.params.ref;
     const proj = await getProjectByRef(user.id, ref);
     if (!proj) {
       throw new ManagementApiError(404, 'Project not found', 'not_found', { ref });
     }
+    await app.authorizeOrg(req, 'instance.resume', proj.orgId); // SEC-002
 
     // Idempotent: already-running/provisioning → no-op
     if (proj.status === 'running' || proj.status === 'provisioning') {

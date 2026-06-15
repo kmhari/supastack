@@ -39,13 +39,13 @@ export const postgrestConfigRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch<{ Params: { ref: string }; Body: unknown }>('/projects/:ref/postgrest', async (req) => {
     const user = app.requireAuth(req);
-    app.authorize(req, 'data_api_config.write');
     const inst = await getProjectByRef(user.id, req.params.ref);
     if (!inst) {
       throw new ManagementApiError(404, 'Project not found', 'not_found', {
         ref: req.params.ref,
       });
     }
+    await app.authorizeOrg(req, 'data_api_config.write', inst.orgId); // SEC-002
     if (inst.status !== 'running') {
       throw new ManagementApiError(
         409,
