@@ -21,8 +21,8 @@
 #   INSTALL_MODE     pull (default) — pull prebuilt platform images from Docker
 #                    Hub, no source builds; build — build images from this
 #                    checkout (development / hacking on supastack itself).
-#   SUPASTACK_VERSION image tag: pull mode defaults to 'latest' (pin a git sha
-#                    for production); build mode defaults to 'dev'.
+#   SUPASTACK_VERSION image tag: pull mode defaults to the pinned release
+#                    (SUPASTACK_DEFAULT_VERSION below); build mode defaults to 'dev'.
 #   LOG_LEVEL        pino log level for api+worker (default: info)
 #   SUPASTACK_SKIP_UP set to 1 to stop after config generation (CI / testing).
 set -Eeuo pipefail
@@ -60,7 +60,7 @@ case "$INSTALL_MODE" in pull|build) ;; *) die "INSTALL_MODE must be 'pull' or 'b
 # release rather than the moving `latest` pointer — a mutable tag with no digest
 # is a silent-RCE supply-chain vector. Pinned to the first security-fixed release;
 # `latest` still triggers the loud warning below if forced via SUPASTACK_VERSION.
-SUPASTACK_DEFAULT_VERSION="v0.2.0"
+SUPASTACK_DEFAULT_VERSION="v0.2.1"
 if [[ "$INSTALL_MODE" == "pull" ]]; then
   SUPASTACK_VERSION="${SUPASTACK_VERSION:-$SUPASTACK_DEFAULT_VERSION}"
   if [[ "$SUPASTACK_VERSION" == "latest" ]]; then
