@@ -58,9 +58,9 @@ case "$INSTALL_MODE" in pull|build) ;; *) die "INSTALL_MODE must be 'pull' or 'b
 # Pinned default image tag (SEC-010). Bump this to the new release tag (vX.Y.Z)
 # when cutting a release, so a fresh `curl | bash` install pulls an immutable
 # release rather than the moving `latest` pointer — a mutable tag with no digest
-# is a silent-RCE supply-chain vector. Until the first security-fixed release is
-# cut this stays `latest` with the loud warning below.
-SUPASTACK_DEFAULT_VERSION="latest"
+# is a silent-RCE supply-chain vector. Pinned to the first security-fixed release;
+# `latest` still triggers the loud warning below if forced via SUPASTACK_VERSION.
+SUPASTACK_DEFAULT_VERSION="v0.2.0"
 if [[ "$INSTALL_MODE" == "pull" ]]; then
   SUPASTACK_VERSION="${SUPASTACK_VERSION:-$SUPASTACK_DEFAULT_VERSION}"
   if [[ "$SUPASTACK_VERSION" == "latest" ]]; then
