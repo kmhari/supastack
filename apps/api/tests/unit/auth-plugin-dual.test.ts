@@ -137,11 +137,14 @@ const { authPlugin, sha256 } = await import('../../src/plugins/auth.js');
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify();
   await app.register(authPlugin);
-  // Probe route
-  app.get('/probe', async (req, reply) => {
+  // Probe routes. `/probe` is a first-party surface (refuses OAuth per US1);
+  // `/v1/probe` is the third-party-allowed Management surface (accepts OAuth).
+  const handler = async (req: any, reply: any) => {
     if (!req.user) return reply.status(401).send({ ok: false });
     return { ok: true, user: req.user };
-  });
+  };
+  app.get('/probe', handler);
+  app.get('/v1/probe', handler);
   return app;
 }
 
@@ -186,14 +189,14 @@ describe('auth plugin — dual-credential', () => {
     expect(res.json().user.tokenId).toBe('tok-1');
   });
 
-  it('valid OAuth JWT resolves user (no tokenId; oauthClientId+jti set)', async () => {
+  it('valid OAuth JWT resolves user on /v1 (no tokenId; oauthClientId+jti set)', async () => {
     const app = await buildApp();
     const { token, jti } = mintToken();
     _lastLookupKind = 'oauth';
     _lastSub = 'user-active';
     const res = await app.inject({
       method: 'GET',
-      url: '/probe',
+      url: '/v1/probe',
       headers: { authorization: `Bearer ${token}` },
     });
     expect(res.statusCode).toBe(200);
@@ -202,6 +205,20 @@ describe('auth plugin — dual-credential', () => {
     expect(user.tokenId).toBeUndefined();
     expect(user.oauthClientId).toBe('00000000-0000-0000-0000-000000000099');
     expect(user.oauthJti).toBe(jti);
+  });
+
+  it('valid OAuth JWT REFUSED on first-party surface → 401 (US1 / SEC-042)', async () => {
+    const app = await buildApp();
+    const { token } = mintToken();
+    _lastLookupKind = 'oauth';
+    _lastSub = 'user-active';
+    // Same token that resolves on /v1/probe is refused on /probe (first-party).
+    const res = await app.inject({
+      method: 'GET',
+      url: '/probe',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(401);
   });
 
   it('revoked JWT (jti in Redis) → 401', async () => {
@@ -263,10 +280,11 @@ describe('auth plugin — dual-credential', () => {
     const { token } = mintToken({ sub: 'user-removed' });
     _lastLookupKind = 'oauth';
     _lastSub = 'user-removed';
-    // user-removed not in userStore → org_members join returns []
+    // user-removed not in userStore → org_members join returns []. Use /v1 so
+    // the 401 proves the removed-user path, not the US1 surface refusal.
     const res = await app.inject({
       method: 'GET',
-      url: '/probe',
+      url: '/v1/probe',
       headers: { authorization: `Bearer ${token}` },
     });
     expect(res.statusCode).toBe(401);

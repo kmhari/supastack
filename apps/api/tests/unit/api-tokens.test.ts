@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { PAT_FORMAT_REGEX, formatTokenPrefix } from '../../src/services/api-tokens.js';
+import {
+  PAT_ABSOLUTE_MAX_DAYS,
+  PAT_FORMAT_REGEX,
+  PAT_STUDIO_MAX_DAYS,
+  formatTokenPrefix,
+  patExpiryFor,
+} from '../../src/services/api-tokens.js';
 
 /**
  * T003a (a): pure tests for the PAT minting + format checks.
@@ -43,5 +49,30 @@ describe('mintApiToken format', () => {
     const raw = generateRawToken();
     const hash = createHash('sha256').update(raw, 'utf8').digest();
     expect(hash.byteLength).toBe(32);
+  });
+});
+
+describe('patExpiryFor — feature 122 absolute lifetime bounds', () => {
+  const now = new Date('2026-01-01T00:00:00Z');
+  const days = (d: Date) => Math.round((d.getTime() - now.getTime()) / 86_400_000);
+
+  it('defaults: manual/cli get 365d, studio gets 90d', () => {
+    expect(PAT_ABSOLUTE_MAX_DAYS).toBe(365);
+    expect(PAT_STUDIO_MAX_DAYS).toBe(90);
+  });
+
+  it('manual and cli tokens expire at the absolute max', () => {
+    expect(days(patExpiryFor('manual', now))).toBe(365);
+    expect(days(patExpiryFor('cli', now))).toBe(365);
+  });
+
+  it('studio tokens expire sooner (a human is present)', () => {
+    expect(days(patExpiryFor('studio', now))).toBe(90);
+  });
+
+  it('the expiry is always in the future relative to the mint time', () => {
+    for (const s of ['manual', 'cli', 'studio'] as const) {
+      expect(patExpiryFor(s, now).getTime()).toBeGreaterThan(now.getTime());
+    }
   });
 });
