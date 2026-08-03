@@ -1,7 +1,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { assertSafeForEnv } from '@supastack/crypto';
+import { INSTANCE_COMPOSE_FILE } from './dockerode.js';
+import { renderEnvFile } from './env-writer.js';
 
 /**
  * Inputs accepted by the per-instance .env generator. Every value is typed
@@ -61,45 +62,33 @@ export interface ComposeTemplateInputs {
 /**
  * Generate the per-instance .env from a typed input struct. Strict checks:
  *  - every variable referenced in the upstream `.env.example` MUST be present
- *  - no value may contain $, backtick, backslash, quote, whitespace
+ *  - EVERY value — not only the generated secrets — passes the shared env
+ *    safety rule via the unified writer, and the rendered file is parsed back
+ *    to confirm it delivers exactly the pairs it was given (feature 121,
+ *    FR-001/FR-006). Operator-supplied values may contain a space; generated
+ *    secrets may not.
  *  - `docker compose --env-file <env> config -q` must round-trip cleanly
+ *
+ * Nothing is written to disk here; a rejected value therefore leaves no
+ * directory and no partial file behind (FR-003).
  */
 export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<string> {
   const { secrets, ports, config, smtp, ref, name, apex, studioImage } = inputs;
 
-  // 1. Hard guard: every secret + password is safe for an env file (anti-Multibase).
-  assertSafeForEnv(secrets.postgresPassword, 'POSTGRES_PASSWORD');
-  assertSafeForEnv(secrets.dashboardPassword, 'DASHBOARD_PASSWORD');
-  assertSafeForEnv(secrets.jwtSecret, 'JWT_SECRET');
-  assertSafeForEnv(secrets.secretKeyBase, 'SECRET_KEY_BASE');
-  assertSafeForEnv(secrets.vaultEncKey, 'VAULT_ENC_KEY');
-  assertSafeForEnv(secrets.pgMetaCryptoKey, 'PG_META_CRYPTO_KEY');
-  assertSafeForEnv(secrets.s3ProtocolAccessKeyId, 'S3_PROTOCOL_ACCESS_KEY_ID');
-  assertSafeForEnv(secrets.s3ProtocolAccessKeySecret, 'S3_PROTOCOL_ACCESS_KEY_SECRET');
-  assertSafeForEnv(secrets.minioRootPassword, 'MINIO_ROOT_PASSWORD');
-  assertSafeForEnv(secrets.logflarePublicAccessToken, 'LOGFLARE_PUBLIC_ACCESS_TOKEN');
-  assertSafeForEnv(secrets.logflarePrivateAccessToken, 'LOGFLARE_PRIVATE_ACCESS_TOKEN');
-
-  // 2. Read upstream .env.example as the source-of-truth for required vars.
+  // 1. Read upstream .env.example as the source-of-truth for required vars.
   const envExamplePath = path.join(inputs.templateDir, '.env.example');
   const envExample = await fs.readFile(envExamplePath, 'utf8');
   const referencedVars = parseEnvKeys(envExample);
 
-  // 3. Build the value map. KEY: every var the upstream compose references
-  //    MUST have an entry (even empty string).
-  const url = `https://${ref}.${apex}`;
-  const values: Record<string, string | number> = {
-    // Identity
-    PROJECT_REF: ref,
-    STUDIO_DEFAULT_ORGANIZATION: name,
-    STUDIO_DEFAULT_PROJECT: name,
-
-    // Secrets
+  // 2. Server-minted values. Held to the strict rule — no whitespace at all.
+  //    This list used to be the ONLY thing checked, and it was maintained by
+  //    hand next to a ~60-entry map that was not. The writer now checks both;
+  //    the split here selects the rule, it does not grant an exemption.
+  const generated: Record<string, string | number> = {
     JWT_SECRET: secrets.jwtSecret,
     ANON_KEY: secrets.anonKey,
     SERVICE_ROLE_KEY: secrets.serviceRoleKey,
     POSTGRES_PASSWORD: secrets.postgresPassword,
-    DASHBOARD_USERNAME: 'supabase',
     DASHBOARD_PASSWORD: secrets.dashboardPassword,
     SECRET_KEY_BASE: secrets.secretKeyBase,
     VAULT_ENC_KEY: secrets.vaultEncKey,
@@ -109,6 +98,19 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
     S3_PROTOCOL_ACCESS_KEY_ID: secrets.s3ProtocolAccessKeyId,
     S3_PROTOCOL_ACCESS_KEY_SECRET: secrets.s3ProtocolAccessKeySecret,
     MINIO_ROOT_PASSWORD: secrets.minioRootPassword,
+  };
+
+  // 3. Everything else: platform constants and operator-supplied values.
+  //    KEY: every var the upstream compose references MUST have an entry
+  //    (even empty string).
+  const url = `https://${ref}.${apex}`;
+  const operator: Record<string, string | number> = {
+    // Identity
+    PROJECT_REF: ref,
+    STUDIO_DEFAULT_ORGANIZATION: name,
+    STUDIO_DEFAULT_PROJECT: name,
+
+    DASHBOARD_USERNAME: 'supabase',
 
     // Ports
     // Caddy terminates TLS for every per-instance subdomain, so Kong only
@@ -215,16 +217,17 @@ export async function renderInstanceEnv(inputs: ComposeTemplateInputs): Promise<
   };
 
   // 4. Completeness assertion (anti-Multibase missing-vars regression).
-  const missing = [...referencedVars].filter((v) => !(v in values));
+  const missing = [...referencedVars].filter((v) => !(v in generated) && !(v in operator));
   if (missing.length > 0) {
     throw new Error(
       `compose-template: ${missing.length} variable(s) referenced by the upstream template have no value: ${missing.sort().join(', ')}`,
     );
   }
 
-  // 5. Emit. Keys are sorted for deterministic diffs.
-  const keys = Object.keys(values).sort();
-  return keys.map((k) => `${k}=${values[k]}`).join('\n') + '\n';
+  // 5. Emit through the single writer: rule applied to every value, keys
+  //    sorted for deterministic diffs, output parsed back before it is
+  //    returned.
+  return renderEnvFile({ generated, operator });
 }
 
 /**
@@ -341,12 +344,23 @@ async function copyDir(src: string, dst: string, skipFiles: string[]): Promise<v
   }
 }
 
+/**
+ * Parse-check the written stack. Note what this does NOT do: it is not a
+ * security control. Compose validates whichever file it was pointed at, so
+ * before `-f` was pinned it would validate an attacker's stack as readily as
+ * ours (research.md Q1). The pin is what makes the check meaningful; the check
+ * is what catches an ordinary malformed template.
+ */
 async function dockerComposeConfigCheck(dir: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn('docker', ['compose', '--env-file', '.env', 'config', '-q'], {
-      cwd: dir,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const child = spawn(
+      'docker',
+      ['compose', '-f', INSTANCE_COMPOSE_FILE, '--env-file', '.env', 'config', '-q'],
+      {
+        cwd: dir,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
     let stderr = '';
     child.stderr.on('data', (b) => (stderr += b.toString()));
     child.on('error', (err) => reject(new Error(`docker compose not available: ${err.message}`)));
