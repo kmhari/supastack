@@ -8,6 +8,7 @@ import {
   lookupPostgrestFieldMapping,
 } from '../../src/services/env-field-mapper.js';
 import { ALL_AUTH_CONFIG_FIELDS, UpdatePostgrestConfigBodySchema } from '@supastack/shared';
+import { configChannel } from '../../src/services/config-delivery.js';
 
 /**
  * T021 — env-field-mapper inventory tripwire.
@@ -51,18 +52,21 @@ describe('env-field-mapper inventory', () => {
     // or, less commonly, declares it directly. Either occurrence is acceptable
     // — what matters is that the container has *some* binding for the var.
     //
-    // Exception: vars wired via `env_file: .env` only (feature 024 / #77).
-    // These intentionally do NOT appear in the `environment:` block — the
-    // container picks them up directly from the .env file. An absent line
-    // means GoTrue sees nil (*time.Duration), its "no limit" compiled default.
+    // Exception 1: vars wired via `env_file: .env` only (feature 024 / #77).
+    // These intentionally do NOT appear in the `environment:` block.
     const ENV_FILE_ONLY = new Set([
       'GOTRUE_SESSIONS_TIMEBOX',
       'GOTRUE_SESSIONS_INACTIVITY_TIMEOUT',
     ]);
+    // Exception 2 (feature 124): free-text fields are delivered via the raw
+    // `.env.operator` file at runtime, NOT interpolated in the template — that
+    // is the SEC-065 fix. They are deliberately absent from the static template;
+    // the config-delivery-channel contract test verifies their delivery instead.
     for (const [field, mapping] of Object.entries(AUTH_CONFIG_HONORED)) {
       if (mapping.kind !== 'honored') continue;
       const envName = mapping.envName;
       if (ENV_FILE_ONLY.has(envName)) continue;
+      if (configChannel(field, 'auth') === 'raw') continue;
       // Token-anywhere match (key, `${...}`, comment) — surrounded by non-word
       // chars or string boundaries so we don't accept a substring like
       // GOOGLE_SECRET inside GOOGLE_SECRET_KEY (none of our names collide
