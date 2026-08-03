@@ -134,6 +134,79 @@ export function renderEnvFile(spec: EnvFileSpec): string {
 }
 
 /**
+ * Render the per-instance OPERATOR env file (feature 124) — the tenant/operator
+ * config delivered to `auth`/`rest` via `env_file: format: raw`.
+ *
+ * Raw delivery is fundamentally different from the `.env` above, verified in a
+ * container on Compose v5.0.0: raw does NOT interpolate `${...}`, does NOT treat
+ * ` #` as a comment, does NOT strip quotes, does NOT trim whitespace. Every
+ * character reaches the process verbatim. That is the whole point — it is how a
+ * tenant's `${MASTER_KEY}`, `#fff`, quoted HTML, or `pa$$word` all arrive intact
+ * and the master key never expands.
+ *
+ * So this writer does the OPPOSITE of `renderEnvFile`'s validation:
+ *  - NO character rule. `$`, backtick, quote, `#`, space are all data here.
+ *  - The ONLY corrupting character is a line break, which would split one
+ *    assignment into two. That is rejected (a value cannot legitimately contain
+ *    one; the multi-line template fields are separately non-functional).
+ *  - Keys are still validated as safe env names.
+ *  - An absent value (null / undefined / '') emits NO line — GoTrue distinguishes
+ *    an absent var (nil → compiled default) from an empty one (feature 024).
+ *
+ * `fields` is keyed by the FINAL container env name (callers resolve short keys
+ * via config-final-names first). Never echoes a value in an error (C5).
+ */
+export function renderOperatorEnv(fields: Record<string, string | number | null | undefined>): string {
+  const merged = new Map<string, string>();
+  for (const [name, raw] of Object.entries(fields)) {
+    if (raw === null || raw === undefined || raw === '') continue; // absent ≠ empty
+    if (!ENV_KEY_RE.test(name)) {
+      throw new Error(
+        `env-writer: refusing to emit operator variable with unsafe name ${JSON.stringify(name)}`,
+      );
+    }
+    const value = String(raw);
+    if (/[\n\r]/.test(value)) {
+      throw new Error(
+        `env-writer: ${name} contains a line break — a raw env-file value is one line; ` +
+          'refusing to split it into two assignments',
+      );
+    }
+    merged.set(name, value);
+  }
+
+  const names = [...merged.keys()].sort();
+  const content = names.map((n) => `${n}=${merged.get(n)}`).join('\n') + (names.length ? '\n' : '');
+  assertRawRoundTrips(content, merged);
+  return content;
+}
+
+/**
+ * Raw round-trip: split on newline, each non-empty line is exactly one intended
+ * `KEY=value` with the value byte-identical. Raw semantics, so NO comment strip
+ * and NO trim — unlike `assertRoundTrips`, which models the interpolated `.env`.
+ */
+function assertRawRoundTrips(content: string, expected: Map<string, string>): void {
+  const lines = content.split('\n').filter((l) => l !== '');
+  if (lines.length !== expected.size) {
+    throw new Error(
+      `env-writer: emitted ${lines.length} line(s) for ${expected.size} operator variable(s) — a value split a line`,
+    );
+  }
+  for (const line of lines) {
+    const eq = line.indexOf('=');
+    const name = eq >= 0 ? line.slice(0, eq) : line;
+    const value = eq >= 0 ? line.slice(eq + 1) : '';
+    if (!expected.has(name)) {
+      throw new Error(`env-writer: emitted an unintended operator variable ${name}`);
+    }
+    if (expected.get(name) !== value) {
+      throw new Error(`env-writer: ${name} would not reach the container as supplied`);
+    }
+  }
+}
+
+/**
  * Replace the value of existing variables in an env file, preserving every
  * other line byte-for-byte (comments, ordering, spacing included).
  *
