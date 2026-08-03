@@ -51,18 +51,38 @@ export function formatTokenPrefix(raw: string): string {
  * CLI's client-side regex (PAT_FORMAT_REGEX) — tokens that do not match
  * are rejected before any HTTP call is made.
  */
+/**
+ * Feature 122 — PAT lifetime bounds (FR-004/FR-012), operator-overridable.
+ * `PAT_IDLE_MAX_DAYS` is enforced in the auth validation query, not here.
+ */
+export const PAT_ABSOLUTE_MAX_DAYS = intFromEnv('PAT_ABSOLUTE_MAX_DAYS', 365);
+export const PAT_STUDIO_MAX_DAYS = intFromEnv('PAT_STUDIO_MAX_DAYS', 90);
+export const PAT_IDLE_MAX_DAYS = intFromEnv('PAT_IDLE_MAX_DAYS', 90);
+
+function intFromEnv(name: string, fallback: number): number {
+  const n = Number.parseInt(process.env[name] ?? '', 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/** Absolute expiry for a newly-minted token: studio (human present) is shorter. */
+export function patExpiryFor(source: 'manual' | 'cli' | 'studio', now = new Date()): Date {
+  const days = source === 'studio' ? PAT_STUDIO_MAX_DAYS : PAT_ABSOLUTE_MAX_DAYS;
+  return new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
 export async function mintApiToken(
   tx: Inserter,
   userId: string,
   label: string,
   source: 'manual' | 'cli' | 'studio' = 'manual',
-): Promise<{ raw: string; id: string; prefix: string }> {
+): Promise<{ raw: string; id: string; prefix: string; expiresAt: Date }> {
   const raw = generateRawToken();
   const prefix = formatTokenPrefix(raw);
   const sha256 = createHash('sha256').update(raw, 'utf8').digest();
+  const expiresAt = patExpiryFor(source);
   const [row] = await tx
     .insert(schema.apiTokens)
-    .values({ userId, tokenSha256: sha256, label, prefix, source })
+    .values({ userId, tokenSha256: sha256, label, prefix, source, expiresAt })
     .returning({ id: schema.apiTokens.id });
-  return { raw, id: row!.id, prefix };
+  return { raw, id: row!.id, prefix, expiresAt };
 }

@@ -12,6 +12,7 @@ import { db, schema } from '@supastack/db';
 import { decryptJson, encryptJson, loadMasterKey, signSupabaseJwt } from '@supastack/crypto';
 import { ROLE_IDS, ROLE_NAMES, roleFromId, logger, type Role } from '@supastack/shared';
 import { mintApiToken } from '../services/api-tokens.js';
+import { revokeCredentialsOnMemberRemoval } from '../services/credential-revocation.js';
 import { createOrganizationWithOwner } from '../services/org-store.js';
 import {
   listBackupsForPlatform,
@@ -2443,6 +2444,18 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
             eq(schema.organizationMembers.userId, req.params.gotrue_id),
           ),
         );
+      // Feature 122 — revoke the credentials that reached this org. Runs after
+      // the membership delete so the zero-org PAT check sees post-removal state.
+      // Best-effort: a revocation failure must not leave the member un-removed.
+      try {
+        await revokeCredentialsOnMemberRemoval(
+          req.params.gotrue_id,
+          req.params.slug,
+          req.user?.id ?? null,
+        );
+      } catch (err) {
+        req.log.warn({ err, user: req.params.gotrue_id }, 'credential revocation on member removal failed');
+      }
       return reply.status(204).send();
     },
   );

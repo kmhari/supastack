@@ -11,7 +11,8 @@ import {
   verifyAccessToken,
 } from '@supastack/oauth';
 import { errors, type Role } from '@supastack/shared';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
+import { PAT_IDLE_MAX_DAYS } from '../services/api-tokens.js';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { Redis } from 'ioredis';
@@ -94,7 +95,27 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
         })
         .from(schema.apiTokens)
         .innerJoin(schema.users, eq(schema.users.id, schema.apiTokens.userId))
-        .where(and(eq(schema.apiTokens.tokenSha256, sha), isNull(schema.apiTokens.revokedAt)))
+        // Feature 122 — expiry. A token is valid when not revoked AND
+        // (grandfathered: expires_at IS NULL — pre-122 tokens, until the
+        //  announced FR-013 backfill) OR (not past its absolute expiry AND not
+        //  idle beyond PAT_IDLE_MAX_DAYS). Grandfathering keeps the change
+        //  non-breaking for existing tokens.
+        .where(
+          and(
+            eq(schema.apiTokens.tokenSha256, sha),
+            isNull(schema.apiTokens.revokedAt),
+            sql`(
+              ${schema.apiTokens.expiresAt} IS NULL
+              OR (
+                ${schema.apiTokens.expiresAt} > now()
+                AND (
+                  ${schema.apiTokens.lastUsedAt} IS NULL
+                  OR ${schema.apiTokens.lastUsedAt} > now() - make_interval(days => ${PAT_IDLE_MAX_DAYS})
+                )
+              )
+            )`,
+          ),
+        )
         .limit(1);
       if (rows[0]) {
         req.user = {

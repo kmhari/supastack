@@ -121,7 +121,31 @@ export const apiTokens = pgTable('api_tokens', {
     .default('manual'),
   lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  // Feature 122 — absolute expiry. NULL = grandfathered (pre-122 tokens keep
+  // working until the announced FR-013 backfill sets it); non-NULL tokens are
+  // subject to both this bound and idle expiry in the auth validation query.
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+/**
+ * Feature 122 — explicit, inspectable credential revocation (FR-008).
+ *
+ * Removing a member deletes their membership row and nothing else, so an
+ * operator can only *infer* that access was withdrawn. This records it: who
+ * lost access to which org, when, by whom, and why — the audit trail the spec
+ * requires, and the join a future org-scoped-token model (option B) would
+ * intersect against.
+ */
+export const credentialRevocations = pgTable('credential_revocations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull(),
+  organizationId: uuid('organization_id'),
+  reason: text('reason').notNull(),
+  actorUserId: uuid('actor_user_id'),
+  patsRevoked: integer('pats_revoked').notNull().default(0),
+  oauthGrantsRevoked: integer('oauth_grants_revoked').notNull().default(0),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 // ─── setup_state (singleton) ────────────────────────────────────────────────
