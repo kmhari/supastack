@@ -19,7 +19,7 @@ import {
   signSupabaseJwt,
 } from '@supastack/crypto';
 import { db, schema } from '@supastack/db';
-import { composeUpService } from '@supastack/docker-control';
+import { composeUpService, updateEnvFile } from '@supastack/docker-control';
 import { eq } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { promises as fs } from 'node:fs';
@@ -27,6 +27,37 @@ import path from 'node:path';
 
 const INSTANCES_DIR = process.env.INSTANCES_DIR ?? '/var/supastack/instances';
 const API_KEY_EXPIRY_SEC = 5 * 365 * 24 * 60 * 60;
+
+export interface PlatformJwtTriple {
+  jwtSecret: string;
+  anonKey: string;
+  serviceRoleKey: string;
+}
+
+/**
+ * Rewrite the three JWT-related assignments in a per-project `.env`, leaving
+ * every other line untouched.
+ *
+ * This used to be three anchored regex line replacements. The values are
+ * server-generated, so it was not exploitable — but it was the third
+ * independent env writer in the codebase, with no guard at all, on a route that
+ * is unauthenticated by design. `updateEnvFile` holds the values to the shared
+ * rule and parses the result back before returning it, so a multi-line value
+ * can no longer split one assignment into two (feature 121, FR-013).
+ *
+ * Exported so the transformation is unit-testable without a database.
+ */
+export function applyPlatformJwtToEnv(envContent: string, jwt: PlatformJwtTriple): string {
+  return updateEnvFile(
+    envContent,
+    {
+      JWT_SECRET: jwt.jwtSecret,
+      ANON_KEY: jwt.anonKey,
+      SERVICE_ROLE_KEY: jwt.serviceRoleKey,
+    },
+    'generated',
+  );
+}
 
 export const instanceInternalRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Params: { ref: string }; Querystring: { force?: string } }>(
@@ -71,13 +102,11 @@ export const instanceInternalRoutes: FastifyPluginAsync = async (app) => {
       //    Kong reads SUPABASE_ANON_KEY=${ANON_KEY} and SUPABASE_SERVICE_KEY=${SERVICE_ROLE_KEY}
       //    at startup, so updating ANON_KEY and SERVICE_ROLE_KEY is enough.
       const envPath = path.join(INSTANCES_DIR, ref, '.env');
-      let envContent = await fs.readFile(envPath, 'utf8');
-      envContent = envContent.replace(/^JWT_SECRET=.*/m, `JWT_SECRET=${jwtSecret}`);
-      envContent = envContent.replace(/^ANON_KEY=.*/m, `ANON_KEY=${anonKey}`);
-      envContent = envContent.replace(
-        /^SERVICE_ROLE_KEY=.*/m,
-        `SERVICE_ROLE_KEY=${serviceRoleKey}`,
-      );
+      const envContent = applyPlatformJwtToEnv(await fs.readFile(envPath, 'utf8'), {
+        jwtSecret,
+        anonKey,
+        serviceRoleKey,
+      });
       await fs.writeFile(envPath, envContent, 'utf8');
 
       // 3. Re-create (not just restart) the containers that validate JWTs so
