@@ -300,4 +300,46 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
       },
     });
   });
+
+  // ── Feature 122 (FR-014) — operator credential inventory ────────────────────
+  // Installation-wide list of personal access tokens with creation, last use,
+  // and expiry, so an operator can see what exists and what will age out. The
+  // token secret is never stored or returned — only its display prefix.
+  app.get('/admin/credentials', async (req, reply) => {
+    app.authorize(req, 'admin.console.read');
+    const rows = await db()
+      .select({
+        id: schema.apiTokens.id,
+        label: schema.apiTokens.label,
+        prefix: schema.apiTokens.prefix,
+        source: schema.apiTokens.source,
+        userId: schema.apiTokens.userId,
+        email: schema.users.email,
+        createdAt: schema.apiTokens.createdAt,
+        lastUsedAt: schema.apiTokens.lastUsedAt,
+        expiresAt: schema.apiTokens.expiresAt,
+        revokedAt: schema.apiTokens.revokedAt,
+      })
+      .from(schema.apiTokens)
+      .leftJoin(schema.users, eq(schema.users.id, schema.apiTokens.userId))
+      .orderBy(desc(schema.apiTokens.createdAt));
+    return reply.send({
+      tokens: rows.map((r) => ({
+        id: r.id,
+        name: r.label,
+        token_alias: r.prefix ?? '',
+        source: r.source,
+        user: { id: r.userId, email: r.email ?? null },
+        created_at: r.createdAt.toISOString(),
+        last_used_at: r.lastUsedAt?.toISOString() ?? null,
+        expires_at: r.expiresAt?.toISOString() ?? null,
+        revoked_at: r.revokedAt?.toISOString() ?? null,
+        status: r.revokedAt
+          ? 'revoked'
+          : r.expiresAt && r.expiresAt.getTime() < Date.now()
+            ? 'expired'
+            : 'active',
+      })),
+    });
+  });
 };

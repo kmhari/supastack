@@ -106,5 +106,16 @@ export async function revokeCredentialsOnMemberRemoval(
     oauthGrantsRevoked,
   });
 
+  // 4. Audit the removal and its resulting revocations (FR-011).
+  await db()
+    .insert(schema.auditLog)
+    .values({
+      actorUserId,
+      action: 'member.credentials-revoked',
+      targetKind: 'user',
+      targetId: userId,
+      payload: { organizationId, reason, patsRevoked, oauthGrantsRevoked, hadRemainingOrgs },
+    });
+
   return { patsRevoked, oauthGrantsRevoked, hadRemainingOrgs };
 }

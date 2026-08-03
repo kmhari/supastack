@@ -20,6 +20,7 @@ personalized guides (pre-filled with your domain) at `https://<apex>/docs`.
 | [pooler-resilience.md](./pooler-resilience.md) | Supavisor pooler drift classes, the daily reconciler, PG password drift recovery.      |
 | [vm-reset.md](./vm-reset.md)                   | Wiping a VM to a clean pre-setup state and re-running setup.                           |
 | [host-hardening.md](./host-hardening.md)       | Optional Ubuntu security/compliance tooling for the host (not installed by supastack). |
+| [api-token-expiry.md](./api-token-expiry.md)   | PAT lifetime model, the `Sunset` header, and the grace-window backfill runbook.        |
 
 ## Platform Studio
 

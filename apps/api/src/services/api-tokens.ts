@@ -59,9 +59,46 @@ export const PAT_ABSOLUTE_MAX_DAYS = intFromEnv('PAT_ABSOLUTE_MAX_DAYS', 365);
 export const PAT_STUDIO_MAX_DAYS = intFromEnv('PAT_STUDIO_MAX_DAYS', 90);
 export const PAT_IDLE_MAX_DAYS = intFromEnv('PAT_IDLE_MAX_DAYS', 90);
 
+/** Warn window for the FR-013 `Sunset` header — how close to expiry to announce. */
+export const PAT_SUNSET_WARN_DAYS = intFromEnv('PAT_SUNSET_WARN_DAYS', 30);
+
+/**
+ * FR-013 grace (Risk 2): idle expiry MUST NOT age out a dormant token during the
+ * announced transition, or the "never silently invalidated" guarantee is void for
+ * exactly the parked tokens the announcement exists for. An operator running the
+ * backfill sets `PAT_IDLE_GRACE_UNTIL` to an ISO date ~90 days out; until then the
+ * idle clause is skipped and only the absolute expiry applies. Absent/past/invalid
+ * → idle enforced (the steady state).
+ */
 function intFromEnv(name: string, fallback: number): number {
   const n = Number.parseInt(process.env[name] ?? '', 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/** Whether the idle-expiry sub-clause applies now, given the FR-013 grace window. */
+export function idleExpiryEnforced(now = new Date()): boolean {
+  const raw = process.env.PAT_IDLE_GRACE_UNTIL;
+  if (!raw) return true;
+  const until = new Date(raw);
+  if (Number.isNaN(until.getTime())) return true;
+  return now.getTime() >= until.getTime();
+}
+
+/**
+ * Feature 122 US2 (SEC-076) — clamp a requester-supplied data-plane key lifetime.
+ * Absent → the platform default (`maxSec`); malformed/negative/non-integer →
+ * refused (`ok:false`, NOT silently coerced — `parseInt('abc')` is NaN and would
+ * otherwise flow into `iat + NaN`); above the max → clamped down. Pure function.
+ */
+export function clampDataPlaneExp(
+  requested: string | undefined,
+  maxSec: number,
+): { ok: true; expSec: number; clamped: boolean } | { ok: false } {
+  if (requested === undefined) return { ok: true, expSec: maxSec, clamped: false };
+  const t = requested.trim();
+  const n = Number.parseInt(t, 10);
+  if (!Number.isFinite(n) || n <= 0 || String(n) !== t) return { ok: false };
+  return { ok: true, expSec: Math.min(n, maxSec), clamped: n > maxSec };
 }
 
 /** Absolute expiry for a newly-minted token: studio (human present) is shorter. */
