@@ -190,9 +190,22 @@ services:
       # (e.g. invitations 409 when unset). Mirrors the auth service's SMTP config.
       GOTRUE_SMTP_HOST: ${GOTRUE_SMTP_HOST:-}
     ports:
-      - 3001:3001
+      # Loopback ONLY. Caddy reaches the api over the compose network as
+      # `api:3001`, and both in-repo health probes run *inside* the container
+      # (`compose exec -T api node -e …` in install.sh, and the healthcheck
+      # below), so nothing needs this port on a public interface.
+      #
+      # Published on 0.0.0.0 this bypassed the edge entirely: every
+      # `/internal/*` route — all unauthenticated by design, because they assume
+      # they are unreachable from outside the Docker network — answered on
+      # plaintext HTTP with no hostname, defeating the `/internal/* → 404`
+      # guards in the Caddyfile. A host firewall is NOT a substitute: Docker's
+      # DOCKER chain is consulted before UFW/INPUT, so a published port stays
+      # reachable unless the rule lives in DOCKER-USER.
+      - 127.0.0.1:3001:3001
       # pg-edge proxy — direct Postgres endpoint for db.<ref>.<apex>:5432
-      # (feature 005). Runs inside the api Node.js process.
+      # (feature 005). Runs inside the api Node.js process. Intentionally public:
+      # this one IS the advertised endpoint, and it authenticates.
       - '5432:5432'
     volumes:
       - /var/supastack/instances:/var/supastack/instances

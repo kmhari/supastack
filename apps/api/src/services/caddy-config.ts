@@ -299,7 +299,31 @@ export async function buildCaddyConfig(): Promise<unknown> {
       ]
     : [];
 
+  /**
+   * Default-deny for internal endpoints — host-independent, and FIRST.
+   *
+   * The five `/internal/*` routes are unauthenticated by design; each documents
+   * the assumption that it is only reachable from inside the Docker network.
+   * A guard existed, but it lived inside `dashboardSubroutes` → the
+   * `dashboardFallback` at the END of these lists, while `apiHostRoute` is
+   * `terminal: true` and appears EARLIER — so for `api.<apex>` the guard was
+   * never consulted and every internal route was publicly reachable.
+   *
+   * Ordering is the whole mechanism: these arrays are evaluated in order and a
+   * matching `terminal` route stops evaluation, so a path match placed ahead of
+   * every host route beats all of them regardless of which hosts exist. That
+   * also makes it hold for hosts added later, which per-host guards would not —
+   * the boot Caddyfile cannot express this (site blocks do not cascade) and
+   * relies on a contract test instead.
+   */
+  const internalDenyRoute = {
+    match: [{ path: ['/internal/*'] }],
+    handle: [{ handler: 'static_response', status_code: 404 }],
+    terminal: true,
+  };
+
   const httpsRoutes = [
+    internalDenyRoute,
     ...instances.map((i) => instanceRoute(i.ref, i.portKong, dataHost(i.ref))),
     // Feature 010 — redirect Studio's broken /functions/secrets URL to supastack.
     // MUST appear before instanceStudioRoute (path-precise match evaluated first).
@@ -311,6 +335,7 @@ export async function buildCaddyConfig(): Promise<unknown> {
   ];
 
   const httpRoutes = [
+    internalDenyRoute,
     // Plain HTTP carries the same per-instance routes (for dev/testing without DNS).
     ...instances.map((i) => instanceRoute(i.ref, i.portKong, dataHost(i.ref))),
     // Feature 010 — redirect Studio's broken /functions/secrets URL to supastack.
