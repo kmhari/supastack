@@ -1,7 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
   assertSafeForEnv,
-  deriveGotrueJwtSecret,
   encryptJson,
   generatePassword,
   loadMasterKey,
@@ -48,12 +47,19 @@ export interface InstanceSecrets {
 const API_KEY_EXPIRY_SEC = 5 * 365 * 24 * 60 * 60; // 5 years
 
 export function generateInstanceSecrets(opts: {
+  ref: string;
   jwtExpirySec: number;
   postgresPasswordOverride?: string;
 }): InstanceSecrets {
-  // Use the platform GoTrue JWT secret so the control-plane user token is valid
-  // for all per-project Kong/storage/auth/rest services — same pattern as Cloud.
-  const jwtSecret = deriveGotrueJwtSecret(loadMasterKey());
+  // Per-project random signing material (SEC-037). Every project MUST have its
+  // own secret: a shared one makes any tenant's service_role key valid on every
+  // other tenant's data plane, which no control-plane check can undo.
+  //
+  // Random, not HKDF-from-master: `scripts/rekey-master.mjs` re-encrypts the
+  // secret blob but never re-derives its contents, so a master-derived project
+  // secret would silently stop matching every issued key after a master-key
+  // rotation. Random material inside the envelope survives rekeying unchanged.
+  const jwtSecret = randomBytes(32).toString('hex');
   let postgresPassword: string;
   if (opts.postgresPasswordOverride) {
     assertSafeForEnv(opts.postgresPasswordOverride, 'postgresPassword');
@@ -63,9 +69,14 @@ export function generateInstanceSecrets(opts: {
   }
   return {
     jwtSecret,
-    anonKey: signSupabaseJwt(jwtSecret, { role: 'anon', expSec: API_KEY_EXPIRY_SEC }),
+    anonKey: signSupabaseJwt(jwtSecret, {
+      role: 'anon',
+      ref: opts.ref,
+      expSec: API_KEY_EXPIRY_SEC,
+    }),
     serviceRoleKey: signSupabaseJwt(jwtSecret, {
       role: 'service_role',
+      ref: opts.ref,
       expSec: API_KEY_EXPIRY_SEC,
     }),
     postgresPassword,

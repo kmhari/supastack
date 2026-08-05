@@ -134,7 +134,7 @@ export async function seedTestUser(
  * and the path so the test can drop files into the volume directly.
  */
 export async function withMockInstance(ref: string, opts: { orgId?: string } = {}) {
-  const secrets = generateInstanceSecrets({ jwtExpirySec: 3600 });
+  const secrets = generateInstanceSecrets({ ref, jwtExpirySec: 3600 });
   const encryptedSecrets = encryptInstanceSecrets(secrets);
   const instancesDir = process.env.INSTANCES_DIR ?? '/tmp/selfbase-test-instances';
   const volume = path.join(instancesDir, ref, 'volumes', 'functions');

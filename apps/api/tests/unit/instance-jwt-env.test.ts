@@ -1,14 +1,14 @@
 /**
- * Writer 3 (key adoption) after migration onto the unified writer — feature
+ * Writer 3 (project JWT re-key) after migration onto the unified writer — feature
  * 121 T016, US1.
  *
- * The route's DB and container work is untouched by this feature; what changed
+ * The DB and container work around it is untouched by this feature; what changed
  * is the env transformation, which is exported precisely so it can be asserted
  * without standing up Postgres. The property that matters is conservative: the
  * three JWT lines change and NOTHING else does, byte for byte.
  */
 import { describe, expect, test } from 'vitest';
-import { applyPlatformJwtToEnv } from '../../src/routes/instance-internal.js';
+import { applyInstanceJwtToEnv } from '../../src/services/instance-jwt-env.js';
 
 /** Shaped like a real per-instance .env: sorted, with a comment and a blank. */
 const EXISTING = [
@@ -28,8 +28,8 @@ const JWT = {
   serviceRoleKey: 'eyJhbGci.new-service.sig',
 };
 
-describe('applyPlatformJwtToEnv — happy path', () => {
-  const out = applyPlatformJwtToEnv(EXISTING, JWT);
+describe('applyInstanceJwtToEnv — happy path', () => {
+  const out = applyInstanceJwtToEnv(EXISTING, JWT);
 
   test('updates exactly the three JWT lines', () => {
     expect(out).toMatch(/^JWT_SECRET=NewPlatformSecret9876543210$/m);
@@ -53,45 +53,45 @@ describe('applyPlatformJwtToEnv — happy path', () => {
   });
 
   test('is idempotent — the route is documented as safe to call repeatedly', () => {
-    expect(applyPlatformJwtToEnv(out, JWT)).toBe(out);
+    expect(applyInstanceJwtToEnv(out, JWT)).toBe(out);
   });
 
   test('adds a missing variable rather than silently dropping it', () => {
     const withoutAnon = EXISTING.split('\n')
       .filter((l) => !l.startsWith('ANON_KEY='))
       .join('\n');
-    expect(applyPlatformJwtToEnv(withoutAnon, JWT)).toMatch(/^ANON_KEY=eyJhbGci\.new-anon\.sig$/m);
+    expect(applyInstanceJwtToEnv(withoutAnon, JWT)).toMatch(/^ANON_KEY=eyJhbGci\.new-anon\.sig$/m);
   });
 });
 
-describe('applyPlatformJwtToEnv — sad path', () => {
+describe('applyInstanceJwtToEnv — sad path', () => {
   test('a line break in a key is refused rather than corrupting the file', () => {
     expect(() =>
-      applyPlatformJwtToEnv(EXISTING, { ...JWT, anonKey: 'good\nCOMPOSE_FILE=attacker.yml' }),
+      applyInstanceJwtToEnv(EXISTING, { ...JWT, anonKey: 'good\nCOMPOSE_FILE=attacker.yml' }),
     ).toThrow(/ANON_KEY/);
   });
 
   test('a $ in the secret is refused — it would expand inside the api container', () => {
-    expect(() => applyPlatformJwtToEnv(EXISTING, { ...JWT, jwtSecret: 'a${MASTER_KEY}' })).toThrow(
+    expect(() => applyInstanceJwtToEnv(EXISTING, { ...JWT, jwtSecret: 'a${MASTER_KEY}' })).toThrow(
       /JWT_SECRET/,
     );
   });
 
   test('rejection returns nothing, so the caller still holds the original content', () => {
-    expect(() => applyPlatformJwtToEnv(EXISTING, { ...JWT, anonKey: 'a\nb' })).toThrow();
+    expect(() => applyInstanceJwtToEnv(EXISTING, { ...JWT, anonKey: 'a\nb' })).toThrow();
     expect(EXISTING).toContain('ANON_KEY=eyJhbGci.old-anon.sig');
   });
 
   test('refuses a file that already assigns a target variable twice', () => {
     const doubled = EXISTING + 'JWT_SECRET=sneaky\n';
-    expect(() => applyPlatformJwtToEnv(doubled, JWT)).toThrow(/more than once/);
+    expect(() => applyInstanceJwtToEnv(doubled, JWT)).toThrow(/more than once/);
   });
 
   test('the rejection message names the variable and not the secret', () => {
     const secret = 'lea"kThisAndFail';
     try {
-      applyPlatformJwtToEnv(EXISTING, { ...JWT, serviceRoleKey: secret });
-      throw new Error('expected applyPlatformJwtToEnv to throw');
+      applyInstanceJwtToEnv(EXISTING, { ...JWT, serviceRoleKey: secret });
+      throw new Error('expected applyInstanceJwtToEnv to throw');
     } catch (err) {
       const message = (err as Error).message;
       expect(message).toContain('SERVICE_ROLE_KEY');

@@ -160,6 +160,7 @@ export const instancesRoutes: FastifyPluginAsync = async (app) => {
 
     const ref = generateRef();
     const secrets = generateInstanceSecrets({
+      ref,
       jwtExpirySec: body.jwtExpirySec,
       postgresPasswordOverride: body.dbPassword,
     });

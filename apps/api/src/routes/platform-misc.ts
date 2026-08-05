@@ -4032,7 +4032,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       /* use default */
     }
     const safeRole = role === 'anon' ? 'anon' : 'service_role';
-    const api_key = signSupabaseJwt(jwtSecret, { role: safeRole, expSec });
+    // `ref` is a claim, not the boundary — the boundary is `jwtSecret`, which
+    // feature 123 made per-project, so this token is unusable on any other
+    // project regardless of what it claims.
+    const api_key = signSupabaseJwt(jwtSecret, { role: safeRole, ref: req.params.ref, expSec });
     // FR-006 — every data-plane issuance names requester, project, and lifetime.
     await db()
       .insert(schema.auditLog)
