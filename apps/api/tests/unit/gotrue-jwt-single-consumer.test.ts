@@ -29,20 +29,23 @@ const ALLOWED = new Set([
   'packages/crypto/src/gotrue-jwt.ts',
 ]);
 
-function grepProductionSources(needle: string): string[] {
+function gitGrep(args: string[]): string[] {
   let out: string;
   try {
-    out = execFileSync(
-      'git',
-      ['grep', '-l', '--fixed-strings', needle, '--', 'apps/*/src/**', 'packages/*/src/**'],
-      { cwd: REPO_ROOT, encoding: 'utf8' },
-    );
+    out = execFileSync('git', ['grep', '-l', ...args, '--', 'apps/*/src/**', 'packages/*/src/**'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    });
   } catch (err) {
     // git grep exits 1 with no output when there are zero matches.
     if ((err as { status?: number }).status === 1) return [];
     throw err;
   }
   return out.split('\n').filter(Boolean).sort();
+}
+
+function grepProductionSources(needle: string): string[] {
+  return gitGrep(['--fixed-strings', needle]);
 }
 
 describe('deriveGotrueJwtSecret — single-consumer contract', () => {
@@ -56,6 +59,10 @@ describe('deriveGotrueJwtSecret — single-consumer contract', () => {
   });
 
   it('the deleted adopt-platform-jwt route is really gone (it re-enrolled tenants)', () => {
-    expect(grepProductionSources('adopt-platform-jwt')).toEqual([]);
+    // Matches a quoted route-path literal, not the name in prose — the
+    // surviving env writer documents where it came from, and that history is
+    // worth keeping. Fastify puts the path on its own line, so a same-line
+    // `.post(` pattern would miss the very declaration this guards against.
+    expect(gitGrep(['-E', '[\'"]/[^\'"]*adopt-platform-jwt'])).toEqual([]);
   });
 });
