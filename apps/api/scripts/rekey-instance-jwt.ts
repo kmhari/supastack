@@ -18,11 +18,14 @@
  * simply re-run. `--force` additionally mints a brand-new secret.
  *
  * Invocation (from the VM, inside the api container — it holds the master key,
- * the instances mount, and the docker socket):
- *   docker exec supastack-api-1 node /app/apps/api/scripts/rekey-instance-jwt.js --all --dry-run
- *   docker exec supastack-api-1 node /app/apps/api/scripts/rekey-instance-jwt.js --all --yes
+ * the instances mount, and the docker socket). The api image ships source and
+ * runs under tsx; `dist/` covers src/ only, so there is no compiled .js here:
+ *   docker exec -w /app/apps/api supastack-api-1 \
+ *     pnpm exec tsx scripts/rekey-instance-jwt.ts --all --dry-run
+ *   docker exec -w /app/apps/api supastack-api-1 \
+ *     pnpm exec tsx scripts/rekey-instance-jwt.ts --all --yes
  * Or one project:
- *   docker exec supastack-api-1 node /app/apps/api/scripts/rekey-instance-jwt.js <ref> --yes
+ *   … pnpm exec tsx scripts/rekey-instance-jwt.ts <ref> --yes
  */
 import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
@@ -74,7 +77,20 @@ async function setJwtGuc(
   // hex chars from randomBytes — no quoting hazard — but escape it anyway so
   // this stays safe if the secret's shape ever changes.
   const sql = `ALTER DATABASE postgres SET "app.settings.jwt_secret" TO ${literal(jwtSecret)};`;
-  const res = await composeExec(ctx, 'db', ['psql', '-U', 'postgres', '-d', 'postgres', '-c', sql]);
+  // As `supabase_admin`, not `postgres`. In the Supabase image `postgres` is a
+  // privileged-but-not-superuser role, and ALTER DATABASE SET on a reserved
+  // `app.settings.*` parameter needs superuser — it fails with "permission
+  // denied to set parameter". volumes/db/jwt.sql gets away with `postgres`
+  // only because docker-entrypoint-initdb.d runs before the role is demoted.
+  const res = await composeExec(ctx, 'db', [
+    'psql',
+    '-U',
+    'supabase_admin',
+    '-d',
+    'postgres',
+    '-c',
+    sql,
+  ]);
   if (res.exitCode !== 0) throw new Error(`GUC update failed: ${res.stderr.trim()}`);
 }
 
