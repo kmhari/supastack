@@ -60,7 +60,7 @@ case "$INSTALL_MODE" in pull|build) ;; *) die "INSTALL_MODE must be 'pull' or 'b
 # release rather than the moving `latest` pointer — a mutable tag with no digest
 # is a silent-RCE supply-chain vector. Pinned to the first security-fixed release;
 # `latest` still triggers the loud warning below if forced via SUPASTACK_VERSION.
-SUPASTACK_DEFAULT_VERSION="v0.2.1"
+SUPASTACK_DEFAULT_VERSION="v0.2.2"
 if [[ "$INSTALL_MODE" == "pull" ]]; then
   SUPASTACK_VERSION="${SUPASTACK_VERSION:-$SUPASTACK_DEFAULT_VERSION}"
   if [[ "$SUPASTACK_VERSION" == "latest" ]]; then
