@@ -11,7 +11,13 @@ import {
   verifyAccessToken,
 } from '@supastack/oauth';
 import { errors, type Role } from '@supastack/shared';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
+import {
+  PAT_IDLE_MAX_DAYS,
+  PAT_SUNSET_WARN_DAYS,
+  idleExpiryEnforced,
+} from '../services/api-tokens.js';
+import { isFirstPartyOnlySurface } from './surface.js';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { Redis } from 'ioredis';
@@ -78,23 +84,46 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
   const oauthIssuer = apex ? `https://api.${apex}` : null;
   const oauthAudience = apex ? `https://mcp.${apex}/mcp` : null;
 
-  app.addHook('preHandler', async (req: FastifyRequest, _reply: FastifyReply) => {
+  app.addHook('preHandler', async (req: FastifyRequest, reply: FastifyReply) => {
     const auth = req.headers.authorization;
     if (!auth?.startsWith('Bearer ')) return;
     const raw = auth.slice('Bearer '.length).trim();
+    const path = (req.raw.url ?? req.url).split('?')[0]!;
 
     // 1. PAT (sbp_) — primary machine credential (CLI / Management API).
     if (raw.startsWith('sbp_')) {
       const sha = sha256(raw);
+      // Feature 122 — expiry. A token is valid when not revoked AND
+      // (grandfathered: expires_at IS NULL — pre-122 tokens, until the announced
+      //  FR-013 backfill) OR (not past its absolute expiry [AND, once the grace
+      //  window closes, not idle beyond PAT_IDLE_MAX_DAYS]). Grandfathering keeps
+      //  the change non-breaking for existing tokens; the idle clause is dropped
+      //  during the FR-013 grace so dormant tokens are never silently invalidated.
+      const idleClause = idleExpiryEnforced()
+        ? sql`AND (
+              ${schema.apiTokens.lastUsedAt} IS NULL
+              OR ${schema.apiTokens.lastUsedAt} > now() - make_interval(days => ${PAT_IDLE_MAX_DAYS})
+            )`
+        : sql``;
       const rows = await db()
         .select({
           tokenId: schema.apiTokens.id,
           userId: schema.apiTokens.userId,
           email: schema.users.email,
+          expiresAt: schema.apiTokens.expiresAt,
         })
         .from(schema.apiTokens)
         .innerJoin(schema.users, eq(schema.users.id, schema.apiTokens.userId))
-        .where(and(eq(schema.apiTokens.tokenSha256, sha), isNull(schema.apiTokens.revokedAt)))
+        .where(
+          and(
+            eq(schema.apiTokens.tokenSha256, sha),
+            isNull(schema.apiTokens.revokedAt),
+            sql`(
+              ${schema.apiTokens.expiresAt} IS NULL
+              OR (${schema.apiTokens.expiresAt} > now() ${idleClause})
+            )`,
+          ),
+        )
         .limit(1);
       if (rows[0]) {
         req.user = {
@@ -103,6 +132,12 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
           role: await resolveRole(rows[0].userId),
           tokenId: rows[0].tokenId,
         };
+        // FR-013 (D5) — announce impending expiry to the population that breaks
+        // (CLI / unattended automation never open the dashboard). RFC 8594 Sunset.
+        const exp = rows[0].expiresAt;
+        if (exp && exp.getTime() - Date.now() < PAT_SUNSET_WARN_DAYS * 86_400_000) {
+          reply.header('Sunset', exp.toUTCString());
+        }
         await db()
           .update(schema.apiTokens)
           .set({ lastUsedAt: new Date() })
@@ -123,6 +158,13 @@ export const authPlugin: FastifyPluginAsync = fp(async function authPlugin(app) 
           expectedAud: oauthAudience,
         });
         if (await isRevoked(redis, claims.jti)) return;
+        // Feature 122 US1 (SEC-042) — the audience boundary. An OAuth credential
+        // is issued to a third-party application (claims.azp); it is legitimate
+        // only on the third-party-allowed Management API surface (`/v1/*`, which
+        // MCP forwards to). On the api's first-party surfaces it must be refused —
+        // in particular it must not mint a PAT. Refusal is a plain no-user 401,
+        // indistinguishable from any other auth failure (FR-015).
+        if (isFirstPartyOnlySurface(path)) return;
         const u = await db()
           .select({ id: schema.users.id, email: schema.users.email })
           .from(schema.users)

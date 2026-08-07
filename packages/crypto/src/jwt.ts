@@ -10,12 +10,13 @@ const FIVE_YEARS_SEC = 5 * 365 * 24 * 60 * 60;
  */
 export function signSupabaseJwt(
   jwtSecret: string,
-  payload: { role: 'anon' | 'service_role'; iss?: string; expSec?: number },
+  payload: { role: 'anon' | 'service_role'; ref?: string; iss?: string; expSec?: number },
 ): string {
   const iat = Math.floor(Date.now() / 1000);
   const body = {
     role: payload.role,
     iss: payload.iss ?? 'supabase',
+    ...(payload.ref ? { ref: payload.ref } : {}),
     iat,
     exp: iat + (payload.expSec ?? FIVE_YEARS_SEC),
   };

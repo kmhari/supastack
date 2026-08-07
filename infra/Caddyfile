@@ -116,6 +116,16 @@ mcp.{$SUPASTACK_APEX} {
 	tls {
 		on_demand
 	}
+	# Internal endpoints are NEVER exposed externally. This host proxies to the
+	# mcp container, which serves nothing under /internal — the guard is here so
+	# that EVERY public site block carries it. Caddy site blocks do not cascade
+	# (the most specific matching address wins and requests never fall through to
+	# another block), so there is no place to express this once. A contract test
+	# asserts every block has it; that test is the real mechanism, this is the
+	# instance.
+	handle /internal/* {
+		respond 404
+	}
 	reverse_proxy mcp:3002
 }
 
@@ -127,6 +137,21 @@ mcp.{$SUPASTACK_APEX} {
 api.{$SUPASTACK_APEX} {
 	tls {
 		on_demand
+	}
+	# Internal endpoints are NEVER exposed externally.
+	#
+	# This block proxies the WHOLE host to api:3001, so without this guard every
+	# `/internal/*` route was publicly reachable here while the apex and :443
+	# blocks correctly 404'd them — the five internal routes are unauthenticated
+	# by design and document the assumption that they are unreachable from
+	# outside the Docker network.
+	#
+	# Must stay in sync with `apiHostRoute` in
+	# apps/api/src/services/caddy-config.ts. Caddy routes have TWO sources: this
+	# boot file and the runtime config. A guard in only one works until the next
+	# cold boot, or only after one.
+	handle /internal/* {
+		respond 404
 	}
 	reverse_proxy api:3001
 }

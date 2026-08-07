@@ -28,8 +28,10 @@
  * Research: R-001 (snapshot model), R-002 (encryption), R-003 (reload),
  *           R-004 (locking), R-007 (field mapping), R-008 (redaction sentinel).
  */
-import { decryptJson, encryptJson, loadMasterKey } from '@supastack/crypto';
+import { assertSafeForEnv, decryptJson, encryptJson, loadMasterKey } from '@supastack/crypto';
+import { renderOperatorEnv, resolveFinalEnvName } from '@supastack/docker-control';
 import { db, schema } from '@supastack/db';
+import { configChannel } from './config-delivery.js';
 import {
   POSTGREST_CONFIG_DEFAULTS,
   REDACTED_SECRET,
@@ -218,6 +220,15 @@ export function containerNameFor(ref: string, surface: ConfigSurface): string {
 
 export function envPathFor(ref: string): string {
   return path.join(INSTANCES_DIR, ref, '.env');
+}
+
+/**
+ * Feature 124 — the raw operator env-file. Free-text tenant config lands here,
+ * delivered to `auth` with `format: raw` so `${...}` is never expanded against
+ * the api's environment (SEC-065). Only the auth surface writes it.
+ */
+export function operatorEnvPathFor(ref: string): string {
+  return path.join(INSTANCES_DIR, ref, '.env.operator');
 }
 
 const REALTIME_CONFIG_DEFAULTS: ConfigJson = {
@@ -420,33 +431,53 @@ async function applyEnvAndRestart(
   merged: ConfigJson,
 ): Promise<void> {
   const envPath = envPathFor(ref);
+  const operatorPath = operatorEnvPathFor(ref);
   const beforeEnv = await readFile(envPath, 'utf8').catch(() => '');
+  const beforeOperator = await readFile(operatorPath, 'utf8').catch(() => '');
   let newEnv = beforeEnv;
 
   const lookup = surface === 'postgrest' ? lookupPostgrestFieldMapping : lookupAuthFieldMapping;
   const allKeys =
     surface === 'postgrest' ? Object.keys(POSTGREST_CONFIG_MAP) : Object.keys(AUTH_CONFIG_HONORED);
 
+  // Feature 124 — route each honored field by what it can carry:
+  //  raw        → operator file (free-text; the SEC-065 vector); final-named.
+  //  strict-env → .env, but assertSafeForEnv first (free-text but interpolated
+  //               by a 2nd service; schema identifiers never need $/quote/space).
+  //  env        → .env as before (type-constrained; safe on interpolation path).
+  // The operator file is rendered whole from the merged snapshot, so a field
+  // cleared to null simply drops out.
+  const rawFields: Record<string, string> = {};
   for (const k of allKeys) {
     if (!(k in merged)) continue;
     const mapping = lookup(k);
     if (mapping.kind !== 'honored') continue;
     const transform = mapping.transform ?? defaultEnvValueTransform;
     const v = transform(merged[k]);
+    const channel = configChannel(k, surface);
+
+    if (channel === 'raw') {
+      // '' → omitted by renderOperatorEnv (absent ≠ empty).
+      if (v !== '') rawFields[resolveFinalEnvName(mapping.envName)] = v;
+      continue;
+    }
     if (v === '') {
-      // Null / "auto-configured" → remove the env line entirely.
       newEnv = removeEnvEntry(newEnv, mapping.envName);
     } else {
+      if (channel === 'strict-env') assertSafeForEnv(v, mapping.envName);
       newEnv = upsertEnvEntry(newEnv, mapping.envName, v);
     }
   }
 
-  if (newEnv === beforeEnv) {
+  const newOperator = surface === 'auth' ? renderOperatorEnv(rawFields) : beforeOperator;
+
+  if (newEnv === beforeEnv && newOperator === beforeOperator) {
     // Only stored-only fields changed; no container restart needed.
     return;
   }
 
-  await atomicWrite(envPath, newEnv);
+  if (newEnv !== beforeEnv) await atomicWrite(envPath, newEnv);
+  if (newOperator !== beforeOperator) await atomicWrite(operatorPath, newOperator);
   // Use compose `up -d <service>` (recreate) so the new .env is re-substituted
   // into the container env. `docker restart` keeps the original env baked at
   // create-time, which silently breaks PATCH→container for any honored field.
@@ -455,14 +486,23 @@ async function applyEnvAndRestart(
   const composeDir = path.join(INSTANCES_DIR, ref);
   const projectName = `supastack-${ref}`;
   const serviceName = surface === 'postgrest' ? 'rest' : 'auth';
-  await recreateOrRollback(
-    composeDir,
-    projectName,
-    serviceName,
-    containerNameFor(ref, surface),
-    envPath,
-    beforeEnv,
-  );
+  try {
+    await recreateOrRollback(
+      composeDir,
+      projectName,
+      serviceName,
+      containerNameFor(ref, surface),
+      envPath,
+      beforeEnv,
+    );
+  } catch (err) {
+    // recreateOrRollback restores .env on failure; restore the operator file too
+    // so an interrupted apply never leaves a half-changed pair (SC-008 / FR-008).
+    if (newOperator !== beforeOperator) {
+      await atomicWrite(operatorPath, beforeOperator).catch(() => {});
+    }
+    throw err;
+  }
 }
 // keep restartOrRollback import used elsewhere (function-deploy hot path)
 void restartOrRollback;

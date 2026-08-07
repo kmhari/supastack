@@ -53,6 +53,8 @@ export const ACTIONS = [
   'token.create',
   'token.list',
   'token.revoke',
+  // feature 122 — minting a project data-plane (service_role/anon) key
+  'credential.mint-data-plane-key',
   // instances
   'instance.create',
   'instance.list',
@@ -118,6 +120,9 @@ const READ_ONLY: Action[] = [
   'instance.list',
   'instance.read',
   'instance.reveal-credentials',
+  // feature 122 — a temporary data-plane key is equivalent to reading the stored
+  // service_role key, which reveal-credentials already grants read_only members.
+  'credential.mint-data-plane-key',
   'backup.list',
   'backup.download',
   'pooler.read',

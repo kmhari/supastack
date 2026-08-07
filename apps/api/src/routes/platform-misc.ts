@@ -11,7 +11,8 @@ import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db, schema } from '@supastack/db';
 import { decryptJson, encryptJson, loadMasterKey, signSupabaseJwt } from '@supastack/crypto';
 import { ROLE_IDS, ROLE_NAMES, roleFromId, logger, type Role } from '@supastack/shared';
-import { mintApiToken } from '../services/api-tokens.js';
+import { clampDataPlaneExp, mintApiToken } from '../services/api-tokens.js';
+import { revokeCredentialsOnMemberRemoval } from '../services/credential-revocation.js';
 import { createOrganizationWithOwner } from '../services/org-store.js';
 import {
   listBackupsForPlatform,
@@ -280,6 +281,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         tokenAlias: schema.apiTokens.prefix,
         createdAt: schema.apiTokens.createdAt,
         lastUsedAt: schema.apiTokens.lastUsedAt,
+        expiresAt: schema.apiTokens.expiresAt,
       })
       .from(schema.apiTokens)
       .where(and(eq(schema.apiTokens.userId, user.id), isNull(schema.apiTokens.revokedAt)))
@@ -291,9 +293,16 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     const user = app.requireAuth(req);
     const body = (req.body ?? {}) as { name?: string };
     const name = body.name?.trim() || 'Access token';
-    const { raw, id, prefix } = await mintApiToken(db(), user.id, name, 'studio');
+    const { raw, id, prefix, expiresAt } = await mintApiToken(db(), user.id, name, 'studio');
     return reply.status(201).send({
-      ...toAccessToken({ id, name, tokenAlias: prefix, createdAt: new Date(), lastUsedAt: null }),
+      ...toAccessToken({
+        id,
+        name,
+        tokenAlias: prefix,
+        createdAt: new Date(),
+        lastUsedAt: null,
+        expiresAt,
+      }),
       token: raw, // shown once
     });
   });
@@ -322,6 +331,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
           tokenAlias: schema.apiTokens.prefix,
           createdAt: schema.apiTokens.createdAt,
           lastUsedAt: schema.apiTokens.lastUsedAt,
+          expiresAt: schema.apiTokens.expiresAt,
         })
         .from(schema.apiTokens)
         .where(
@@ -348,6 +358,7 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         tokenAlias: schema.apiTokens.prefix,
         createdAt: schema.apiTokens.createdAt,
         lastUsedAt: schema.apiTokens.lastUsedAt,
+        expiresAt: schema.apiTokens.expiresAt,
       })
       .from(schema.apiTokens)
       .where(and(eq(schema.apiTokens.userId, user.id), isNull(schema.apiTokens.revokedAt)))
@@ -364,13 +375,30 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       project_refs?: string[];
     };
     const name = body.name?.trim() || 'Scoped token';
-    const { raw, id, prefix } = await mintApiToken(db(), user.id, name, 'studio');
+    // Feature 122 SEC-081 (D8) — this endpoint does NOT apply token scoping.
+    // Rather than echo a narrowing it will not enforce (issuing a platform-wide
+    // PAT while confirming it is scoped), refuse any request that asks for one.
+    // Per-credential scoping is deferred to its own spec (research.md Q2, option B).
+    if (body.permissions?.length || body.organization_slugs?.length || body.project_refs?.length) {
+      return reply.status(400).send({
+        error:
+          'scoped tokens are not yet supported; omit permissions/organization_slugs/project_refs',
+      });
+    }
+    const { raw, id, prefix, expiresAt } = await mintApiToken(db(), user.id, name, 'studio');
     return reply.status(201).send({
-      ...toAccessToken({ id, name, tokenAlias: prefix, createdAt: new Date(), lastUsedAt: null }),
+      ...toAccessToken({
+        id,
+        name,
+        tokenAlias: prefix,
+        createdAt: new Date(),
+        lastUsedAt: null,
+        expiresAt,
+      }),
       token: raw,
-      permissions: body.permissions ?? [],
-      organization_slugs: body.organization_slugs ?? [],
-      project_refs: body.project_refs ?? [],
+      permissions: [],
+      organization_slugs: [],
+      project_refs: [],
     });
   });
 
@@ -2443,6 +2471,21 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
             eq(schema.organizationMembers.userId, req.params.gotrue_id),
           ),
         );
+      // Feature 122 — revoke the credentials that reached this org. Runs after
+      // the membership delete so the zero-org PAT check sees post-removal state.
+      // Best-effort: a revocation failure must not leave the member un-removed.
+      try {
+        await revokeCredentialsOnMemberRemoval(
+          req.params.gotrue_id,
+          req.params.slug,
+          req.user?.id ?? null,
+        );
+      } catch (err) {
+        req.log.warn(
+          { err, user: req.params.gotrue_id },
+          'credential revocation on member removal failed',
+        );
+      }
       return reply.status(204).send();
     },
   );
@@ -3952,21 +3995,18 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     Querystring: { authorization_exp?: string; claims?: string };
   }>('/platform/projects/:ref/api-keys/temporary', async (req, reply) => {
     const user = app.requireAuth(req);
+    // Feature 122 US2 — resolve the project first, then authorize org-scoped
+    // (Principle III) instead of the old hand-written membership join.
     const [inst] = await db()
-      .select({ encryptedSecrets: schema.supabaseInstances.encryptedSecrets })
+      .select({
+        orgId: schema.supabaseInstances.orgId,
+        encryptedSecrets: schema.supabaseInstances.encryptedSecrets,
+      })
       .from(schema.supabaseInstances)
-      .innerJoin(
-        schema.organizationMembers,
-        eq(schema.organizationMembers.organizationId, schema.supabaseInstances.orgId),
-      )
-      .where(
-        and(
-          eq(schema.supabaseInstances.ref, req.params.ref),
-          eq(schema.organizationMembers.userId, user.id),
-        ),
-      )
+      .where(eq(schema.supabaseInstances.ref, req.params.ref))
       .limit(1);
     if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    await app.authorizeOrg(req, 'credential.mint-data-plane-key', inst.orgId);
     const secrets = inst.encryptedSecrets
       ? (decryptJson(inst.encryptedSecrets, loadMasterKey()) as {
           jwtSecret?: string;
@@ -3974,7 +4014,19 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         })
       : {};
     const jwtSecret = secrets.jwtSecret ?? '';
-    const expSec = parseInt(req.query.authorization_exp ?? '3600', 10);
+
+    // Feature 122 US2 (SEC-076) — the platform, not the requester, bounds the
+    // lifetime. Absent → documented default; malformed/negative → refuse (not
+    // silently coerced, since parseInt('abc') is NaN and would flow into
+    // iat + NaN); above the max → clamp. Mirrors the adjacent safeRole clamp.
+    const MAX_SEC = Number.parseInt(process.env.DATA_PLANE_KEY_MAX_SEC ?? '', 10) || 3600;
+    const requested = req.query.authorization_exp;
+    const bound = clampDataPlaneExp(requested, MAX_SEC);
+    if (!bound.ok) {
+      return reply.status(400).send({ error: 'invalid authorization_exp' });
+    }
+    const { expSec, clamped } = bound;
+
     let role = 'service_role';
     try {
       const parsed = JSON.parse(req.query.claims ?? '{}');
@@ -3983,7 +4035,20 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       /* use default */
     }
     const safeRole = role === 'anon' ? 'anon' : 'service_role';
-    const api_key = signSupabaseJwt(jwtSecret, { role: safeRole, expSec });
+    // `ref` is a claim, not the boundary — the boundary is `jwtSecret`, which
+    // feature 123 made per-project, so this token is unusable on any other
+    // project regardless of what it claims.
+    const api_key = signSupabaseJwt(jwtSecret, { role: safeRole, ref: req.params.ref, expSec });
+    // FR-006 — every data-plane issuance names requester, project, and lifetime.
+    await db()
+      .insert(schema.auditLog)
+      .values({
+        actorUserId: user.id,
+        action: 'credential.mint-data-plane-key',
+        targetKind: 'project',
+        targetId: req.params.ref,
+        payload: { role: safeRole, expSec, requestedExp: requested ?? null, clamped },
+      });
     return reply.status(201).send({ api_key });
   });
 
@@ -5631,6 +5696,7 @@ function toAccessToken(r: {
   tokenAlias: string | null;
   createdAt: Date;
   lastUsedAt: Date | null;
+  expiresAt?: Date | null;
 }) {
   return {
     id: r.id,
@@ -5638,7 +5704,9 @@ function toAccessToken(r: {
     token_alias: r.tokenAlias ?? '',
     scope: 'V0' as const,
     created_at: r.createdAt.toISOString(),
-    expires_at: null,
+    // Feature 122 (D5) — populate the field the Studio token page already renders
+    // (was hardcoded null). null = grandfathered pre-122 token, no expiry yet.
+    expires_at: r.expiresAt?.toISOString() ?? null,
     last_used_at: r.lastUsedAt?.toISOString() ?? null,
   };
 }

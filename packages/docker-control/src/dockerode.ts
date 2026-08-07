@@ -1,7 +1,22 @@
 import { spawn } from 'node:child_process';
+import path from 'node:path';
 import Docker from 'dockerode';
 
 const docker = new Docker(); // uses /var/run/docker.sock by default
+
+/**
+ * The one stack definition a per-instance invocation may load.
+ *
+ * Compose reads `COMPOSE_FILE` out of the project's `.env` *before* it loads
+ * any stack, so an env file that assigns it selects which YAML runs — and the
+ * `config -q` round-trip then happily validates the attacker's stack instead of
+ * ours (feature 121, research.md Q1). Passing `-f` explicitly makes that inert:
+ * measured on Compose v5.0.2, the same injected `.env` resolves the intended
+ * service with the flag and the attacker's without it.
+ *
+ * This is defence that does not depend on having enumerated every input.
+ */
+export const INSTANCE_COMPOSE_FILE = 'docker-compose.yml';
 
 /**
  * Thin wrappers over `docker compose` for the per-instance lifecycle.
@@ -136,17 +151,7 @@ export async function composeExec(
   cmd: string[],
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
-    const args = [
-      'compose',
-      '-p',
-      ctx.projectName,
-      '--project-directory',
-      ctx.dir,
-      'exec',
-      '-T',
-      service,
-      ...cmd,
-    ];
+    const args = composeArgs(ctx, ['exec', '-T', service, ...cmd]);
     const child = spawn('docker', args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
@@ -163,24 +168,36 @@ export function composeExecStream(
   service: string,
   cmd: string[],
 ): NodeJS.ReadableStream {
-  const args = [
+  const args = composeArgs(ctx, ['exec', '-T', service, ...cmd]);
+  const child = spawn('docker', args, { stdio: ['ignore', 'pipe', 'inherit'] });
+  return child.stdout;
+}
+
+/**
+ * The single place per-instance `docker compose` argv is built. Every
+ * invocation names its project, its project directory AND its stack file, so
+ * none of the three can be steered by the contents of the project's `.env`
+ * (FR-007 / C8).
+ *
+ * Keep it that way: a new compose call must go through here. A contract test
+ * fails if a second construction site appears.
+ */
+function composeArgs(ctx: ComposeContext, args: string[]): string[] {
+  return [
     'compose',
     '-p',
     ctx.projectName,
     '--project-directory',
     ctx.dir,
-    'exec',
-    '-T',
-    service,
-    ...cmd,
+    '-f',
+    path.join(ctx.dir, INSTANCE_COMPOSE_FILE),
+    ...args,
   ];
-  const child = spawn('docker', args, { stdio: ['ignore', 'pipe', 'inherit'] });
-  return child.stdout;
 }
 
 async function runDockerCompose(ctx: ComposeContext, args: string[]): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn('docker', ['compose', '-p', ctx.projectName, ...args], {
+    const child = spawn('docker', composeArgs(ctx, args), {
       cwd: ctx.dir,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
