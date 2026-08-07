@@ -24,7 +24,9 @@ function readRaw(content: string): Record<string, string> {
 
 describe('renderOperatorEnv — accepts what interpolation would mangle', () => {
   test('the SEC-065 payload is delivered as literal text, not expanded', () => {
-    const out = readRaw(renderOperatorEnv({ GOTRUE_MAILER_SUBJECTS_CONFIRMATION: '${MASTER_KEY}' }));
+    const out = readRaw(
+      renderOperatorEnv({ GOTRUE_MAILER_SUBJECTS_CONFIRMATION: '${MASTER_KEY}' }),
+    );
     expect(out.GOTRUE_MAILER_SUBJECTS_CONFIRMATION).toBe('${MASTER_KEY}');
   });
 
@@ -42,9 +44,9 @@ describe('renderOperatorEnv — accepts what interpolation would mangle', () => 
   });
 
   test('a line break is rejected — it would split one assignment into two', () => {
-    expect(() =>
-      renderOperatorEnv({ GOTRUE_SITE_URL: 'a\nGOTRUE_SMTP_PASS=stolen' }),
-    ).toThrow(/line break/);
+    expect(() => renderOperatorEnv({ GOTRUE_SITE_URL: 'a\nGOTRUE_SMTP_PASS=stolen' })).toThrow(
+      /line break/,
+    );
   });
 
   test('a carriage return is rejected too', () => {
@@ -64,21 +66,24 @@ describe('renderOperatorEnv — accepts what interpolation would mangle', () => 
 });
 
 describe('renderOperatorEnv — absent vs empty (feature 024 semantics)', () => {
-  test.each([['null', null], ['undefined', undefined], ['empty string', '']] as const)(
-    'a %s value emits NO line',
-    (_label, value) => {
-      const content = renderOperatorEnv({ GOTRUE_SITE_URL: value, GOTRUE_SMTP_HOST: 'mail' });
-      expect(content).not.toMatch(/GOTRUE_SITE_URL/);
-      expect(readRaw(content)).toEqual({ GOTRUE_SMTP_HOST: 'mail' });
-    },
-  );
+  test.each([
+    ['null', null],
+    ['undefined', undefined],
+    ['empty string', ''],
+  ] as const)('a %s value emits NO line', (_label, value) => {
+    const content = renderOperatorEnv({ GOTRUE_SITE_URL: value, GOTRUE_SMTP_HOST: 'mail' });
+    expect(content).not.toMatch(/GOTRUE_SITE_URL/);
+    expect(readRaw(content)).toEqual({ GOTRUE_SMTP_HOST: 'mail' });
+  });
 
   test('all-absent renders an empty file, not a lone newline', () => {
     expect(renderOperatorEnv({ GOTRUE_SITE_URL: '', GOTRUE_SMTP_HOST: null })).toBe('');
   });
 
   test('numeric values coerce to string', () => {
-    expect(readRaw(renderOperatorEnv({ GOTRUE_SMTP_PORT: 587 }))).toEqual({ GOTRUE_SMTP_PORT: '587' });
+    expect(readRaw(renderOperatorEnv({ GOTRUE_SMTP_PORT: 587 }))).toEqual({
+      GOTRUE_SMTP_PORT: '587',
+    });
   });
 });
 
@@ -123,8 +128,17 @@ describe('resolveFinalEnvName — the 16-entry short→final table', () => {
   });
 
   test('the credential fields are all in the table (a miss silently breaks SMTP/OAuth)', () => {
-    for (const k of ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'SMTP_PORT', 'SMTP_ADMIN_EMAIL', 'SMTP_SENDER_NAME']) {
-      expect(HONORED_SHORT_TO_FINAL[k], `${k} must map to a final GOTRUE_ name`).toMatch(/^GOTRUE_/);
+    for (const k of [
+      'SMTP_HOST',
+      'SMTP_USER',
+      'SMTP_PASS',
+      'SMTP_PORT',
+      'SMTP_ADMIN_EMAIL',
+      'SMTP_SENDER_NAME',
+    ]) {
+      expect(HONORED_SHORT_TO_FINAL[k], `${k} must map to a final GOTRUE_ name`).toMatch(
+        /^GOTRUE_/,
+      );
     }
   });
 });

@@ -66,7 +66,10 @@ export async function revokeCredentialsOnMemberRemoval(
     for (const row of recent) {
       const jti = (row.payload as Record<string, unknown> | null)?.jti as string | undefined;
       if (!jti) continue;
-      const remainingSec = Math.max(1, Math.floor((oneHourMs - (now - row.createdAt.getTime())) / 1000));
+      const remainingSec = Math.max(
+        1,
+        Math.floor((oneHourMs - (now - row.createdAt.getTime())) / 1000),
+      );
       await revokeJti(redis, jti, remainingSec);
     }
     const deleted = await db()
@@ -107,15 +110,13 @@ export async function revokeCredentialsOnMemberRemoval(
   });
 
   // 4. Audit the removal and its resulting revocations (FR-011).
-  await db()
-    .insert(schema.auditLog)
-    .values({
-      actorUserId,
-      action: 'member.credentials-revoked',
-      targetKind: 'user',
-      targetId: userId,
-      payload: { organizationId, reason, patsRevoked, oauthGrantsRevoked, hadRemainingOrgs },
-    });
+  await db().insert(schema.auditLog).values({
+    actorUserId,
+    action: 'member.credentials-revoked',
+    targetKind: 'user',
+    targetId: userId,
+    payload: { organizationId, reason, patsRevoked, oauthGrantsRevoked, hadRemainingOrgs },
+  });
 
   return { patsRevoked, oauthGrantsRevoked, hadRemainingOrgs };
 }

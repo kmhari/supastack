@@ -17,13 +17,13 @@ Both are stored/enforced in the control-plane DB. A token with `expires_at IS
 NULL` is **grandfathered** (minted before this feature) and never expires until
 you backfill it — see below.
 
-| Env | Default | Meaning |
-| --- | --- | --- |
-| `PAT_ABSOLUTE_MAX_DAYS` | 365 | Max age from issuance. |
-| `PAT_STUDIO_MAX_DAYS` | 90 | Absolute cap for dashboard-minted tokens. |
-| `PAT_IDLE_MAX_DAYS` | 90 | Max gap since last use. |
-| `PAT_SUNSET_WARN_DAYS` | 30 | Emit a `Sunset` header this many days before expiry. |
-| `PAT_IDLE_GRACE_UNTIL` | _unset_ | ISO date; while now < this, idle expiry is **not** enforced (see grace). |
+| Env                     | Default | Meaning                                                                  |
+| ----------------------- | ------- | ------------------------------------------------------------------------ |
+| `PAT_ABSOLUTE_MAX_DAYS` | 365     | Max age from issuance.                                                   |
+| `PAT_STUDIO_MAX_DAYS`   | 90      | Absolute cap for dashboard-minted tokens.                                |
+| `PAT_IDLE_MAX_DAYS`     | 90      | Max gap since last use.                                                  |
+| `PAT_SUNSET_WARN_DAYS`  | 30      | Emit a `Sunset` header this many days before expiry.                     |
+| `PAT_IDLE_GRACE_UNTIL`  | _unset_ | ISO date; while now < this, idle expiry is **not** enforced (see grace). |
 
 ## The `Sunset` header
 
@@ -49,6 +49,7 @@ The safe sequence:
    While now is before that date, only the **absolute** cap applies; a parked
    token that hasn't been used in months keeps working through the window.
    Unset / past / malformed → idle enforced (the steady state).
+
 3. **Backfill** grandfathered tokens (idempotent — safe to re-run):
 
    ```sql
@@ -61,6 +62,7 @@ The safe sequence:
 
    This gives every existing token at least 90 days from the backfill and never
    shortens one already older than its absolute cap below that floor.
+
 4. **After the grace date passes**, remove `PAT_IDLE_GRACE_UNTIL`. Idle expiry is
    now enforced for everyone.
 

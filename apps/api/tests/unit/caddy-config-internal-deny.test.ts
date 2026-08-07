@@ -36,7 +36,8 @@ vi.mock('@supastack/db', () => {
       from: () => obj,
       where: () => obj,
       limit: () => settle(),
-      then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) => settle().then(res, rej),
+      then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
+        settle().then(res, rej),
     };
     return obj;
   };

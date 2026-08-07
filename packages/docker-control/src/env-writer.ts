@@ -156,7 +156,9 @@ export function renderEnvFile(spec: EnvFileSpec): string {
  * `fields` is keyed by the FINAL container env name (callers resolve short keys
  * via config-final-names first). Never echoes a value in an error (C5).
  */
-export function renderOperatorEnv(fields: Record<string, string | number | null | undefined>): string {
+export function renderOperatorEnv(
+  fields: Record<string, string | number | null | undefined>,
+): string {
   const merged = new Map<string, string>();
   for (const [name, raw] of Object.entries(fields)) {
     if (raw === null || raw === undefined || raw === '') continue; // absent ≠ empty
@@ -323,8 +325,10 @@ function assertRoundTrips(content: string, expected: Map<string, string>): void 
  */
 function explainUndeliverable(intended: string): string {
   if (/\s#/.test(intended)) {
-    return "it contains a space followed by '#', which Compose reads as the start of an " +
-      'inline comment and discards from there on. Remove the space before the #, or the # itself.';
+    return (
+      "it contains a space followed by '#', which Compose reads as the start of an " +
+      'inline comment and discards from there on. Remove the space before the #, or the # itself.'
+    );
   }
   if (intended !== intended.trim()) {
     return 'it has leading or trailing whitespace, which Compose strips. Remove it.';

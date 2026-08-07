@@ -2481,7 +2481,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
           req.user?.id ?? null,
         );
       } catch (err) {
-        req.log.warn({ err, user: req.params.gotrue_id }, 'credential revocation on member removal failed');
+        req.log.warn(
+          { err, user: req.params.gotrue_id },
+          'credential revocation on member removal failed',
+        );
       }
       return reply.status(204).send();
     },
