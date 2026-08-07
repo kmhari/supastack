@@ -19,7 +19,18 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const TEST_FILE = /\.(test|spec)\.tsx?$/;
-const PRUNE_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '.next', '.git']);
+// `.claude` holds nested git worktrees (.claude/worktrees/<name>). Those are
+// separate checkouts, so their test files are not this tree's committed files —
+// walking into them reports another branch's layout as a failure here.
+const PRUNE_DIRS = new Set([
+  'node_modules',
+  'dist',
+  'build',
+  'coverage',
+  '.next',
+  '.git',
+  '.claude',
+]);
 // Locations intentionally outside the vitest suite (mirror vitest.config.ts excludes):
 // tests/e2e (Playwright, e2e job), theme/ (vendored), infra/supabase-template (templates).
 const EXCLUDE = [/(^|\/)tests\/e2e\//, /(^|\/)theme\//, /^infra\/supabase-template\//];
