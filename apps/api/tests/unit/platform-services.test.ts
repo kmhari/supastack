@@ -71,7 +71,7 @@ vi.mock('../../src/services/org-membership.js', () => ({
 }));
 vi.mock('../../src/services/gotrue-admin.js', () => ({
   sendRecoveryEmail: vi.fn(),
-  signupGotrueUser: vi.fn(),
+  inviteGotrueUser: vi.fn(),
   updateGotrueUser: vi.fn(),
 }));
 vi.mock('../../src/services/auth-config-case.js', () => ({

@@ -28,7 +28,7 @@ import {
   newInviteToken,
   ownerCount,
 } from '../services/org-membership.js';
-import { sendRecoveryEmail, signupGotrueUser, updateGotrueUser } from '../services/gotrue-admin.js';
+import { inviteGotrueUser, sendRecoveryEmail, updateGotrueUser } from '../services/gotrue-admin.js';
 import { toApiKeys, toStudioKeys } from '../services/auth-config-case.js';
 import {
   resetPgPasswordForInstance,
@@ -2394,14 +2394,40 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     for (const email of emails) {
       try {
         const { sha256, expiresAt } = newInviteToken();
-        await db().insert(schema.organizationInvitations).values({
-          organizationId: req.params.slug,
-          email,
-          tokenSha256: sha256,
-          role,
-          invitedByUserId: inviter.id,
-          expiresAt,
-        });
+        const [row] = await db()
+          .insert(schema.organizationInvitations)
+          .values({
+            organizationId: req.params.slug,
+            email,
+            tokenSha256: sha256,
+            role,
+            invitedByUserId: inviter.id,
+            expiresAt,
+          })
+          .returning({ id: schema.organizationInvitations.id });
+        // The invitee must exist in GoTrue before they can accept: the accept
+        // route calls requireAuth, and with open signup removed this is the only
+        // path to an account. GoTrue mails them a set-password link.
+        //
+        // Already-registered invitees are expected, not an error — an existing
+        // member of another org being added here needs no new account, and they
+        // can accept with the credentials they already have.
+        try {
+          await inviteGotrueUser({ email });
+        } catch (e) {
+          const status = (e as { statusCode?: number }).statusCode;
+          if (status !== 422) {
+            // Roll the row back by hand: the insert and the GoTrue call cannot
+            // share a transaction, so without this a send failure leaves a
+            // pending invite the operator was told had failed.
+            if (row) {
+              await db()
+                .delete(schema.organizationInvitations)
+                .where(eq(schema.organizationInvitations.id, row.id));
+            }
+            throw e;
+          }
+        }
         succeeded.push(email);
       } catch (e) {
         failed.push({ email, error: (e as Error).message });
@@ -3164,29 +3190,17 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(204).send();
   });
 
-  // ── Account management stubs — self-hosted uses its own auth flow ────────
-  app.post('/platform/signup', async (req, reply) => {
-    const body = (req.body ?? {}) as { email?: string; password?: string };
-    if (!body.email || !body.password) {
-      return reply.status(400).send({ error: 'email and password are required' });
-    }
-    try {
-      const user = await signupGotrueUser({ email: body.email, password: body.password });
-      await db().transaction((tx) =>
-        createOrganizationWithOwner(tx, {
-          userId: user.id,
-          name: `${body.email!.split('@')[0]}'s org`,
-        }),
-      );
-      return reply.status(200).send({ id: user.id, email: user.email });
-    } catch (err: unknown) {
-      const e = err as { statusCode?: number; body?: string };
-      if (e.statusCode === 422 || e.statusCode === 400) {
-        return reply.status(400).send({ error: e.body ?? 'signup failed' });
-      }
-      throw err;
-    }
-  });
+  // ── Account management ───────────────────────────────────────────────────
+  // There is deliberately NO signup route. This installation is invite-only:
+  // the first operator is created once by POST /setup (gated by setup_state —
+  // 410 afterwards), and every account after that is created by an org admin
+  // via POST /platform/organizations/:slug/members/invitations.
+  //
+  // The removed POST /platform/signup was unauthenticated and minted both a
+  // user and a fresh organization owned by the caller. The control-plane GoTrue
+  // sets GOTRUE_DISABLE_SIGNUP=true (infra/docker-compose.yml), so it could not
+  // actually create accounts — but it was a public door standing on one env
+  // var. Guarded by tests/unit/no-open-signup.test.ts; do not re-add it.
 
   // Feature 084 US6 — password reset via GoTrue's recovery mailer (needs SMTP).
   app.post('/platform/reset-password', async (req, reply) => {

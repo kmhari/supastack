@@ -9,6 +9,7 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 let queryRows: unknown[] = [];
+const deletedInvites: string[] = [];
 vi.mock('@supastack/db', () => ({
   db: () => ({
     select: () => ({
@@ -17,9 +18,11 @@ vi.mock('@supastack/db', () => ({
         where: async () => queryRows,
       }),
     }),
-    insert: () => ({ values: async () => undefined }),
+    // `.values()` is both awaitable (plain inserts) and chainable into
+    // `.returning()` (the invite path needs the row id to roll back by hand).
+    insert: () => ({ values: () => ({ returning: async () => [{ id: 'inv1' }] }) }),
     update: () => ({ set: () => ({ where: async () => undefined }) }),
-    delete: () => ({ where: async () => undefined }),
+    delete: () => ({ where: async () => deletedInvites.push('inv1') }),
   }),
   schema: {
     organizations: {},
@@ -34,6 +37,21 @@ vi.mock('@supastack/crypto', () => ({
   decryptJson: () => ({}),
   loadMasterKey: () => Buffer.alloc(32),
   generateRef: () => 'abcdefghijklmnopqrst',
+}));
+
+// Accounts are created through GoTrue's admin invite; the route must call it
+// for every invitee, because with open signup removed this is the only way an
+// invitee can ever authenticate to accept.
+const invitedEmails: string[] = [];
+let mockInviteError: { statusCode?: number } | null = null;
+vi.mock('../../src/services/gotrue-admin.js', () => ({
+  inviteGotrueUser: async ({ email }: { email: string }) => {
+    if (mockInviteError) throw Object.assign(new Error('invite failed'), mockInviteError);
+    invitedEmails.push(email);
+    return { id: 'g1', email };
+  },
+  sendRecoveryEmail: async () => undefined,
+  updateGotrueUser: async () => ({ id: 'g1', email: 'x@y.z' }),
 }));
 
 let mockMemberRole: string | null = 'owner';
@@ -89,6 +107,8 @@ describe('Org roles + members + invitations (feature 084 US4)', () => {
 
   it('invite: emails[] + role_id → {succeeded, failed}', async () => {
     process.env.GOTRUE_SMTP_HOST = 'smtp.test';
+    invitedEmails.length = 0;
+    mockInviteError = null;
     const app = await buildApp();
     const res = await app.inject({
       method: 'POST',
@@ -97,6 +117,45 @@ describe('Org roles + members + invitations (feature 084 US4)', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().succeeded).toEqual(['dev@x.dev']);
+    // Without this the invitee has no account and can never accept.
+    expect(invitedEmails).toEqual(['dev@x.dev']);
+    await app.close();
+  });
+
+  it('invite: an already-registered invitee (GoTrue 422) still succeeds', async () => {
+    process.env.GOTRUE_SMTP_HOST = 'smtp.test';
+    deletedInvites.length = 0;
+    mockInviteError = { statusCode: 422 };
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: `/platform/organizations/${SLUG}/members/invitations`,
+      payload: { emails: ['existing@x.dev'], role_id: 3 },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().succeeded).toEqual(['existing@x.dev']);
+    // They already have credentials, so the invite stands — nothing rolled back.
+    expect(deletedInvites).toEqual([]);
+    mockInviteError = null;
+    await app.close();
+  });
+
+  it('sad: GoTrue send failure reports failed AND rolls the invite row back', async () => {
+    process.env.GOTRUE_SMTP_HOST = 'smtp.test';
+    deletedInvites.length = 0;
+    mockInviteError = { statusCode: 500 };
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: `/platform/organizations/${SLUG}/members/invitations`,
+      payload: { emails: ['dev@x.dev'], role_id: 3 },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().succeeded).toEqual([]);
+    expect(res.json().failed[0].email).toBe('dev@x.dev');
+    // Otherwise a pending invite lingers that the operator was told had failed.
+    expect(deletedInvites).toEqual(['inv1']);
+    mockInviteError = null;
     await app.close();
   });
 
