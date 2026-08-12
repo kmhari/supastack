@@ -121,19 +121,34 @@ export async function updateGotrueUser(
   return { id: u.id, email: u.email };
 }
 
-/** Sign up a new user via GoTrue's public /signup endpoint (password flow). */
-export async function signupGotrueUser(opts: {
+/**
+ * Invite a user by email (admin). Creates the GoTrue user if absent and mails
+ * them a link to set a password — the only way an account comes into existence
+ * after /setup, since this installation is invite-only and GoTrue's public
+ * /signup is disabled.
+ *
+ * Requires SMTP: GoTrue fails the call when it cannot send. Callers gate on
+ * GOTRUE_SMTP_HOST first so the operator gets a clear 409 instead of this error.
+ *
+ * Deliberately NOT idempotent-by-swallowing: re-inviting an existing user makes
+ * GoTrue return 422, which the caller surfaces per-email rather than silently
+ * treating as success.
+ */
+export async function inviteGotrueUser(opts: {
   email: string;
-  password: string;
+  redirectTo?: string;
 }): Promise<GotrueUser> {
-  const res = await fetch(`${GOTRUE_URL}/signup`, {
+  const res = await fetch(`${GOTRUE_URL}/invite`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email: opts.email, password: opts.password }),
+    headers: adminHeaders(),
+    body: JSON.stringify({
+      email: opts.email,
+      ...(opts.redirectTo && { redirect_to: opts.redirectTo }),
+    }),
   });
   if (!res.ok) {
     const text = await res.text();
-    throw Object.assign(new Error(`gotrue signup failed (${res.status}): ${text}`), {
+    throw Object.assign(new Error(`gotrue invite failed (${res.status}): ${text}`), {
       statusCode: res.status,
       body: text,
     });
