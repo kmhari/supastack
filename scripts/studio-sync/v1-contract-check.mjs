@@ -26,7 +26,7 @@
 //   --refresh          re-fetch the spec from api.supabase.com first
 //   --json             machine-readable output
 //
-// Exit: 0 no invented surface | 1 we serve something upstream does not define | 2 usage
+// Exit: 0 nothing breaking | 1 invented path or divergent method | 2 usage
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -96,18 +96,34 @@ for (const { method, url } of manifest) {
 }
 
 const inventedPath = []; // we serve a /v1 path upstream does not define at all
-const inventedMethod = []; // path exists upstream, but not this verb
+const divergent = []; // we answer a verb upstream lacks AND miss one it defines
+const extra = []; // every canonical verb is served; we just answer more besides
 const notImplemented = []; // upstream defines it, we fall through to the 501
 
+// Serving a verb upstream does not define is not automatically breakage. If every
+// verb upstream DOES define is also served, a spec-conformant client never
+// notices the extra one — e.g. we answer PATCH on config/database/postgres
+// alongside upstream's PUT, and the CLI uses PUT. That is an extension to
+// justify, not a break.
+//
+// It only breaks when the canonical verbs are missing, because then a client
+// following the spec falls through to the 501 catch-all while a non-standard
+// verb quietly works.
 for (const [key, mine] of ours) {
   const up = upstream.get(key);
   if (!up) {
     inventedPath.push({ path: mine.display, methods: [...mine.methods].sort() });
     continue;
   }
+  const canonicalCovered = [...up.methods].every((m) => mine.methods.has(m));
   for (const m of [...mine.methods].sort()) {
-    if (!up.methods.has(m))
-      inventedMethod.push({ path: mine.display, method: m, upstream: up.display });
+    if (up.methods.has(m)) continue;
+    const row = {
+      path: mine.display,
+      method: m,
+      upstream: [...up.methods].sort().join(',') || '(none)',
+    };
+    (canonicalCovered ? extra : divergent).push(row);
   }
 }
 for (const [key, up] of upstream) {
@@ -117,17 +133,17 @@ for (const [key, up] of upstream) {
   }
 }
 
-const invented = inventedPath.length + inventedMethod.length;
+const breaking = inventedPath.length + divergent.length;
 
 if (opts.json) {
   console.log(
     JSON.stringify(
-      { spec: specPath, manifest: manifestPath, inventedPath, inventedMethod, notImplemented },
+      { spec: specPath, manifest: manifestPath, inventedPath, divergent, extra, notImplemented },
       null,
       2,
     ),
   );
-  process.exit(invented ? 1 : 0);
+  process.exit(breaking ? 1 : 0);
 }
 
 console.log(`\n/v1 Management API contract`);
@@ -144,9 +160,16 @@ if (inventedPath.length) {
   for (const x of inventedPath) console.log(`    ${x.methods.join(',')} ${x.path}`);
   console.log();
 }
-if (inventedMethod.length) {
-  console.log(`  INVENTED METHOD — path is upstream, this verb is not (${inventedMethod.length})`);
-  for (const x of inventedMethod) console.log(`    ${x.method} ${x.path}`);
+if (divergent.length) {
+  console.log(`  DIVERGENT METHOD — we answer a verb upstream lacks, and miss one it defines`);
+  console.log(`    A spec-conformant client hits the 501 while a non-standard verb works.`);
+  for (const x of divergent) console.log(`    ${x.method} ${x.path}   (upstream: ${x.upstream})`);
+  console.log();
+}
+if (extra.length) {
+  console.log(`  EXTRA METHOD — every canonical verb served, plus this one (${extra.length})`);
+  console.log(`    Non-breaking. Each still wants a documented reason for existing.`);
+  for (const x of extra) console.log(`    ${x.method} ${x.path}   (upstream: ${x.upstream})`);
   console.log();
 }
 if (notImplemented.length) {
@@ -164,7 +187,9 @@ if (notImplemented.length) {
   }
   console.log();
 }
-if (!invented) console.log('  no invented /v1 surface\n');
+if (!breaking) console.log('  no invented /v1 surface\n');
 
-console.log(`  ${invented} contract violation(s), ${notImplemented.length} unimplemented\n`);
-process.exit(invented ? 1 : 0);
+console.log(
+  `  ${breaking} breaking, ${extra.length} non-breaking extension(s), ${notImplemented.length} unimplemented\n`,
+);
+process.exit(breaking ? 1 : 0);
