@@ -108,7 +108,11 @@ function extractPaths(ref) {
         out.set(key, buf.join('\n'));
         key = null;
       } else {
-        buf.push(line.trim());
+        // Drop JSDoc/comment lines. Upstream rewords endpoint descriptions
+        // constantly; a prose edit is not contract drift, and reporting it as
+        // CHANGED buries the operations that actually moved.
+        const t = line.trim();
+        if (t && !/^(\/\*\*|\*\/|\*|\/\/)/.test(t)) buf.push(t);
       }
     }
   }
