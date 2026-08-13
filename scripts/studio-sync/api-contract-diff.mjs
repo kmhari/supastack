@@ -86,10 +86,10 @@ if (!base) {
 // Path keys sit at two-space indent inside `export interface paths`, and each
 // block closes on a bare two-space `}`. Slicing on that is enough to compare
 // operation shapes without pulling in a TypeScript parser.
-function extractPaths(ref) {
-  const src = git(['show', `${ref}:${TYPES_FILE}`], { allowFail: true });
+function extractPaths(ref, typesFile, match) {
+  const src = git(['show', `${ref}:${typesFile}`], { allowFail: true });
   if (src === null) {
-    console.error(`FATAL: ${TYPES_FILE} missing at ${ref} — upstream moved the generated types`);
+    console.error(`FATAL: ${typesFile} missing at ${ref} — upstream moved the generated types`);
     process.exit(2);
   }
   const lines = src.split('\n');
@@ -99,7 +99,7 @@ function extractPaths(ref) {
   for (const line of lines) {
     const m = line.match(/^ {2}'(\/[^']*)': \{$/);
     if (m) {
-      key = m[1];
+      key = match.test(m[1]) ? m[1] : null;
       buf = [];
       continue;
     }
@@ -124,7 +124,12 @@ function extractPaths(ref) {
 // shape so a naming difference is not reported as a missing endpoint.
 const shape = (p) => p.replace(/\{[^}]*\}/g, '{}').replace(/:[A-Za-z0-9_]+/g, '{}');
 
-function collectRoutes(root) {
+// `mount` is what Fastify prepends at registration time. The /platform routes
+// carry their full path in the literal; everything under routes/management/ is
+// registered with `{ prefix: '/v1' }` (server.ts) and its literals are RELATIVE,
+// so scanning for '/v1/...' strings there finds nothing. Prepend the mount or the
+// entire Management API compatibility surface reads as unimplemented.
+function collectRoutes(root, { match, mount = '' }) {
   const found = new Map();
   const walk = (d) => {
     for (const entry of readdirSync(d)) {
@@ -132,9 +137,11 @@ function collectRoutes(root) {
       if (statSync(full).isDirectory()) walk(full);
       else if (/\.(ts|mts|js|mjs)$/.test(entry)) {
         const src = readFileSync(full, 'utf8');
-        for (const m of src.matchAll(/['"`](\/platform\/[^'"`]*)['"`]/g)) {
-          const s = shape(m[1]);
-          if (!found.has(s)) found.set(s, { path: m[1], file: full });
+        for (const m of src.matchAll(/['"`](\/[^'"`\s]*)['"`]/g)) {
+          const path = mount + m[1];
+          if (!match.test(path)) continue;
+          const s = shape(path);
+          if (!found.has(s)) found.set(s, { path, file: full });
         }
       }
     }
@@ -143,86 +150,120 @@ function collectRoutes(root) {
   return found;
 }
 
-const basePaths = extractPaths(base);
-const headPaths = extractPaths(head);
+// Two independent contracts, and missing either one hides real breakage:
+//   platform — what the Studio bundle calls; our api is the only thing serving it
+//   v1       — the Management API compatibility surface. Per AGENTS.md upstream is
+//              canonical here and we must never invent or drift it. It is also what
+//              the unmodified supabase CLI and MCP clients talk to.
+const SURFACES = [
+  {
+    name: 'platform',
+    types: 'packages/api-types/types/platform.d.ts',
+    match: /^\/platform\//,
+    routeDir: 'apps/api/src/routes',
+    mount: '',
+    consumer: 'a rebuilt Studio may 404',
+  },
+  {
+    name: 'v1 (Management API)',
+    types: 'packages/api-types/types/api.d.ts',
+    match: /^\/v1\//,
+    routeDir: 'apps/api/src/routes/management',
+    mount: '/v1',
+    consumer: 'the supabase CLI / MCP clients hit the 501 catch-all',
+  },
+];
 
-const apiDir = resolvePath(opts['api-dir'] ?? 'apps/api/src/routes');
-let routes;
-try {
-  routes = collectRoutes(apiDir);
-} catch (err) {
-  console.error(`FATAL: cannot read supastack routes at ${apiDir}: ${err.message}`);
-  process.exit(2);
+const apiRoot = resolvePath(opts['api-dir'] ?? 'apps/api/src/routes');
+
+function analyse(surface) {
+  const basePaths = extractPaths(base, surface.types, surface.match);
+  const headPaths = extractPaths(head, surface.types, surface.match);
+
+  const dir = surface.mount === '' ? apiRoot : resolvePath(surface.routeDir);
+  let routes;
+  try {
+    routes = collectRoutes(dir, { match: surface.match, mount: surface.mount });
+  } catch (err) {
+    console.error(`FATAL: cannot read supastack routes at ${dir}: ${err.message}`);
+    process.exit(2);
+  }
+
+  const baseByShape = new Map([...basePaths].map(([p, body]) => [shape(p), { path: p, body }]));
+  const headByShape = new Map([...headPaths].map(([p, body]) => [shape(p), { path: p, body }]));
+
+  const removed = []; // we implement it; upstream deleted it
+  const changed = []; // we implement it; upstream reshaped it
+  const added = []; // upstream added it; we do not implement it
+
+  for (const [s, impl] of routes) {
+    const inBase = baseByShape.get(s);
+    const inHead = headByShape.get(s);
+    if (inBase && !inHead)
+      removed.push({ path: impl.path, file: impl.file, upstream: inBase.path });
+    else if (inBase && inHead && inBase.body !== inHead.body)
+      changed.push({ path: impl.path, file: impl.file, upstream: inHead.path });
+  }
+
+  for (const [s, up] of headByShape) {
+    if (!baseByShape.has(s) && !routes.has(s)) added.push({ path: up.path });
+  }
+
+  return {
+    surface: surface.name,
+    consumer: surface.consumer,
+    counts: {
+      upstreamBase: basePaths.size,
+      upstreamHead: headPaths.size,
+      implemented: routes.size,
+    },
+    removed,
+    changed,
+    added,
+  };
 }
 
-const baseByShape = new Map([...basePaths].map(([p, body]) => [shape(p), { path: p, body }]));
-const headByShape = new Map([...headPaths].map(([p, body]) => [shape(p), { path: p, body }]));
-
-const removed = []; // we implement it; upstream deleted it
-const changed = []; // we implement it; upstream reshaped it
-const added = []; // upstream added it; we do not implement it
-
-for (const [s, impl] of routes) {
-  const inBase = baseByShape.get(s);
-  const inHead = headByShape.get(s);
-  if (inBase && !inHead) removed.push({ path: impl.path, file: impl.file, upstream: inBase.path });
-  else if (inBase && inHead && inBase.body !== inHead.body)
-    changed.push({ path: impl.path, file: impl.file, upstream: inHead.path });
-}
-
-for (const [s, up] of headByShape) {
-  if (!baseByShape.has(s) && !routes.has(s)) added.push({ path: up.path });
-}
-
-const actionable = removed.length + changed.length;
+const reports = SURFACES.map(analyse);
+const actionable = reports.reduce((n, r) => n + r.removed.length + r.changed.length, 0);
 
 if (opts.json) {
-  console.log(
-    JSON.stringify(
-      {
-        base,
-        head,
-        counts: {
-          removed: removed.length,
-          changed: changed.length,
-          added: added.length,
-          implemented: routes.size,
-        },
-        removed,
-        changed,
-        added,
-      },
-      null,
-      2,
-    ),
-  );
+  console.log(JSON.stringify({ base, head, surfaces: reports }, null, 2));
   process.exit(actionable ? 1 : 0);
 }
 
 const rel = (f) => f.replace(process.cwd() + '/', '');
 
-console.log(`\nplatform API contract drift`);
+console.log(`\nAPI contract drift`);
 console.log(`  base ${base.slice(0, 10)}  ->  head ${head}`);
-console.log(
-  `  ${basePaths.size} -> ${headPaths.size} upstream paths | ${routes.size} implemented by supastack\n`,
-);
 
-if (removed.length) {
-  console.log(`  BREAKING — we implement it, upstream deleted it (${removed.length})`);
-  for (const r of removed) console.log(`    ${r.path}\n      ${rel(r.file)}`);
-  console.log();
+let added = [];
+for (const r of reports) {
+  added = added.concat(r.added);
+  console.log(`\n── ${r.surface} ─────────────────────────────────────────`);
+  console.log(
+    `  ${r.counts.upstreamBase} -> ${r.counts.upstreamHead} upstream paths | ${r.counts.implemented} implemented by supastack\n`,
+  );
+
+  if (r.removed.length) {
+    console.log(`  BREAKING — we implement it, upstream deleted it (${r.removed.length})`);
+    for (const x of r.removed) console.log(`    ${x.path}\n      ${rel(x.file)}`);
+    console.log();
+  }
+  if (r.changed.length) {
+    console.log(
+      `  CHANGED — we implement it, upstream reshaped the operation (${r.changed.length})`,
+    );
+    for (const x of r.changed) console.log(`    ${x.path}\n      ${rel(x.file)}`);
+    console.log();
+  }
+  if (r.added.length) {
+    console.log(`  NEW upstream, not implemented here — ${r.consumer} (${r.added.length})`);
+    for (const x of r.added) console.log(`    ${x.path}`);
+    console.log();
+  }
+  if (!r.removed.length && !r.changed.length && !r.added.length)
+    console.log('  no drift on any endpoint supastack implements\n');
 }
-if (changed.length) {
-  console.log(`  CHANGED — we implement it, upstream reshaped the operation (${changed.length})`);
-  for (const r of changed) console.log(`    ${r.path}\n      ${rel(r.file)}`);
-  console.log();
-}
-if (added.length) {
-  console.log(`  NEW upstream, not implemented here — a rebuilt Studio may 404 (${added.length})`);
-  for (const r of added) console.log(`    ${r.path}`);
-  console.log();
-}
-if (!actionable && !added.length) console.log('  no drift on any endpoint supastack implements\n');
 
 console.log(
   `  ${actionable} actionable finding(s)` +
