@@ -24,19 +24,72 @@
 //   --manifest <path>  route manifest (default: ./route-manifest.json)
 //   --spec <path>      cached OpenAPI JSON (default: .cache/supabase-v1-openapi.json)
 //   --refresh          re-fetch the spec from api.supabase.com first
+//   --verbose          print the recorded reason for each justified extension
 //   --json             machine-readable output
 //
-// Exit: 0 nothing breaking | 1 invented path or divergent method | 2 usage
+// Exit: 0 nothing breaking | 1 untriaged invented path, divergent method, or a
+//       stale justification | 2 usage
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 const SPEC_URL = 'https://api.supabase.com/api/v1-json';
 
+// ── Justified self-hosted extensions ────────────────────────────────────────
+//
+// AGENTS.md forbids inventing /v1 surface. These predate the rule or answer a
+// need Cloud does not have, and each has been triaged once. The point of the
+// list is NOT to silence the check — it is to make it CLOSED: an entry here is
+// a recorded decision, and any /v1 path that is not here fails on its own
+// merit the moment someone adds it. Delete an entry and the check tells you
+// the path is still being served.
+//
+// Keys are shaped paths (`:ref`/`{ref}` → `{}`), matching `shape()` below.
+// Each value must say who consumes it and why upstream has no equivalent.
+const JUSTIFIED_EXTENSIONS = {
+  '/v1/oauth/register':
+    'RFC 7591 Dynamic Client Registration. We advertise it as `registration_endpoint` in ' +
+    '/.well-known/oauth-authorization-server, so an OAuth 2.1 / MCP client is entitled to ' +
+    'call it. Cloud registers OAuth apps through the dashboard UI and needs no API for it; ' +
+    'a self-hosted MCP server has no dashboard to register through.',
+  '/v1/projects/{}/config/auth/reveal':
+    'Reveals the per-project auth secrets Cloud shows in its dashboard, audited as ' +
+    '`secret.reveal`. Upstream /v1/projects/{ref}/secrets is a different thing (project env ' +
+    'secrets) and /config/auth redacts. Also mounted at /api/v1 for the SPA.',
+  '/v1/projects/{}/database/backups/restore-status':
+    'Polls an async pg_restore to a terminal state; exercised by ' +
+    'tests/cli-e2e/backups-restore.sh. Cloud restores are fire-and-forget with status on the ' +
+    'project object, so upstream has nothing to poll.',
+  '/v1/projects/{}/database/dump':
+    'pg_dump over the API (feature 013 US2), exercised by tests/cli-e2e/db-query-dump.sh. ' +
+    'Upstream has no dump endpoint at all — Cloud exposes managed backups instead.',
+  '/v1/projects/{}/database/migrations/upsert':
+    'REVIEW: upstream spells the nearest operation `PUT /v1/projects/{ref}/database/' +
+    'migrations` (v1-upsert-a-migration). The bodies are NOT the same — upstream takes ' +
+    '{query} and derives a version, ours takes an explicit {version, statements[]} to write ' +
+    'a history row — so this is not simply a renamed PUT. Kept because it works and breaks ' +
+    'nothing; the open question is whether to also serve upstream’s PUT.',
+  '/v1/projects/{}/functions/deployed-size':
+    'Edge-function storage accounting. No caller found in this repo, Studio, or the MCP ' +
+    'server — the least justified entry here and the first to revisit.',
+  '/v1/projects/{}/read-replicas':
+    'Stub returning []. Studio reads the /platform twin, not this one. Harmless and kept ' +
+    'per the standing rule on non-breaking extras, but it is a stub, not a capability.',
+  '/v1/projects/{}/services':
+    'Per-service image tags read from the project compose — self-hosted has real image pins, ' +
+    'Cloud does not expose any. Does NOT shadow upstream: we serve the canonical ' +
+    'GET /v1/projects/{ref}/health alongside it.',
+  '/v1/projects/{}/storage/buckets/{}':
+    'Per-bucket GET/PATCH/DELETE, exercised by tests/cli-e2e/storage-buckets.sh. Upstream ' +
+    'defines only the collection GET; bucket mutation on Cloud goes through /platform to the ' +
+    'per-instance storage-api.',
+};
+
 const argv = process.argv.slice(2);
 const opts = {};
 for (let i = 0; i < argv.length; i++) {
-  if (argv[i] === '--json' || argv[i] === '--refresh') opts[argv[i].slice(2)] = true;
+  if (argv[i] === '--json' || argv[i] === '--refresh' || argv[i] === '--verbose')
+    opts[argv[i].slice(2)] = true;
   else if (argv[i].startsWith('--')) opts[argv[i].slice(2)] = argv[++i];
 }
 
@@ -96,9 +149,11 @@ for (const { method, url } of manifest) {
 }
 
 const inventedPath = []; // we serve a /v1 path upstream does not define at all
+const justified = []; // …and it is on the triaged JUSTIFIED_EXTENSIONS list
 const divergent = []; // we answer a verb upstream lacks AND miss one it defines
 const extra = []; // every canonical verb is served; we just answer more besides
 const notImplemented = []; // upstream defines it, we fall through to the 501
+const staleJustifications = []; // listed as justified, but no longer served
 
 // Serving a verb upstream does not define is not automatically breakage. If every
 // verb upstream DOES define is also served, a spec-conformant client never
@@ -112,7 +167,10 @@ const notImplemented = []; // upstream defines it, we fall through to the 501
 for (const [key, mine] of ours) {
   const up = upstream.get(key);
   if (!up) {
-    inventedPath.push({ path: mine.display, methods: [...mine.methods].sort() });
+    const row = { path: mine.display, methods: [...mine.methods].sort() };
+    const why = JUSTIFIED_EXTENSIONS[key];
+    if (why) justified.push({ ...row, why });
+    else inventedPath.push(row);
     continue;
   }
   const canonicalCovered = [...up.methods].every((m) => mine.methods.has(m));
@@ -133,12 +191,27 @@ for (const [key, up] of upstream) {
   }
 }
 
-const breaking = inventedPath.length + divergent.length;
+// A justification for a path we no longer serve is dead weight that makes the
+// list look more considered than it is — surface it so the entry gets removed.
+for (const key of Object.keys(JUSTIFIED_EXTENSIONS)) {
+  if (!ours.has(key)) staleJustifications.push(key);
+}
+
+const breaking = inventedPath.length + divergent.length + staleJustifications.length;
 
 if (opts.json) {
   console.log(
     JSON.stringify(
-      { spec: specPath, manifest: manifestPath, inventedPath, divergent, extra, notImplemented },
+      {
+        spec: specPath,
+        manifest: manifestPath,
+        inventedPath,
+        justified,
+        staleJustifications,
+        divergent,
+        extra,
+        notImplemented,
+      },
       null,
       2,
     ),
@@ -154,10 +227,17 @@ console.log(`  manifest ${manifestPath} (${ours.size} /v1 paths served)\n`);
 
 if (inventedPath.length) {
   console.log(
-    `  INVENTED PATH — we serve it, upstream does not define it (${inventedPath.length})`,
+    `  INVENTED PATH — we serve it, upstream does not define it, and it is NOT triaged (${inventedPath.length})`,
   );
   console.log(`    AGENTS.md: never invent or drift the /v1 surface.`);
+  console.log(`    Either remove it, or add it to JUSTIFIED_EXTENSIONS with a real reason.`);
   for (const x of inventedPath) console.log(`    ${x.methods.join(',')} ${x.path}`);
+  console.log();
+}
+if (staleJustifications.length) {
+  console.log(`  STALE JUSTIFICATION — listed as justified, no longer served`);
+  console.log(`    Drop it from JUSTIFIED_EXTENSIONS so the list stays honest.`);
+  for (const p of staleJustifications) console.log(`    ${p}`);
   console.log();
 }
 if (divergent.length) {
@@ -187,9 +267,22 @@ if (notImplemented.length) {
   }
   console.log();
 }
-if (!breaking) console.log('  no invented /v1 surface\n');
+if (justified.length && opts.verbose) {
+  console.log(`  JUSTIFIED EXTENSION — invented, but triaged and recorded (${justified.length})`);
+  for (const x of justified) {
+    console.log(`    ${x.methods.join(',')} ${x.path}`);
+    console.log(`      ${x.why.replace(/(.{92}) /g, '$1\n      ')}`);
+  }
+  console.log();
+} else if (justified.length) {
+  console.log(
+    `  ${justified.length} justified extension(s) — invented but triaged; --verbose to read why\n`,
+  );
+}
+
+if (!breaking) console.log('  no untriaged /v1 surface\n');
 
 console.log(
-  `  ${breaking} breaking, ${extra.length} non-breaking extension(s), ${notImplemented.length} unimplemented\n`,
+  `  ${breaking} breaking, ${justified.length} justified, ${extra.length} non-breaking extension(s), ${notImplemented.length} unimplemented\n`,
 );
 process.exit(breaking ? 1 : 0);
