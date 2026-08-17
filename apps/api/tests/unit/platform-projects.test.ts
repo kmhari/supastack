@@ -1,9 +1,10 @@
 /**
  * Black-box tests for project detail routes (US4 — feature 113)
  *
- *   GET   /platform/projects/:ref
- *   PATCH /platform/projects/:ref
- *   GET   /platform/projects/:ref/databases
+ *   GET    /platform/projects/:ref
+ *   PATCH  /platform/projects/:ref
+ *   DELETE /platform/projects/:ref
+ *   GET    /platform/projects/:ref/databases
  *
  * Uses the same db() fluent-chain mock pattern as platform-project-settings.test.ts.
  */
@@ -22,6 +23,11 @@ vi.mock('drizzle-orm', () => ({
 
 // Configurable result for select().from().innerJoin().where().limit()
 let instRows: unknown[] = [];
+// Rows handed to db().insert().values() — the audit trail assertions read this.
+let insertedRows: unknown[] = [];
+// Jobs handed to the lifecycle queue. Asserting on the job NAME matters: the
+// worker switches on it, so 'delete' vs 'destroy' is a silent no-op, not an error.
+let enqueued: Array<{ name: string; data: unknown }> = [];
 
 vi.mock('@supastack/db', () => ({
   db: () => ({
@@ -40,6 +46,11 @@ vi.mock('@supastack/db', () => ({
       }),
     }),
     update: () => ({ set: () => ({ where: async () => undefined }) }),
+    insert: () => ({
+      values: async (row: unknown) => {
+        insertedRows.push(row);
+      },
+    }),
   }),
   schema: {
     supabaseInstances: {},
@@ -49,6 +60,17 @@ vi.mock('@supastack/db', () => ({
     auditLog: {},
   },
 }));
+
+// Keep BullMQ/Redis out of a unit test — the route builds its queue handle
+// lazily, so an unmocked `new Queue()` would open a real socket on import.
+vi.mock('bullmq', () => ({
+  Queue: class {
+    async add(name: string, data: unknown) {
+      enqueued.push({ name, data });
+    }
+  },
+}));
+vi.mock('ioredis', () => ({ Redis: class {} }));
 
 vi.mock('@supastack/crypto', () => ({
   decryptJson: () => ({}),
@@ -62,7 +84,7 @@ vi.mock('../../src/services/api-tokens.js', () => ({
 
 const { platformMiscRoutes } = await import('../../src/routes/platform-misc.js');
 
-async function buildApp(authed = true): Promise<FastifyInstance> {
+async function buildApp(authed = true, orgAuthorized = true): Promise<FastifyInstance> {
   const app = Fastify();
   app.setErrorHandler((err, _req, reply) =>
     reply.status((err as { statusCode?: number }).statusCode ?? 500).send({ error: err.message }),
@@ -71,7 +93,10 @@ async function buildApp(authed = true): Promise<FastifyInstance> {
     if (!authed) throw Object.assign(new Error('unauthorized'), { statusCode: 401 });
     return { id: 'u1', email: 'op@x.dev', role: 'owner' as const };
   });
-  app.decorate('authorizeOrg', async () => 'owner' as const);
+  app.decorate('authorizeOrg', async () => {
+    if (!orgAuthorized) throw Object.assign(new Error('forbidden'), { statusCode: 403 });
+    return 'owner' as const;
+  });
   await app.register(platformMiscRoutes);
   return app;
 }
@@ -180,6 +205,83 @@ describe('PATCH /platform/projects/:ref', () => {
       payload: {},
     });
     expect(res.statusCode).toBe(401);
+    await unauthApp.close();
+  });
+});
+
+describe('DELETE /platform/projects/:ref', () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    instRows = [];
+    insertedRows = [];
+    enqueued = [];
+    process.env.SUPASTACK_APEX = 'supaviser.dev';
+    app = await buildApp();
+  });
+
+  it('200 — marks deleting, audits, enqueues, returns RemoveProjectResponse', async () => {
+    instRows = [FAKE_INST];
+    const res = await app.inject({ method: 'DELETE', url: `/platform/projects/${REF}` });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    // Studio's onSuccess reads data.ref — id/name/ref is the contract shape.
+    expect(body.ref).toBe(REF);
+    expect(body.name).toBe('Test Project');
+    expect(typeof body.id).toBe('number');
+    expect(enqueued).toEqual([{ name: 'delete', data: { ref: REF } }]);
+    expect(insertedRows).toHaveLength(1);
+    expect(insertedRows[0]).toMatchObject({
+      action: 'instance.delete',
+      targetKind: 'instance',
+      targetId: REF,
+    });
+    await app.close();
+  });
+
+  it('200 — already deleting is idempotent and does not re-enqueue', async () => {
+    instRows = [{ ...FAKE_INST, status: 'deleting' }];
+    const res = await app.inject({ method: 'DELETE', url: `/platform/projects/${REF}` });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().ref).toBe(REF);
+    expect(enqueued).toEqual([]);
+    expect(insertedRows).toEqual([]);
+    await app.close();
+  });
+
+  it('409 — refuses a status with no transition to deleting (mid-restore)', async () => {
+    instRows = [{ ...FAKE_INST, status: 'restoring' }];
+    const res = await app.inject({ method: 'DELETE', url: `/platform/projects/${REF}` });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().code).toBe('invalid_state_transition');
+    expect(enqueued).toEqual([]);
+    await app.close();
+  });
+
+  it('404 — project not found', async () => {
+    instRows = [];
+    const res = await app.inject({ method: 'DELETE', url: '/platform/projects/doesnotexist' });
+    expect(res.statusCode).toBe(404);
+    expect(enqueued).toEqual([]);
+    await app.close();
+  });
+
+  it('403 — member of the org but not allowed to delete', async () => {
+    const forbiddenApp = await buildApp(true, false);
+    instRows = [FAKE_INST];
+    const res = await forbiddenApp.inject({ method: 'DELETE', url: `/platform/projects/${REF}` });
+    expect(res.statusCode).toBe(403);
+    // Nothing may be mutated or enqueued before authorization passes.
+    expect(enqueued).toEqual([]);
+    expect(insertedRows).toEqual([]);
+    await forbiddenApp.close();
+  });
+
+  it('401 — unauthenticated', async () => {
+    const unauthApp = await buildApp(false);
+    const res = await unauthApp.inject({ method: 'DELETE', url: `/platform/projects/${REF}` });
+    expect(res.statusCode).toBe(401);
+    expect(enqueued).toEqual([]);
     await unauthApp.close();
   });
 });

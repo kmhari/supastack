@@ -8,9 +8,20 @@
  */
 import type { FastifyPluginAsync } from 'fastify';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { Queue } from 'bullmq';
+import { Redis } from 'ioredis';
 import { db, schema } from '@supastack/db';
 import { decryptJson, encryptJson, loadMasterKey, signSupabaseJwt } from '@supastack/crypto';
-import { ROLE_IDS, ROLE_NAMES, roleFromId, logger, type Role } from '@supastack/shared';
+import {
+  ROLE_IDS,
+  ROLE_NAMES,
+  roleFromId,
+  canTransition,
+  logger,
+  QUEUES,
+  type InstanceState,
+  type Role,
+} from '@supastack/shared';
 import { clampDataPlaneExp, mintApiToken } from '../services/api-tokens.js';
 import { revokeCredentialsOnMemberRemoval } from '../services/credential-revocation.js';
 import { createOrganizationWithOwner } from '../services/org-store.js';
@@ -40,6 +51,22 @@ import { withPerInstancePg, InstanceNotRunningError } from '../services/per-inst
 import { getServiceVersions } from '../services/service-versions-service.js';
 import { getAuthSession, consumeAuthSession } from '../services/oauth-auth-sessions-store.js';
 import { issueCode } from '../services/oauth-codes-store.js';
+
+// Per-process BullMQ handle for lifecycle jobs. Same lazy-singleton shape as
+// `routes/instances.ts` and `routes/management/pause-restore.ts` — the queue
+// NAME must come from the shared QUEUES constant, since a string literal here
+// would silently drop every job the worker is waiting on.
+let _lifecycleQueue: Queue | null = null;
+function lifecycleQueue(): Queue {
+  if (!_lifecycleQueue) {
+    _lifecycleQueue = new Queue(QUEUES.lifecycle, {
+      connection: new Redis(process.env.REDIS_URL ?? 'redis://redis:6379', {
+        maxRetriesPerRequest: null,
+      }),
+    });
+  }
+  return _lifecycleQueue;
+}
 
 // ── Lint check definitions (Tier 4, T017) ─────────────────────────────────────
 const LINT_CHECKS: Record<
@@ -814,6 +841,57 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
         .where(eq(schema.supabaseInstances.ref, inst.ref));
     }
     return reply.send({ id: hashRefToInt(inst.ref), name: newName, ref: inst.ref });
+  });
+
+  // Project deletion. Studio's `project-delete-mutation.ts` calls this and reads
+  // `data.ref` in onSuccess, so the RemoveProjectResponse shape ({id,name,ref})
+  // is load-bearing, not decorative — see platform.d.ts
+  // `ProjectsRefController_deleteProject`.
+  //
+  // The teardown itself belongs to the worker (only it holds the docker socket),
+  // so this marks `deleting` and enqueues; the same contract as
+  // `DELETE /api/v1/instances/:ref`, which this endpoint deliberately mirrors
+  // rather than reimplements.
+  app.delete<RefParams>('/platform/projects/:ref', async (req, reply) => {
+    const user = app.requireAuth(req);
+    // Resolve first, then authorize org-scoped (Principle III) — a membership
+    // join here would silently grant delete to any member regardless of role.
+    const [inst] = await db()
+      .select({
+        ref: schema.supabaseInstances.ref,
+        name: schema.supabaseInstances.name,
+        status: schema.supabaseInstances.status,
+        orgId: schema.supabaseInstances.orgId,
+      })
+      .from(schema.supabaseInstances)
+      .where(eq(schema.supabaseInstances.ref, req.params.ref))
+      .limit(1);
+    if (!inst) return reply.status(404).send({ error: 'Project not found' });
+    await app.authorizeOrg(req, 'instance.delete', inst.orgId);
+
+    // Already-deleting is idempotent: Studio double-fires the mutation when the
+    // confirm modal is re-submitted, and a 409 there reads as a failed delete.
+    if (inst.status !== 'deleting') {
+      if (!canTransition(inst.status as InstanceState, 'deleting')) {
+        return reply.status(409).send({
+          error: `Project cannot be deleted from status '${inst.status}'`,
+          code: 'invalid_state_transition',
+        });
+      }
+      await db()
+        .update(schema.supabaseInstances)
+        .set({ status: 'deleting', updatedAt: new Date() })
+        .where(eq(schema.supabaseInstances.ref, inst.ref));
+      await db().insert(schema.auditLog).values({
+        actorUserId: user.id,
+        action: 'instance.delete',
+        targetKind: 'instance',
+        targetId: inst.ref,
+      });
+      await lifecycleQueue().add('delete', { ref: inst.ref }, { removeOnComplete: 100 });
+    }
+
+    return reply.send({ id: hashRefToInt(inst.ref), name: inst.name, ref: inst.ref });
   });
 
   // Databases
@@ -4152,6 +4230,87 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       });
     },
   );
+
+  // "Reset to default" on the email-template editor.
+  //
+  // Studio sends the template name KEBAB-cased (`magic-link`) while every
+  // GoTrue field is snake_cased (`mailer_subjects_magic_link`) — the same
+  // case-translation trap feature 085 hit on the config payload, so the list
+  // below is closed: an unknown name is a 400, never a silent no-op that leaves
+  // the operator staring at an unchanged template.
+  //
+  // The reset itself is `''`, not a hardcoded copy of GoTrue's default text:
+  // an empty value makes runtime-config-store REMOVE the env entry, so GoTrue
+  // falls back to its own compiled-in default. Shipping our own copy would
+  // drift the moment upstream reworded a template.
+  const RESET_TEMPLATES: Record<string, string> = Object.fromEntries(
+    [
+      'confirmation',
+      'email-change',
+      'invite',
+      'magic-link',
+      'recovery',
+      'reauthentication',
+      'password-changed-notification',
+      'email-changed-notification',
+      'phone-changed-notification',
+      'mfa-factor-enrolled-notification',
+      'mfa-factor-unenrolled-notification',
+      'identity-linked-notification',
+      'identity-unlinked-notification',
+    ].map((t) => [t, t.replace(/-/g, '_')]),
+  );
+
+  app.post<{ Params: { ref: string; template: string } }>(
+    '/platform/auth/:ref/templates/:template/reset',
+    async (req, reply) => {
+      app.requireAuth(req);
+      const snake = RESET_TEMPLATES[req.params.template];
+      if (!snake) {
+        return reply.status(400).send({
+          error: `Unknown auth template '${req.params.template}'`,
+          code: 'unknown_template',
+        });
+      }
+      // Routed through /v1 so the write reuses that surface's auth_config.write
+      // RBAC, validation and restart bookkeeping rather than reimplementing it.
+      const resp = await app.inject({
+        method: 'PATCH',
+        url: `/v1/projects/${req.params.ref}/config/auth`,
+        // The incoming reset carries NO body and therefore no content-type
+        // (openapi-fetch only sets one when it has a body). fwdHeaders copies
+        // that absence, so the outgoing PATCH — which does have a body — must
+        // set it explicitly or Fastify answers 415 before the handler runs.
+        headers: { ...fwdHeaders(req), 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          [`mailer_subjects_${snake}`]: '',
+          [`mailer_templates_${snake}_content`]: '',
+        }),
+      });
+      const body = resp.json<Record<string, unknown>>();
+      // Studio feeds this straight into the authConfig query cache, so it must
+      // be the FULL config in Studio's casing — not just the reset fields.
+      return reply
+        .status(resp.statusCode)
+        .send(resp.statusCode >= 400 ? studioErr(body) : toStudioKeys(body));
+    },
+  );
+
+  // Spam-scoring preview for the email-template editor. Supabase Cloud runs a
+  // SpamAssassin-backed service here; self-hosted has no such service and we do
+  // not ship one, so this returns an empty rule set — the editor renders "no
+  // issues" rather than erroring, and no fabricated score is ever shown.
+  // Body shape is upstream's ValidateSpamBody ({subject, content}).
+  app.post<{ Params: { ref: string } }>('/platform/auth/:ref/validate/spam', async (req, reply) => {
+    app.requireAuth(req);
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    if (typeof body.subject !== 'string' || typeof body.content !== 'string') {
+      return reply
+        .status(400)
+        .send({ error: 'subject and content are required', code: 'invalid_body' });
+    }
+    return reply.send({ rules: [] });
+  });
 
   app.post<RefParams>('/platform/projects/:ref/transfer/preview', async (req, reply) => {
     app.requireAuth(req);
