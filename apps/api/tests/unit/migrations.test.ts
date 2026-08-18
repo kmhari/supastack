@@ -2,6 +2,7 @@
  * Unit tests for migrations endpoints (US3 — feature 113)
  *
  *   GET    /projects/:ref/database/migrations
+ *   PUT    /projects/:ref/database/migrations
  *   POST   /projects/:ref/database/migrations/upsert
  *   GET    /projects/:ref/database/migrations/:version
  *   PATCH  /projects/:ref/database/migrations/:version
@@ -9,7 +10,7 @@
  *
  * Mocks:
  *   - project-store.js     (getProjectByRef)
- *   - migrations-service.js (list/upsert/get/patch/deleteMigration)
+ *   - migrations-service.js (list/upsert/put/get/patch/deleteMigration)
  *   - per-instance-pg.js   (error classes — via vi.hoisted so instanceof works)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -23,14 +24,24 @@ const projectStoreMock = vi.hoisted(() => ({
     vi.fn<(userId: string, ref: string) => Promise<Record<string, unknown> | null>>(),
 }));
 
-const migrationsMock = vi.hoisted(() => ({
-  listMigrations: vi.fn<(ref: string) => Promise<unknown[]>>(),
-  upsertMigration: vi.fn<(ref: string, data: unknown) => Promise<unknown>>(),
-  getMigration: vi.fn<(ref: string, version: string) => Promise<unknown>>(),
-  patchMigration: vi.fn<(ref: string, version: string, patch: unknown) => Promise<unknown>>(),
-  deleteMigration: vi.fn<(ref: string, version: string) => Promise<unknown>>(),
-  VERSION_REGEX: /^\d{14}$/,
-}));
+const migrationsMock = vi.hoisted(() => {
+  // Real class, not a stub: the route maps it with `instanceof`, so a plain
+  // object here would fall through to a 500 and the 409 test would pass for the
+  // wrong reason.
+  class MigrationVersionCollisionError extends Error {
+    code = 'migration_version_collision' as const;
+  }
+  return {
+    listMigrations: vi.fn<(ref: string) => Promise<unknown[]>>(),
+    upsertMigration: vi.fn<(ref: string, data: unknown) => Promise<unknown>>(),
+    putMigration: vi.fn<(ref: string, input: unknown) => Promise<unknown>>(),
+    getMigration: vi.fn<(ref: string, version: string) => Promise<unknown>>(),
+    patchMigration: vi.fn<(ref: string, version: string, patch: unknown) => Promise<unknown>>(),
+    deleteMigration: vi.fn<(ref: string, version: string) => Promise<unknown>>(),
+    MigrationVersionCollisionError,
+    VERSION_REGEX: /^\d{14}$/,
+  };
+});
 
 const perInstancePgMock = vi.hoisted(() => {
   class InstanceNotFoundError extends Error {
@@ -143,6 +154,179 @@ describe('GET /projects/:ref/database/migrations', () => {
     });
     expect(res.statusCode).toBe(401);
     await unauthApp.close();
+  });
+});
+
+describe('PUT /projects/:ref/database/migrations', () => {
+  // Upstream's v1-upsert-a-migration: record a migration WITHOUT applying it.
+  const ROW = {
+    version: '20260818120000',
+    name: 'create_widgets',
+    statements: ['create table public.widgets(id bigint primary key);'],
+    rollback: ['drop table if exists public.widgets;'],
+    created_by: 'test@example.com',
+    idempotency_key: null,
+  };
+
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    app = await buildApp();
+    projectStoreMock.getProjectByRef.mockResolvedValue(FAKE_INST);
+  });
+
+  it('200 — records the row and stamps created_by from the caller', async () => {
+    migrationsMock.putMigration.mockResolvedValue(ROW);
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { query: ROW.statements[0], name: 'create_widgets', rollback: ROW.rollback[0] },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ version: '20260818120000' });
+    const input = migrationsMock.putMigration.mock.calls[0]![1] as Record<string, unknown>;
+    expect(input).toMatchObject({
+      query: ROW.statements[0],
+      name: 'create_widgets',
+      rollback: ROW.rollback[0],
+      createdBy: 'test@example.com',
+      idempotencyKey: null,
+    });
+  });
+
+  it('200 — Idempotency-Key is forwarded so a retry cannot stamp a second row', async () => {
+    migrationsMock.putMigration.mockResolvedValue({ ...ROW, idempotency_key: 'key-1' });
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token', 'idempotency-key': 'key-1' },
+      payload: { query: 'select 1;' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const input = migrationsMock.putMigration.mock.calls[0]![1] as Record<string, unknown>;
+    expect(input.idempotencyKey).toBe('key-1');
+  });
+
+  it('200 — the caller does NOT supply a version; the server derives it', async () => {
+    migrationsMock.putMigration.mockResolvedValue(ROW);
+
+    await app.inject({
+      method: 'PUT',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { query: 'select 1;', version: '19990101000000' },
+    });
+
+    // `version` is not part of V1UpsertMigrationBody — zod strips it rather than
+    // letting a client dictate a stamp the server owns.
+    const input = migrationsMock.putMigration.mock.calls[0]![1] as Record<string, unknown>;
+    expect(input.version).toBeUndefined();
+  });
+
+  it('400 — missing query', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { name: 'no query here' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code: 'invalid_request' });
+    expect(migrationsMock.putMigration).not.toHaveBeenCalled();
+  });
+
+  it('400 — empty query is rejected, matching upstream minLength:1', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { query: '' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(migrationsMock.putMigration).not.toHaveBeenCalled();
+  });
+
+  it('200 — an empty Idempotency-Key normalises to null, not to a shared "" key', async () => {
+    // A blank header stored verbatim would occupy the unique idempotency_key
+    // slot, and every later caller sending a blank one would collide with it.
+    migrationsMock.putMigration.mockResolvedValue(ROW);
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token', 'idempotency-key': '   ' },
+      payload: { query: 'select 1;' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const input = migrationsMock.putMigration.mock.calls[0]![1] as Record<string, unknown>;
+    expect(input.idempotencyKey).toBeNull();
+  });
+
+  it('409 — version collision surfaces as 409, not 500', async () => {
+    migrationsMock.putMigration.mockRejectedValue(
+      new migrationsMock.MigrationVersionCollisionError('no free version'),
+    );
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { query: 'select 1;' },
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ code: 'migration_version_collision' });
+  });
+
+  it('409 — instance not running', async () => {
+    migrationsMock.putMigration.mockRejectedValue(
+      new perInstancePgMock.InstanceNotRunningError('paused'),
+    );
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { query: 'select 1;' },
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ code: 'project_not_running' });
+  });
+
+  it('404 — project not found', async () => {
+    projectStoreMock.getProjectByRef.mockResolvedValue(null);
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/projects/unknown/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { query: 'select 1;' },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(migrationsMock.putMigration).not.toHaveBeenCalled();
+  });
+
+  it('401 — unauthenticated', async () => {
+    const unauthApp = await buildApp(false);
+    const res = await unauthApp.inject({
+      method: 'PUT',
+      url: '/projects/ref123/database/migrations',
+      payload: { query: 'select 1;' },
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(migrationsMock.putMigration).not.toHaveBeenCalled();
   });
 });
 

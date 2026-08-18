@@ -2,6 +2,7 @@
  * Migrations endpoints — `supabase migration list/repair/fetch` (feature 006 US2).
  *
  *   GET    /v1/projects/:ref/database/migrations
+ *   PUT    /v1/projects/:ref/database/migrations
  *   POST   /v1/projects/:ref/database/migrations/upsert
  *   GET    /v1/projects/:ref/database/migrations/:version
  *   PATCH  /v1/projects/:ref/database/migrations/:version
@@ -11,6 +12,13 @@
  * (`v1-get-a-migration` / `v1-patch-a-migration`). We previously served only
  * DELETE there, so a spec-conformant CLI or MCP client fell through to the 501
  * catch-all on the two verbs upstream actually defines.
+ *
+ * PUT on the collection is upstream's `v1-upsert-a-migration`. Our own
+ * `POST …/upsert` predates it and takes a different body — an explicit
+ * `{version, statements[]}` rather than an opaque `{query}` the server stamps a
+ * version for — so the two are not aliases and both are served. Upstream's POST
+ * (`v1-apply-a-migration`, which EXECUTES the query) and DELETE
+ * (`v1-rollback-migrations`) on this path remain deliberate 501s.
  *
  * Reads + writes the `supabase_migrations.schema_migrations` table on the
  * per-project Postgres via the shared `per-instance-pg.ts` helper.
@@ -23,7 +31,9 @@ import {
   deleteMigration,
   getMigration,
   listMigrations,
+  MigrationVersionCollisionError,
   patchMigration,
+  putMigration,
   upsertMigration,
   VERSION_REGEX,
 } from '../../services/migrations-service.js';
@@ -50,7 +60,19 @@ const PatchBody = z
   })
   .strict();
 
+// Upstream's V1UpsertMigrationBody. Deliberately NOT `.strict()`: upstream does
+// not set additionalProperties:false, so rejecting a field a newer client sends
+// would break a client the real API accepts.
+const PutBody = z.object({
+  query: z.string().min(1),
+  name: z.string().nullable().optional(),
+  rollback: z.string().nullable().optional(),
+});
+
 function mapPgError(err: unknown): never {
+  if (err instanceof MigrationVersionCollisionError) {
+    throw new ManagementApiError(409, err.message, 'migration_version_collision');
+  }
   if (err instanceof InstanceNotFoundError) {
     throw new ManagementApiError(404, err.message, 'not_found');
   }
@@ -77,6 +99,41 @@ export const migrationsRoutes: FastifyPluginAsync = async (app) => {
       mapPgError(err);
     }
   });
+
+  app.put<{ Params: { ref: string }; Body: unknown }>(
+    '/projects/:ref/database/migrations',
+    async (req, reply) => {
+      const user = app.requireAuth(req);
+      const proj = await getProjectByRef(user.id, req.params.ref);
+      if (!proj)
+        throw new ManagementApiError(404, 'Project not found', 'not_found', {
+          ref: req.params.ref,
+        });
+      await app.authorizeOrg(req, 'database.write', proj.orgId); // SEC-003
+      const parsed = PutBody.safeParse(req.body);
+      if (!parsed.success) {
+        throw new ManagementApiError(400, 'invalid request body', 'invalid_request', {
+          issues: parsed.error.issues,
+        });
+      }
+      // Node collapses duplicate request headers into one comma-joined string, so
+      // the array arm is unreachable in practice and only satisfies the type.
+      // An EMPTY header is not: it must normalise to null, or the first caller
+      // stores '' as their key and the unique index rejects everyone else's.
+      const rawKey = req.headers['idempotency-key'];
+      const idempotencyKey = (Array.isArray(rawKey) ? rawKey[0] : rawKey)?.trim() || null;
+      try {
+        const row = await putMigration(req.params.ref, {
+          ...parsed.data,
+          idempotencyKey,
+          createdBy: user.email ?? user.id,
+        });
+        return reply.status(200).send(row);
+      } catch (err) {
+        mapPgError(err);
+      }
+    },
+  );
 
   app.post<{ Params: { ref: string }; Body: unknown }>(
     '/projects/:ref/database/migrations/upsert',
