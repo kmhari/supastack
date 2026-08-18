@@ -1,8 +1,13 @@
 # syntax=docker/dockerfile:1.7
 # supastack/studio-platform — domain-agnostic Supabase Studio image, IS_PLATFORM=true.
 #
-# Derived from the upstream apps/studio/Dockerfile (vanilla supabase monorepo) with
-# two changes:
+# Derived from the upstream apps/studio/Dockerfile (vanilla supabase monorepo).
+# Pins that MUST track upstream, because the monorepo pins them too:
+#   pnpm  — root package.json `packageManager` + `engines.pnpm`; pnpm manages its
+#           own version by default, so a mismatch fails the install outright.
+#   turbo — `pnpm dlx turbo@<v> prune`, kept equal to upstream's Dockerfile.
+#
+# Two deliberate changes from upstream:
 #   1. The four platform NEXT_PUBLIC_* vars are baked at `next build` time with a
 #      PLACEHOLDER host (apex-placeholder.supastack.invalid). NEXT_PUBLIC_* values
 #      are string-inlined into the JS bundles by Next.js — they cannot be read at
@@ -43,14 +48,14 @@ RUN apt-get update -qq && \
   rm -rf /var/lib/apt/lists/* && \
   update-ca-certificates
 
-RUN npm install -g pnpm@10.24.0
+RUN npm install -g pnpm@11.13.1
 
 WORKDIR /app
 
 # Prune to the studio workspace (same as upstream)
 FROM base AS turbo
 COPY . .
-RUN pnpm dlx turbo@2.9.3 prune studio --docker
+RUN pnpm dlx turbo@2.9.14 prune studio --docker
 
 FROM base AS deps
 COPY --from=turbo /app/out/json ./
@@ -58,7 +63,15 @@ COPY --from=turbo /app/out/pnpm-lock.yaml ./
 COPY ./patches/ ./patches
 RUN pnpm install --frozen-lockfile
 
-# Compile Next.js with the placeholder apex baked in
+# Compile Next.js with the placeholder apex baked in.
+#
+# Upstream split this stage into `build-next` / `build-tanstack`, selected by
+# `ARG STUDIO_FRAMEWORK`, each assembling its runtime tree at /srv for a single
+# `COPY --from=build /srv ./`. We build only the Next variant, and our three
+# COPY lines below already produce exactly the tree `build-next` assembles, so
+# adopting the indirection would buy nothing. Revisit if supastack ever wants
+# the TanStack runtime — that one is not a re-layout, it is a different server
+# (`scripts/serve.js`) with an externalised dependency tree.
 FROM deps AS builder
 COPY --from=turbo /app/out/full ./
 

@@ -23,6 +23,8 @@
 // Exit: 0 all assertions pass | 1 an assertion failed | 2 usage/environment error
 
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
 
 const FORK_REPO = 'kmhari/supabase';
 const UPSTREAM_REPO = 'supabase/supabase';
@@ -48,6 +50,14 @@ const FLAGS_ALLOWED_TRUE = new Set(['dashboard_auth:sign_in_with_email']);
 // lock an operator out. Billing/account components also render hCaptcha, but
 // they sit behind a session on Cloud-only screens, so they are out of scope.
 const SIGNIN_DIR = 'apps/studio/components/interfaces/SignIn';
+
+// Toolchain versions the monorepo pins and our derived image build must match.
+// These are NOT cosmetic: root package.json sets `packageManager`, and pnpm
+// manages its own version by default, so a stale pin fails `pnpm install`
+// outright. turbo drifted 2.9.3 vs 2.9.14 unnoticed for two months, which is
+// why it is asserted rather than trusted.
+const OUR_DOCKERFILE = 'infra/studio-platform/Dockerfile';
+const UPSTREAM_DOCKERFILE = 'apps/studio/Dockerfile';
 
 // Which dashboard_auth flag gates each auth screen. A screen whose flag patch 1
 // disables is unreachable, so an unguarded widget there is latent, not live —
@@ -259,6 +269,42 @@ let resolvedFlags = null;
 
   if (problems.length) c(false, `${problems.length} problem(s) on the sign-in surface`, problems);
   else c(true, `${guarded} reachable widget(s), every one behind a site-key guard`);
+}
+
+// 4 — image toolchain pins. Our Dockerfile is DERIVED from upstream's, not
+//     generated from it, so nothing but this makes the two agree.
+{
+  const c = check('image toolchain pins', OUR_DOCKERFILE);
+  const ours = (() => {
+    try {
+      return readFileSync(resolvePath(process.cwd(), OUR_DOCKERFILE), 'utf8');
+    } catch {
+      return null;
+    }
+  })();
+  const theirs = show(ref, UPSTREAM_DOCKERFILE);
+  const pkg = show(ref, 'package.json');
+
+  if (ours === null) {
+    c(false, `${OUR_DOCKERFILE} not readable from ${process.cwd()} — run from the supastack repo root`);
+  } else if (theirs === null) {
+    c(false, `${UPSTREAM_DOCKERFILE} does not exist at ${ref} — upstream moved the image build`);
+  } else {
+    const pin = (src, re) => src.match(re)?.[1] ?? null;
+    const wanted = {
+      pnpm: pin(pkg ?? '', /"packageManager"\s*:\s*"pnpm@([0-9][^"]*)"/) ?? pin(theirs, /pnpm@([0-9][^\s"']*)/),
+      turbo: pin(theirs, /turbo@([0-9][^\s"']*)/),
+    };
+    const got = {
+      pnpm: pin(ours, /npm install -g pnpm@([0-9][^\s"']*)/),
+      turbo: pin(ours, /turbo@([0-9][^\s"']*)/),
+    };
+    const drift = Object.entries(wanted)
+      .filter(([k, v]) => v && got[k] !== v)
+      .map(([k, v]) => `${k}: ours ${got[k] ?? '(none)'} vs upstream ${v}`);
+    if (drift.length) c(false, `${drift.length} pin(s) drifted from upstream`, drift);
+    else c(true, `pnpm ${got.pnpm} + turbo ${got.turbo}, both matching upstream`);
+  }
 }
 
 // ---------------------------------------------------------------- report
