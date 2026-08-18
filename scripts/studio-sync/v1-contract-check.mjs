@@ -64,11 +64,12 @@ const JUSTIFIED_EXTENSIONS = {
     'pg_dump over the API (feature 013 US2), exercised by tests/cli-e2e/db-query-dump.sh. ' +
     'Upstream has no dump endpoint at all — Cloud exposes managed backups instead.',
   '/v1/projects/{}/database/migrations/upsert':
-    'Resolved: we now ALSO serve upstream’s PUT /v1/projects/{ref}/database/migrations ' +
-    '(v1-upsert-a-migration), so a spec-conformant client no longer needs this path. It is ' +
-    'not a renamed PUT and was not aliased to one — upstream takes an opaque {query} and ' +
-    'stamps the version itself, this takes an explicit {version, statements[]} — so existing ' +
-    'callers that already know their version keep working.',
+    'Resolved: we now ALSO serve upstream’s POST (v1-apply-a-migration) and PUT ' +
+    '(v1-upsert-a-migration) on /v1/projects/{ref}/database/migrations, so a spec-conformant ' +
+    'client no longer needs this path. It was not aliased to either — upstream takes an ' +
+    'opaque {query} and stamps the version itself, this takes an explicit ' +
+    '{version, statements[]} and never executes — so existing callers that already know ' +
+    'their version keep working.',
   '/v1/projects/{}/functions/deployed-size':
     'Edge-function storage accounting. No caller found in this repo, Studio, or the MCP ' +
     'server — the least justified entry here and the first to revisit.',

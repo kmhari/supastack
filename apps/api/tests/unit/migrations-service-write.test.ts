@@ -1,12 +1,16 @@
 /**
- * Service-level tests for `putMigration` — upstream's v1-upsert-a-migration.
+ * Service-level tests for the two collection writers — `putMigration`
+ * (v1-upsert-a-migration, record only) and `applyMigration`
+ * (v1-apply-a-migration, execute AND record).
  *
- * The route tests mock this module out, so the two decisions that actually live
- * here are untested from there: deriving the version stamp, and what happens
- * when two writes land in the same UTC second or under the same
- * Idempotency-Key. Those are exercised against a fake pg client that behaves
- * like the real table's constraints (version primary key, unique
- * idempotency_key) rather than against a mock that always says yes.
+ * The route tests mock this module out, so the decisions that actually live
+ * here are untested from there: deriving the version stamp, what happens when
+ * two writes land in the same UTC second or under the same Idempotency-Key,
+ * and whether a failed migration can leave a history row behind claiming it
+ * worked. The fake client below enforces the real table's constraints (version
+ * primary key, unique idempotency_key) and real transaction semantics
+ * (ROLLBACK restores the pre-BEGIN rows), rather than being a mock that always
+ * says yes.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -29,14 +33,38 @@ let failIdempotencyRace = false;
  *  constraint we do NOT know how to recover from. */
 let failUnrecoverably = false;
 
+/** Every statement the service issued, in order — the only way to assert that
+ *  the history row is written inside the transaction and before the migration
+ *  runs, and that a repeat under a known key runs neither. */
+const executed: string[] = [];
+/** Non-null while a transaction is open: the rows to restore on ROLLBACK. */
+let snapshot: Row[] | null = null;
+/** SQL fragment whose execution should fail, standing in for a bad migration. */
+let failingSql: string | null = null;
+
 const fakeClient = {
   query: vi.fn(async (sql: string, params?: any[]) => {
+    executed.push(sql);
+
+    if (sql === 'BEGIN') {
+      snapshot = [...table];
+      return { rows: [], rowCount: 0 };
+    }
+    if (sql === 'COMMIT') {
+      snapshot = null;
+      return { rows: [], rowCount: 0 };
+    }
+    if (sql === 'ROLLBACK') {
+      if (snapshot) table.splice(0, table.length, ...snapshot);
+      snapshot = null;
+      return { rows: [], rowCount: 0 };
+    }
     if (sql.includes('CREATE SCHEMA')) return { rows: [], rowCount: 0 };
     if (sql.trimStart().startsWith('SELECT')) {
       const key = params![0] as string;
       return { rows: table.filter((r) => r.idempotency_key === key), rowCount: 0 };
     }
-    if (sql.trimStart().startsWith('INSERT')) {
+    if (sql.trimStart().startsWith('INSERT INTO supabase_migrations')) {
       const [version, name, statements, rollback, created_by, idempotency_key] = params as [
         string,
         string | null,
@@ -51,15 +79,19 @@ const fakeClient = {
       }
       if (failIdempotencyRace && idempotency_key) {
         // Simulate another request winning between our SELECT and this INSERT.
+        // The winner committed on a DIFFERENT connection, so it must survive our
+        // ROLLBACK — hence it goes into the snapshot as well as the table.
         failIdempotencyRace = false;
-        table.push({
+        const winner: Row = {
           version: 'raced',
           name,
           statements,
           rollback,
           created_by: 'someone-else',
           idempotency_key,
-        });
+        };
+        table.push(winner);
+        if (snapshot) snapshot.push(winner);
         throw new UniqueViolation('duplicate key value violates unique constraint');
       }
       // ON CONFLICT (version) DO NOTHING
@@ -68,7 +100,11 @@ const fakeClient = {
       table.push(row);
       return { rows: [row], rowCount: 1 };
     }
-    throw new Error(`unexpected sql: ${sql}`);
+    // Anything else is the operator's own migration SQL.
+    if (failingSql && sql.includes(failingSql)) {
+      throw Object.assign(new Error('syntax error at or near "creat"'), { code: '42601' });
+    }
+    return { rows: [], rowCount: 0 };
   }),
 };
 
@@ -79,7 +115,7 @@ vi.mock('../../src/services/per-instance-pg.js', () => ({
   PerInstancePgConnectError: class extends Error {},
 }));
 
-const { putMigration, versionFromDate, MigrationVersionCollisionError } =
+const { applyMigration, putMigration, versionFromDate, MigrationVersionCollisionError } =
   await import('../../src/services/migrations-service.js');
 
 const REF = 'abcdefghijklmnopqrst';
@@ -87,6 +123,9 @@ const QUERY = 'create table public.widgets(id bigint primary key);';
 
 beforeEach(() => {
   table.length = 0;
+  executed.length = 0;
+  snapshot = null;
+  failingSql = null;
   failIdempotencyRace = false;
   failUnrecoverably = false;
   fakeClient.query.mockClear();
@@ -214,5 +253,100 @@ describe('putMigration', () => {
     const row = await putMigration(REF, { query: QUERY, now: new Date('2026-08-18T12:00:00Z') });
     expect(row.rollback).toBeNull();
     expect(row.idempotency_key).toBeNull();
+  });
+});
+
+describe('applyMigration', () => {
+  const NOW = new Date('2026-08-18T12:00:00Z');
+  const DDL = 'create table public.widgets(id bigint primary key);';
+
+  it('happy: runs inside one transaction, history row first, then the migration', async () => {
+    const row = await applyMigration(REF, { query: DDL, name: 'create_widgets', now: NOW });
+
+    expect(row.version).toBe('20260818120000');
+    const begin = executed.indexOf('BEGIN');
+    const insert = executed.findIndex((s) => s.startsWith('INSERT INTO supabase_migrations'));
+    const ddl = executed.indexOf(DDL);
+    const commit = executed.indexOf('COMMIT');
+    // Order matters: reserving the version before running the DDL is what lets a
+    // version collision retry without executing the migration twice.
+    expect(begin).toBeGreaterThanOrEqual(0);
+    expect(begin).toBeLessThan(insert);
+    expect(insert).toBeLessThan(ddl);
+    expect(ddl).toBeLessThan(commit);
+  });
+
+  it('happy: the migration SQL is sent unparameterised, so multi-statement bodies work', async () => {
+    const multi = 'create table a(id int);\ncreate table b(id int);';
+    await applyMigration(REF, { query: multi, now: NOW });
+
+    const call = fakeClient.query.mock.calls.find(([sql]) => sql === multi);
+    expect(call).toBeDefined();
+    // A params array would switch node-postgres to the extended protocol, which
+    // permits only ONE statement per message.
+    expect(call![1]).toBeUndefined();
+  });
+
+  it('happy: a repeat under a known Idempotency-Key re-executes NOTHING', async () => {
+    await applyMigration(REF, { query: DDL, idempotencyKey: 'key-1', now: NOW });
+    executed.length = 0;
+
+    const again = await applyMigration(REF, {
+      query: DDL,
+      idempotencyKey: 'key-1',
+      now: new Date('2026-08-18T13:00:00Z'),
+    });
+
+    expect(again.version).toBe('20260818120000');
+    // This is the whole point of the header when the tracked thing has side
+    // effects: no BEGIN, no DDL, no second row.
+    expect(executed).not.toContain('BEGIN');
+    expect(executed).not.toContain(DDL);
+    expect(table).toHaveLength(1);
+  });
+
+  it('sad: a failing migration rolls back — no row survives claiming it applied', async () => {
+    failingSql = 'creat table';
+
+    await expect(
+      applyMigration(REF, { query: 'creat table oops();', now: NOW }),
+    ).rejects.toMatchObject({ code: '42601' });
+
+    expect(executed).toContain('ROLLBACK');
+    expect(executed).not.toContain('COMMIT');
+    expect(table).toEqual([]);
+  });
+
+  it('sad: the SQL error propagates unchanged — the route needs its SQLSTATE', async () => {
+    failingSql = 'boom';
+    await expect(applyMigration(REF, { query: 'boom;', now: NOW })).rejects.toThrow(/syntax error/);
+  });
+
+  it('sad: version collision fails before anything executes', async () => {
+    for (let i = 0; i < 6; i++) {
+      table.push({
+        version: versionFromDate(new Date(NOW.getTime() + i * 1000)),
+        name: null,
+        statements: null,
+        rollback: null,
+        created_by: null,
+        idempotency_key: null,
+      });
+    }
+
+    await expect(applyMigration(REF, { query: DDL, now: NOW })).rejects.toBeInstanceOf(
+      MigrationVersionCollisionError,
+    );
+    expect(executed).not.toContain(DDL);
+    expect(executed).toContain('ROLLBACK');
+  });
+
+  it('sad: losing the Idempotency-Key race returns the winner without re-running the DDL', async () => {
+    failIdempotencyRace = true;
+
+    const row = await applyMigration(REF, { query: DDL, idempotencyKey: 'key-1', now: NOW });
+
+    expect(row.created_by).toBe('someone-else');
+    expect(executed).not.toContain(DDL);
   });
 });

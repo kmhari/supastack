@@ -2,6 +2,7 @@
  * Unit tests for migrations endpoints (US3 — feature 113)
  *
  *   GET    /projects/:ref/database/migrations
+ *   POST   /projects/:ref/database/migrations
  *   PUT    /projects/:ref/database/migrations
  *   POST   /projects/:ref/database/migrations/upsert
  *   GET    /projects/:ref/database/migrations/:version
@@ -10,7 +11,8 @@
  *
  * Mocks:
  *   - project-store.js     (getProjectByRef)
- *   - migrations-service.js (list/upsert/put/get/patch/deleteMigration)
+ *   - migrations-service.js (list/upsert/put/apply/get/patch/deleteMigration)
+ *   - @supastack/db          (audit_log writes from the applying POST)
  *   - per-instance-pg.js   (error classes — via vi.hoisted so instanceof works)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -35,6 +37,7 @@ const migrationsMock = vi.hoisted(() => {
     listMigrations: vi.fn<(ref: string) => Promise<unknown[]>>(),
     upsertMigration: vi.fn<(ref: string, data: unknown) => Promise<unknown>>(),
     putMigration: vi.fn<(ref: string, input: unknown) => Promise<unknown>>(),
+    applyMigration: vi.fn<(ref: string, input: unknown) => Promise<unknown>>(),
     getMigration: vi.fn<(ref: string, version: string) => Promise<unknown>>(),
     patchMigration: vi.fn<(ref: string, version: string, patch: unknown) => Promise<unknown>>(),
     deleteMigration: vi.fn<(ref: string, version: string) => Promise<unknown>>(),
@@ -64,6 +67,20 @@ const perInstancePgMock = vi.hoisted(() => {
   }
   return { InstanceNotFoundError, InstanceNotRunningError, PerInstancePgConnectError };
 });
+
+// The applying POST writes an audit row. Captured rather than stubbed away, so
+// a missing or mislabelled audit fails here.
+const auditRows = vi.hoisted(() => [] as Record<string, unknown>[]);
+vi.mock('@supastack/db', () => ({
+  db: () => ({
+    insert: () => ({
+      values: async (row: Record<string, unknown>) => {
+        auditRows.push(row);
+      },
+    }),
+  }),
+  schema: { auditLog: {} },
+}));
 
 vi.mock('../../src/services/project-store.js', () => projectStoreMock);
 vi.mock('../../src/services/migrations-service.js', () => migrationsMock);
@@ -154,6 +171,172 @@ describe('GET /projects/:ref/database/migrations', () => {
     });
     expect(res.statusCode).toBe(401);
     await unauthApp.close();
+  });
+});
+
+describe('POST /projects/:ref/database/migrations', () => {
+  // Upstream's v1-apply-a-migration — the call the official Supabase MCP
+  // server's `apply_migration` tool makes.
+  const ROW = {
+    version: '20260818120000',
+    name: 'create_widgets',
+    statements: ['create table public.widgets(id bigint primary key);'],
+    rollback: null,
+    created_by: 'test@example.com',
+    idempotency_key: null,
+  };
+
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    auditRows.length = 0;
+    app = await buildApp();
+    projectStoreMock.getProjectByRef.mockResolvedValue(FAKE_INST);
+  });
+
+  it('200 — applies the migration and audits it as applied', async () => {
+    migrationsMock.applyMigration.mockResolvedValue(ROW);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { query: ROW.statements[0], name: 'create_widgets' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ version: '20260818120000' });
+    const input = migrationsMock.applyMigration.mock.calls[0]![1] as Record<string, unknown>;
+    expect(input).toMatchObject({ query: ROW.statements[0], createdBy: 'test@example.com' });
+    expect(auditRows).toHaveLength(1);
+    expect(auditRows[0]).toMatchObject({ action: 'instance.db.migration.applied' });
+  });
+
+  it('200 — accepts the MCP server body exactly: {name, query}, no rollback', async () => {
+    // packages/mcp-server-supabase/src/platform/api-platform.ts sends only these
+    // two fields. A schema that required rollback would break that tool.
+    migrationsMock.applyMigration.mockResolvedValue(ROW);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { name: 'create_widgets', query: 'create table t(id int);' },
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('200 — Idempotency-Key is forwarded so a retry does not re-execute', async () => {
+    migrationsMock.applyMigration.mockResolvedValue({ ...ROW, idempotency_key: 'key-1' });
+
+    await app.inject({
+      method: 'POST',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token', 'idempotency-key': 'key-1' },
+      payload: { query: 'select 1;' },
+    });
+
+    const input = migrationsMock.applyMigration.mock.calls[0]![1] as Record<string, unknown>;
+    expect(input.idempotencyKey).toBe('key-1');
+  });
+
+  it("400 — the operator's SQL failed: SQLSTATE surfaces, not a 500", async () => {
+    migrationsMock.applyMigration.mockRejectedValue(
+      Object.assign(new Error('syntax error at or near "creat"'), {
+        code: '42601',
+        severity: 'ERROR',
+        position: '1',
+      }),
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { query: 'creat table oops();' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    const body = res.json();
+    expect(body.code).toBe('pg_error');
+    expect(body.message).toContain('syntax error');
+    expect(auditRows[0]).toMatchObject({ action: 'instance.db.migration.failed' });
+  });
+
+  it('400 — missing query', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { name: 'no query' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code: 'invalid_request' });
+    expect(migrationsMock.applyMigration).not.toHaveBeenCalled();
+    expect(auditRows).toEqual([]);
+  });
+
+  it('409 — instance not running is still project_not_running, not pg_error', async () => {
+    // The SQLSTATE arm must not swallow the lifecycle errors: those carry a
+    // `code` too, just not a five-character SQLSTATE one.
+    migrationsMock.applyMigration.mockRejectedValue(
+      new perInstancePgMock.InstanceNotRunningError('paused'),
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { query: 'select 1;' },
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ code: 'project_not_running' });
+  });
+
+  it('409 — version collision surfaces as 409', async () => {
+    migrationsMock.applyMigration.mockRejectedValue(
+      new migrationsMock.MigrationVersionCollisionError('no free version'),
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/projects/ref123/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { query: 'select 1;' },
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ code: 'migration_version_collision' });
+  });
+
+  it('404 — project not found, and nothing is executed', async () => {
+    projectStoreMock.getProjectByRef.mockResolvedValue(null);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/projects/unknown/database/migrations',
+      headers: { authorization: 'Bearer token' },
+      payload: { query: 'select 1;' },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(migrationsMock.applyMigration).not.toHaveBeenCalled();
+  });
+
+  it('401 — unauthenticated', async () => {
+    const unauthApp = await buildApp(false);
+    const res = await unauthApp.inject({
+      method: 'POST',
+      url: '/projects/ref123/database/migrations',
+      payload: { query: 'select 1;' },
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(migrationsMock.applyMigration).not.toHaveBeenCalled();
   });
 });
 
