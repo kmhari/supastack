@@ -3903,8 +3903,10 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
+  // Upstream deleted documents/dpa-signed and documents/dpa (POST); platform.d.ts
+  // now declares only these three, and Studio's document-query.ts makes exactly
+  // three GETs. Removed 2026-08-27 as dead surface.
   for (const docPath of [
-    '/platform/organizations/:slug/documents/dpa-signed',
     '/platform/organizations/:slug/documents/iso27001-certificate',
     '/platform/organizations/:slug/documents/soc2-type-2-report',
     '/platform/organizations/:slug/documents/standard-security-questionnaire',
@@ -3914,14 +3916,6 @@ export const platformMiscRoutes: FastifyPluginAsync = async (app) => {
       return reply.send({ signed: false, url: null });
     });
   }
-
-  app.post<{ Params: { slug: string } }>(
-    '/platform/organizations/:slug/documents/dpa',
-    async (req, reply) => {
-      app.requireAuth(req);
-      return reply.status(400).send({ error: 'Not available on self-hosted' });
-    },
-  );
 
   app.put<{ Params: { slug: string } }>(
     '/platform/organizations/:slug/cloud-marketplace/link',
