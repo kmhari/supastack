@@ -9,7 +9,9 @@ import { cn } from '@/lib/utils';
 export function DocsMcp(): React.ReactElement {
   const { snippets: s } = useSnippets();
   const [tab, setTab] = useState(0);
-  const cfg = s.mcpConfigs[tab];
+  // mcpConfigs is a fixed 4-entry literal in snippets.ts and `tab` is only ever
+  // set from that same array's map below, so the index always resolves.
+  const cfg = s.mcpConfigs[tab]!;
 
   return (
     <div className="space-y-5">

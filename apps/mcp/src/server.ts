@@ -126,7 +126,11 @@ app.post('/mcp', async (req, reply) => {
         const r = await origListTools(req, extra);
         return {
           ...r,
-          tools: (r.tools ?? []).filter((t: { name: string }) => !DEFERRED_TOOLS.has(t.name)),
+          // r.tools is unknown[] on the SDK's ListToolsResult, so narrow inside the
+          // predicate rather than annotating the parameter.
+          tools: (r.tools ?? []).filter(
+            (t) => !DEFERRED_TOOLS.has((t as { name: string }).name),
+          ),
         };
       });
     }

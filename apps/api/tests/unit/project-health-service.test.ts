@@ -98,7 +98,11 @@ beforeEach(() => {
 const { probeProjectHealth, DEFAULT_HEALTH_SERVICES } =
   await import('../../src/services/project-health-service.js');
 
-const byName = (svcs: { name: string }[], n: string) => svcs.find((s) => s.name === n)!;
+// Generic so the element type survives the lookup: a non-generic
+// `{ name: string }[]` parameter widens the array and hides status/healthy/
+// error/info from every assertion below.
+const byName = <T extends { name: string }>(svcs: T[], n: string): T =>
+  svcs.find((s) => s.name === n)!;
 
 describe('probeProjectHealth — happy path', () => {
   it('reports every default service ACTIVE_HEALTHY when running and reachable', async () => {
