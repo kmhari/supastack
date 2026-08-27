@@ -31,12 +31,20 @@ docs/        operator runbooks (docs/README.md is the index)
 ## Commands
 
 ```sh
-pnpm test         # vitest, all workspaces
-pnpm lint         # eslint + test-collection guard + page-coverage guard
-pnpm typecheck    # tsc across workspaces
-pnpm build        # all workspaces
+pnpm test          # vitest, all workspaces
+pnpm lint          # eslint + test-collection guard + page-coverage guard
+pnpm typecheck     # tsc across workspaces (--no-bail: reports every package)
+pnpm format:check  # prettier — CI runs this FIRST; lint does not cover it
+pnpm build         # all workspaces
 pnpm vitest run tests/installer/   # run one suite
 ```
+
+**Before declaring work done run all four**: `format:check`, `lint`,
+`typecheck`, `test` — in that order, matching `.github/workflows/ci.yml`.
+`lint` does not run prettier, so a tree that passes lint and test can still
+turn CI red on formatting alone, and format:check runs ahead of everything
+else in the guardrails job — a formatting slip means typecheck and the tests
+never even run.
 
 ## Hard rules
 
