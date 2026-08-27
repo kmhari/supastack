@@ -95,9 +95,14 @@ _step "rekey_committed" "ok"
 echo "  ${COMMITTED_LINE}"
 
 # ── Step 4+5: Recreate api + worker with new MASTER_KEY ──────────────────────
-# MASTER_KEY lives in the ubuntu user's shell env (no infra/.env file).
-# Build a minimal env file on the VM to satisfy docker compose validation;
-# only api + worker are actually recreated (--no-deps).
+# MASTER_KEY DOES live in /opt/supastack/infra/.env (compose reads it as
+# ${MASTER_KEY:?} at docker-compose.yml:159) — an earlier version of this comment
+# claimed otherwise, and rekey-master.mjs's "update MASTER_KEY in
+# /opt/supastack/infra/.env" instruction is correct. The temp file below is not a
+# workaround for a missing .env: it is so a TEST never mutates the real one.
+# --env-file REPLACES the default .env rather than layering over it, which is why
+# every other required var has to be synthesised here.
+# Only api + worker are actually recreated (--no-deps).
 # CONTROL_DB_PASSWORD is extracted from DATABASE_URL (password field).
 CTRL_DB_PASS=$(echo "$DATABASE_URL" | sed -E 's|.*://[^:]+:([^@]+)@.*|\1|')
 RECREATE_OUT=$(ssh "$VM" bash -s -- "${NEW_KEY}" "${SUPASTACK_APEX}" "${CTRL_DB_PASS}" << 'SSHEOF'
