@@ -224,7 +224,8 @@ describe('GET /platform/projects — response shape', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json() as { projects: Record<string, unknown>[] };
     expect(body.projects).toHaveLength(1);
-    const project = body.projects[0];
+    // toHaveLength(1) above already proves index 0 exists.
+    const project = body.projects[0]!;
     expect(project).toHaveProperty('organization_slug');
     expect(project).toHaveProperty('preview_branch_refs');
     expect(Array.isArray(project.preview_branch_refs)).toBe(true);

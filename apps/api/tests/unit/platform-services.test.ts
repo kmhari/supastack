@@ -99,10 +99,10 @@ async function buildApp(authed = true): Promise<FastifyInstance> {
   const app = Fastify();
   app.decorate('requireAuth', () => {
     if (!authed) throw Object.assign(new Error('unauthenticated'), { statusCode: 401 });
-    return { id: 'u1', email: 'op@x.dev', role: 'owner' };
+    return { id: 'u1', email: 'op@x.dev', role: 'owner' as const };
   });
   app.decorate('authorize', () => {});
-  app.decorate('authorizeOrg', async () => 'owner');
+  app.decorate('authorizeOrg', async () => 'owner' as const);
   app.setErrorHandler((err, _req, reply) => {
     const status = (err as { statusCode?: number }).statusCode ?? 500;
     reply.status(status).send({ error: (err as Error).message });

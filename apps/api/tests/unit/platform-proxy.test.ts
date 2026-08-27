@@ -380,7 +380,8 @@ describe('platform-proxy routes', () => {
         expect.any(Buffer),
       );
       // Dashboard bearer must not leak upstream to Logflare.
-      const headers = proxyHelpersMock.proxyToKong.mock.calls[0][3] as Record<string, unknown>;
+      // The toHaveBeenCalledWith above already proves calls[0] exists.
+      const headers = proxyHelpersMock.proxyToKong.mock.calls[0]![3] as Record<string, unknown>;
       expect(headers.authorization).toBeUndefined();
     });
   });

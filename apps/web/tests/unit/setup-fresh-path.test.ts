@@ -11,8 +11,15 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
-const login = vi.fn(async () => {});
-const run = vi.fn(async () => ({ apiToken: 'sbp_test', userId: 'u', orgId: 1, email: 'a@b.co' }));
+// Rest params so the `(...a) => login(...a)` forwarders below typecheck; the
+// tests assert on captured arguments, so the mocks must accept them.
+const login = vi.fn(async (..._a: unknown[]) => {});
+const run = vi.fn(async (..._a: unknown[]) => ({
+  apiToken: 'sbp_test',
+  userId: 'u',
+  orgId: 1,
+  email: 'a@b.co',
+}));
 const apexStatus = vi.fn(async () => ({ apex: 'shipfan.test', cert: null }));
 const apexInfo = vi.fn(async () => ({
   apex: 'shipfan.test',

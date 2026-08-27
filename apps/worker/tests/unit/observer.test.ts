@@ -121,8 +121,8 @@ describe('runObserver', () => {
     const host = inserted.filter((r) => r.scope === 'host');
     const projects = inserted.filter((r) => r.scope === 'project');
     expect(host).toHaveLength(1);
-    expect(host[0].memLimitBytes).toBe(8_000_000_000);
-    expect(host[0].diskBreakdown).toMatchObject({ projectData: 300, backups: 100 });
+    expect(host[0]!.memLimitBytes).toBe(8_000_000_000);
+    expect(host[0]!.diskBreakdown).toMatchObject({ projectData: 300, backups: 100 });
     expect(projects.map((r) => r.ref).sort()).toEqual([
       'aaaaaaaaaaaaaaaaaaaa',
       'bbbbbbbbbbbbbbbbbbbb',
@@ -138,10 +138,10 @@ describe('runObserver', () => {
   it('upserts control-plane snapshots with the log tail redacted', async () => {
     await runObserver(fakeDeps(), { retentionDays: 7 });
     expect(upserted).toHaveLength(1);
-    expect(upserted[0].values.container).toBe('supastack-api-1');
-    expect(upserted[0].values.logTail).toContain('[REDACTED]');
-    expect(upserted[0].values.logTail).not.toContain('s3cret');
-    expect(upserted[0].set.health).toBe('healthy');
+    expect(upserted[0]!.values.container).toBe('supastack-api-1');
+    expect(upserted[0]!.values.logTail).toContain('[REDACTED]');
+    expect(upserted[0]!.values.logTail).not.toContain('s3cret');
+    expect(upserted[0]!.set.health).toBe('healthy');
   });
 
   it('prunes old samples each tick', async () => {

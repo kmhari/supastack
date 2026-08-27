@@ -18,6 +18,10 @@ export interface FleetProject {
 export interface ProjectDetail {
   ref: string;
   status: string;
+  // GET /api/v1/admin/projects/:ref sends this (admin.ts:93) from the NOT NULL
+  // supabase_version column. It was missing here, so the UI's `data.version`
+  // read did not typecheck even though the field is always present.
+  version: string;
   services: { name: string; healthy: boolean; version?: string }[];
   database: { status: string };
 }

@@ -56,6 +56,12 @@ async function buildApp(role: 'owner' | 'developer' | null = 'owner'): Promise<F
       err.code = 'forbidden';
       throw err;
     }
+    // role === null models an unauthenticated caller, and requireAuth throws 401
+    // before any handler reaches authorizeOrg. Reject rather than widen the
+    // decorator's return type to include null.
+    if (role === null) {
+      throw new AppError(401, 'unauthenticated', 'Unauthorized');
+    }
     return role;
   });
 
