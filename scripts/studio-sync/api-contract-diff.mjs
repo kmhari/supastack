@@ -5,10 +5,13 @@
 // a rebuilt Studio bundle calls whatever upstream Studio now calls, and supastack's
 // api has to answer it: 333 `/platform/*` paths, none of which we control.
 //
-// Upstream's `packages/api-types/types/platform.d.ts` is the generated contract
-// Studio is typed against, so diffing it between the commit our current image was
-// built from and upstream head tells us exactly which endpoints a sync would move
-// under us — before we build the image, not after an operator hits a 404.
+// Upstream's generated `packages/api-types/types/*.d.ts` are the contracts Studio
+// is typed against, so diffing them between the commit our current image was built
+// from and upstream head tells us exactly which endpoints a sync would move under
+// us — before we build the image, not after an operator hits a 404.
+//
+// Three surfaces are compared: platform, v1 and v2. Upstream renames these files
+// as the surface grows, so each surface resolves its filename per ref.
 //
 // Usage:
 //   node scripts/studio-sync/api-contract-diff.mjs <supabase-checkout-dir> [options]
@@ -25,7 +28,6 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
 
-const TYPES_FILE = 'packages/api-types/types/platform.d.ts';
 const UPSTREAM_REPO = 'supabase/supabase';
 const FORK_REPO = 'kmhari/supabase';
 const PATCH_BRANCH = 'supastack-studio';
@@ -46,9 +48,16 @@ if (!dir) {
   process.exit(2);
 }
 
-function git(args, { allowFail = false } = {}) {
+function git(args, { allowFail = false, quiet = false } = {}) {
   try {
-    return execFileSync('git', args, { cwd: dir, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 });
+    return execFileSync('git', args, {
+      cwd: dir,
+      encoding: 'utf8',
+      maxBuffer: 128 * 1024 * 1024,
+      // Probing for a file that may not exist at a ref is a normal outcome here,
+      // so keep git's `fatal: path ... does not exist` off the operator's screen.
+      stdio: quiet ? ['ignore', 'pipe', 'ignore'] : undefined,
+    });
   } catch (err) {
     if (allowFail) return null;
     console.error(`FATAL: git ${args.join(' ')} failed in ${dir}\n${err.stderr ?? err.message}`);
@@ -83,10 +92,26 @@ if (!base) {
 
 // ------------------------------------------------- parse the generated contract
 
+// Upstream renames the generated type files as the API surface grows: at
+// 628c7e08d6 ("Add generation for v2 APIs") `api.d.ts` became `api-v1.d.ts`
+// alongside a new `api-v2.d.ts`. base and head therefore straddle the rename,
+// and a single hard-coded filename makes this whole tool exit 2. Each surface
+// names its candidates newest-first and we resolve per ref.
+function resolveTypesFile(ref, candidates) {
+  for (const f of candidates) {
+    if (git(['cat-file', '-e', `${ref}:${f}`], { allowFail: true, quiet: true }) !== null) return f;
+  }
+  return null;
+}
+
 // Path keys sit at two-space indent inside `export interface paths`, and each
 // block closes on a bare two-space `}`. Slicing on that is enough to compare
 // operation shapes without pulling in a TypeScript parser.
 function extractPaths(ref, typesFile, match) {
+  // A surface can be absent at one end of the range (api-v2.d.ts does not exist
+  // before the split). That is not an error: it means every path on that surface
+  // is new, which is exactly what the caller should report.
+  if (typesFile === null) return new Map();
   const src = git(['show', `${ref}:${typesFile}`], { allowFail: true });
   if (src === null) {
     console.error(`FATAL: ${typesFile} missing at ${ref} — upstream moved the generated types`);
@@ -150,15 +175,27 @@ function collectRoutes(root, { match, mount = '' }) {
   return found;
 }
 
-// Two independent contracts, and missing either one hides real breakage:
+// Three independent contracts, and missing any one hides real breakage:
 //   platform — what the Studio bundle calls; our api is the only thing serving it
 //   v1       — the Management API compatibility surface. Per AGENTS.md upstream is
 //              canonical here and we must never invent or drift it. It is also what
 //              the unmodified supabase CLI and MCP clients talk to.
+//   v2       — a NEW envelope (JSON:API `{data,links}`), not a reissue of v1: only
+//              members and projects have a v1 counterpart and v1 keeps both. Studio
+//              reaches it on the same client as the other two (fetchers.ts sets one
+//              baseUrl), so a v2 call it starts making lands on OUR api. We serve
+//              none of it, so everything here reports as new-since-base.
+//
+// `types` is a candidate list, newest name first — see resolveTypesFile.
+//
+// The v2 surface deliberately scans the /platform route root with an empty mount
+// rather than routes/management with mount '/v2'. Management route literals are
+// RELATIVE, so a '/v2' mount would prepend it to every /v1 route we serve and
+// report the whole Management API as an implemented v2 surface.
 const SURFACES = [
   {
     name: 'platform',
-    types: 'packages/api-types/types/platform.d.ts',
+    types: ['packages/api-types/types/platform.d.ts'],
     match: /^\/platform\//,
     routeDir: 'apps/api/src/routes',
     mount: '',
@@ -166,24 +203,52 @@ const SURFACES = [
   },
   {
     name: 'v1 (Management API)',
-    types: 'packages/api-types/types/api.d.ts',
+    types: ['packages/api-types/types/api-v1.d.ts', 'packages/api-types/types/api.d.ts'],
     match: /^\/v1\//,
     routeDir: 'apps/api/src/routes/management',
     mount: '/v1',
     consumer: 'the supabase CLI / MCP clients hit the 501 catch-all',
+  },
+  {
+    name: 'v2',
+    types: ['packages/api-types/types/api-v2.d.ts'],
+    // Not /^\/v2\//: the v2 spec file also declares `/v1/webhooks/events`, which
+    // api-v1.d.ts does not carry. Matching only /v2 leaves that path declared by
+    // upstream and reported by no surface. Scope is "whatever this file declares".
+    match: /^\/v[0-9]+\//,
+    // The route side must stay narrow. The /platform bridge re-injects config
+    // through '/v1/...' literals (auth-config-case.ts and friends), so reusing
+    // `match` here counts 21 of those as implemented v2 endpoints. We serve no
+    // /v2 path at all. Consequence: if we ever do serve /v1/webhooks/events it
+    // keeps reporting as new — add it to the v1 surface's route scan then.
+    routeMatch: /^\/v2\//,
+    routeDir: 'apps/api/src/routes',
+    mount: '',
+    consumer: 'a Studio screen calling v2 gets our 404 — cross-check studio-demand-diff',
   },
 ];
 
 const apiRoot = resolvePath(opts['api-dir'] ?? 'apps/api/src/routes');
 
 function analyse(surface) {
-  const basePaths = extractPaths(base, surface.types, surface.match);
-  const headPaths = extractPaths(head, surface.types, surface.match);
+  const baseTypes = resolveTypesFile(base, surface.types);
+  const headTypes = resolveTypesFile(head, surface.types);
+  if (headTypes === null) {
+    console.error(
+      `FATAL: none of ${surface.types.join(', ')} exist at ${head} — upstream moved the generated types`,
+    );
+    process.exit(2);
+  }
+  const basePaths = extractPaths(base, baseTypes, surface.match);
+  const headPaths = extractPaths(head, headTypes, surface.match);
 
   const dir = surface.mount === '' ? apiRoot : resolvePath(surface.routeDir);
   let routes;
   try {
-    routes = collectRoutes(dir, { match: surface.match, mount: surface.mount });
+    routes = collectRoutes(dir, {
+      match: surface.routeMatch ?? surface.match,
+      mount: surface.mount,
+    });
   } catch (err) {
     console.error(`FATAL: cannot read supastack routes at ${dir}: ${err.message}`);
     process.exit(2);
@@ -212,6 +277,9 @@ function analyse(surface) {
   return {
     surface: surface.name,
     consumer: surface.consumer,
+    // Which generated file each end actually resolved to. When these differ the
+    // range straddles an upstream rename, and saying so beats a silent compare.
+    typesFile: { base: baseTypes, head: headTypes },
     counts: {
       upstreamBase: basePaths.size,
       upstreamHead: headPaths.size,
@@ -240,8 +308,12 @@ let added = [];
 for (const r of reports) {
   added = added.concat(r.added);
   console.log(`\n── ${r.surface} ─────────────────────────────────────────`);
+  const bn = r.typesFile.base?.split('/').pop() ?? '(absent)';
+  const hn = r.typesFile.head.split('/').pop();
   console.log(
-    `  ${r.counts.upstreamBase} -> ${r.counts.upstreamHead} upstream paths | ${r.counts.implemented} implemented by supastack\n`,
+    `  ${r.counts.upstreamBase} -> ${r.counts.upstreamHead} upstream paths | ${r.counts.implemented} implemented by supastack` +
+      (bn === hn ? `  [${hn}]` : `  [${bn} -> ${hn}]`) +
+      '\n',
   );
 
   if (r.removed.length) {
