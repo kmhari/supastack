@@ -7,14 +7,27 @@
  * All updates run inside a single transaction — either everything rotates or
  * nothing does.
  *
- * Tables handled:
+ * Columns handled (every envelope-encrypted blob in the control-plane DB):
  *   supabase_instances        .encrypted_secrets
+ *   supabase_instances        .create_smtp_pass_encrypted     (nullable)
  *   project_config_snapshots  .encrypted_payload
  *   project_secrets           .encrypted_value
- *   users                     .backup_store_config_encrypted  (nullable)
- *   tls_accounts              .account_key_pem
- *   tls_certs                 .key_pem                        (nullable)
+ *   installation              .backup_store_config_encrypted  (nullable)
+ *   installation              .smtp_config_encrypted          (nullable)
+ *   wildcard_certs            .account_key_pem
+ *   wildcard_certs            .key_pem                        (nullable)
  *   pg_edge_certs             .key_pem                        (nullable)
+ *
+ * A missing configured column ABORTS the run. It used to warn and continue,
+ * which is how `tls_accounts`/`tls_certs` (names that never existed — the table
+ * is `wildcard_certs`) and `users.backup_store_config_encrypted` (the column
+ * lives on `installation`) silently skipped five columns through a real
+ * rotation, orphaning them under a discarded key. An un-rotated blob is
+ * unrecoverable, so this tool fails closed.
+ *
+ * A completeness sweep then checks every bytea column in the database against
+ * COLUMNS + NOT_ENCRYPTED, so a newly added encrypted column aborts the run
+ * instead of being quietly left behind.
  *
  * Usage (on the VM, inside the supastack repo):
  *   OLD_MASTER_KEY=<old 64-hex> \
@@ -78,29 +91,80 @@ if (DRY_RUN) console.log('[rekey] DRY_RUN=1 — no writes will be made');
 const client = new pg.Client({ connectionString: DB_URL });
 await client.connect();
 
-const TABLES = [
+// `optional: true` means the column may legitimately be absent on an older
+// deployment that has not run the migration adding it. Everything else must
+// exist: a name that does not resolve is treated as a bug in this list, not as
+// a deployment difference.
+const COLUMNS = [
   { table: 'supabase_instances', id: 'ref', col: 'encrypted_secrets', nullable: false },
+  { table: 'supabase_instances', id: 'ref', col: 'create_smtp_pass_encrypted', nullable: true },
   { table: 'project_config_snapshots', id: 'id', col: 'encrypted_payload', nullable: false },
   { table: 'project_secrets', id: 'id', col: 'encrypted_value', nullable: false },
-  { table: 'users', id: 'id', col: 'backup_store_config_encrypted', nullable: true },
-  { table: 'tls_accounts', id: 'id', col: 'account_key_pem', nullable: false },
-  { table: 'tls_certs', id: 'id', col: 'key_pem', nullable: true },
+  { table: 'installation', id: 'id', col: 'backup_store_config_encrypted', nullable: true },
+  { table: 'installation', id: 'id', col: 'smtp_config_encrypted', nullable: true },
+  { table: 'wildcard_certs', id: 'id', col: 'account_key_pem', nullable: false },
+  { table: 'wildcard_certs', id: 'id', col: 'key_pem', nullable: true },
   { table: 'pg_edge_certs', id: 'id', col: 'key_pem', nullable: true },
 ];
+
+// bytea columns that are NOT envelope-encrypted and must never be rekeyed.
+// Both are SHA-256 digests: rekeying one would destroy the token it verifies.
+const NOT_ENCRYPTED = new Set([
+  'api_tokens.token_sha256',
+  'organization_invitations.token_sha256',
+]);
+
+/**
+ * Every bytea column in the database must be accounted for — either rotated by
+ * COLUMNS or explicitly declared non-encrypted. An unclassified one aborts:
+ * silently leaving a blob under the old key is unrecoverable data loss, and
+ * discovering that months later (as happened with wildcard_certs) is worse than
+ * a failed rotation.
+ */
+async function assertNoUnclassifiedBlobColumns(client) {
+  const { rows } = await client.query(
+    `SELECT table_name, column_name
+       FROM information_schema.columns
+      WHERE table_schema = 'public' AND data_type = 'bytea'
+      ORDER BY table_name, column_name`,
+  );
+  const configured = new Set(COLUMNS.map((c) => `${c.table}.${c.col}`));
+  const unclassified = rows
+    .map((r) => `${r.table_name}.${r.column_name}`)
+    .filter((k) => !configured.has(k) && !NOT_ENCRYPTED.has(k));
+  if (unclassified.length) {
+    throw new Error(
+      `unclassified bytea column(s): ${unclassified.join(', ')}\n` +
+        `  Add each to COLUMNS (if envelope-encrypted) or NOT_ENCRYPTED (if not).\n` +
+        `  Refusing to rotate while a blob might be left under the old key.`,
+    );
+  }
+  console.log(`[rekey] completeness: ${rows.length} bytea column(s), all classified`);
+}
 
 let totalRows = 0;
 
 try {
   await client.query('BEGIN');
 
-  for (const { table, id, col, nullable } of TABLES) {
-    // Skip if table or column doesn't exist on this deployment
+  await assertNoUnclassifiedBlobColumns(client);
+
+  for (const { table, id, col, nullable, optional } of COLUMNS) {
     const { rows: colCheck } = await client.query(
-      `SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name=$2`,
+      `SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name=$1 AND column_name=$2`,
       [table, col],
     );
     if (colCheck.length === 0) {
-      console.log(`[rekey] ${table}.${col}: column not found — skip`);
+      // Fail closed. A typo here used to read as "this deployment doesn't have
+      // it" and skip, which is exactly how five columns missed a rotation.
+      if (!optional) {
+        throw new Error(
+          `${table}.${col} does not exist. Either the name is wrong in COLUMNS, ` +
+            `or this deployment predates it — in which case mark it optional: true.`,
+        );
+      }
+      console.log(`[rekey] ${table}.${col}: absent, declared optional — skip`);
       continue;
     }
 

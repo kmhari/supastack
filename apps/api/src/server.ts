@@ -8,6 +8,7 @@ import { AppError, errors, getApex } from '@supastack/shared';
 import { eq } from 'drizzle-orm';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { existsSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
 import { authPlugin } from './plugins/auth.js';
 import { mgmtApiErrorsPlugin } from './plugins/mgmt-api-errors.js';
 import { rbacPlugin } from './plugins/rbac.js';
@@ -132,6 +133,29 @@ export async function buildApp(): Promise<FastifyInstance> {
     bodyLimit: 50 * 1024 * 1024,
     disableRequestLogging: false,
   });
+
+  // Route manifest dump (opt-in, inert in production).
+  //
+  // `printRoutes()` cannot be used for this: it silently omits wildcard routes.
+  // `/platform/pg-meta/:ref/*` and the other three proxies in platform-proxy.ts
+  // answer requests (hasRoute is true, inject returns 401 not 404) yet never
+  // appear in its tree — so any inventory built from it under-reports the
+  // surface and reads served endpoints as missing.
+  //
+  // `onRoute` is Fastify telling us at registration time, so the manifest is
+  // exact. Set SUPASTACK_DUMP_ROUTES=<path> to write it; see
+  // scripts/studio-sync/dump-routes.sh.
+  if (process.env.SUPASTACK_DUMP_ROUTES) {
+    const manifest: Array<{ method: string; url: string }> = [];
+    app.addHook('onRoute', (route) => {
+      const methods = Array.isArray(route.method) ? route.method : [route.method];
+      for (const method of methods) manifest.push({ method, url: route.url });
+    });
+    app.addHook('onReady', async () => {
+      manifest.sort((a, b) => a.url.localeCompare(b.url) || a.method.localeCompare(b.method));
+      await writeFile(process.env.SUPASTACK_DUMP_ROUTES!, JSON.stringify(manifest, null, 2));
+    });
+  }
 
   // Raw-body parser for the CLI's eszip deploy path. The CLI sends
   // `Content-Type: application/vnd.denoland.eszip`; without this Fastify

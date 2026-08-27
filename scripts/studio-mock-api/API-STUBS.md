@@ -55,8 +55,6 @@ All `/platform/*` (and appendix non-platform) endpoints currently returning stub
 | `/platform/organizations/{slug}/apps/{app_id}/signing-keys`                     | GET    | supastack  | 200                                        | ⚪       |
 | `/platform/organizations/{slug}/apps/{app_id}/signing-keys`                     | POST   | supastack  | stub                                       | ⚪       |
 | `/platform/organizations/{slug}/apps/{app_id}/signing-keys/{key_id}`            | DELETE | supastack  | stub                                       | ⚪       |
-| `/platform/organizations/{slug}/documents/dpa`                                  | POST   | supastack  | 400 not supported                          | ⚪       |
-| `/platform/organizations/{slug}/documents/dpa-signed`                           | GET    | supastack  | 200                                        | ⚪       |
 | `/platform/organizations/{slug}/documents/iso27001-certificate`                 | GET    | supastack  | 200                                        | ⚪       |
 | `/platform/organizations/{slug}/documents/soc2-type-2-report`                   | GET    | supastack  | 200                                        | ⚪       |
 | `/platform/organizations/{slug}/documents/standard-security-questionnaire`      | GET    | supastack  | 200                                        | ⚪       |
