@@ -286,13 +286,18 @@ let resolvedFlags = null;
   const pkg = show(ref, 'package.json');
 
   if (ours === null) {
-    c(false, `${OUR_DOCKERFILE} not readable from ${process.cwd()} — run from the supastack repo root`);
+    c(
+      false,
+      `${OUR_DOCKERFILE} not readable from ${process.cwd()} — run from the supastack repo root`,
+    );
   } else if (theirs === null) {
     c(false, `${UPSTREAM_DOCKERFILE} does not exist at ${ref} — upstream moved the image build`);
   } else {
     const pin = (src, re) => src.match(re)?.[1] ?? null;
     const wanted = {
-      pnpm: pin(pkg ?? '', /"packageManager"\s*:\s*"pnpm@([0-9][^"]*)"/) ?? pin(theirs, /pnpm@([0-9][^\s"']*)/),
+      pnpm:
+        pin(pkg ?? '', /"packageManager"\s*:\s*"pnpm@([0-9][^"]*)"/) ??
+        pin(theirs, /pnpm@([0-9][^\s"']*)/),
       turbo: pin(theirs, /turbo@([0-9][^\s"']*)/),
     };
     const got = {

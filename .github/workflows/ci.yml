@@ -40,7 +40,7 @@ jobs:
         run: pnpm lint
 
       - name: Typecheck
-        run: pnpm typecheck || true # warn-only until packages exist
+        run: pnpm typecheck
 
   test:
     name: unit tests

@@ -19,7 +19,7 @@
     "test:coverage": "node scripts/coverage.mjs",
     "test:integration": "bash scripts/test-integration.sh",
     "test:cli": "tests/cli-e2e/deploy-hello.sh",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm -r --no-bail typecheck",
     "db:generate": "pnpm --filter @supastack/db db:generate",
     "db:migrate": "pnpm --filter @supastack/db db:migrate",
     "dev:api": "pnpm --filter @supastack/api dev",
