@@ -175,6 +175,120 @@ function collectRoutes(root, { match, mount = '' }) {
   return found;
 }
 
+// ---------------------------------------------------------------- triage
+
+// Upstream paths we deliberately do NOT serve, with the reason, keyed by shape
+// (see `shape()` — `{ref}` normalises to `{}`).
+//
+// Why this exists: the `added` bucket means "new since base", so it goes quiet
+// on its own once a sync moves base forward. That is right for Cloud-only
+// surface nobody calls, and wrong for the handful Studio DOES call — those
+// would disappear from the report having never been decided. Recording the
+// gate here keeps the decision, and `staleTriage` below fails when upstream
+// deletes something we are still explaining.
+//
+// `gate` is the thing that currently keeps a demanded path dark. When a gate
+// moves, the path goes live and we 404 — so each one names a file:line to
+// re-check on the next sync.
+const UNSERVED_TRIAGE = [
+  {
+    reason:
+      'Cloud eventing. Org- and project-scoped webhook endpoints plus their delivery ' +
+      'log and retry/test actions. Self-hosted has no equivalent concept and no ' +
+      'Studio screen reaches them.',
+    paths: [
+      '/v1/webhooks/events',
+      '/v2/organizations/{}/webhooks/deliveries/{}',
+      '/v2/organizations/{}/webhooks/deliveries/{}/retry',
+      '/v2/organizations/{}/webhooks/endpoints',
+      '/v2/organizations/{}/webhooks/endpoints/{}',
+      '/v2/organizations/{}/webhooks/endpoints/{}/deliveries',
+      '/v2/organizations/{}/webhooks/endpoints/{}/test',
+      '/v2/projects/{}/webhooks/deliveries/{}',
+      '/v2/projects/{}/webhooks/deliveries/{}/retry',
+      '/v2/projects/{}/webhooks/endpoints',
+      '/v2/projects/{}/webhooks/endpoints/{}',
+      '/v2/projects/{}/webhooks/endpoints/{}/deliveries',
+      '/v2/projects/{}/webhooks/endpoints/{}/test',
+    ],
+  },
+  {
+    reason:
+      'AWS PrivateLink association management and cross-org project transfers. Both ' +
+      'describe Cloud infrastructure that does not exist on a single self-hosted VM.',
+    paths: [
+      '/v2/projects/{}/private-link/associations',
+      '/v2/projects/{}/private-link/associations/aws-account/{}',
+      '/v2/projects/{}/private-link/associations/aws-account/{}/database/{}',
+      '/v2/projects/{}/transfers',
+      '/v2/projects/{}/transfers/previews',
+      '/platform/warehouse/{}/setup',
+    ],
+  },
+  {
+    reason:
+      'v2 twins of org surface we already serve on /platform. Do NOT close these by ' +
+      'proxying the v1 or /platform handler: v2 is a different envelope (JSON:API ' +
+      '{data,links} with cursor pagination) and for members it replaces ' +
+      'role_name: string with roles[] carrying scope organization|project. Studio ' +
+      'calls our /platform handlers, never these.',
+    paths: [
+      '/v2/organizations/{}/integrations/github/connections',
+      '/v2/organizations/{}/members',
+      '/v2/organizations/{}/members/{}/roles',
+      '/v2/organizations/{}/members/invitations',
+      '/v2/organizations/{}/projects',
+      '/v2/organizations/{}/roles',
+      '/v2/projects/{}/analytics/log-drains',
+      '/v2/projects/{}/analytics/log-drains/{}',
+    ],
+  },
+  {
+    reason:
+      'Edge Workers. Studio DOES call the first two, but the layout redirects before ' +
+      'the query mounts. Note the query`s own `enabled` is IS_PLATFORM && projectRef ' +
+      'and does NOT check the flag — only the redirect stops it.',
+    gate:
+      'useFlag(`workers`) in components/layouts/WorkersLayout/WorkersLayout.tsx:97; ' +
+      'useFlag returns false on an empty ConfigCat store ' +
+      '(packages/common/feature-flags.tsx:280), which is the self-hosted case.',
+    paths: [
+      '/v2/projects/{}/workers',
+      '/v2/projects/{}/workers/{}',
+      '/v2/projects/{}/workers/{}/deploy',
+      '/v2/projects/{}/workers/{}/uploads',
+    ],
+  },
+  {
+    reason:
+      'GitHub config drift. Studio calls this, but only for a project that has a ' +
+      'GitHub connection. Sturdier than a feature flag: the gate is driven by our own ' +
+      'api returning no connections, not by upstream config.',
+    gate:
+      'hasConnection in hooks/misc/useGitHubConfigDrift.ts; our ' +
+      'GET /platform/integrations/github/connections returns { connections: [] } ' +
+      '(apps/api/src/routes/platform-misc.ts).',
+    paths: ['/v2/projects/{}/config'],
+  },
+  {
+    reason:
+      'Feeds Studio`s own /api/scoped-access-token-permissions route, which is ' +
+      'allowlisted for hosted mode (lib/hosted-api-allowlist.ts) and so IS live here. ' +
+      'NOT a regression from any one sync: that route already fetched /api/v1-json ' +
+      'and /api/v2-json, which we also do not serve, so the Scoped Access Tokens ' +
+      'screen was already dead. Upstream asserts the route THROWS when this endpoint ' +
+      'is unavailable, so there is no partial degradation to rely on. Closing the ' +
+      'screen means serving all three, not just this one.',
+    gate: 'none — this one is genuinely broken, not gated.',
+    paths: ['/platform/mcp-tools-permissions'],
+  },
+];
+
+const triageByShape = new Map();
+for (const group of UNSERVED_TRIAGE)
+  for (const path of group.paths)
+    triageByShape.set(path, { reason: group.reason, gate: group.gate ?? null });
+
 // Three independent contracts, and missing any one hides real breakage:
 //   platform — what the Studio bundle calls; our api is the only thing serving it
 //   v1       — the Management API compatibility surface. Per AGENTS.md upstream is
@@ -271,7 +385,8 @@ function analyse(surface) {
   }
 
   for (const [s, up] of headByShape) {
-    if (!baseByShape.has(s) && !routes.has(s)) added.push({ path: up.path });
+    if (!baseByShape.has(s) && !routes.has(s))
+      added.push({ path: up.path, triage: triageByShape.get(s) ?? null });
   }
 
   return {
@@ -288,14 +403,26 @@ function analyse(surface) {
     removed,
     changed,
     added,
+    headShapes: [...headByShape.keys()],
   };
 }
 
 const reports = SURFACES.map(analyse);
-const actionable = reports.reduce((n, r) => n + r.removed.length + r.changed.length, 0);
+
+// Closed-world check on the triage list itself: an entry no surface's head spec
+// declares is a justification for something that no longer exists. Left unchecked
+// the list rots into a description of an API that is gone.
+//
+// Checked against the UNION of all surfaces, not per surface: a path's shape does
+// not determine which spec file declares it — api-v2.d.ts carries
+// /v1/webhooks/events, which the v1 surface would otherwise report as stale.
+const allHeadShapes = new Set(reports.flatMap((r) => r.headShapes));
+const staleTriage = [...triageByShape.keys()].filter((p) => !allHeadShapes.has(p));
+const actionable =
+  reports.reduce((n, r) => n + r.removed.length + r.changed.length, 0) + staleTriage.length;
 
 if (opts.json) {
-  console.log(JSON.stringify({ base, head, surfaces: reports }, null, 2));
+  console.log(JSON.stringify({ base, head, surfaces: reports, staleTriage }, null, 2));
   process.exit(actionable ? 1 : 0);
 }
 
@@ -329,12 +456,40 @@ for (const r of reports) {
     console.log();
   }
   if (r.added.length) {
-    console.log(`  NEW upstream, not implemented here — ${r.consumer} (${r.added.length})`);
-    for (const x of r.added) console.log(`    ${x.path}`);
-    console.log();
+    const untriaged = r.added.filter((x) => !x.triage);
+    const triaged = r.added.filter((x) => x.triage);
+    if (untriaged.length) {
+      console.log(`  NEW upstream, UNTRIAGED — ${r.consumer} (${untriaged.length})`);
+      for (const x of untriaged) console.log(`    ${x.path}`);
+      console.log();
+    }
+    if (triaged.length) {
+      // Gated paths first: those are the ones a Studio change can turn live.
+      const gated = triaged.filter((x) => x.triage.gate);
+      console.log(
+        `  NEW upstream, triaged as not-for-self-hosted (${triaged.length}` +
+          (gated.length ? `, ${gated.length} gated — Studio calls these` : '') +
+          ')',
+      );
+      for (const x of gated) console.log(`    ${x.path}\n      gate: ${x.triage.gate}`);
+      if (gated.length && triaged.length > gated.length) console.log();
+      const rest = triaged.filter((x) => !x.triage.gate).map((x) => x.path);
+      if (rest.length) console.log(`    ${rest.length} with no Studio call site`);
+      console.log();
+    }
   }
+
   if (!r.removed.length && !r.changed.length && !r.added.length)
     console.log('  no drift on any endpoint supastack implements\n');
+}
+
+if (staleTriage.length) {
+  console.log(`── triage list ─────────────────────────────────────────`);
+  console.log(
+    `\n  STALE — we justify not serving it, no upstream spec declares it (${staleTriage.length})`,
+  );
+  for (const x of staleTriage) console.log(`    ${x}`);
+  console.log();
 }
 
 console.log(
