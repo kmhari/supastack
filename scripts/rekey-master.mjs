@@ -109,10 +109,7 @@ const COLUMNS = [
 
 // bytea columns that are NOT envelope-encrypted and must never be rekeyed.
 // Both are SHA-256 digests: rekeying one would destroy the token it verifies.
-const NOT_ENCRYPTED = new Set([
-  'api_tokens.token_sha256',
-  'organization_invitations.token_sha256',
-]);
+const NOT_ENCRYPTED = new Set(['api_tokens.token_sha256', 'organization_invitations.token_sha256']);
 
 /**
  * Every bytea column in the database must be accounted for — either rotated by

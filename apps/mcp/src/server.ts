@@ -128,9 +128,7 @@ app.post('/mcp', async (req, reply) => {
           ...r,
           // r.tools is unknown[] on the SDK's ListToolsResult, so narrow inside the
           // predicate rather than annotating the parameter.
-          tools: (r.tools ?? []).filter(
-            (t) => !DEFERRED_TOOLS.has((t as { name: string }).name),
-          ),
+          tools: (r.tools ?? []).filter((t) => !DEFERRED_TOOLS.has((t as { name: string }).name)),
         };
       });
     }
